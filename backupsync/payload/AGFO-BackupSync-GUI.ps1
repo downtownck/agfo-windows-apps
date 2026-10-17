@@ -232,6 +232,22 @@ function UiCombo($Parent, [int]$X, [int]$Y, [int]$W, [string[]]$Options) {
     $c.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
     $c.BackColor = $inputColor
     $c.ForeColor = $fgColor
+    # Native DropDownList ignores BackColor: draw items (and the closed box) in the dark palette.
+    $c.DrawMode = [System.Windows.Forms.DrawMode]::OwnerDrawFixed
+    $c.ItemHeight = 19
+    $c.add_DrawItem({
+        param($sender, $e)
+        if ($e.Index -lt 0) { return }
+        $selected = (($e.State -band [System.Windows.Forms.DrawItemState]::Selected) -ne 0)
+        $back = if ($selected) { $primaryColor } else { $inputColor }
+        $brush = New-Object System.Drawing.SolidBrush $back
+        try { $e.Graphics.FillRectangle($brush, $e.Bounds) } finally { $brush.Dispose() }
+        $fore = if ($sender.Enabled) { $fgColor } else { $mutedColor }
+        $r = [System.Drawing.Rectangle]::new($e.Bounds.X + 4, $e.Bounds.Y, $e.Bounds.Width - 6, $e.Bounds.Height)
+        [System.Windows.Forms.TextRenderer]::DrawText($e.Graphics, $sender.GetItemText($sender.Items[$e.Index]), $sender.Font, $r, $fore,
+            ([System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor [System.Windows.Forms.TextFormatFlags]::Left -bor
+            [System.Windows.Forms.TextFormatFlags]::SingleLine -bor [System.Windows.Forms.TextFormatFlags]::EndEllipsis))
+    })
     foreach ($option in $Options) { [void]$c.Items.Add($option) }
     $c.SelectedIndex = 0
     $Parent.Controls.Add($c)
