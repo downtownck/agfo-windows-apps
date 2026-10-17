@@ -1,0 +1,122 @@
+name: Release
+
+# Etiket gonderilince ilgili uygulama test edilir, paketlenir ve GitHub Release olarak yayinlanir.
+#   system-care-vX.Y.Z  -> AGFO-System-Care-vX.Y.Z.zip (uygulama ici guncelleme paketi, MANIFEST'li)
+#   supertools-vX.Y.Z   -> AGFO-SuperTools-vX.Y.Z.update.zip (Guncelleme Merkezi paketi) + tam kurulum ZIP'i
+#   backupsync-vX.Y.Z   -> AGFO-BackupSync-Setup.exe + AGFO-BackupSync.exe (Windows'ta derlenir) + kaynak ZIP
+# Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
+on:
+  push:
+    tags: ['system-care-v*', 'supertools-v*', 'backupsync-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  system-care:
+    if: startsWith(github.ref_name, 'system-care-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket ve ortak modul denetimi
+        run: |
+          V="${GITHUB_REF_NAME#system-care-v}"
+          C=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" system-care/care_core.py)
+          [ "$V" = "$C" ] || { echo "Etiket $V ile care_core.py VERSION $C uyusmuyor"; exit 1; }
+          cmp shared/agfo_github_update.py system-care/agfo_github_update.py
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - name: Testler
+        run: |
+          python -I shared/tests/test_agfo_github_update.py shared
+          python -I system-care/tests/test_core.py system-care
+          python -I system-care/tests/test_runner_stream.py system-care
+      - name: Paketle
+        run: |
+          mkdir -p out pkg
+          rsync -a --exclude '__pycache__' system-care/ pkg/agfo-care/
+          python pkg/agfo-care/packaging/build_update_manifest.py pkg/agfo-care
+          rm -rf pkg/agfo-care/__pycache__
+          (cd pkg && zip -qr "../out/AGFO-System-Care-v${VERSION}.zip" agfo-care)
+          python -I -c "import sys; sys.path.insert(0,'system-care'); import care_core as c; i=c.inspect_update('out/AGFO-System-Care-v${VERSION}.zip','0'); assert i['ok'] and i['manifest'] and i['version']=='${VERSION}', i; print('paket dogrulandi', i['version'])"
+          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"; [ -f "$NOTES" ] || { echo "AGFO System Care ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
+          gh release create "$GITHUB_REF_NAME" out/* --title "AGFO System Care ${VERSION}" --notes-file "$NOTES" --verify-tag
+
+  supertools:
+    if: startsWith(github.ref_name, 'supertools-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket ve ortak modul denetimi
+        run: |
+          V="${GITHUB_REF_NAME#supertools-v}"
+          C=$(sed -n 's/^APP_VERSION = "\([0-9.]*\)"/\1/p' supertools/scanner_core.py)
+          [ "$V" = "$C" ] || { echo "Etiket $V ile scanner_core.py APP_VERSION $C uyusmuyor"; exit 1; }
+          cmp shared/agfo_github_update.py supertools/agfo_github_update.py
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - name: Testler
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          python -I shared/tests/test_agfo_github_update.py shared
+          python -m compileall -q supertools
+          mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
+      - name: Paketle
+        run: |
+          mkdir -p out pkg
+          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES" ]; then N=$(python -I -c "import sys; print(open(sys.argv[1], encoding='utf-8').read()[:2400])" "$NOTES"); else N="AGFO SuperTools ${VERSION}"; fi
+          python -I supertools/packaging/create_update.py --source supertools --output "out/AGFO-SuperTools-v${VERSION}.update.zip" --notes "$N"
+          rsync -a --exclude '__pycache__' --exclude 'tests' supertools/ "pkg/AGFO-SuperTools-v${VERSION}/"
+          (cd pkg && zip -qr "../out/AGFO-SuperTools-v${VERSION}-Kurulum.zip" "AGFO-SuperTools-v${VERSION}")
+          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"; [ -f "$NOTES" ] || { echo "AGFO SuperTools ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
+          gh release create "$GITHUB_REF_NAME" out/* --title "AGFO SuperTools ${VERSION}" --notes-file "$NOTES" --verify-tag
+
+  backupsync:
+    if: startsWith(github.ref_name, 'backupsync-v')
+    runs-on: windows-latest
+    defaults:
+      run: { shell: pwsh }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket ve ortak modul denetimi
+        run: |
+          $v = $env:GITHUB_REF_NAME -replace '^backupsync-v',''
+          $c = (Select-String -Path backupsync/src/agfo_installer.py -Pattern "^VERSION = '([0-9.]+)'").Matches[0].Groups[1].Value
+          if ($v -ne $c) { throw "Etiket $v ile agfo_installer.py VERSION $c uyusmuyor" }
+          if ((Get-FileHash shared/agfo_github_update.py).Hash -ne (Get-FileHash backupsync/src/agfo_github_update.py).Hash) { throw 'Ortak modul kopyasi farkli' }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Ortak modul testi
+        run: python -I shared/tests/test_agfo_github_update.py shared
+      - name: Derle (PowerShell ayrisma + PS testleri + unittest + PyInstaller)
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File backupsync/packaging/build_windows.ps1
+      - name: Paketle
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item backupsync/dist/AGFO-BackupSync-Setup.exe out/
+          Copy-Item backupsync/dist/AGFO-BackupSync.exe out/
+          $src = "AGFO-BackupSync-v$env:VERSION-Kaynak"
+          New-Item -ItemType Directory -Force "pkg/$src" | Out-Null
+          Copy-Item -Recurse backupsync/* "pkg/$src/" -Exclude dist,.build-logs,__pycache__
+          Compress-Archive -Path "pkg/$src" -DestinationPath "out/$src.zip"
+          Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
+          Get-Content out/SHA256SUMS.txt
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          $notes = ".github/release-notes/$env:GITHUB_REF_NAME.md"
+          if (-not (Test-Path $notes)) { "AGFO BackupSync $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
+          gh release create $env:GITHUB_REF_NAME (Get-ChildItem out -File).FullName --title "AGFO BackupSync $env:VERSION" --notes-file $notes --verify-tag

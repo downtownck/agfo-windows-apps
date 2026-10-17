@@ -1,0 +1,7 @@
+#!/bin/sh
+if [ "$1" = "--list-cleaners" ]; then
+for x in system.tmp system.logs system.recycle_bin system.free_disk_space system.memory_dump windows_explorer.thumbnails windows_explorer.mru google_chrome.cache google_chrome.cookies google_chrome.passwords google_chrome.history firefox.cache firefox.session deep_scan.tmp; do echo $x; done; exit 0; fi
+echo "ARGS: $*"
+echo "Delete 12kB /tmp/a"
+echo "Disk space to be recovered: 1.2GB"
+echo "Files to be deleted: 345"

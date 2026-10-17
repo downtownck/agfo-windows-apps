@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Ortak modul kopyalari ayni mi
+        run: |
+          cmp shared/agfo_github_update.py system-care/agfo_github_update.py
+          cmp shared/agfo_github_update.py supertools/agfo_github_update.py
+          cmp shared/agfo_github_update.py backupsync/src/agfo_github_update.py
+      - name: Testler
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          python -I shared/tests/test_agfo_github_update.py shared
+          python -I system-care/tests/test_core.py system-care
+          python -I system-care/tests/test_runner_stream.py system-care
+          python -m compileall -q supertools system-care backupsync/src
+          mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
+          python -m unittest discover -s backupsync/tests
+
+  windows-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: PowerShell ayrisma
+        shell: pwsh
+        run: |
+          $bad = 0
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$e)
+            if ($e.Count) { Write-Host "HATA $($_.FullName): $($e[0].Message)"; $bad++ } }
+          if ($bad) { exit 1 }
+      - name: BackupSync testleri
+        run: python -m unittest discover -s backupsync/tests

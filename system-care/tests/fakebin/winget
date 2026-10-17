@@ -1,0 +1,13 @@
+#!/bin/sh
+echo "ARGS: $*"
+if [ "$1" = "upgrade" ] && [ "$2" = "--source" ]; then
+printf '   - \r   \\ \r'
+cat <<'T'
+Name                         Id                        Version      Available    Source
+------------------------------------------------------------------------------------------
+Mozilla Firefox (x64 en-US)  Mozilla.Firefox           128.0        131.0.2      winget
+7-Zip 23.01 (x64)            7zip.7zip                 23.01        24.08        winget
+2 upgrades available.
+T
+fi
+exit 0

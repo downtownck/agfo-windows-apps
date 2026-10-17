@@ -1,0 +1,341 @@
+{
+  "project": "agfo-system-care",
+  "version": "3.4.0",
+  "contract_version": 3,
+  "public_surfaces": {
+    "tabs": [
+      "Motorlar",
+      "Temizlik",
+      "Programlar",
+      "Bloatware",
+      "Sürücüler",
+      "Uygulama güncellemeleri",
+      "Bakım ve sağlık"
+    ],
+    "powershell_actions": [
+      "driver-scan",
+      "driver-install",
+      "devices",
+      "drivers-list",
+      "driver-backup",
+      "app-scan",
+      "app-update",
+      "temp-preview",
+      "temp-clean",
+      "component-analyze",
+      "component-clean",
+      "health-scan",
+      "health-repair",
+      "system-info",
+      "restore-point",
+      "recycle-paths",
+      "driver-analyze",
+      "appx-list",
+      "appx-remove"
+    ],
+    "powershell_params": [
+      "-Action <ValidateSet>",
+      "-BackupPath <string>",
+      "-UpdateIds <comma list>",
+      "-Paths <pipe list>",
+      "-IncludeWU yes|no",
+      "-Packages <pipe list of PackageFullName>",
+      "-Provisioned yes|no"
+    ],
+    "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle)",
+    "engines_winget": {
+      "bleachbit": "BleachBit.BleachBit",
+      "bcu": "Klocman.BulkCrapUninstaller",
+      "sdio": "GlennDelahoy.SnappyDriverInstallerOrigin"
+    },
+    "install_dir": "%LOCALAPPDATA%\\Programs\\AGFO System Care",
+    "log_dir": "%LOCALAPPDATA%\\AGFO\\DriverCare\\logs",
+    "settings": "%LOCALAPPDATA%\\AGFO\\SystemCare\\settings.json",
+    "sdio_workdir": "%ProgramData%\\AGFO\\SDIO",
+    "start_menu": "Programs\\AGFO\\AGFO System Care.lnk",
+    "engine_dir": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\engines\\\\{BleachBit,BCU,SDIO}",
+    "download_hosts": {
+      "bleachbit": [
+        "bleachbit.org",
+        "sourceforge.net",
+        "sf.net"
+      ],
+      "bcu": [
+        "github.com",
+        "githubusercontent.com"
+      ],
+      "sdio": [
+        "glenn.delahoy.com"
+      ]
+    },
+    "update_backups": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\update-backups (en son 3)",
+    "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})"
+  },
+  "removed_surfaces": [
+    {
+      "what": "sdio-open / bcu-open (web sayfasi acan dugmeler)",
+      "reason": "Kullanici istegi: motorlar uygulama icine entegre edildi",
+      "replaced_by": "Suruculer > SDIO paneli, Programlar sekmesi, Motorlar sekmesi"
+    },
+    {
+      "what": "bb-check / bb-preview / bb-clean (yalnizca system.tmp)",
+      "replaced_by": "Temizlik sekmesi - tum temizleyiciler secilebilir"
+    },
+    {
+      "what": "driver-install (tum suruculer)",
+      "replaced_by": "driver-install -UpdateIds (yalnizca isaretlenenler); -UpdateIds verilmezse eski davranis"
+    },
+    {
+      "what": "Suruculer sekmesindeki ayri \"Windows Update ile tara / Sorunlu aygitlar / Kurulu suruculer\" dugmeleri",
+      "replaced_by": "Surucu Merkezi tek tarama + suzgecler (eylemler care_tasks.ps1 icinde korunuyor)"
+    }
+  ],
+  "tests": [
+    {
+      "id": "SC-001",
+      "purpose": "app.pyw ve care_core.py Python 3.11/3.12/3.13 ile derlenir",
+      "type": "py_compile",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-002",
+      "purpose": "care_tasks.ps1 ve install_windows.ps1 PowerShell AST hatasiz",
+      "type": "ps_parse",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-003",
+      "purpose": "app.pyw icindeki tum ps_cmd eylemleri care_tasks.ps1 ValidateSet ile birebir",
+      "type": "contract",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-004",
+      "purpose": "Runner akis: BOM, \\r ilerleme, NUL, UTF-8, @@JSON veri, bozuk veri uyarisi, cikis kodu, gunlukte tek ilerleme karesi, zincir durdurma",
+      "type": "unit",
+      "script": "tests/test_runner_stream.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-010",
+      "purpose": "WinGet tablo ayristirici EN/TR, ozet satiri ve bos cikti",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-011",
+      "purpose": "BleachBit temizleyici ayristirma; riskli secenekler varsayilan secilmez",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-012",
+      "purpose": "Program kaydi suzme (guncelleme/sistem bileseni), MSI urun kodu, sessiz/normal kaldirma komutu, yetim tespiti",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-013",
+      "purpose": "Artik klasor onerisi yalnizca kesin eslesme; kok klasor ve baska programin konumu asla onerilmez",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-014",
+      "purpose": "BCU export XML ayristirma ve birlestirme (sema bagimsiz)",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-015",
+      "purpose": "SDIO betikleri: analiz kipinde install/restorepoint yok, enableinstall off; kurulumda restorepoint -> select -> install sirasi; yalnizca Reference Manual komutlari; bos kategori ve bosluklu yol reddedilir",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-016",
+      "purpose": "Motor bulma: WinGet Packages altinda en yeni SDIO_x64_R*.exe secilir",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-020",
+      "purpose": "GUI uctan uca (Xvfb, gercek Tk): 6 sekme; motor kurulum zinciri; BleachBit yukle/oneri/grup isaretleme/onizleme yalnizca secilenler/temizlik onayi; program arama/suzgec/siralama/sessiz kaldirma/yetim atlama/yeniden tarama/artik penceresi/geri donusum cagrisi; WU yalnizca secili UpdateIds; surucu envanteri gruplu; sorunlu aygit; SDIO analiz gunluk izleme ve betik; WinGet yalnizca secili guncelleme ve durum sutunu; Bakim gercek pwsh; Durdur; dugmelerin yeniden etkinlesmesi; kaynakta webbrowser yok",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "covers": [
+        "button:*"
+      ],
+      "required_for_package": true
+    },
+    {
+      "id": "SC-021",
+      "purpose": "recycle-paths: kok/sistem/kisa yol reddedilir, olmayan yol bildirilir, kalici silme yapilmaz; bos ortam degiskeninde cokmez",
+      "type": "runtime_pwsh",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-022",
+      "purpose": "temp-preview/temp-clean gercek pwsh ile",
+      "type": "runtime_pwsh",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-017",
+      "purpose": "Surucu eslestirme: HWID > uyumlu kimlik; HWID varken genel surucu 'daha zayif'; kod 28 eksik; kod 43 sorunlu; kod 45 bilgi; eslesmeyen adaylar ayri; sayaclar; guncellemeler en ustte",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-018",
+      "purpose": "Surum karsilastirma (uzunluk farki, tarih yedegi) ve WU basligindan surum ayristirma",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-019",
+      "purpose": "Indirme: yalnizca https + izinli alan adi (sonek hilesi reddi), SHA-256, boyut siniri, hata halinde .part silinir; BleachBit kararli surum secimi; BCU portable asset + digest; SDIO zip baglantisi",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-023",
+      "purpose": "Tasinabilir kurulum: zip-slip reddi, eksik exe'de geri alma, yerinde guncelleme, gecici zip temizligi",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-024",
+      "purpose": "GUI: BleachBit eksik -> 'Eksik motorlari kur' tasinabilir paketle WinGet'siz kurar; tasinabilir basarisizsa WinGet '/S /allusers' denenir ve anlasilir hata yazar",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-025",
+      "purpose": "GUI Surucu Merkezi: sayaclar, aygit satiri (kurulu/yeni surum), SDIO tarzi aday satirlari ve durumlari, onerilenler varsayilan isaretli, suzgec/arama, secimin suzgec degisiminde korunmasi, ayrinti paneli, geri yukleme noktasi -> yalnizca isaretli UpdateIds -> yeniden tarama",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-026",
+      "purpose": "BleachBit: /get/ HTML sayfasi degil dogrudan dosya adresi; yayinci sha256sum dosyasi ile dogrulama; HTML donerse acik mesaj; ozetsiz bilinmeyen surum kurulmaz",
+      "type": "unit+gui",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-027",
+      "purpose": "WinGet 0x8A15002B/0x8A150061/0x8A15010D 'zaten kurulu': motor kayit defterinden bulunursa kullanilir, bulunamazsa kayitli konumla acik aciklama; kayit defteri kesfi (InstallLocation/kaldirici/simge)",
+      "type": "unit+gui",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-028",
+      "purpose": "Bloatware katalogu: onerilen/dikkat/korunan/diger; Photos ve DevHome genel Windows kuralina takilmaz; NonRemovable ve System imzali paketler korunur; Win32 desenleri; yetim kayitlar dislanir",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-029",
+      "purpose": "appx-remove: Store, WinGet, VCLibs, codec, surucu yardimcisi, sistem ve Guvenlik paketleri PowerShell tarafinda reddedilir (gercek pwsh); korumasiz paketler kaldirma adimina ulasir",
+      "type": "runtime_pwsh",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-030",
+      "purpose": "GUI Bloatware: gruplar ve sayaclar, onerilenler varsayilan isaretli, korunanlar gizli ve secilemez (grup isareti/tumunu sec ile bile), arama/suzgecte secim korunur, yalnizca isaretli PackageFullName'ler, Provisioned bayragi, once geri yukleme noktasi, Win32 kaldirici, yeniden tarama",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-031",
+      "purpose": "Guncelleme denetimi: gecerli/duz/eski/MANIFEST'siz paket; degistirilmis dosya (SHA), zip-slip, baska ZIP, eksik zorunlu dosya, bozuk ZIP reddi; tests/.cmd kuruluma girmez",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-032",
+      "purpose": "Guncelleme uygulama: yedek, atomik kopya, eski modul temizligi, VERSION, __pycache__; sozdizimi hatali paket on kontrolde durur; yarida kesilen kurulum otomatik geri alinir; surume geri donus; en fazla 3 yedek; ayni saniyede iki islemde yedek adi cakismasi",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-033",
+      "purpose": "GUI Guncelleme: degistirilmis paket reddedilir ve Uygula kapali kalir; gecerli 3.3.1 paketi denetim listesi (surum, MANIFEST, Python derleme, gercek pwsh sozdizimi) -> Uygula; baska isler Uygula durumunu bozmaz; kurulum kopyasina uygulanir, yedek listelenir, gecmis yazilir; yedege donus; kapatilan pencereden sonra cokme yok",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-034",
+      "purpose": "GitHub tek tik: sahte API ile bant gorunur; bozuk indirme (SHA) reddedilir ve kurulum degismez; gecerli 3.4.1 indirilip denetlenir, kurulur; bant gizlenir; indirme temizlenir; durum kaydedilir. Arka plan sonucu ana is parcacigina kuyrukla aktarilir.",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-W01",
+      "purpose": "Windows: BleachBit tasinabilir 6.0.4 indirilir, motor klasorune acilir, --list-cleaners calisir",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W02",
+      "purpose": "Windows: driver-analyze gercek aygitlari ve WU adaylarini getirir; DriverHardwareID eslesmesi gercek verilerde dogru",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W03",
+      "purpose": "Windows: tek secili WU surucusu geri yukleme noktasindan sonra kurulur",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W04",
+      "purpose": "Windows: BCU WinGet + portable yedek yolu; SDIO portable yedek yolu (sayfa baglanti bicimi)",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W05",
+      "purpose": "Windows: gercek NSIS/Inno kaldiricilari, BCU export XML, SDIO betik kipi gunlugu",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W06",
+      "purpose": "Windows: 150% DPI yerlesim",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W07",
+      "purpose": "Windows: appx-list gercek paketleri getirir; onerilen bir paket kaldirilir ve Store'dan geri kurulabilir; provisioned kaldirma yonetici ile calisir",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W08",
+      "purpose": "Windows: kurulu uygulamada Guncelleme ile yeni ZIP uygulanir, uygulama yeniden baslar; yedege donus calisir",
+      "type": "windows_runtime",
+      "required_for_package": false
+    }
+  ]
+}

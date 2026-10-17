@@ -1,0 +1,35 @@
+#!/bin/sh
+act=""; prev=""; ids=""
+for a in "$@"; do [ "$prev" = "-Action" ] && act="$a"; [ "$prev" = "-UpdateIds" ] && ids="$a"; prev="$a"; done
+case "$act" in
+ driver-scan) echo "Windows Update: bekleyen surucu guncellemesi: 2"
+  echo '@@{"type":"wu-driver","id":"aaaa-1111","title":"Intel - Net - 1.2","cls":"Net","model":"I219","maker":"Intel","date":"2026-01-02","sizeMB":3.1,"reboot":false}'
+  echo '@@{"type":"wu-driver","id":"bbbb-2222","title":"Realtek - Audio","cls":"MEDIA","model":"ALC","maker":"Realtek","date":"2025-05-05","sizeMB":40,"reboot":true}' ;;
+ appx-list) echo "Store / on yuklu uygulama: 6"
+  printf '%s\n' '@@{"type":"appx","name":"king.com.CandyCrushSaga","full":"king.com.CandyCrushSaga_1.2_x86__kgqvnymyfvs32","publisher":"CN=king.com, O=King","ver":"1.2","sig":"Store","nonremovable":false,"provisioned":true}'
+  printf '%s\n' '@@{"type":"appx","name":"Microsoft.BingNews","full":"Microsoft.BingNews_4.1_x64__8wekyb3d8bbwe","publisher":"CN=Microsoft Corporation, O=Microsoft Corporation","ver":"4.1","sig":"Store","nonremovable":false,"provisioned":true}'
+  printf '%s\n' '@@{"type":"appx","name":"Microsoft.GamingApp","full":"Microsoft.GamingApp_2.0_x64__8wekyb3d8bbwe","publisher":"CN=Microsoft Corporation, O=Microsoft Corporation","ver":"2.0","sig":"Store","nonremovable":false,"provisioned":false}'
+  printf '%s\n' '@@{"type":"appx","name":"Microsoft.WindowsStore","full":"Microsoft.WindowsStore_22_x64__8wekyb3d8bbwe","publisher":"CN=Microsoft Corporation, O=Microsoft Corporation","ver":"22","sig":"Store","nonremovable":false,"provisioned":true}'
+  printf '%s\n' '@@{"type":"appx","name":"Microsoft.DesktopAppInstaller","full":"Microsoft.DesktopAppInstaller_1.2_x64__8wekyb3d8bbwe","publisher":"CN=Microsoft Corporation, O=Microsoft Corporation","ver":"1.2","sig":"Store","nonremovable":false,"provisioned":true}'
+  printf '%s\n' '@@{"type":"appx","name":"Contoso.Notes","full":"Contoso.Notes_1_x64__abc","publisher":"CN=Contoso","ver":"1","sig":"Store","nonremovable":false,"provisioned":false}' ;;
+ appx-remove) pk=""; pv=""; prev=""; for a in "$@"; do [ "$prev" = "-Packages" ] && pk="$a"; [ "$prev" = "-Provisioned" ] && pv="$a"; prev="$a"; done
+  echo "PACKAGES=$pk"; echo "PROVISIONED=$pv" ;;
+ driver-analyze) echo "Aygit: 5 | surucu kaydi: 4"
+  printf '%s\n' '@@{"type":"dev","id":"PCI\\NET1","name":"Intel(R) Ethernet I219-V","cls":"Net","code":0,"maker":"Intel","hwids":["PCI\\VEN_8086&DEV_15BC&SUBSYS_1","PCI\\VEN_8086&DEV_15BC"],"compat":["PCI\\CC_0200"],"ver":"12.19.1.37","date":"2024-01-01","provider":"Intel","inf":"oem12.inf","signed":true}'
+  printf '%s\n' '@@{"type":"dev","id":"PCI\\X","name":"Bilinmeyen aygıt","cls":"","code":28,"maker":"","hwids":["PCI\\VEN_10EC&DEV_8168"],"compat":[],"ver":"","date":"","provider":"","inf":"","signed":false}'
+  printf '%s\n' '@@{"type":"dev","id":"HID\\M","name":"HID uyumlu fare","cls":"Mouse","code":0,"maker":"Microsoft","hwids":["HID\\VID_1"],"compat":[],"ver":"10.0.1","date":"2006-06-21","provider":"Microsoft","inf":"msmouse.inf","signed":true}'
+  printf '%s\n' '@@{"type":"dev","id":"ACPI\\S","name":"Sensör","cls":"System","code":43,"maker":"","hwids":["ACPI\\S1"],"compat":[],"ver":"1.0","date":"2020-01-01","provider":"OEM","inf":"oem3.inf","signed":true}'
+  printf '%s\n' '@@{"type":"dev","id":"USB\\P","name":"Telefon","cls":"USB","code":45,"maker":"","hwids":["USB\\P"],"compat":[],"ver":"1","date":"","provider":"","inf":"","signed":true}'
+  echo "Windows Update aday surucu: 5"
+  printf '%s\n' '@@{"type":"wu-driver","id":"wu-intel-new","title":"Intel - Net - 12.19.2.45","hwid":"PCI\\VEN_8086&DEV_15BC","cls":"Net","model":"I219-V","maker":"Intel","provider":"Intel","date":"2025-03-01","sizeMB":3.1,"reboot":false}'
+  printf '%s\n' '@@{"type":"wu-driver","id":"wu-intel-old","title":"Intel - Net - 12.0.0.1","hwid":"pci\\ven_8086&dev_15bc","cls":"Net","model":"I219-V","maker":"Intel","provider":"Intel","date":"2019-01-01","sizeMB":2.0,"reboot":false}'
+  printf '%s\n' '@@{"type":"wu-driver","id":"wu-generic","title":"Generic - Net - 1.0","hwid":"PCI\\CC_0200","cls":"Net","model":"","maker":"","provider":"Microsoft","date":"2024-01-01","sizeMB":0.5,"reboot":false}'
+  printf '%s\n' '@@{"type":"wu-driver","id":"wu-realtek","title":"Realtek - Net - 10.50.0.1","hwid":"PCI\\VEN_10EC&DEV_8168","cls":"Net","model":"RTL8168","maker":"Realtek","provider":"Realtek","date":"2023-02-02","sizeMB":1.2,"reboot":true}'
+  printf '%s\n' '@@{"type":"wu-driver","id":"wu-orphan","title":"Contoso - Printer - 2.0","hwid":"USB\\NOPE","cls":"Printer","model":"","maker":"","provider":"Contoso","date":"","sizeMB":9,"reboot":false}' ;;
+ restore-point) echo "Sistem geri yukleme noktasi olusturuldu." ;;
+ driver-install) echo "UPDATEIDS=$ids"; exit 3010 ;;
+ devices) echo "Sorunlu aygit sayisi: 1"; printf '%s\n' '@@{"type":"device","name":"Bilinmeyen aygıt","code":28,"cls":"","id":"PCI\\VEN_1","hwid":"PCI\\VEN_1&DEV_2","status":"Error"}' ;;
+ drivers-list) echo '@@{"type":"driver","name":"Intel Ethernet","cls":"NET","ver":"12.1","date":"2024-01-01","maker":"Intel","inf":"oem3.inf","signed":true,"id":"x"}'
+  echo '@@{"type":"driver","name":"Old Thing","cls":"SYSTEM","ver":"1.0","date":"2010-01-01","maker":"?","inf":"oem9.inf","signed":false,"id":"y"}' ;;
+ *) exec pwsh "$@" ;;
+esac
