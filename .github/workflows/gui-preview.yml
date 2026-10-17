@@ -1,0 +1,22 @@
+name: GUI preview (temporary)
+on:
+  push:
+    branches: [gui-preview]
+permissions:
+  contents: write
+jobs:
+  shot:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render
+        shell: pwsh
+        run: |
+          $env:AGFO_GUI_SMOKE = '1'
+          $env:AGFO_GUI_SMOKE_OUT = Join-Path $env:RUNNER_TEMP 'gui-preview.png'
+          $o = powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File backupsync/payload/AGFO-BackupSync-GUI.ps1 | Out-String
+          Write-Host $o
+          if ($o -notmatch 'AGFO GUI SMOKE OK') { throw 'smoke failed' }
+          gh release delete gui-preview-draft --yes 2>$null
+          gh release create gui-preview-draft $env:AGFO_GUI_SMOKE_OUT --draft --title 'GUI preview (temporary)' --notes 'temporary' --target $env:GITHUB_SHA
+        env: { GH_TOKEN: '${{ github.token }}' }

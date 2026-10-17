@@ -1307,7 +1307,9 @@ $timer.Add_Tick({
         }
     } catch { $lblState.Text = 'İzleme sorunu: ' + [string]$_.Exception.Message }
 })
+$script:AgfoSmoke = ($env:AGFO_GUI_SMOKE -eq '1')
 $form.Add_Shown({
+    if ($script:AgfoSmoke) { return }
     try {
         $old = Import-AgfoV1Profiles
         $profiles = @(Get-AgfoProfiles)
@@ -1344,6 +1346,26 @@ $form.Add_FormClosing({
 if ($env:AGFO_GUI_SMOKE -eq '1') {
     # CI smoke test: builds every control, renders each tab to one PNG sheet, exits without showing a window.
     try {
+        # Sample rows so the rendered sheet shows real list styling (smoke mode only, nothing is saved).
+        [void]$listProfiles.Items.Add([pscustomobject]@{ Name = 'Synology-UGREEN'; Path = '' })
+        [void]$listProfiles.Items.Add([pscustomobject]@{ Name = 'Belgeler -> NAS'; Path = '' })
+        foreach ($row in @(@('Ag surucusu', 'Z:', '\\NAS\Yedek', 'Bagli'), @('SMB sunucusu', 'NAS', '\\192.168.1.20', 'Port 445 acik'))) {
+            $item = New-Object System.Windows.Forms.ListViewItem ([string]$row[0])
+            foreach ($cell in $row[1..3]) { [void]$item.SubItems.Add([string]$cell) }
+            [void]$listNetwork.Items.Add($item)
+        }
+        foreach ($row in @(@('Z:', 'NET USE', '\\NAS\Yedek', 'Bagli'), @('S:', 'SUBST', 'C:\Belgeler\Arsiv', 'Yerel'))) {
+            $item = New-Object System.Windows.Forms.ListViewItem ([string]$row[0])
+            foreach ($cell in $row[1..3]) { [void]$item.SubItems.Add([string]$cell) }
+            [void]$listDrives.Items.Add($item)
+        }
+        $txtLiveLog.Text = '[02:00:01] Yedekleme basladi' + [Environment]::NewLine + '[02:00:04] 1.284 dosya kontrol edildi'
+        # Child controls only paint when the form is shown: show it off-screen, without the Shown handler.
+        $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+        $form.Location = [System.Drawing.Point]::new(-32000, -32000)
+        $form.ShowInTaskbar = $false
+        $form.Show()
+        [System.Windows.Forms.Application]::DoEvents()
         $out = if ($env:AGFO_GUI_SMOKE_OUT) { $env:AGFO_GUI_SMOKE_OUT } else { Join-Path $env:TEMP 'agfo-gui-smoke.png' }
         $w = $form.Width
         $h = $form.Height
@@ -1351,6 +1373,7 @@ if ($env:AGFO_GUI_SMOKE -eq '1') {
         $g = [System.Drawing.Graphics]::FromImage($sheet)
         for ($i = 0; $i -lt $tabs.TabPages.Count; $i++) {
             $tabs.SelectedIndex = $i
+            [System.Windows.Forms.Application]::DoEvents()
             $bmp = [System.Drawing.Bitmap]::new($w, $h)
             $form.DrawToBitmap($bmp, [System.Drawing.Rectangle]::new(0, 0, $w, $h))
             $g.DrawImage($bmp, [int](($i % 2) * $w), [int]([Math]::Floor($i / 2) * $h))
@@ -1360,6 +1383,7 @@ if ($env:AGFO_GUI_SMOKE -eq '1') {
         $sheet.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
         $sheet.Dispose()
         Write-Output ('AGFO GUI SMOKE OK: ' + $tabs.GetType().FullName + ' -> ' + $out)
+        $form.Hide()
     } finally { $timer.Dispose(); $form.Dispose() }
     return
 }
