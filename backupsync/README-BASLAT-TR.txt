@@ -1,4 +1,4 @@
-AGFO BackupSync v2.3.1 - TEK TIK WINDOWS KURULUM
+AGFO BackupSync v2.3.2 - TEK TIK WINDOWS KURULUM
 =================================================
 
 1) ZIP'i tamamen cikar.
@@ -71,7 +71,7 @@ V2.3.0 - GITHUB'DAN TEK TIKLA GUNCELLEME
   hazir AGFO-BackupSync-Setup.exe indirilebilir (yerelde derleme gerekmez).
 - EXE dosyalari kod imzali degildir; SmartScreen uyari gosterebilir.
 
-V2.3.1 - PYTHON DLL HATASI DUZELTMESI + AGFO KOYU TEMA
+V2.3.2 - PYTHON DLL HATASI DUZELTMESI + AGFO KOYU TEMA
 ------------------------------------------------------
 - Duzeltildi: "Ag Kesfi / SMB" ve "Surucu Harfleri" sekmelerinde cikan
   "Failed to load Python DLL ... _MEI...\python312.dll" hatasi. Neden: tepsi uygulamasinin

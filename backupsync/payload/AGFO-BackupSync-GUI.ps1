@@ -2,7 +2,7 @@
 # AGFO BackupSync v2 - native Windows Forms interface (AGFO dark theme).
 $ErrorActionPreference = 'Stop'
 
-# v2.3.1: The tray app is a PyInstaller onefile exe. Its private variables (_PYI_*, _MEIPASS2)
+# v2.3.1+: The tray app is a PyInstaller onefile exe. Its private variables (_PYI_*, _MEIPASS2)
 # leaked through PowerShell into AGFO-BackupSync.exe helper calls, which then tried to load
 # python312.dll from another _MEI folder ("Failed to load Python DLL"). Clean them for every child.
 function Clear-AgfoFrozenEnvironment {
@@ -76,7 +76,7 @@ $boldFont = [System.Drawing.Font]::new('Segoe UI', 9, [System.Drawing.FontStyle]
 $bigFont = [System.Drawing.Font]::new('Segoe UI', 16, [System.Drawing.FontStyle]::Bold)
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'AGFO BackupSync v2.3.1 | Windows / NAS'
+$form.Text = 'AGFO BackupSync v2.3.2 | Windows / NAS'
 $form.Size = [System.Drawing.Size]::new(1220, 820)
 $form.MinimumSize = [System.Drawing.Size]::new(1220, 820)
 $form.MaximumSize = [System.Drawing.Size]::new(1220, 820)
@@ -232,6 +232,22 @@ function UiCombo($Parent, [int]$X, [int]$Y, [int]$W, [string[]]$Options) {
     $c.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
     $c.BackColor = $inputColor
     $c.ForeColor = $fgColor
+    # Native DropDownList ignores BackColor: draw items (and the closed box) in the dark palette.
+    $c.DrawMode = [System.Windows.Forms.DrawMode]::OwnerDrawFixed
+    $c.ItemHeight = 19
+    $c.add_DrawItem({
+        param($sender, $e)
+        if ($e.Index -lt 0) { return }
+        $selected = (($e.State -band [System.Windows.Forms.DrawItemState]::Selected) -ne 0)
+        $back = if ($selected) { $primaryColor } else { $inputColor }
+        $brush = New-Object System.Drawing.SolidBrush $back
+        try { $e.Graphics.FillRectangle($brush, $e.Bounds) } finally { $brush.Dispose() }
+        $fore = if ($sender.Enabled) { $fgColor } else { $mutedColor }
+        $r = [System.Drawing.Rectangle]::new($e.Bounds.X + 4, $e.Bounds.Y, $e.Bounds.Width - 6, $e.Bounds.Height)
+        [System.Windows.Forms.TextRenderer]::DrawText($e.Graphics, $sender.GetItemText($sender.Items[$e.Index]), $sender.Font, $r, $fore,
+            ([System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor [System.Windows.Forms.TextFormatFlags]::Left -bor
+            [System.Windows.Forms.TextFormatFlags]::SingleLine -bor [System.Windows.Forms.TextFormatFlags]::EndEllipsis))
+    })
     foreach ($option in $Options) { [void]$c.Items.Add($option) }
     $c.SelectedIndex = 0
     $Parent.Controls.Add($c)
@@ -293,7 +309,7 @@ $heading.Font = $bigFont
 $heading.ForeColor = $fgColor
 $subheading = UiLabel $header 'Windows 11 | NAS yedekleme | Sürüm arşivi | Gece zamanlaması' 27 55 950 20
 $subheading.ForeColor = $mutedColor
-$headerVersion = UiLabel $header 'v2.3.1' 1090 30 100 22 $true
+$headerVersion = UiLabel $header 'v2.3.2' 1090 30 100 22 $true
 $headerVersion.ForeColor = $accentColor
 $headerVersion.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
 $headerLine = New-Object System.Windows.Forms.Panel
@@ -542,7 +558,7 @@ $lblDriveStatus = UiLabel $tabDrives 'Surucu harfleri okunuyor...' 22 577 846 53
 $lblDriveStatus.ForeColor = $mutedColor
 [void](UiLabel $tabDrives 'Gece yedekleri esleme harfini degil, orijinal UNC/yerel yolu kullanir. SUBST yeniden baslatmada kaybolur.' 22 608 848 26)
 
-$footer = UiLabel $form 'AGFO BackupSync v2.3.1  |  Tek yönlü aktarım  |  Şifre ve parola kaydedilmez  |  Kaynak dosyalar silinmez' 26 751 1150 31
+$footer = UiLabel $form 'AGFO BackupSync v2.3.2  |  Tek yönlü aktarım  |  Şifre ve parola kaydedilmez  |  Kaynak dosyalar silinmez' 26 751 1150 31
 $footer.ForeColor = $mutedColor
 
 function Selected-ProfileItem { return $listProfiles.SelectedItem }
@@ -1307,7 +1323,9 @@ $timer.Add_Tick({
         }
     } catch { $lblState.Text = 'İzleme sorunu: ' + [string]$_.Exception.Message }
 })
+$script:AgfoSmoke = ($env:AGFO_GUI_SMOKE -eq '1')
 $form.Add_Shown({
+    if ($script:AgfoSmoke) { return }
     try {
         $old = Import-AgfoV1Profiles
         $profiles = @(Get-AgfoProfiles)
@@ -1344,6 +1362,26 @@ $form.Add_FormClosing({
 if ($env:AGFO_GUI_SMOKE -eq '1') {
     # CI smoke test: builds every control, renders each tab to one PNG sheet, exits without showing a window.
     try {
+        # Sample rows so the rendered sheet shows real list styling (smoke mode only, nothing is saved).
+        [void]$listProfiles.Items.Add([pscustomobject]@{ Name = 'Synology-UGREEN'; Path = '' })
+        [void]$listProfiles.Items.Add([pscustomobject]@{ Name = 'Belgeler -> NAS'; Path = '' })
+        foreach ($row in @(@('Ag surucusu', 'Z:', '\\NAS\Yedek', 'Bagli'), @('SMB sunucusu', 'NAS', '\\192.168.1.20', 'Port 445 acik'))) {
+            $item = New-Object System.Windows.Forms.ListViewItem ([string]$row[0])
+            foreach ($cell in $row[1..3]) { [void]$item.SubItems.Add([string]$cell) }
+            [void]$listNetwork.Items.Add($item)
+        }
+        foreach ($row in @(@('Z:', 'NET USE', '\\NAS\Yedek', 'Bagli'), @('S:', 'SUBST', 'C:\Belgeler\Arsiv', 'Yerel'))) {
+            $item = New-Object System.Windows.Forms.ListViewItem ([string]$row[0])
+            foreach ($cell in $row[1..3]) { [void]$item.SubItems.Add([string]$cell) }
+            [void]$listDrives.Items.Add($item)
+        }
+        $txtLiveLog.Text = '[02:00:01] Yedekleme basladi' + [Environment]::NewLine + '[02:00:04] 1.284 dosya kontrol edildi'
+        # Child controls only paint when the form is shown: show it off-screen, without the Shown handler.
+        $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+        $form.Location = [System.Drawing.Point]::new(-32000, -32000)
+        $form.ShowInTaskbar = $false
+        $form.Show()
+        [System.Windows.Forms.Application]::DoEvents()
         $out = if ($env:AGFO_GUI_SMOKE_OUT) { $env:AGFO_GUI_SMOKE_OUT } else { Join-Path $env:TEMP 'agfo-gui-smoke.png' }
         $w = $form.Width
         $h = $form.Height
@@ -1351,6 +1389,7 @@ if ($env:AGFO_GUI_SMOKE -eq '1') {
         $g = [System.Drawing.Graphics]::FromImage($sheet)
         for ($i = 0; $i -lt $tabs.TabPages.Count; $i++) {
             $tabs.SelectedIndex = $i
+            [System.Windows.Forms.Application]::DoEvents()
             $bmp = [System.Drawing.Bitmap]::new($w, $h)
             $form.DrawToBitmap($bmp, [System.Drawing.Rectangle]::new(0, 0, $w, $h))
             $g.DrawImage($bmp, [int](($i % 2) * $w), [int]([Math]::Floor($i / 2) * $h))
@@ -1360,6 +1399,7 @@ if ($env:AGFO_GUI_SMOKE -eq '1') {
         $sheet.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
         $sheet.Dispose()
         Write-Output ('AGFO GUI SMOKE OK: ' + $tabs.GetType().FullName + ' -> ' + $out)
+        $form.Hide()
     } finally { $timer.Dispose(); $form.Dispose() }
     return
 }

@@ -14,7 +14,7 @@ import subprocess
 import sys
 from typing import Any
 
-VERSION = '2.3.1'
+VERSION = '2.3.2'
 _DRIVE = re.compile(r'^[D-Z]:?$', re.I)
 _UNC = re.compile(r'^\\\\([^\\/:*?"<>|]+)\\([^\\/:*?"<>|]+)(?:\\(.*))?$')
 _DISK_PATH = re.compile(r'^[A-Za-z]:\\')

@@ -59,7 +59,7 @@ function Assert-Exit([string]$Label) {
     if ($LASTEXITCODE -ne 0) { throw ($Label + ' failed with exit code ' + $LASTEXITCODE) }
 }
 try {
-    Write-Host 'AGFO BackupSync v2.3.1 - Windows Python derleyici' -ForegroundColor Cyan
+    Write-Host 'AGFO BackupSync v2.3.2 - Windows Python derleyici' -ForegroundColor Cyan
     $python = Find-WindowsPython
     if (-not $python) {
         if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
@@ -117,7 +117,7 @@ try {
     foreach ($file in @(Get-ChildItem -LiteralPath $stage -File | Sort-Object Name)) {
         $hashes[$file.Name] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }
-    $manifest = [ordered]@{ version = '2.3.1'; files = $hashes }
+    $manifest = [ordered]@{ version = '2.3.2'; files = $hashes }
     $utf8 = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText((Join-Path $stage 'manifest.json'), ($manifest | ConvertTo-Json -Depth 8), $utf8)
     Write-Host '2/2: Yukleyici EXE derleniyor (yonetici onayli)...'
