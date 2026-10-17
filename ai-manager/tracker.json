@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "plugin_slug": "agfo-ai-manager",
-  "current_release": "17.4.0",
+  "current_release": "17.4.1",
   "phases": [
     {
       "id": "phase-stabilization",

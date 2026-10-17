@@ -193,6 +193,34 @@ class ManagerTests(unittest.TestCase):
                 b2.info()
             self.assertIn(needle, str(cm.exception))
 
+    def test_fallback_header_and_auth_reasons(self):
+        http = FakeHTTP([(200, {'plugin_version': '17.4.1'})])
+        b = ai.ManagerBackend('https://agfo.app', 'agfoai', 'aaaa bbbb', request=http)
+        b.info()
+        h = http.calls[0]['headers']
+        self.assertEqual(h['X-AGFO-Editor-Auth'], base64.b64encode(b'agfoai:aaaabbbb').decode())
+        self.assertEqual(h['Authorization'], 'Basic ' + h['X-AGFO-Editor-Auth'])
+        cases = [({'code': 'incorrect_password', 'data': {'status': 401}}, 'bu kullanıcıya ait değil'),
+                 ({'code': 'invalid_username', 'data': {'status': 401}}, 'kullanıcı adı yok'),
+                 ({'code': 'application_passwords_disabled'}, 'güvenlik eklentisi'),
+                 ({'code': 'agfo_editor_auth', 'data': {'status': 401, 'credentials_received': False}}, '17.4.1'),
+                 ({'code': 'agfo_editor_auth', 'data': {'status': 401, 'credentials_received': True}}, 'ulaştı ama kabul edilmedi')]
+        for body, needle in cases:
+            b2 = ai.ManagerBackend('https://agfo.app', 'u', 'p', request=FakeHTTP([(401, body)]))
+            with self.assertRaises(ai.AIError) as cm:
+                b2.info()
+            self.assertIn(needle, str(cm.exception))
+
+    def test_redirect_reported_not_followed(self):
+        class R(FakeHTTP):
+            def __call__(self, *a, **k):
+                super().__call__(*a, **k)
+                return 301, b'', {'Location': 'https://www.agfo.app/wp-json/agfo-ai/v1/editor/info'}
+        b = ai.ManagerBackend('https://agfo.app', 'u', 'p', request=R([(0, b'')]))
+        with self.assertRaises(ai.AIError) as cm:
+            b.info()
+        self.assertIn('https://www.agfo.app', str(cm.exception))
+
     def test_chat(self):
         http = FakeHTTP([(200, {'text': 'Cevap', 'model': 'm'})])
         b = ai.ManagerBackend('https://site.test', 'u', 'p', request=http)

@@ -160,5 +160,46 @@ $u = $GLOBALS['AGFO_E']['SENT'][0]['body']['contents'][0]['parts'][0]['text'] ??
 ea_check( 'E29 only the last 12 turns are sent', strpos( $u, 'turn-18' ) === false && strpos( $u, 'turn-19' ) !== false && strpos( $u, 'son soru' ) !== false );
 $GLOBALS['AGFO_E']['REPLY'] = null;
 
+// ---- 17.4.1: X-AGFO-Editor-Auth fallback (Authorization header stripped by the web server)
+$GLOBALS['AGFO_E']['APPPW'] = [];
+function wp_authenticate_application_password( $input, $login, $password ) {
+    $GLOBALS['AGFO_E']['APPPW'][] = [ $login, $password, apply_filters( 'application_password_is_api_request', false ) ];
+    if ( $login === 'agfoai' && $password === 'abcdabcdabcdabcdabcdabcd' ) { return (object) [ 'ID' => 7 ]; }
+    if ( $login === 'agfoai' ) { return new WP_Error( 'incorrect_password', 'The provided password is an invalid application password.' ); }
+    return new WP_Error( 'invalid_username', 'Unknown username.' );
+}
+$hooks = $GLOBALS['AGFO_E']['F'];
+ea_check( 'E30 fallback filters registered', isset( $hooks['determine_current_user'], $hooks['application_password_is_api_request'] ) );
+$_SERVER['REQUEST_URI'] = '/wp-json/agfo-ai/v1/editor/info';
+$_SERVER['HTTP_X_AGFO_EDITOR_AUTH'] = base64_encode( 'agfoai:abcdabcdabcdabcdabcdabcd' );
+ea_check( 'E31 valid app password via X header -> user id', AGFO_AIM_Editor_API::auth_from_header( false ) === 7 && end( $GLOBALS['AGFO_E']['APPPW'] )[2] === true );
+ea_check( 'E32 api-request filter only during our own check', apply_filters( 'application_password_is_api_request', false ) === false );
+ea_check( 'E33 already authenticated user is kept', AGFO_AIM_Editor_API::auth_from_header( 3 ) === 3 );
+$_SERVER['REQUEST_URI'] = '/wp-json/wp/v2/users/me';
+$n = count( $GLOBALS['AGFO_E']['APPPW'] );
+ea_check( 'E34 other REST routes ignore the X header', AGFO_AIM_Editor_API::auth_from_header( false ) === false && count( $GLOBALS['AGFO_E']['APPPW'] ) === $n );
+$_SERVER['REQUEST_URI'] = '/index.php?rest_route=%2Fagfo-ai%2Fv1%2Feditor%2Fchat';
+$_GET['rest_route'] = '/agfo-ai/v1/editor/chat';
+ea_check( 'E35 ?rest_route= form recognised', AGFO_AIM_Editor_API::is_editor_request() && AGFO_AIM_Editor_API::auth_from_header( false ) === 7 );
+unset( $_GET['rest_route'] );
+$_SERVER['REQUEST_URI'] = '/wp-json/agfo-ai/v1/editor/info';
+$_SERVER['HTTP_X_AGFO_EDITOR_AUTH'] = 'not base64!!';
+ea_check( 'E36 malformed header ignored', AGFO_AIM_Editor_API::auth_from_header( false ) === false );
+$_SERVER['HTTP_X_AGFO_EDITOR_AUTH'] = 'Basic ' . base64_encode( 'agfoai:wrong' );
+$GLOBALS['AGFO_E']['LOGGED'] = false;
+AGFO_AIM_Editor_API::auth_from_header( false );
+$e = AGFO_AIM_Editor_API::can_use();
+ea_check( 'E37 WordPress reason passed through (incorrect_password, 401)', is_wp_error( $e ) && $e->get_error_code() === 'incorrect_password' && ( $e->get_error_data()['status'] ?? 0 ) === 401 );
+$_SERVER['HTTP_X_AGFO_EDITOR_AUTH'] = base64_encode( 'agfoai:abcdabcdabcdabcdabcdabcd' );
+AGFO_AIM_Editor_API::auth_from_header( false );   // success clears the stored error
+unset( $_SERVER['HTTP_X_AGFO_EDITOR_AUTH'], $_SERVER['PHP_AUTH_USER'], $_SERVER['HTTP_AUTHORIZATION'] );
+$e = AGFO_AIM_Editor_API::can_use();
+ea_check( 'E38 no credentials at all -> agfo_editor_auth + credentials_received=false', is_wp_error( $e ) && $e->get_error_code() === 'agfo_editor_auth' && ( $e->get_error_data()['credentials_received'] ?? null ) === false );
+$_SERVER['HTTP_AUTHORIZATION'] = 'Basic x';
+$e = AGFO_AIM_Editor_API::can_use();
+ea_check( 'E39 credentials_received=true when a header reached PHP', ( $e->get_error_data()['credentials_received'] ?? null ) === true && strpos( json_encode( $e->get_error_data() ), 'Basic' ) === false );
+unset( $_SERVER['HTTP_AUTHORIZATION'] );
+$GLOBALS['AGFO_E']['LOGGED'] = true;
+
 echo "\n{$pass} pass, {$fail} fail\n";
 exit( $fail > 0 ? 1 : 0 );

@@ -26,8 +26,92 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
         public const MAX_MESSAGES  = 40;
         public const MAX_MSG_CHARS = 20000;
 
+        public const AUTH_HEADER   = 'HTTP_X_AGFO_EDITOR_AUTH';
+
+        /** @var WP_Error|null Application Password error from the X-AGFO-Editor-Auth fallback (17.4.1). */
+        private static $auth_error = null;
+        /** @var bool True only while our own fallback calls wp_authenticate_application_password(). */
+        private static $in_auth = false;
+
         public static function register_hooks(): void {
             add_action( 'rest_api_init', [ __CLASS__, 'register_routes' ] );
+            // NEW 17.4.1: some LiteSpeed/CGI setups drop the Authorization header before PHP sees it,
+            // so WordPress' Application Password check never runs and every request is anonymous (401).
+            // The editor also sends the same Basic credentials in X-AGFO-Editor-Auth; it is honoured
+            // only for /agfo-ai/v1/editor/* and validated by WordPress' own Application Password code.
+            add_filter( 'determine_current_user', [ __CLASS__, 'auth_from_header' ], 30 );
+            add_filter( 'application_password_is_api_request', [ __CLASS__, 'is_api_request' ] );
+        }
+
+        /** Raw request path, including ?rest_route= form. */
+        public static function is_editor_request(): bool {
+            $uri   = isset( $_SERVER['REQUEST_URI'] ) ? rawurldecode( (string) wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+            $route = isset( $_GET['rest_route'] ) ? rawurldecode( (string) wp_unslash( $_GET['rest_route'] ) ) : '';
+            $needle = '/' . self::NAMESPACE_V1 . '/editor/';
+            return strpos( $uri, $needle ) !== false || strpos( '/' . ltrim( $route, '/' ), $needle ) === 0;
+        }
+
+        public static function fallback_header(): string {
+            $raw = isset( $_SERVER[ self::AUTH_HEADER ] ) ? trim( (string) wp_unslash( $_SERVER[ self::AUTH_HEADER ] ) ) : '';
+            if ( stripos( $raw, 'Basic ' ) === 0 ) {
+                $raw = trim( substr( $raw, 6 ) );
+            }
+            if ( $raw === '' || strlen( $raw ) > 2048 || ! preg_match( '#^[A-Za-z0-9+/=]+$#', $raw ) ) {
+                return '';
+            }
+            return $raw;
+        }
+
+        /** True when any credential reached PHP (for diagnostics only; never echoes values). */
+        public static function credentials_received(): bool {
+            foreach ( [ 'PHP_AUTH_USER', 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION', self::AUTH_HEADER ] as $k ) {
+                if ( ! empty( $_SERVER[ $k ] ) ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static function is_api_request( $is_api ) {
+            return ( self::$in_auth && self::is_editor_request() ) ? true : $is_api;
+        }
+
+        /**
+         * determine_current_user filter (priority 30, after core's Application Password check at 20).
+         *
+         * @param int|false $user_id
+         * @return int|false
+         */
+        public static function auth_from_header( $user_id ) {
+            if ( ! empty( $user_id ) || ! self::is_editor_request() ) {
+                return $user_id;
+            }
+            $raw = self::fallback_header();
+            if ( $raw === '' || ! function_exists( 'wp_authenticate_application_password' ) ) {
+                return $user_id;
+            }
+            $decoded = base64_decode( $raw, true );
+            if ( ! is_string( $decoded ) || strpos( $decoded, ':' ) === false ) {
+                return $user_id;
+            }
+            list( $login, $password ) = explode( ':', $decoded, 2 );
+            if ( $login === '' || $password === '' ) {
+                return $user_id;
+            }
+            self::$in_auth = true;
+            try {
+                $user = wp_authenticate_application_password( null, $login, $password );
+            } finally {
+                self::$in_auth = false;
+            }
+            if ( is_object( $user ) && ! is_wp_error( $user ) && ! empty( $user->ID ) ) {
+                self::$auth_error = null;
+                return (int) $user->ID;
+            }
+            if ( is_wp_error( $user ) ) {
+                self::$auth_error = $user;
+            }
+            return $user_id;
         }
 
         public static function enabled(): bool {
@@ -67,7 +151,14 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
         /** @return bool|WP_Error */
         public static function can_use() {
             if ( ! function_exists( 'is_user_logged_in' ) || ! is_user_logged_in() ) {
-                return new WP_Error( 'agfo_editor_auth', 'Giriş gerekli. Uygulama parolası (Application Password) ile bağlanın.', [ 'status' => 401 ] );
+                if ( self::$auth_error instanceof WP_Error ) {
+                    // WordPress' own reason: invalid_username, incorrect_password, application_passwords_disabled …
+                    return new WP_Error( self::$auth_error->get_error_code(), self::$auth_error->get_error_message(), [ 'status' => 401, 'credentials_received' => true ] );
+                }
+                return new WP_Error( 'agfo_editor_auth', 'Giriş gerekli. Uygulama parolası (Application Password) ile bağlanın.', [
+                    'status'               => 401,
+                    'credentials_received' => self::credentials_received(),
+                ] );
             }
             if ( ! current_user_can( self::required_capability() ) ) {
                 return new WP_Error( 'agfo_editor_forbidden', 'Bu kullanıcının AI içerik yetkisi yok.', [ 'status' => 403 ] );

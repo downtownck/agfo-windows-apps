@@ -1,6 +1,17 @@
 {
-  "current_version": "17.4.0",
+  "current_version": "17.4.1",
   "releases": [
+    {
+      "version": "17.4.1",
+      "date": "2026-10-18",
+      "type": "PATCH",
+      "summary": "AI Editor bağlantısında 401 düzeltmesi: bazı LiteSpeed/CGI sunucuları Authorization başlığını PHP'ye iletmediği için Uygulama Parolası hiç denetlenmiyordu. Editör aynı kimlik bilgisini X-AGFO-Editor-Auth başlığıyla da gönderir; yalnızca /agfo-ai/v1/editor/* için ve WordPress'in kendi Uygulama Parolası doğrulamasıyla kabul edilir. 401 yanıtları artık WordPress'in gerçek nedenini (incorrect_password, invalid_username, application_passwords_disabled) ve kimlik bilgisinin sunucuya ulaşıp ulaşmadığını bildirir.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/api/class-editor-api.php",
+        "tests/editor-api-tests.php"
+      ]
+    },
     {
       "version": "17.4.0",
       "date": "2026-10-18",

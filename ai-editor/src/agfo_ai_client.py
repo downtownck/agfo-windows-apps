@@ -28,6 +28,13 @@ class AIError(Exception):
 
 
 # --------------------------------------------------------------------------- HTTP
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Yonlendirmeyi izleme: POST govdesi ve kimlik bilgisi baska adrese tasinmasin; cagiran 30x'i gorur."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def _request(url, method='GET', headers=None, payload=None, timeout=TIMEOUT, opener=None):
     """(status, govde_bytes, basliklar). HTTP hata kodlarini da dondurur; ag hatasinda AIError."""
     data = None
@@ -38,7 +45,7 @@ def _request(url, method='GET', headers=None, payload=None, timeout=TIMEOUT, ope
         hdrs['Content-Type'] = 'application/json; charset=utf-8'
     req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
     try:
-        op = opener or urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl.create_default_context()))
+        op = opener or urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl.create_default_context()), _NoRedirect())
         with op.open(req, timeout=timeout) as r:
             return r.status, r.read(32 * 1024 * 1024), dict(r.headers)
     except urllib.error.HTTPError as e:
@@ -118,12 +125,19 @@ class ManagerBackend:
         if not self.configured():
             raise AIError('AI Manager bağlantısı ayarlanmamış (Ayarlar › Bağlantı).')
         token = base64.b64encode(('%s:%s' % (self.user, self.password)).encode('utf-8')).decode('ascii')
-        headers = {'Authorization': 'Basic ' + token}
+        # X-AGFO-Editor-Auth: Authorization basligini PHP'ye iletmeyen sunucular icin (AI Manager 17.4.1+)
+        headers = {'Authorization': 'Basic ' + token, 'X-AGFO-Editor-Auth': token}
         styles = [self._route_style] if self._route_style else ['pretty', 'query']
         last = None
         for style in styles:
-            status, body, _h = self._request(self._url(route, style), 'POST' if payload is not None else 'GET', headers, payload, timeout)
+            status, body, resp_headers = self._request(self._url(route, style), 'POST' if payload is not None else 'GET', headers, payload, timeout)
             decoded = _json(body)
+            if 300 <= status < 400:
+                loc = next((v for k, v in (resp_headers or {}).items() if k.lower() == 'location'), '')
+                target = urllib.parse.urlsplit(loc)
+                hint = '%s://%s' % (target.scheme, target.netloc) if target.netloc else loc
+                raise AIError('Site adresi yönlendiriliyor (%s → %s). Ayarlar\'da site adresi olarak %s yazın.'
+                              % (self.base, hint or '?', hint or 'yönlendirilen adresi'))
             if status == 404 and style == 'pretty' and not isinstance(decoded, dict):
                 last = (status, decoded)
                 continue          # kalici baglantilar kapali olabilir -> ?rest_route=
@@ -134,13 +148,38 @@ class ManagerBackend:
             break
         status, decoded = last
         code = decoded.get('code') if isinstance(decoded, dict) else ''
+        data = decoded.get('data') if isinstance(decoded, dict) and isinstance(decoded.get('data'), dict) else {}
         if status == 401:
-            raise AIError('Kimlik doğrulanamadı: kullanıcı adı veya uygulama parolası hatalı (WordPress › Profil › Uygulama Parolaları).')
+            raise AIError(self.auth_message(code, data))
         if status == 403:
             raise AIError('Bu WordPress kullanıcısının AI Manager editör yetkisi yok: ' + _error_message(decoded, status))
         if status == 404 and code in ('rest_no_route', ''):
             raise AIError('Sitede AI Manager editör ucu bulunamadı. AGFO AI Manager 17.4.0 veya üstüne güncelleyin.')
         raise AIError('AI Manager: ' + _error_message(decoded, status))
+
+    @staticmethod
+    def auth_message(code: str, data: dict) -> str:
+        code = (code or '').lower()
+        if code == 'incorrect_password':
+            return ('Uygulama parolası bu kullanıcıya ait değil ya da hatalı. WordPress › Kullanıcılar › Profil › '
+                    'Uygulama Parolaları bölümünde, Ayarlar\'a yazdığınız kullanıcı için yeni bir parola oluşturup kopyalayın '
+                    '(hesabın giriş parolası değil).')
+        if code == 'invalid_username':
+            return 'WordPress\'te bu kullanıcı adı yok. Giriş yaptığınız kullanıcı adını ya da e-posta adresini yazın.'
+        if code in ('invalid_email',):
+            return 'Bu e-posta adresiyle kayıtlı WordPress kullanıcısı yok.'
+        if code == 'application_passwords_disabled':
+            return ('Sitede Uygulama Parolaları kapalı. Bir güvenlik eklentisi (ör. Wordfence, SafeGuard) bunu kapatmış '
+                    'olabilir; o eklentide "Application Passwords" iznini açın.')
+        if code == 'agfo_editor_auth' and data.get('credentials_received') is False:
+            return ('Kimlik bilgileri sunucuya ulaşmadı: web sunucusu yetkilendirme başlığını PHP\'ye iletmiyor. '
+                    'AI Manager 17.4.1 veya üstüne güncelleyin (WordPress › Eklentiler ekranında güncelleme görünür); '
+                    'editör bu durumda yedek başlıkla bağlanır.')
+        if code == 'agfo_editor_auth':
+            return ('Kimlik doğrulanamadı (kimlik bilgisi sunucuya ulaştı ama kabul edilmedi). Kullanıcı adını ve uygulama '
+                    'parolasını kontrol edin; parola WordPress › Profil › Uygulama Parolaları\'ndan alınmalıdır.')
+        return ('Kimlik doğrulanamadı%s: kullanıcı adı veya uygulama parolası hatalı (WordPress › Profil › Uygulama Parolaları).'
+                % (' (%s)' % code if code else ''))
 
     def info(self) -> dict:
         self.info_cache = self._call('/editor/info', timeout=30)

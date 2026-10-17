@@ -2,10 +2,14 @@
 
 AGFO ekosisteminin merkezi AI sağlayıcı, model, yetenek, iş kuyruğu, medya ve maliyet yönetim katmanıdır.
 
-**Version:** 17.4.0  
+**Version:** 17.4.1  
 **Requires WordPress:** 6.0+  
 **Requires PHP:** 7.4+
 
+
+## 17.4.1 — AI Editor kimlik doğrulama düzeltmesi
+
+AI Editor bağlantısında 401 düzeltmesi: bazı LiteSpeed/CGI sunucuları Authorization başlığını PHP'ye iletmediği için Uygulama Parolası hiç denetlenmiyordu. Editör aynı kimlik bilgisini X-AGFO-Editor-Auth başlığıyla da gönderir; yalnızca /agfo-ai/v1/editor/* için ve WordPress'in kendi Uygulama Parolası doğrulamasıyla kabul edilir. 401 yanıtları artık WordPress'in gerçek nedenini (incorrect_password, invalid_username, application_passwords_disabled) ve kimlik bilgisinin sunucuya ulaşıp ulaşmadığını bildirir.
 
 ## 17.4.0 — AGFO AI Editor API ve GitHub güncellemesi
 

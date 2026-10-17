@@ -1,4 +1,31 @@
 Tarih: 2026-10-18
+Eski Versiyon: 17.4.0
+Yeni Versiyon: 17.4.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/api/class-editor-api.php; tests/editor-api-tests.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: agfo.app üzerinde AGFO AI Editor "Kimlik doğrulanamadı" (401) hatası verdi; rota kayıtlı, kullanıcı yönetici.
+Bazı LiteSpeed/CGI kurulumları Authorization başlığını PHP'ye iletmez; WordPress'in Uygulama Parolası denetimi hiç
+çalışmaz ve istek anonim kalır.
+
+Yapılanlar:
+- determine_current_user (öncelik 30): kullanıcı hâlâ belirlenmemişse ve istek /agfo-ai/v1/editor/* ise
+  X-AGFO-Editor-Auth başlığındaki "kullanıcı:uygulama-parolası" (Base64) wp_authenticate_application_password()
+  ile doğrulanır. Diğer REST rotaları ve normal sayfalar bu başlığı yok sayar; biçimsiz başlık yok sayılır.
+- application_password_is_api_request yalnızca bu kendi denetimimiz sırasında true döner.
+- 401 yanıtı WordPress'in gerçek nedenini taşır (incorrect_password, invalid_username,
+  application_passwords_disabled) ve data.credentials_received ile kimlik bilgisinin PHP'ye ulaşıp ulaşmadığını
+  bildirir (değer asla yanıtlanmaz).
+
+Geriye Uyumluluk: Tam.
+
+Migration: Gerekmiyor.
+
+Doğrulama: editor-api 39/39 (E30–E39 yeni), diğer tüm test dosyaları geçti.
+
+====================================================================================================
+
+Tarih: 2026-10-18
 Eski Versiyon: 17.3.3
 Yeni Versiyon: 17.4.0
 Değişiklik Tipi: MINOR
