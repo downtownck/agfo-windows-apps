@@ -24,6 +24,7 @@ EXE_NAME = 'AGFO-AI-Editor.exe'
 USER_AGENT = 'AGFO-AI-Editor/%s' % core.VERSION
 CREATE_NO_WINDOW = 0x08000000
 DETACHED_PROCESS = 0x00000008
+CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 
 def install_dir() -> pathlib.Path:
@@ -81,47 +82,6 @@ def _ps_quote(s: str) -> str:
     return "'" + str(s).replace("'", "''") + "'"
 
 
-def replace_script(new_exe, target_exe, pid: int, relaunch: bool = True) -> str:
-    """Uygulama kapaninca EXE'yi degistiren PowerShell betigi (mesajlar Ingilizce: konsol kodlamasi)."""
-    lines = [
-        "$ErrorActionPreference = 'Stop'",
-        "$log = Join-Path $env:LOCALAPPDATA 'AGFO-AI-Editor\\update-last.txt'",
-        "function Log($m) { try { Add-Content -LiteralPath $log -Value ((Get-Date -Format s) + ' ' + $m) } catch { } }",
-        "try {",
-        "  $p = Get-Process -Id %d -ErrorAction SilentlyContinue" % int(pid),
-        "  if ($p) { [void]$p.WaitForExit(60000) }",
-        "  $new = %s" % _ps_quote(new_exe),
-        "  $dst = %s" % _ps_quote(target_exe),
-        "  $bak = $dst + '.old'",
-        "  [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($dst))",
-        "  $ok = $false",
-        "  for ($i = 0; $i -lt 40 -and -not $ok; $i++) {",
-        "    try {",
-        "      if (Test-Path -LiteralPath $dst) { Copy-Item -LiteralPath $dst -Destination $bak -Force }",
-        "      Copy-Item -LiteralPath $new -Destination $dst -Force",
-        "      $ok = $true",
-        "    } catch { Start-Sleep -Milliseconds 750 }",
-        "  }",
-        "  if (-not $ok) { throw 'File is locked; update could not be applied.' }",
-        "  Remove-Item -LiteralPath $bak -Force -ErrorAction SilentlyContinue",
-        "  Log ('Updated: ' + $dst)",
-    ]
-    if relaunch:
-        lines += [
-            "  Get-ChildItem Env: | Where-Object { $_.Name -like '_PYI_*' -or $_.Name -like '_MEIPASS*' } | ForEach-Object { Remove-Item -LiteralPath ('Env:' + $_.Name) }",
-            "  $env:PYINSTALLER_RESET_ENVIRONMENT = '1'",
-            "  Start-Process -FilePath $dst",
-        ]
-    lines += [
-        "} catch {",
-        "  Log ('Update failed: ' + $_.Exception.Message)",
-        "  if (Test-Path -LiteralPath ($dst + '.old')) { Copy-Item -LiteralPath ($dst + '.old') -Destination $dst -Force -ErrorAction SilentlyContinue }",
-        "}",
-        "Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue",
-    ]
-    return '\r\n'.join(lines) + '\r\n'
-
-
 def _powershell() -> str:
     root = os.environ.get('SystemRoot', r'C:\Windows')
     return str(pathlib.Path(root) / 'System32' / 'WindowsPowerShell' / 'v1.0' / 'powershell.exe')
@@ -135,16 +95,77 @@ def _run_detached_script(script_text: str, popen=subprocess.Popen) -> None:
           env=scrub_env(), close_fds=True, creationflags=CREATE_NO_WINDOW | DETACHED_PROCESS)
 
 
-def apply_update(new_exe, popen=subprocess.Popen) -> pathlib.Path:
-    """Calisan EXE'yi uygulama kapaninca yenisiyle degistirir. Cagiran uygulama hemen kapanmalidir.
+def apply_update(new_exe, popen=subprocess.Popen, pid=None, target=None):
+    """1.1.1: yeni EXE'nin kendisi guncelleyici olarak baslatilir (gizli PowerShell betigi yok).
 
-    Not: onefile EXE'de dosyayi tutan ust surec, Python sureci kapaninca biraz sonra cikar; betik
-    kilit kalkana kadar ~30 sn yeniden dener."""
-    if not is_frozen():
+    Yeni EXE '--apply-update <hedef> --wait-pid <pid>' ile acilir, bu uygulama kapaninca kendini hedefin
+    uzerine kopyalar ve hedefi yeniden baslatir. Cagiran, donen surecin ayakta kaldigini dogrulamali
+    (guvenlik yazilimi engellediyse hemen kapanir) ve ancak ondan sonra kapanmalidir."""
+    if not is_frozen() and target is None:
         raise OSError('Güncelleme yalnızca derlenmiş EXE için uygulanabilir.')
-    target = pathlib.Path(sys.executable)
-    _run_detached_script(replace_script(new_exe, target, os.getpid()), popen)
-    return target
+    target = pathlib.Path(target or sys.executable)
+    pid = os.getpid() if pid is None else pid
+    log_line('Starting updater %s -> %s (pid %s)' % (new_exe, target, pid))
+    return popen([str(new_exe), '--apply-update', str(target), '--wait-pid', str(int(pid))],
+                 env=scrub_env(), close_fds=True, cwd=str(pathlib.Path(new_exe).parent),
+                 creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+
+
+def log_path() -> pathlib.Path:
+    return core.data_dir() / 'update-log.txt'
+
+
+def log_line(text: str) -> None:
+    import datetime
+    try:
+        with open(log_path(), 'a', encoding='utf-8') as f:
+            f.write('%s %s\n' % (datetime.datetime.now().isoformat(timespec='seconds'), text))
+    except OSError:
+        pass
+
+
+def wait_for_pid(pid: int, timeout: float = 90.0) -> bool:
+    """Windows: sureç bitene kadar bekler (OpenProcess + WaitForSingleObject)."""
+    if sys.platform != 'win32' or pid <= 0:
+        return True
+    import ctypes
+    SYNCHRONIZE = 0x00100000
+    h = ctypes.windll.kernel32.OpenProcess(SYNCHRONIZE, False, int(pid))
+    if not h:
+        return True          # sureç zaten yok
+    try:
+        return ctypes.windll.kernel32.WaitForSingleObject(h, int(timeout * 1000)) == 0
+    finally:
+        ctypes.windll.kernel32.CloseHandle(h)
+
+
+def replace_target(source, target, attempts: int = 80, delay: float = 0.5, sleep=None) -> None:
+    """source'u target'in uzerine kopyalar; kilit kalkana kadar dener; yarim dosya birakmaz."""
+    import shutil
+    import time
+    sleep = sleep or time.sleep
+    source, target = pathlib.Path(source), pathlib.Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_name(target.name + '.new')
+    shutil.copyfile(source, tmp)
+    last = None
+    for _ in range(attempts):
+        try:
+            os.replace(tmp, target)
+            return
+        except OSError as e:          # eski EXE henuz kilitli (onefile ust sureci kapaniyor)
+            last = e
+            sleep(delay)
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
+    raise OSError('Eski sürüm dosyası serbest kalmadı: %s' % last)
+
+
+def launch(exe, popen=subprocess.Popen):
+    return popen([str(exe)], env=scrub_env(), close_fds=True, cwd=str(pathlib.Path(exe).parent),
+                 creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
 
 
 def shortcut_script(target_exe, desktop: bool) -> str:
@@ -207,6 +228,15 @@ def uninstall_script() -> str:
 def uninstall(popen=subprocess.Popen) -> None:
     """Program dosyasini ve kisayollari kaldirir; ayarlar ve kurtarma kayitlari korunur."""
     _run_detached_script(uninstall_script(), popen)
+
+
+def file_sha256(path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def cleanup_downloads(keep=None) -> None:

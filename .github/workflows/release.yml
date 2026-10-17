@@ -237,6 +237,37 @@ jobs:
           "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Derle (testler + PyInstaller + EXE oz-testi)
         run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File ai-editor/packaging/build_windows.ps1
+      - name: Guncelleyici gercek testi (eski surum acikken EXE degistirme + yeniden baslatma)
+        run: |
+          $exe = (Resolve-Path ai-editor/dist/AGFO-AI-Editor.exe).Path
+          $t = Join-Path $env:RUNNER_TEMP 'upd-test'
+          New-Item -ItemType Directory -Force $t | Out-Null
+          $target = Join-Path $t 'AGFO-AI-Editor.exe'
+          Copy-Item -LiteralPath $exe -Destination $target
+          (Get-Item -LiteralPath $target).LastWriteTime = (Get-Date).AddDays(-3)
+          $before = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+          $old = Start-Process -FilePath $target -PassThru
+          Start-Sleep -Seconds 10
+          $child = Get-CimInstance Win32_Process -Filter "ParentProcessId=$($old.Id)" | Where-Object Name -eq 'AGFO-AI-Editor.exe' | Select-Object -First 1
+          $waitPid = if ($child) { [int]$child.ProcessId } else { $old.Id }
+          Write-Host "old app parent=$($old.Id) python=$waitPid"
+          $u = Start-Process -FilePath $exe -ArgumentList @('--apply-update', ('"' + $target + '"'), '--wait-pid', $waitPid) -PassThru
+          Start-Sleep -Seconds 5
+          if ($u.HasExited) { throw ('updater exited early: ' + $u.ExitCode) }
+          Stop-Process -Id $waitPid -Force            # the user closes the old version
+          if (-not $u.WaitForExit(150000)) { throw 'updater timeout' }
+          $log = Join-Path $env:LOCALAPPDATA 'AGFO-AI-Editor\update-log.txt'
+          if (Test-Path $log) { Get-Content $log }
+          if ($u.ExitCode -ne 0) { throw ('updater exit code ' + $u.ExitCode) }
+          $after = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+          if ($after -le $before) { throw 'target was not replaced' }
+          if ((Get-FileHash $target).Hash -ne (Get-FileHash $exe).Hash) { throw 'target content differs' }
+          Start-Sleep -Seconds 8
+          $relaunched = @(Get-CimInstance Win32_Process -Filter "Name='AGFO-AI-Editor.exe'" | Where-Object { $_.ExecutablePath -eq $target })
+          Write-Host ('relaunched processes: ' + $relaunched.Count)
+          if (-not $relaunched.Count) { throw 'new version was not relaunched' }
+          Get-Process AGFO-AI-Editor -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not (Select-String -Path $log -Pattern 'Update applied' -Quiet)) { throw 'no success line in log' }
       - name: Arayuz duman testi + ekran goruntusu
         run: |
           New-Item -ItemType Directory -Force out | Out-Null

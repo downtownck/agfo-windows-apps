@@ -68,6 +68,63 @@ def selftest(out_path: str) -> int:
 if len(sys.argv) >= 3 and sys.argv[1] == '--selftest':
     sys.exit(selftest(sys.argv[2]))
 
+
+def apply_update_main(target: str, pid: int) -> int:
+    """Yeni EXE guncelleyici kipinde: eski surum kapaninca kendini hedefe kopyalar ve hedefi acar."""
+    import tkinter as tk
+    from tkinter import messagebox, ttk
+    upd.log_line('Updater %s running from %s, target %s' % (core.VERSION, sys.executable, target))
+    root = tk.Tk()
+    root.title('AGFO AI Editor')
+    root.configure(bg='#12243b')
+    root.geometry('420x130')
+    root.resizable(False, False)
+    tk.Label(root, text='AGFO AI Editor %s kuruluyor…' % core.VERSION, fg='#ecf3ff', bg='#12243b',
+             font=('Segoe UI', 11, 'bold')).pack(pady=(20, 8))
+    bar = ttk.Progressbar(root, mode='indeterminate', length=340)
+    bar.pack()
+    bar.start(12)
+    q = queue.Queue()
+
+    def work():
+        try:
+            if not upd.wait_for_pid(pid, 90):
+                raise OSError('Eski sürüm 90 saniyede kapanmadı.')
+            upd.replace_target(sys.executable, target)
+            upd.launch(target)
+            upd.log_line('Update applied: %s' % target)
+            q.put(None)
+        except Exception as e:  # noqa: BLE001 - kullaniciya gosterilir
+            upd.log_line('Update failed: %r' % e)
+            q.put(e)
+    threading.Thread(target=work, daemon=True).start()
+    result = {}
+
+    def poll():
+        try:
+            result['err'] = q.get_nowait()
+        except queue.Empty:
+            root.after(150, poll)
+            return
+        bar.stop()
+        if result['err'] is not None:
+            messagebox.showerror('Güncelleme', 'Güncelleme uygulanamadı: %s\n\nYeni sürüm şu dosyada, doğrudan açabilirsiniz:\n%s'
+                                 % (result['err'], sys.executable), parent=root)
+        root.destroy()
+    root.after(150, poll)
+    root.mainloop()
+    return 0 if result.get('err') is None else 1
+
+
+if len(sys.argv) >= 3 and sys.argv[1] == '--apply-update':
+    _pid = 0
+    if '--wait-pid' in sys.argv:
+        try:
+            _pid = int(sys.argv[sys.argv.index('--wait-pid') + 1])
+        except (ValueError, IndexError):
+            _pid = 0
+    sys.exit(apply_update_main(sys.argv[2], _pid))
+
 _dpi()
 import tkinter as tk  # noqa: E402
 import tkinter.font as tkfont  # noqa: E402
@@ -1246,17 +1303,59 @@ class App(tk.Tk):
                 messagebox.showerror('Güncelleme', path, parent=self)
                 return
             try:
-                upd.apply_update(path)
+                proc = upd.apply_update(path)
             except OSError as e:
-                messagebox.showerror('Güncelleme', str(e), parent=self)
+                upd.log_line('Updater could not start: %r' % e)
+                self._update_blocked(path, str(e))
                 return
-            self.destroy()
+            self.flash('Güncelleyici başlatıldı, denetleniyor…')
+            # Guvenlik yazilimi yeni EXE'yi engellerse surec hemen kapanir: kapanmadan once dogrula.
+            self.after(2500, lambda: self._confirm_updater(proc, path))
         self._start_job('Güncelleme indiriliyor', upd.download, done, res)
 
-    def _offer_install(self):
-        if not (IS_WIN and upd.is_frozen()) or upd.running_installed() or self.settings.get('install_declined'):
+    def _confirm_updater(self, proc, path):
+        code = proc.poll()
+        if code is None:
+            upd.log_line('Updater alive; closing old version.')
+            self.destroy()
             return
-        if upd.installed_exe().exists():
+        upd.log_line('Updater exited early with code %s' % code)
+        self._update_blocked(path, 'Güncelleyici hemen kapandı (çıkış kodu %s).' % code)
+
+    def _update_blocked(self, path, reason):
+        messagebox.showerror('Güncelleme başlatılamadı',
+                             '%s\n\nYeni sürüm indirildi ama Windows ya da bir güvenlik yazılımı onu çalıştırmayı engelledi.\n\n'
+                             'Dosya: %s\n\nÇözüm: Trust-AgfoAiEditor.cmd betiğini çalıştırın (dosyayı GitHub ile doğrulayıp güvenli '
+                             'işaretler), sonra bu dosyayı çift tıklayıp açın; açılınca kurulu sürümü değiştirmeyi önerir.\n\n'
+                             'Uygulama açık kalıyor; çalışmanız kaybolmadı.' % (reason, path), parent=self)
+
+    def _offer_install(self):
+        if not (IS_WIN and upd.is_frozen()):
+            return
+        upd.cleanup_downloads(keep=sys.executable)
+        if upd.running_installed():
+            return
+        inst = upd.installed_exe()
+        if inst.exists():
+            # Disaridan (Indirilenler / guncelleme klasoru) yeni bir surum acildi: kurulu kopyayi yenile.
+            try:
+                same = inst.stat().st_size == os.path.getsize(sys.executable) and \
+                    upd.file_sha256(inst) == upd.file_sha256(sys.executable)
+            except OSError:
+                same = False
+            if same:
+                return
+            if messagebox.askyesno('Kurulu sürümü güncelle', 'Bu bilgisayarda kurulu AGFO AI Editor bu sürümle (%s) değiştirilsin mi?\n\n%s'
+                                   % (core.VERSION, inst), parent=self):
+                try:
+                    upd.replace_target(sys.executable, inst, attempts=10)
+                    upd.log_line('Installed copy replaced from %s' % sys.executable)
+                    messagebox.showinfo('Kurulum', 'Kurulu sürüm güncellendi. Başlat menüsündeki kısayol artık %s sürümünü açar.'
+                                        % core.VERSION, parent=self)
+                except OSError as e:
+                    messagebox.showerror('Kurulum', 'Kurulu sürüm değiştirilemedi (açık olabilir): %s' % e, parent=self)
+            return
+        if self.settings.get('install_declined'):
             return
         self.install(ask=True)
 
@@ -1584,7 +1683,24 @@ def main():
     if len(sys.argv) >= 3 and sys.argv[1] == '--smoke':
         return smoke(sys.argv[2])
     files = [a for a in sys.argv[1:] if not a.startswith('--') and os.path.isfile(a)]
-    app = App(files)
+    try:
+        app = App(files)
+    except Exception:
+        err = traceback.format_exc()
+        try:
+            with open(core.data_dir() / 'error-log.txt', 'a', encoding='utf-8') as f:
+                f.write(ai.redact(err) + '\n')
+        except OSError:
+            pass
+        try:
+            r = tk.Tk()
+            r.withdraw()
+            messagebox.showerror('AGFO AI Editor açılamadı', 'Başlangıç hatası (ayrıntı: %s):\n\n%s'
+                                 % (core.data_dir() / 'error-log.txt', err[-1500:]))
+            r.destroy()
+        except Exception:
+            pass
+        return 1
     app.mainloop()
     return 0
 

@@ -341,13 +341,36 @@ class SecretsAndUpdateTests(unittest.TestCase):
         e = upd.scrub_env({'_PYI_X': '1', '_MEIPASS2': 'y', 'PATH': 'p'})
         self.assertEqual(e, {'PATH': 'p', 'PYINSTALLER_RESET_ENVIRONMENT': '1'})
 
-    def test_replace_script(self):
-        s = upd.replace_script(r"C:\U\new's.exe", r'C:\P\AGFO-AI-Editor.exe', 1234)
-        self.assertIn("Get-Process -Id 1234", s)
-        self.assertIn("'C:\\U\\new''s.exe'", s)
-        self.assertIn("PYINSTALLER_RESET_ENVIRONMENT = '1'", s)
-        self.assertIn("Start-Process -FilePath $dst", s)
-        self.assertTrue(all(ord(c) < 128 for c in s.replace("new''s", '')), 'betik mesajlari ASCII olmali')
+    def test_updater_command_and_replace(self):
+        calls = []
+        upd.apply_update(r'C:\U\AGFO-AI-Editor-9.9.9.exe', popen=lambda *a, **k: calls.append((a, k)) or 'proc',
+                         pid=4321, target=r'C:\P\AGFO-AI-Editor.exe')
+        args, kw = calls[0]
+        self.assertEqual(args[0], [r'C:\U\AGFO-AI-Editor-9.9.9.exe', '--apply-update', r'C:\P\AGFO-AI-Editor.exe', '--wait-pid', '4321'])
+        self.assertEqual(kw['env']['PYINSTALLER_RESET_ENVIRONMENT'], '1')
+        self.assertFalse(any(k.startswith('_PYI_') for k in kw['env']))
+        d = pathlib.Path(tempfile.mkdtemp())
+        src, dst = d / 'new.exe', d / 'old.exe'
+        src.write_bytes(b'NEW')
+        dst.write_bytes(b'OLD')
+        real = os.replace
+        state = {'n': 0}
+
+        def locked_twice(a, b):
+            state['n'] += 1
+            if state['n'] <= 2:
+                raise PermissionError('locked')
+            return real(a, b)
+        with mock.patch.object(upd.os, 'replace', locked_twice):
+            upd.replace_target(src, dst, attempts=5, sleep=lambda s: None)
+        self.assertEqual((dst.read_bytes(), state['n']), (b'NEW', 3))
+        self.assertFalse((d / 'old.exe.new').exists())
+        with mock.patch.object(upd.os, 'replace', side_effect=PermissionError('locked')):
+            with self.assertRaises(OSError):
+                upd.replace_target(src, dst, attempts=2, sleep=lambda s: None)
+        self.assertFalse((d / 'old.exe.new').exists())     # yarim dosya birakilmaz
+        self.assertTrue(upd.wait_for_pid(0))
+        self.assertEqual(upd.file_sha256(src), __import__('hashlib').sha256(b'NEW').hexdigest())
 
     def test_check_with_releases(self):
         rels = [{'tag_name': 'ai-editor-v9.9.9', 'draft': False, 'prerelease': False, 'assets': [
@@ -358,7 +381,7 @@ class SecretsAndUpdateTests(unittest.TestCase):
 
     def test_apply_requires_frozen(self):
         with self.assertRaises(OSError):
-            upd.apply_update('x.exe', popen=lambda *a, **k: None)
+            upd.apply_update('x.exe', popen=lambda *a, **k: None)   # kaynak koddan: hedef yok
 
     def test_shared_module_identical(self):
         shared = pathlib.Path(__file__).resolve().parents[2] / 'shared' / 'agfo_github_update.py'
