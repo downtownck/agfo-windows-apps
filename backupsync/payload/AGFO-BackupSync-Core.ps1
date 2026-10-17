@@ -1,6 +1,6 @@
 ﻿# AGFO BackupSync v2.0 - shared engine / profile functions.
 # Windows PowerShell 5.1 compatible. No dependency for Robocopy mode.
-$script:AgfoVersion = '2.3.0'
+$script:AgfoVersion = '2.3.1'
 $script:AgfoRoot = Join-Path $env:LOCALAPPDATA 'AGFO-BackupSync'
 $script:AgfoAppDir = Join-Path $script:AgfoRoot 'app'
 $script:AgfoProfiles = Join-Path $script:AgfoRoot 'profiles'

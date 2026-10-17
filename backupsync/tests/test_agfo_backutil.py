@@ -270,11 +270,11 @@ class SelfUpdateTests(unittest.TestCase):
         self.env = patch.dict(os.environ, {'LOCALAPPDATA': self.tmp.name})
         self.env.start()
         self.data = b'MZ' + b'setup' * 1000
-        self.rels = [{'tag_name': 'backupsync-v2.3.1', 'name': 'BackupSync 2.3.1', 'draft': False, 'prerelease': False, 'body': 'n',
-                      'html_url': 'https://github.com/downtownck/agfo-windows-apps/releases/tag/backupsync-v2.3.1',
+        self.rels = [{'tag_name': 'backupsync-v9.9.9', 'name': 'BackupSync 9.9.9', 'draft': False, 'prerelease': False, 'body': 'n',
+                      'html_url': 'https://github.com/downtownck/agfo-windows-apps/releases/tag/backupsync-v9.9.9',
                       'assets': [{'name': 'AGFO-BackupSync-Setup.exe', 'size': len(self.data),
                                   'digest': 'sha256:' + hashlib.sha256(self.data).hexdigest(),
-                                  'browser_download_url': 'https://github.com/downtownck/agfo-windows-apps/releases/download/backupsync-v2.3.1/AGFO-BackupSync-Setup.exe'}]},
+                                  'browser_download_url': 'https://github.com/downtownck/agfo-windows-apps/releases/download/backupsync-v9.9.9/AGFO-BackupSync-Setup.exe'}]},
                      {'tag_name': 'supertools-v9.0.0', 'draft': False, 'prerelease': False, 'assets': []}]
 
     def tearDown(self):
@@ -304,7 +304,7 @@ class SelfUpdateTests(unittest.TestCase):
     def test_check_finds_update_and_asset(self):
         res = self.su.check(force=True, releases=self.rels)
         self.assertEqual(res['status'], 'update')
-        self.assertEqual(res['version'], '2.3.1')
+        self.assertEqual(res['version'], '9.9.9')
         self.assertEqual(res['asset']['name'], 'AGFO-BackupSync-Setup.exe')
         self.assertTrue(str(self.su.state_path()).startswith(self.tmp.name))
 
@@ -313,7 +313,7 @@ class SelfUpdateTests(unittest.TestCase):
         with patch.object(self.ghu, '_open', lambda url, **k: self._resp(self.data)):
             path = self.su.download_setup(res)
         self.assertEqual(path.read_bytes(), self.data)
-        self.assertEqual(path.name, 'AGFO-BackupSync-Setup-2.3.1.exe')
+        self.assertEqual(path.name, 'AGFO-BackupSync-Setup-9.9.9.exe')
         with patch.object(self.ghu, '_open', lambda url, **k: self._resp(self.data[:-3] + b'xyz')):
             path.unlink()
             with self.assertRaises(self.ghu.GHUpdateError):
@@ -374,3 +374,63 @@ class SelfUpdateTests(unittest.TestCase):
         script = (Path(__file__).resolve().parents[1] / 'packaging' / 'build_windows.ps1').read_text(encoding='utf-8-sig')
         for mod in ('agfo_selfupdate', 'agfo_github_update', 'agfo_installer'):
             self.assertIn('--hidden-import ' + mod, script)
+
+
+class FrozenEnvAndThemeTests(unittest.TestCase):
+    """v2.3.1 - PyInstaller ortam sizmasi ('Failed to load Python DLL') ve AGFO koyu tema."""
+
+    GUI = Path(__file__).resolve().parents[1] / 'payload' / 'AGFO-BackupSync-GUI.ps1'
+
+    def test_scrub_removes_pyinstaller_vars(self):
+        env = {'_PYI_ARCHIVE_FILE': 'a', '_PYI_APPLICATION_HOME_DIR': 'b', '_MEIPASS2': 'c', '_pyi_lower': 'd',
+               'PATH': 'p', 'LOCALAPPDATA': 'l'}
+        out = installer.scrub_frozen_env(env)
+        self.assertEqual(out, {'PATH': 'p', 'LOCALAPPDATA': 'l', 'PYINSTALLER_RESET_ENVIRONMENT': '1'})
+        self.assertIn('_MEIPASS2', env)                         # girdi degismez
+
+    def test_sanitize_process_env(self):
+        with patch.dict(os.environ, {'_PYI_PARENT_PROCESS_LEVEL': '1', '_MEIPASS2': 'x'}):
+            installer.sanitize_process_env()
+            self.assertNotIn('_PYI_PARENT_PROCESS_LEVEL', os.environ)
+            self.assertNotIn('_MEIPASS2', os.environ)
+            self.assertEqual(os.environ.get('PYINSTALLER_RESET_ENVIRONMENT'), '1')
+
+    def test_tray_launches_gui_with_clean_env(self):
+        import agfo_tray
+        seen = {}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {'_PYI_ARCHIVE_FILE': 'z'}), \
+                patch.object(agfo_tray, 'ROOT', Path(tmp)), \
+                patch.object(agfo_tray.subprocess, 'Popen', lambda *a, **k: seen.update(k)):
+            (Path(tmp) / 'AGFO-Guvenli-Baslat.ps1').write_text('#', encoding='utf-8')
+            self.assertTrue(agfo_tray.launch_gui())
+        self.assertNotIn('_PYI_ARCHIVE_FILE', seen['env'])
+        self.assertEqual(seen['env']['PYINSTALLER_RESET_ENVIRONMENT'], '1')
+
+    def test_gui_cleans_env_before_every_exe_call(self):
+        s = self.GUI.read_text(encoding='utf-8-sig')
+        self.assertLess(s.index('Clear-AgfoFrozenEnvironment\n'), s.index("Initialize-Agfo\n"))
+        self.assertEqual(s.count("Join-Path $PSScriptRoot 'AGFO-BackupSync.exe'"), s.count('Set-AgfoHelperEnvironment $psi'))
+        self.assertIn('SetDllDirectoryW($null)', s)
+
+    def test_gui_uses_agfo_dark_theme(self):
+        s = self.GUI.read_text(encoding='utf-8-sig')
+        for needle in ('FromArgb(10, 20, 37)', 'FromArgb(236, 243, 255)', 'AGFO  /  SUPERTOOLS', 'New-AgfoTabControl',
+                       'AgfoUi.DarkTabControl', 'Set-AgfoListTheme $listNetwork', 'Set-AgfoListTheme $listDrives',
+                       'Set-AgfoListTheme $listProfiles', '$txtLiveLog.BackColor = $logBackColor'):
+            self.assertIn(needle, s)
+        for old in ('BackColor = [System.Drawing.Color]::White', 'FlatStyle]::System', 'FromArgb(205, 234, 247)',
+                    'FromArgb(145, 74, 26)', 'FromArgb(246, 248, 251)'):
+            self.assertNotIn(old, s)
+        self.assertEqual(s.count('New-AgfoTabPage '), 6)
+        self.assertEqual(s.count('$tabs.TabPages.Add('), 6)
+
+    def test_gui_feature_buttons_kept(self):
+        s = self.GUI.read_text(encoding='utf-8-sig')
+        for b in ('$btnTest', '$btnPreview', '$btnRun', '$btnStop', '$btnOpenLast', '$btnSchedule', '$btnUnschedule',
+                  '$btnScheduleStatus', '$btnVersions', '$btnRestore', '$btnRestorePreview', '$btnInstall', '$btnEngineCheck',
+                  '$btnDiscoveryKnown', '$btnDiscoveryScan', '$btnDiscoveryTest', '$btnDiscoveryBrowse', '$btnNetworkSource',
+                  '$btnNetworkTarget', '$btnNetworkSubfolder', '$btnNetworkToDrive', '$btnDriveMap', '$btnDriveUnmap',
+                  '$btnDriveRefresh', '$btnDriveBrowse', '$btnDriveSource', '$btnDriveTarget', '$btnNew', '$btnDuplicate',
+                  '$btnSave', '$btnDelete', '$btnImport'):
+            self.assertIn(b + ' = UiButton', s)
+            self.assertIn(b + '.Add_Click', s)

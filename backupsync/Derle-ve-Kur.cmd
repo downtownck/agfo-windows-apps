@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo AGFO BackupSync v2.3.0 - Windows kurulum dosyasi derleniyor...
+echo AGFO BackupSync v2.3.1 - Windows kurulum dosyasi derleniyor...
 echo.
 "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%~dp0packaging\build_windows.ps1" -Install
 if errorlevel 1 (

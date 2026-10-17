@@ -1,4 +1,4 @@
-AGFO BackupSync v2.3.0 - TEK TIK WINDOWS KURULUM
+AGFO BackupSync v2.3.1 - TEK TIK WINDOWS KURULUM
 =================================================
 
 1) ZIP'i tamamen cikar.
@@ -70,3 +70,14 @@ V2.3.0 - GITHUB'DAN TEK TIKLA GUNCELLEME
 - Kurulum dosyalari GitHub Actions'in Windows makinesinde derlenir; Releases sayfasindan
   hazir AGFO-BackupSync-Setup.exe indirilebilir (yerelde derleme gerekmez).
 - EXE dosyalari kod imzali degildir; SmartScreen uyari gosterebilir.
+
+V2.3.1 - PYTHON DLL HATASI DUZELTMESI + AGFO KOYU TEMA
+------------------------------------------------------
+- Duzeltildi: "Ag Kesfi / SMB" ve "Surucu Harfleri" sekmelerinde cikan
+  "Failed to load Python DLL ... _MEI...\python312.dll" hatasi. Neden: tepsi uygulamasinin
+  (PyInstaller) gizli ortam degiskenleri (_PYI_*, _MEIPASS2) GUI uzerinden yardimci
+  AGFO-BackupSync.exe'ye geciyordu. Artik tepsi, GUI ve kurucu her alt surece temiz ortam verir
+  (PYINSTALLER_RESET_ENVIRONMENT=1, DLL arama dizini sifirlanir).
+- Arayuz AGFO standardina alindi: koyu tema (System Care / SuperTools ile ayni renkler),
+  "AGFO / SUPERTOOLS" baslik, koyu sekme seridi, koyu liste/kutu/log alanlari, duz dugmeler.
+  Koyu zemin uzerinde koyu yazi yoktur. Hicbir islev kaldirilmadi.

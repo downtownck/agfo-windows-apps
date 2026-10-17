@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import uuid
 
-VERSION = '2.3.0'
+VERSION = '2.3.1'
 INSTALL_DIR = Path(r'C:\agfo-backutil')
 APP_EXE = 'AGFO-BackupSync.exe'
 SETUP_EXE = 'AGFO-BackupSync-Setup.exe'
@@ -27,6 +27,38 @@ UNINSTALL_KEY = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AGFOBackup
 AUTOSTART_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
 AUTOSTART_NAME = 'AGFOBackupSync'
 SHORTCUT_NAME = 'AGFO BackupSync.lnk'
+
+
+FROZEN_ENV_PREFIXES = ('_PYI_', '_MEIPASS')
+
+
+def scrub_frozen_env(env=None) -> dict[str, str]:
+    """PyInstaller onefile ortam degiskenlerini (_PYI_*, _MEIPASS2) cikarilmis kopya dondurur.
+
+    Bu degiskenler alt surece gecerse, ayni (onefile) exe kendini 'cocuk surec' sanip baska bir
+    _MEI klasorunden python312.dll yuklemeye calisir: 'Failed to load Python DLL' hatasi (v2.3.0, v2.3.1'de duzeltildi).
+    PYINSTALLER_RESET_ENVIRONMENT=1, PyInstaller 6.9+ derlenmis alt exe'ye bastan baslamasini soyler.
+    """
+    src = os.environ if env is None else env
+    out = {k: v for k, v in src.items() if not k.upper().startswith(FROZEN_ENV_PREFIXES)}
+    out['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+    return out
+
+
+def sanitize_process_env() -> None:
+    """Calisan surecin ortamini temizler; boylece ShellExecute/explorer/PowerShell ile acilan her
+    alt surec (GUI -> AGFO-BackupSync.exe, kurucu, kisayol) temiz baslar. DLL arama dizinini de sifirlar."""
+    for key in [k for k in os.environ if k.upper().startswith(FROZEN_ENV_PREFIXES)]:
+        try:
+            del os.environ[key]
+        except KeyError:
+            pass
+    os.environ['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+    if sys.platform == 'win32' and getattr(sys, 'frozen', False):
+        try:
+            ctypes.windll.kernel32.SetDllDirectoryW(None)
+        except (AttributeError, OSError):
+            pass
 
 
 def payload_dir() -> Path:
@@ -74,7 +106,7 @@ def _shortcut(link: Path, target: Path, args: str = '', description: str = '') -
            '-File', str(INSTALL_DIR / 'Create-AgfoShortcut.ps1'),
            '-LinkPath', str(link), '-ExePath', str(target),
            '-ExeArgs', args, '-Description', description]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30,
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=scrub_frozen_env(),
                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if proc.returncode:
         raise RuntimeError('Baslat menusu kisayolu olusturulamadi: ' +
@@ -261,7 +293,8 @@ def relaunch_unelevated() -> None:
     exe = INSTALL_DIR / APP_EXE
     if sys.platform == 'win32' and exe.is_file():
         windir = os.environ.get('SystemRoot', r'C:\Windows')
-        subprocess.Popen([str(Path(windir) / 'explorer.exe'), str(exe)], close_fds=True)
+        subprocess.Popen([str(Path(windir) / 'explorer.exe'), str(exe)], close_fds=True,
+                         env=scrub_frozen_env())
 
 
 def run_update(on_step=lambda msg: None, install_fn=None, detect_fn=detect_options, relaunch_fn=relaunch_unelevated,
@@ -328,6 +361,7 @@ def update_main() -> int:
 
 
 def main() -> int:
+    sanitize_process_env()
     if '--update' in sys.argv:
         return update_main()
     is_uninstall = '--uninstall' in sys.argv

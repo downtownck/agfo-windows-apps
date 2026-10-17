@@ -134,6 +134,28 @@ jobs:
         run: python -I shared/tests/test_agfo_github_update.py shared
       - name: Derle (PowerShell ayrisma + PS testleri + unittest + PyInstaller)
         run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File backupsync/packaging/build_windows.ps1
+      - name: GUI duman testi (AGFO koyu tema) + ekran goruntusu
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          $env:AGFO_GUI_SMOKE = '1'
+          $env:AGFO_GUI_SMOKE_OUT = (Join-Path (Resolve-Path out) "AGFO-BackupSync-v$env:VERSION-ekran.png")
+          $o = powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File backupsync/payload/AGFO-BackupSync-GUI.ps1 | Out-String
+          Write-Host $o
+          if ($o -notmatch 'AGFO GUI SMOKE OK: AgfoUi\.DarkTabControl') { throw 'GUI duman testi basarisiz' }
+          if (-not (Test-Path $env:AGFO_GUI_SMOKE_OUT)) { throw 'Ekran goruntusu yok' }
+      - name: Yardimci exe - sizan PyInstaller ortaminda calisiyor mu
+        run: |
+          $exe = (Resolve-Path backupsync/dist/AGFO-BackupSync.exe).Path
+          $json = Join-Path $env:RUNNER_TEMP 'drive.json'
+          $env:_PYI_ARCHIVE_FILE = $exe
+          $env:_PYI_APPLICATION_HOME_DIR = 'C:\nonexistent\_MEI000108b02'
+          $env:_PYI_PARENT_PROCESS_LEVEL = '1'
+          $env:_MEIPASS2 = 'C:\nonexistent\_MEI000108b02'
+          $env:PYINSTALLER_RESET_ENVIRONMENT = '1'
+          $p = Start-Process -FilePath $exe -ArgumentList @('--output', "`"$json`"", '--drive-list') -PassThru
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw 'Yardimci exe zaman asimi' }
+          if (-not (Test-Path $json)) { throw ('Yardimci exe sonuc yazmadi, cikis kodu ' + $p.ExitCode) }
+          Get-Content $json -Raw
       - name: Paketle
         run: |
           New-Item -ItemType Directory -Force out | Out-Null

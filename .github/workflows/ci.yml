@@ -43,3 +43,11 @@ jobs:
           if ($bad) { exit 1 }
       - name: BackupSync testleri
         run: python -m unittest discover -s backupsync/tests
+      - name: BackupSync GUI duman testi (koyu tema, 6 sekme)
+        shell: pwsh
+        run: |
+          $env:AGFO_GUI_SMOKE = '1'
+          $env:AGFO_GUI_SMOKE_OUT = Join-Path $env:RUNNER_TEMP 'gui.png'
+          $o = powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File backupsync/payload/AGFO-BackupSync-GUI.ps1 | Out-String
+          Write-Host $o
+          if ($o -notmatch 'AGFO GUI SMOKE OK: AgfoUi\.DarkTabControl') { throw 'GUI duman testi basarisiz' }

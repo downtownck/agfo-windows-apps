@@ -1,6 +1,35 @@
 ﻿#requires -Version 5.1
-# AGFO BackupSync v2 - native Windows Forms interface.
+# AGFO BackupSync v2 - native Windows Forms interface (AGFO dark theme).
 $ErrorActionPreference = 'Stop'
+
+# v2.3.1: The tray app is a PyInstaller onefile exe. Its private variables (_PYI_*, _MEIPASS2)
+# leaked through PowerShell into AGFO-BackupSync.exe helper calls, which then tried to load
+# python312.dll from another _MEI folder ("Failed to load Python DLL"). Clean them for every child.
+function Clear-AgfoFrozenEnvironment {
+    foreach ($key in @([Environment]::GetEnvironmentVariables('Process').Keys)) {
+        $name = [string]$key
+        if ($name -like '_PYI_*' -or $name -like '_MEIPASS*') {
+            [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+        }
+    }
+    [Environment]::SetEnvironmentVariable('PYINSTALLER_RESET_ENVIRONMENT', '1', 'Process')
+    try {
+        if (-not ('AgfoNative.DllPath' -as [type])) {
+            Add-Type -Namespace AgfoNative -Name DllPath -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+public static extern bool SetDllDirectoryW(string lpPathName);
+'@
+        }
+        [void][AgfoNative.DllPath]::SetDllDirectoryW($null)
+    } catch { }
+}
+function Set-AgfoHelperEnvironment([System.Diagnostics.ProcessStartInfo]$Psi) {
+    $names = @($Psi.EnvironmentVariables.Keys | ForEach-Object { [string]$_ } |
+        Where-Object { $_ -like '_PYI_*' -or $_ -like '_MEIPASS*' })
+    foreach ($name in $names) { $Psi.EnvironmentVariables.Remove($name) }
+    $Psi.EnvironmentVariables['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
+}
+Clear-AgfoFrozenEnvironment
 . (Join-Path $PSScriptRoot 'AGFO-BackupSync-Core.ps1')
 Initialize-Agfo
 Add-Type -AssemblyName System.Windows.Forms
@@ -25,16 +54,29 @@ $script:DriveFile = ''
 $script:DriveAction = ''
 $script:DriveStarted = [DateTime]::MinValue
 
-$mainColor = [System.Drawing.Color]::FromArgb(31, 59, 88)
-$accentColor = [System.Drawing.Color]::FromArgb(24, 110, 154)
-$surfaceColor = [System.Drawing.Color]::FromArgb(246, 248, 251)
-$mutedColor = [System.Drawing.Color]::FromArgb(90, 104, 119)
+# AGFO standard dark palette (same as System Care / SuperTools). Never dark text on dark.
+$bgColor = [System.Drawing.Color]::FromArgb(10, 20, 37)          # #0a1425
+$panelColor = [System.Drawing.Color]::FromArgb(18, 36, 59)       # #12243b
+$panel2Color = [System.Drawing.Color]::FromArgb(25, 46, 72)      # #192e48
+$inputColor = [System.Drawing.Color]::FromArgb(14, 28, 48)
+$borderColor = [System.Drawing.Color]::FromArgb(45, 74, 108)
+$hoverColor = [System.Drawing.Color]::FromArgb(36, 64, 98)
+$fgColor = [System.Drawing.Color]::FromArgb(236, 243, 255)       # #ecf3ff
+$mutedColor = [System.Drawing.Color]::FromArgb(165, 182, 206)    # #a5b6ce
+$accentColor = [System.Drawing.Color]::FromArgb(73, 179, 239)    # #49b3ef
+$primaryColor = [System.Drawing.Color]::FromArgb(31, 111, 163)
+$warnColor = [System.Drawing.Color]::FromArgb(226, 179, 86)      # #e2b356
+$okColor = [System.Drawing.Color]::FromArgb(111, 211, 155)       # #6fd39b
+$logBackColor = [System.Drawing.Color]::FromArgb(7, 15, 28)
+$mainColor = $fgColor
+$surfaceColor = $bgColor
+$brandFont = [System.Drawing.Font]::new('Segoe UI', 8, [System.Drawing.FontStyle]::Bold)
 $normalFont = [System.Drawing.Font]::new('Segoe UI', 9)
 $boldFont = [System.Drawing.Font]::new('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
 $bigFont = [System.Drawing.Font]::new('Segoe UI', 16, [System.Drawing.FontStyle]::Bold)
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'AGFO BackupSync v2.3.0 | Windows / NAS'
+$form.Text = 'AGFO BackupSync v2.3.1 | Windows / NAS'
 $form.Size = [System.Drawing.Size]::new(1220, 820)
 $form.MinimumSize = [System.Drawing.Size]::new(1220, 820)
 $form.MaximumSize = [System.Drawing.Size]::new(1220, 820)
@@ -42,13 +84,116 @@ $form.StartPosition = 'CenterScreen'
 $form.BackColor = $surfaceColor
 $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.Font = $normalFont
+$form.ForeColor = $fgColor
+
+# <AGFO-THEME-CS> Dark tab strip (native TabControl ignores BackColor). CI compiles this block.
+$script:AgfoThemeSource = @'
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+namespace AgfoUi {
+    public class DarkTabControl : TabControl {
+        public Color StripColor = Color.FromArgb(10, 20, 37);
+        public Color TabColor = Color.FromArgb(25, 46, 72);
+        public Color SelectedColor = Color.FromArgb(18, 36, 59);
+        public Color TextColor = Color.FromArgb(236, 243, 255);
+        public Color MutedTextColor = Color.FromArgb(165, 182, 206);
+        public Color AccentColor = Color.FromArgb(73, 179, 239);
+        public DarkTabControl() {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            SizeMode = TabSizeMode.Fixed;
+            ItemSize = new Size(146, 30);
+        }
+        protected override void OnPaint(PaintEventArgs e) {
+            e.Graphics.Clear(StripColor);
+            for (int i = 0; i < TabCount; i++) {
+                Rectangle r = GetTabRect(i);
+                bool selected = (i == SelectedIndex);
+                using (SolidBrush b = new SolidBrush(selected ? SelectedColor : TabColor)) { e.Graphics.FillRectangle(b, r); }
+                if (selected) {
+                    using (SolidBrush a = new SolidBrush(AccentColor)) { e.Graphics.FillRectangle(a, r.X, r.Bottom - 3, r.Width, 3); }
+                }
+                TextRenderer.DrawText(e.Graphics, TabPages[i].Text, Font, r, selected ? TextColor : MutedTextColor,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+            }
+        }
+    }
+}
+'@
+# </AGFO-THEME-CS>
+function New-AgfoTabControl {
+    try {
+        if (-not ('AgfoUi.DarkTabControl' -as [type])) {
+            Add-Type -TypeDefinition $script:AgfoThemeSource -ReferencedAssemblies System.Windows.Forms, System.Drawing
+        }
+        return (New-Object AgfoUi.DarkTabControl)
+    } catch {
+        # Fallback: owner-drawn headers on the standard control (all features unchanged).
+        $t = New-Object System.Windows.Forms.TabControl
+        $t.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
+        $t.SizeMode = [System.Windows.Forms.TabSizeMode]::Fixed
+        $t.ItemSize = [System.Drawing.Size]::new(146, 30)
+        $t.add_DrawItem({
+            param($sender, $e)
+            $selected = ($e.Index -eq $sender.SelectedIndex)
+            $back = if ($selected) { $panelColor } else { $panel2Color }
+            $brush = New-Object System.Drawing.SolidBrush $back
+            try { $e.Graphics.FillRectangle($brush, $e.Bounds) } finally { $brush.Dispose() }
+            $fore = if ($selected) { $fgColor } else { $mutedColor }
+            [System.Windows.Forms.TextRenderer]::DrawText($e.Graphics, $sender.TabPages[$e.Index].Text, $sender.Font,
+                $e.Bounds, $fore, ([System.Windows.Forms.TextFormatFlags]::HorizontalCenter -bor
+                [System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor [System.Windows.Forms.TextFormatFlags]::SingleLine))
+        })
+        return $t
+    }
+}
+function Set-AgfoListTheme($List) {
+    $List.BackColor = $inputColor
+    $List.ForeColor = $fgColor
+    $List.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    if ($List -is [System.Windows.Forms.ListView]) {
+        $List.GridLines = $false
+        $List.OwnerDraw = $true
+        $List.add_DrawColumnHeader({
+            param($sender, $e)
+            $brush = New-Object System.Drawing.SolidBrush $panel2Color
+            $pen = New-Object System.Drawing.Pen $borderColor
+            try {
+                $e.Graphics.FillRectangle($brush, $e.Bounds)
+                $e.Graphics.DrawLine($pen, $e.Bounds.Right - 1, $e.Bounds.Top + 4, $e.Bounds.Right - 1, $e.Bounds.Bottom - 4)
+                $e.Graphics.DrawLine($pen, $e.Bounds.Left, $e.Bounds.Bottom - 1, $e.Bounds.Right, $e.Bounds.Bottom - 1)
+            } finally { $brush.Dispose(); $pen.Dispose() }
+            $r = [System.Drawing.Rectangle]::new($e.Bounds.X + 6, $e.Bounds.Y, $e.Bounds.Width - 8, $e.Bounds.Height)
+            [System.Windows.Forms.TextRenderer]::DrawText($e.Graphics, $e.Header.Text, $boldFont, $r, $fgColor,
+                ([System.Windows.Forms.TextFormatFlags]::VerticalCenter -bor [System.Windows.Forms.TextFormatFlags]::Left -bor
+                [System.Windows.Forms.TextFormatFlags]::SingleLine -bor [System.Windows.Forms.TextFormatFlags]::EndEllipsis))
+        })
+        $List.add_DrawItem({ param($sender, $e) $e.DrawDefault = $true })
+        $List.add_DrawSubItem({ param($sender, $e) $e.DrawDefault = $true })
+    }
+}
+function Set-AgfoGroupTheme($Group) {
+    $Group.ForeColor = $accentColor
+    $Group.BackColor = $panelColor
+}
+function New-AgfoTabPage([string]$Title) {
+    $page = New-Object System.Windows.Forms.TabPage
+    $page.Text = $Title
+    $page.BackColor = $panelColor
+    $page.ForeColor = $fgColor
+    $page.Font = $normalFont
+    return $page
+}
 
 function UiLabel($Parent, [string]$Title, [int]$X, [int]$Y, [int]$W, [int]$H, [bool]$Bold = $false) {
     $c = New-Object System.Windows.Forms.Label
     $c.Text = $Title
     $c.Location = [System.Drawing.Point]::new($X, $Y)
     $c.Size = [System.Drawing.Size]::new($W, $H)
-    $c.ForeColor = $mainColor
+    $c.ForeColor = $fgColor
+    $c.BackColor = [System.Drawing.Color]::Transparent
     if ($Bold) { $c.Font = $boldFont }
     $Parent.Controls.Add($c)
     return $c
@@ -57,6 +202,9 @@ function UiText($Parent, [int]$X, [int]$Y, [int]$W, [int]$H = 25) {
     $c = New-Object System.Windows.Forms.TextBox
     $c.Location = [System.Drawing.Point]::new($X, $Y)
     $c.Size = [System.Drawing.Size]::new($W, $H)
+    $c.BackColor = $inputColor
+    $c.ForeColor = $fgColor
+    $c.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
     $Parent.Controls.Add($c)
     return $c
 }
@@ -65,7 +213,14 @@ function UiButton($Parent, [string]$Title, [int]$X, [int]$Y, [int]$W, [int]$H = 
     $c.Text = $Title
     $c.Location = [System.Drawing.Point]::new($X, $Y)
     $c.Size = [System.Drawing.Size]::new($W, $H)
-    $c.FlatStyle = [System.Windows.Forms.FlatStyle]::System
+    $c.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $c.BackColor = $panel2Color
+    $c.ForeColor = $fgColor
+    $c.FlatAppearance.BorderColor = $borderColor
+    $c.FlatAppearance.MouseOverBackColor = $hoverColor
+    $c.FlatAppearance.MouseDownBackColor = $primaryColor
+    $c.UseVisualStyleBackColor = $false
+    $c.Cursor = [System.Windows.Forms.Cursors]::Hand
     $Parent.Controls.Add($c)
     return $c
 }
@@ -74,6 +229,9 @@ function UiCombo($Parent, [int]$X, [int]$Y, [int]$W, [string[]]$Options) {
     $c.Location = [System.Drawing.Point]::new($X, $Y)
     $c.Size = [System.Drawing.Size]::new($W, 27)
     $c.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $c.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $c.BackColor = $inputColor
+    $c.ForeColor = $fgColor
     foreach ($option in $Options) { [void]$c.Items.Add($option) }
     $c.SelectedIndex = 0
     $Parent.Controls.Add($c)
@@ -86,6 +244,9 @@ function UiNumeric($Parent, [int]$X, [int]$Y, [int]$Min, [int]$Max, [int]$Defaul
     $c.Minimum = $Min
     $c.Maximum = $Max
     $c.Value = $Default
+    $c.BackColor = $inputColor
+    $c.ForeColor = $fgColor
+    $c.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
     $Parent.Controls.Add($c)
     return $c
 }
@@ -95,6 +256,8 @@ function UiCheck($Parent, [string]$Title, [int]$X, [int]$Y, [int]$W, [bool]$Valu
     $c.Location = [System.Drawing.Point]::new($X, $Y)
     $c.Size = [System.Drawing.Size]::new($W, 27)
     $c.Checked = $Value
+    $c.ForeColor = $fgColor
+    $c.BackColor = [System.Drawing.Color]::Transparent
     $Parent.Controls.Add($c)
     return $c
 }
@@ -120,23 +283,37 @@ function Show-FolderBrowser([System.Windows.Forms.TextBox]$Textbox) {
 $header = New-Object System.Windows.Forms.Panel
 $header.Location = [System.Drawing.Point]::new(0, 0)
 $header.Size = [System.Drawing.Size]::new(1220, 80)
-$header.BackColor = $mainColor
+$header.BackColor = $panelColor
 $form.Controls.Add($header)
-$heading = UiLabel $header 'AGFO BACKUP SYNC' 26 14 700 32 $true
+$brand = UiLabel $header 'AGFO  /  SUPERTOOLS' 27 8 400 16 $true
+$brand.Font = $brandFont
+$brand.ForeColor = $accentColor
+$heading = UiLabel $header 'AGFO BackupSync' 26 23 700 32 $true
 $heading.Font = $bigFont
-$heading.ForeColor = [System.Drawing.Color]::White
-$subheading = UiLabel $header 'Windows 11 | NAS yedekleme | Sürüm arşivi | Gece zamanlaması' 27 49 950 21
-$subheading.ForeColor = [System.Drawing.Color]::FromArgb(207, 224, 238)
+$heading.ForeColor = $fgColor
+$subheading = UiLabel $header 'Windows 11 | NAS yedekleme | Sürüm arşivi | Gece zamanlaması' 27 55 950 20
+$subheading.ForeColor = $mutedColor
+$headerVersion = UiLabel $header 'v2.3.1' 1090 30 100 22 $true
+$headerVersion.ForeColor = $accentColor
+$headerVersion.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+$headerLine = New-Object System.Windows.Forms.Panel
+$headerLine.Location = [System.Drawing.Point]::new(0, 78)
+$headerLine.Size = [System.Drawing.Size]::new(1220, 2)
+$headerLine.BackColor = $accentColor
+$header.Controls.Add($headerLine)
 
 $sidebar = New-Object System.Windows.Forms.GroupBox
 $sidebar.Text = 'Yedekleme profilleri'
 $sidebar.Location = [System.Drawing.Point]::new(14, 92)
 $sidebar.Size = [System.Drawing.Size]::new(249, 651)
+Set-AgfoGroupTheme $sidebar
 $form.Controls.Add($sidebar)
 $listProfiles = New-Object System.Windows.Forms.ListBox
 $listProfiles.Location = [System.Drawing.Point]::new(12, 33)
 $listProfiles.Size = [System.Drawing.Size]::new(224, 358)
 $listProfiles.DisplayMember = 'Name'
+Set-AgfoListTheme $listProfiles
+$listProfiles.Font = $normalFont
 $sidebar.Controls.Add($listProfiles)
 $btnNew = UiButton $sidebar 'Yeni' 12 407 105
 $btnDuplicate = UiButton $sidebar 'Çoğalt' 128 407 108
@@ -146,34 +323,23 @@ $btnImport = UiButton $sidebar 'v1 profillerini al' 12 547 224 34
 $sidebarNote = UiLabel $sidebar 'İşler birbirinden bağımsızdır. Parolalar saklanmaz. Uzak NAS için UNC yolu kullanın.' 12 594 218 47
 $sidebarNote.ForeColor = $mutedColor
 
-$tabs = New-Object System.Windows.Forms.TabControl
+$tabs = New-AgfoTabControl
+$tabs.Font = $normalFont
 $tabs.Location = [System.Drawing.Point]::new(276, 92)
 $tabs.Size = [System.Drawing.Size]::new(927, 651)
 $form.Controls.Add($tabs)
-$tabBackup = New-Object System.Windows.Forms.TabPage
-$tabBackup.Text = 'Yedekleme / Eşitleme'
-$tabBackup.BackColor = [System.Drawing.Color]::White
+$tabBackup = New-AgfoTabPage 'Yedekleme / Eşitleme'
 $tabs.TabPages.Add($tabBackup)
-$tabSchedule = New-Object System.Windows.Forms.TabPage
-$tabSchedule.Text = 'Gece Zamanlaması'
-$tabSchedule.BackColor = [System.Drawing.Color]::White
+$tabSchedule = New-AgfoTabPage 'Gece Zamanlaması'
 $tabs.TabPages.Add($tabSchedule)
-$tabVersions = New-Object System.Windows.Forms.TabPage
-$tabVersions.Text = 'Sürümler / Geri Yükle'
-$tabVersions.BackColor = [System.Drawing.Color]::White
+$tabVersions = New-AgfoTabPage 'Sürümler / Geri Yükle'
 $tabs.TabPages.Add($tabVersions)
-$tabLogs = New-Object System.Windows.Forms.TabPage
-$tabLogs.Text = 'Kayıtlar / Motorlar'
-$tabLogs.BackColor = [System.Drawing.Color]::White
+$tabLogs = New-AgfoTabPage 'Kayıtlar / Motorlar'
 $tabs.TabPages.Add($tabLogs)
-$tabNetwork = New-Object System.Windows.Forms.TabPage
-$tabNetwork.Text = 'Ag Kesfi / SMB'
-$tabNetwork.BackColor = [System.Drawing.Color]::White
+$tabNetwork = New-AgfoTabPage 'Ag Kesfi / SMB'
 $tabs.TabPages.Add($tabNetwork)
 
-$tabDrives = New-Object System.Windows.Forms.TabPage
-$tabDrives.Text = 'Surucu Harfleri'
-$tabDrives.BackColor = [System.Drawing.Color]::White
+$tabDrives = New-AgfoTabPage 'Surucu Harfleri'
 $tabs.TabPages.Add($tabDrives)
 
 # TAB 1 - transfer settings
@@ -220,7 +386,11 @@ $lblModeInfo.ForeColor = $mutedColor
 $btnTest = UiButton $tabBackup 'Bağlantı testi' 19 440 139 34
 $btnPreview = UiButton $tabBackup 'Önizleme' 171 440 143 34
 $btnRun = UiButton $tabBackup 'Şimdi çalıştır' 326 440 164 34
-$btnRun.BackColor = [System.Drawing.Color]::FromArgb(205, 234, 247)
+$btnRun.BackColor = $primaryColor
+$btnRun.ForeColor = [System.Drawing.Color]::White
+$btnRun.Font = $boldFont
+$btnRun.FlatAppearance.BorderColor = $accentColor
+$btnRun.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(40, 132, 190)
 $btnStop = UiButton $tabBackup 'Durdur' 502 440 107 34
 $btnStop.Enabled = $false
 $btnOpenLast = UiButton $tabBackup 'Son logu aç' 622 440 133 34
@@ -236,6 +406,9 @@ $txtLiveLog.Multiline = $true
 $txtLiveLog.ReadOnly = $true
 $txtLiveLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
 $txtLiveLog.Font = [System.Drawing.Font]::new('Consolas', 8)
+$txtLiveLog.BackColor = $logBackColor
+$txtLiveLog.ForeColor = [System.Drawing.Color]::FromArgb(200, 222, 242)
+$txtLiveLog.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 $tabBackup.Controls.Add($txtLiveLog)
 
 # TAB 2 - Task Scheduler
@@ -272,6 +445,7 @@ $listVersions = New-Object System.Windows.Forms.ListBox
 $listVersions.Location = [System.Drawing.Point]::new(23, 97)
 $listVersions.Size = [System.Drawing.Size]::new(850, 274)
 $listVersions.DisplayMember = 'Name'
+Set-AgfoListTheme $listVersions
 $tabVersions.Controls.Add($listVersions)
 $btnVersions = UiButton $tabVersions 'Arşivi yenile' 23 384 162 34
 $btnOpenVersions = UiButton $tabVersions 'Sürüm klasörünü aç' 202 384 194 34
@@ -289,6 +463,7 @@ $listLogs = New-Object System.Windows.Forms.ListBox
 $listLogs.Location = [System.Drawing.Point]::new(23, 53)
 $listLogs.Size = [System.Drawing.Size]::new(850, 293)
 $listLogs.DisplayMember = 'Name'
+Set-AgfoListTheme $listLogs
 $tabLogs.Controls.Add($listLogs)
 $btnLogRefresh = UiButton $tabLogs 'Listeyi yenile' 23 359 143 35
 $btnLogOpen = UiButton $tabLogs 'Seçili kaydı aç' 182 359 179 35
@@ -299,6 +474,7 @@ $groupEngine = New-Object System.Windows.Forms.GroupBox
 $groupEngine.Text = 'Aktarım motorları ve isteğe bağlı kurulum'
 $groupEngine.Location = [System.Drawing.Point]::new(23, 473)
 $groupEngine.Size = [System.Drawing.Size]::new(850, 128)
+Set-AgfoGroupTheme $groupEngine
 $tabLogs.Controls.Add($groupEngine)
 $lblEngine = UiLabel $groupEngine 'Robocopy kontrol ediliyor; rclone isteğe bağlı.' 16 27 799 25
 $btnInstall = UiButton $groupEngine 'rclone kur (winget)' 16 69 215 34
@@ -324,6 +500,7 @@ $listNetwork.GridLines = $true
 [void]$listNetwork.Columns.Add('Ad', 213)
 [void]$listNetwork.Columns.Add('Yol', 328)
 [void]$listNetwork.Columns.Add('Durum', 150)
+Set-AgfoListTheme $listNetwork
 $tabNetwork.Controls.Add($listNetwork)
 $btnNetworkSource = UiButton $tabNetwork 'Kaynak olarak sec' 23 491 204 40
 $btnNetworkTarget = UiButton $tabNetwork 'Hedef olarak sec' 240 491 204 40
@@ -357,6 +534,7 @@ $listDrives.GridLines = $true
 [void]$listDrives.Columns.Add('Yontem', 97)
 [void]$listDrives.Columns.Add('Gercek yol', 424)
 [void]$listDrives.Columns.Add('Durum', 215)
+Set-AgfoListTheme $listDrives
 $tabDrives.Controls.Add($listDrives)
 $btnDriveSource = UiButton $tabDrives 'Kaynak olarak sec' 22 531 192 36
 $btnDriveTarget = UiButton $tabDrives 'Hedef olarak sec' 228 531 192 36
@@ -364,7 +542,7 @@ $lblDriveStatus = UiLabel $tabDrives 'Surucu harfleri okunuyor...' 22 577 846 53
 $lblDriveStatus.ForeColor = $mutedColor
 [void](UiLabel $tabDrives 'Gece yedekleri esleme harfini degil, orijinal UNC/yerel yolu kullanir. SUBST yeniden baslatmada kaybolur.' 22 608 848 26)
 
-$footer = UiLabel $form 'AGFO BackupSync v2.3.0  |  Tek yönlü aktarım  |  Şifre ve parola kaydedilmez  |  Kaynak dosyalar silinmez' 26 751 1150 31
+$footer = UiLabel $form 'AGFO BackupSync v2.3.1  |  Tek yönlü aktarım  |  Şifre ve parola kaydedilmez  |  Kaynak dosyalar silinmez' 26 751 1150 31
 $footer.ForeColor = $mutedColor
 
 function Selected-ProfileItem { return $listProfiles.SelectedItem }
@@ -439,7 +617,7 @@ function Update-ModeUi {
     $cmbRule.Enabled = -not $mirror
     if ($mirror) {
         $lblModeInfo.Text = 'EŞİTLEME: Hedef fazlaları .agfo-versions arşivine alınır. Silme üst sınırı vardır. Kaynak boşsa işlem engellenir.'
-        $lblModeInfo.ForeColor = [System.Drawing.Color]::FromArgb(145, 74, 26)
+        $lblModeInfo.ForeColor = $warnColor
     } elseif ($cmbMode.SelectedIndex -eq 1) {
         $lblModeInfo.Text = 'Sürümlü yedek: Güncellenecek eski hedef dosyaları .agfo-versions arşivinde tutulur. Hedef fazlaları korunur.'
         $lblModeInfo.ForeColor = $mutedColor
@@ -840,6 +1018,7 @@ function Start-AgfoDriveAction([string]$Action) {
     $psi.Arguments = Join-AgfoArgs $params
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
+    Set-AgfoHelperEnvironment $psi
     $script:DriveProcess = New-Object System.Diagnostics.Process
     $script:DriveProcess.StartInfo = $psi
     if (-not $script:DriveProcess.Start()) { throw 'Surucu yardimcisi baslatilamadi.' }
@@ -971,6 +1150,7 @@ function Start-AgfoDiscovery([string]$Mode, [string]$NetworkPath = '') {
     $psi.Arguments = Join-AgfoArgs $params
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
+    Set-AgfoHelperEnvironment $psi
     $script:DiscoveryProcess = New-Object System.Diagnostics.Process
     $script:DiscoveryProcess.StartInfo = $psi
     if (-not $script:DiscoveryProcess.Start()) { throw 'Kesif yardimcisi baslatilamadi.' }
@@ -1161,5 +1341,27 @@ $form.Add_FormClosing({
         try { $script:DiscoveryProcess.Kill() } catch { }
     }
 })
+if ($env:AGFO_GUI_SMOKE -eq '1') {
+    # CI smoke test: builds every control, renders each tab to one PNG sheet, exits without showing a window.
+    try {
+        $out = if ($env:AGFO_GUI_SMOKE_OUT) { $env:AGFO_GUI_SMOKE_OUT } else { Join-Path $env:TEMP 'agfo-gui-smoke.png' }
+        $w = $form.Width
+        $h = $form.Height
+        $sheet = [System.Drawing.Bitmap]::new($w * 2, $h * 3)
+        $g = [System.Drawing.Graphics]::FromImage($sheet)
+        for ($i = 0; $i -lt $tabs.TabPages.Count; $i++) {
+            $tabs.SelectedIndex = $i
+            $bmp = [System.Drawing.Bitmap]::new($w, $h)
+            $form.DrawToBitmap($bmp, [System.Drawing.Rectangle]::new(0, 0, $w, $h))
+            $g.DrawImage($bmp, [int](($i % 2) * $w), [int]([Math]::Floor($i / 2) * $h))
+            $bmp.Dispose()
+        }
+        $g.Dispose()
+        $sheet.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+        $sheet.Dispose()
+        Write-Output ('AGFO GUI SMOKE OK: ' + $tabs.GetType().FullName + ' -> ' + $out)
+    } finally { $timer.Dispose(); $form.Dispose() }
+    return
+}
 try { [void]$form.ShowDialog() }
 finally { $timer.Dispose(); $form.Dispose() }

@@ -58,6 +58,8 @@ def launch_setup(setup: Path, shell_execute=None) -> None:
             raise OSError('Yalnizca Windows')
         import ctypes
         shell_execute = ctypes.windll.shell32.ShellExecuteW
+        from agfo_installer import sanitize_process_env
+        sanitize_process_env()      # kurucu temiz ortamla baslasin (PyInstaller _PYI_* sizmasi)
     code = shell_execute(None, 'runas', str(setup), UPDATE_ARGS, str(Path(setup).parent), 1)
     if int(code) <= 32:
         raise OSError('Kurulum baslatilamadi veya yonetici onayi verilmedi (kod %s).' % code)

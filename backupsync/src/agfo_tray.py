@@ -30,6 +30,11 @@ def _powershell() -> str:
     return str(path)
 
 
+def _child_env() -> dict[str, str]:
+    from agfo_installer import scrub_frozen_env
+    return scrub_frozen_env()
+
+
 def launch_gui() -> bool:
     path = Path(sys.executable).resolve().parent if getattr(sys, 'frozen', False) else ROOT
     script = path / 'AGFO-Guvenli-Baslat.ps1'
@@ -39,7 +44,7 @@ def launch_gui() -> bool:
     try:
         subprocess.Popen([_powershell(), '-NoProfile', '-ExecutionPolicy', 'Bypass',
                           '-STA', '-WindowStyle', 'Hidden', '-File', str(script)],
-                         cwd=str(path), close_fds=True,
+                         cwd=str(path), close_fds=True, env=_child_env(),
                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         return True
     except OSError as exc:
@@ -213,6 +218,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--letter', default='')
     parser.add_argument('--persistent', action='store_true')
     args = parser.parse_args(argv)
+    try:
+        from agfo_installer import sanitize_process_env
+        sanitize_process_env()
+    except Exception as exc:  # temizlik basarisiz olsa da tepsi calismaya devam eder
+        _log_error('Env sanitize: ' + repr(exc))
     if args.drive_list or args.drive_map or args.drive_unmap:
         if not args.output:
             return 2
