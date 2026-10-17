@@ -9,8 +9,8 @@
 ## Güncelleme nasıl yayılır
 1. Kod değişir, uygulamadaki sürüm numarası yükseltilir (System Care: `care_core.py` `VERSION`; SuperTools: `scanner_core.py` `APP_VERSION`; BackupSync: tüm dosyalardaki sürüm, test ile denetlenir).
 2. İsteğe bağlı sürüm notu: `.github/release-notes/<etiket>.md`.
-3. Etiket gönderilir (ör. `git tag supertools-v1.7.1 && git push origin supertools-v1.7.1`).
-4. **Release** iş akışı: etiket ↔ kod sürümü ve ortak modül kopyaları denetlenir, testler çalışır, paket üretilir, `SHA256SUMS.txt` eklenir, GitHub Release yayınlanır.
+3. Değişiklik `main` dalına gönderilir. Elle etiket gerekmez.
+4. **Release** iş akışı, sürüm numarası yükselmiş ve henüz yayınlanmamış her uygulama için: ortak modül kopyalarını denetler, testleri çalıştırır, paketi üretir, `SHA256SUMS.txt` ekler ve etiketiyle birlikte GitHub Release yayınlar (BackupSync EXE'leri Windows makinesinde derlenir). Sürümü değişmeyen uygulama yeniden yayınlanmaz.
 5. Kurulu uygulamalar açılışta (System Care / SuperTools 6 saatte, BackupSync 12 saatte bir) yeni sürümü görür; kullanıcı **tek tıkla** günceller.
 
 ## Güvenlik
