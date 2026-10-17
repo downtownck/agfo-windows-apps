@@ -1,0 +1,1297 @@
+{
+  "schema_version": "1.0.0",
+  "plugin_slug": "agfo-ai-manager",
+  "current_release": "17.4.0",
+  "phases": [
+    {
+      "id": "phase-stabilization",
+      "title": "Faz 0 — Sürüm ve Geriye Uyumluluk Stabilizasyonu",
+      "order": 0,
+      "summary": "Mevcut public API, AJAX ve data.json sözleşmelerini koruyarak 16.8.0 altyapısının kurulabilir ve geri alınabilir olmasını sağlar.",
+      "tasks": [
+        {
+          "id": "STAB-001",
+          "title": "Sürüm zincirini ve native tracker'ı tekilleştir",
+          "instruction": "Plugin header, AGFO_AIM_VERSION, revision.json, revision.txt, tracker.json, README ve admin görünür sürümü 16.8.0 ile eşleştir. Mevcut public fonksiyon, AJAX action, option key ve data.json şemasını kaldırma veya yeniden adlandırma.",
+          "work_package": "Bootstrap sürüm güncellemesi; revision.json ve tracker.json eklenmesi; admin sürüm kartının revision.json ile uyumlu hâle getirilmesi; native tracker admin ekranı ve runtime kanıt option'larının eklenmesi.",
+          "verification": "Tüm PHP dosyalarında php -l; revision.json ve tracker.json JSON doğrulaması; sürüm değerleri için statik karşılaştırma; eski agfo_* public API ve wp_ajax_agfo_* action envanterinin korunma kontrolü.",
+          "dependencies": [],
+          "status": "implemented",
+          "target_version": "16.8.0",
+          "completed_version": "16.8.0",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "revision.json",
+            "revision.txt",
+            "tracker.json",
+            "includes/tracker/class-native-tracker.php",
+            "admin/class-admin.php",
+            "README.md",
+            "readme.txt"
+          ],
+          "evidence": [],
+          "notes": "WordPress staging çalıştırması teslim ortamında yapılamadığı için runtime smoke doğrulaması açık bırakılmıştır."
+        },
+        {
+          "id": "STAB-002",
+          "title": "WP-Cron TTS geçici dosya bootstrap fatal hatasını gider",
+          "instruction": "OpenAI ve ElevenLabs TTS adaptörlerinde, WP-Cron bağlamında wp_tempnam() tanımlı değilken WordPress file API dosyasını güvenli ve tembel biçimde yükle. Mevcut dispatch, streaming, hata kodu ve public API davranışlarını değiştirme.",
+          "work_package": "İki TTS adaptörüne özel create_temp_file() yardımcı metodu; wp-admin/includes/file.php için is_readable + require_once koruması; 16.8.1 patch sürüm zinciri, revision ve tracker güncellemesi.",
+          "verification": "Her iki adaptörü wp_tempnam() başlangıçta tanımsız olan ayrı PHP süreçlerinde çalıştır; sahte WordPress file.php içinden fonksiyonun tembel yüklendiğini, stream hedef dosyasının oluştuğunu ve dispatch sonucunun WP_Error olmadan döndüğünü doğrula. Tüm PHP dosyalarında php -l ve JSON doğrulaması çalıştır.",
+          "dependencies": [],
+          "status": "verified",
+          "target_version": "16.8.1",
+          "completed_version": "16.8.1",
+          "changed_files": [
+            "includes/adapters/class-adapter-openai.php",
+            "includes/adapters/class-adapter-elevenlabs.php",
+            "agfo-ai-manager.php",
+            "revision.json",
+            "revision.txt",
+            "tracker.json",
+            "README.md",
+            "readme.txt"
+          ],
+          "evidence": [
+            {
+              "name": "WP-Cron temp-file adapter smoke",
+              "result": "PASS",
+              "date": "2026-07-31 22:17:00",
+              "version": "16.8.1",
+              "user_id": 0,
+              "summary": "OpenAI ve ElevenLabs adaptörleri wp_tempnam() önceden tanımlı değilken WordPress file API dosyasını tembel yükleyip stream hedef dosyasını oluşturdu.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "PHP syntax and JSON validation",
+              "result": "PASS",
+              "date": "2026-07-31 22:17:00",
+              "version": "16.8.1",
+              "user_id": 0,
+              "summary": "Tüm PHP dosyaları php -l kontrolünden, revision.json ve tracker.json parse kontrolünden geçti.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Fatal doğrudan WP-Cron bağlamında WordPress admin file API dosyasının yüklenmemesinden kaynaklanıyordu; migration gerekmez."
+        },
+        {
+          "id": "STAB-003",
+          "title": "AJAX TTS medya bağlantısındaki nonce kaybını gider",
+          "instruction": "agfo_asset_url() çıktısı AJAX JSON yanıtında doğrudan audio src veya indirme href alanına atandığında nonce sorgu parametresinin korunmasını sağla. HTML ekranlarındaki esc_url kullanımı, mevcut admin-post action adı, ACL, sahiplik ve public fonksiyon imzası değişmesin.",
+          "work_package": "class-asset-delivery.php içindeki URL üretimini wp_nonce_url() yerine add_query_arg() ve wp_create_nonce() ile ham sorgu dizesi oluşturacak biçimde düzelt; 16.8.2 patch sürüm zinciri, revision ve tracker kayıtlarını güncelle.",
+          "verification": "İzole PHP smoke testinde üretilen URL içinde &#038; veya fragment bulunmadığını; action, asset_uuid, download ve _agfo_nonce parametrelerinin parse_url/parse_str ile eksiksiz ayrıştığını doğrula. Tüm PHP dosyalarında php -l, JSON doğrulaması, public API/AJAX envanter karşılaştırması ve ZIP bütünlük testi çalıştır.",
+          "dependencies": [
+            "ASSET-001"
+          ],
+          "status": "verified",
+          "target_version": "16.8.2",
+          "completed_version": "16.8.2",
+          "changed_files": [
+            "includes/assets/class-asset-delivery.php",
+            "agfo-ai-manager.php",
+            "revision.json",
+            "revision.txt",
+            "tracker.json",
+            "README.md",
+            "readme.txt"
+          ],
+          "evidence": [
+            {
+              "name": "Raw asset URL and nonce query smoke",
+              "result": "PASS",
+              "date": "2026-07-31 22:30:00",
+              "version": "16.8.2",
+              "user_id": 0,
+              "summary": "AJAX tüketimine verilen URL ham & ayraçlarıyla üretildi; fragment oluşmadı ve action, asset_uuid, download ile _agfo_nonce parametreleri eksiksiz ayrıştı.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "PHP syntax, JSON, API inventory and ZIP validation",
+              "result": "PASS",
+              "date": "2026-07-31 22:30:00",
+              "version": "16.8.2",
+              "user_id": 0,
+              "summary": "PHP syntax ve JSON parse kontrolleri geçti; mevcut public agfo_* fonksiyonları ile wp_ajax_agfo_* action envanteri korundu; ZIP bütünlüğü doğrulandı.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Kök neden wp_nonce_url() fonksiyonunun HTML-escaped çıktı üretmesiydi. JavaScript attr() ile atanan URL içindeki &#038; dizisi # işaretinden itibaren fragmente dönüştüğü için nonce sunucuya gönderilmiyordu; migration gerekmez."
+        },
+        {
+          "id": "STAB-004",
+          "title": "Klasik editör Seslendir düğmesi görünürlük tespitini sağlamlaştır",
+          "instruction": "Klasik Sayfa editöründe Seslendir düğmesinin ekran tespiti veya hook sırası nedeniyle kaybolmasını önle. Mevcut manage_options yetki sınırını, page post type varsayımını, modal iş akışını ve blok editör davranışını bozma.",
+          "work_package": "Classic editor entegrasyon sınıfında statik eligible bağımlılığını kaldır; asset/modal kapsamını desteklenen Sayfa düzenleme ekranına bağla; media_buttons hooku çalışmazsa klasik editör DOMunu algılayan tekil JavaScript fallback düğmesi ekle; Medya Ekle satırı yoksa editör üstü yedek konum sağla; sürüm, revision ve dokümantasyonu 16.10.1 ile eşleştir.",
+          "verification": "PHP ve JavaScript syntax; desteklenen page ekranında PHP render yolunun admin_enqueue sırasından bağımsız olması; use_block_editor_for_post ile erken reddin kaldırılması; JS fallbackin mevcut düğmeyi çoğaltmaması; wp-content media buttons ve editör üstü iki yerleşim yolunun kaynak doğrulaması; JSON ve ZIP bütünlük kontrolü; gerçek klasik editörde buton/modal smoke testi.",
+          "dependencies": [
+            "TTS-004"
+          ],
+          "status": "implemented",
+          "target_version": "16.10.1",
+          "completed_version": "16.10.1",
+          "changed_files": [
+            "includes/editor/class-classic-editor-tts.php",
+            "assets/js/classic-editor-tts.js",
+            "assets/css/classic-editor-tts.css",
+            "agfo-ai-manager.php",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "Classic Editor button discovery source verification",
+              "result": "PASS",
+              "date": "2026-07-31 23:07:00",
+              "version": "16.10.1",
+              "user_id": 0,
+              "summary": "Statik eligible bağımlılığı ve block-editor erken reddi kaldırıldı; PHP media_buttons yolu ile tekilleştirilmiş DOM fallback yolu kaynak düzeyinde doğrulandı.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "16.10.1 user visibility regression report",
+              "result": "FAIL",
+              "date": "2026-07-31 23:12:00",
+              "version": "16.10.1",
+              "user_id": 0,
+              "summary": "Kullanıcı gerçek Klasik Sayfa editöründe 16.10.1 paketinden sonra da Seslendir düğmesinin görünmediğini bildirdi.",
+              "log_location": "user runtime report"
+            }
+          ],
+          "notes": "16.10.0 ve 16.10.1 gerçek ekran testlerinde düğme görünmedi. Kaynak düzeyindeki ekran ve DOM varsayımları yeterli olmadı; görev verified değildir ve STAB-005 ile deterministik sunucu başlatıcısına taşındı."
+        },
+        {
+          "id": "STAB-005",
+          "title": "Klasik editör için deterministik sunucu TTS başlatıcısı ekle",
+          "instruction": "Klasik WordPress düzenleme formunda Seslendir erişimini ekran post type tespiti, block editor probe sonucu, media_buttons hooku veya JavaScript DOM keşfine bağlı bırakma. Yetkili kullanıcı post.php/post-new.php ekranındaysa TTS assetlerini yükle ve edit_form_after_title içinde sunucu tarafından görünür bir başlatıcı üret. Medya araç çubuğu gerçekten mevcutsa üst başlatıcıyı yalnız bundan sonra gizle.",
+          "work_package": "Classic editor entegrasyon sınıfında asset kapsamını yalnız post.php/post-new.php + capability kontrolüne indir; edit_form_after_title hookuyla garantili başlatıcı oluştur; toolbar düğmesini ayrı sınıfla işaretle; JavaScript toolbar varlığını doğruladığında garantili başlatıcıyı gizlesin, aksi halde görünür bıraksın; CSS, sürüm, revision, tracker ve readme zincirini 16.10.2 ile güncelle.",
+          "verification": "PHP ve JavaScript syntax; hook kayıt testinde admin_enqueue_scripts, media_buttons, edit_form_after_title ve iki admin_footer hookunun varlığı; sunucu başlatıcısının get_current_screen veya post type stubu olmadan render edilmesi; content media buttonunun render edilmesi; post.php/post-new.php asset kapsamının screen probe olmadan kabul edilmesi; diğer admin hooklarının reddi; JSON, public API/AJAX envanteri ve ZIP bütünlük kontrolü; gerçek WordPress ekranında görünürlük/modal smoke testi.",
+          "dependencies": [
+            "TTS-004"
+          ],
+          "status": "implemented",
+          "target_version": "16.10.2",
+          "completed_version": "16.10.2",
+          "changed_files": [
+            "includes/editor/class-classic-editor-tts.php",
+            "assets/js/classic-editor-tts.js",
+            "assets/css/classic-editor-tts.css",
+            "agfo-ai-manager.php",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "Deterministic launcher source and hook smoke",
+              "result": "PASS",
+              "date": "2026-07-31 23:26:00",
+              "version": "16.10.2",
+              "user_id": 0,
+              "summary": "Sunucu başlatıcısı ekran/post type stubu olmadan render edildi; hook kaydı ve broad post-screen asset gate kaynak testinden geçti. Gerçek WordPress görünürlük testi kullanıcı ortamında bekleniyor.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Önceki sürümdeki başarısız kullanıcı testinden sonra yalnız statik çıkarıma güvenilmedi. Gerçek runtime smoke yapılmadığı için implemented bırakıldı."
+        },
+        {
+          "id": "STAB-006",
+          "title": "Token alanı raporlamasını taşıma katmanıyla eşitle ve kısa legacy desenini sınırla",
+          "instruction": "agfo_get_priority_api_key() tarafından dışarı açılan uses_max_completion_tokens bilgisini agfo_api_post() içindeki gerçek OpenRouter ve MiniMax chat normalizasyonuyla aynı hale getir. agfo_uses_max_completion_tokens() içindeki kısa 'ada' legacy deseninin yalnız gerçek model bileşeni olarak eşleşmesini sağla; mevcut legacy ada/text-ada model davranışını, public fonksiyon imzalarını, AJAX action adlarını, option anahtarlarını ve data/data.json sözleşmesini koru.",
+          "work_package": "includes/functions.php içinde iki minimal hunk uygula: kısa legacy desenlerde kelime sınırı kontrolü ve priority API key dönüşünde OpenRouter/MiniMax için token alanı bayrağı. AGFO-AI-MANAGER-SPEC.md içindeki §3 notlarını ve dönüş sözleşmesini 16.16.2 davranışıyla eşitle; plugin header/constant, README/readme, revision ve tracker sürüm zincirini 16.16.2 PATCH olarak güncelle. Veri tabanı migration'ı yapma.",
+          "verification": "Tüm PHP dosyalarında php -l, tüm JS dosyalarında node --check ve JSON parse çalıştır. includes/functions.php'nin supplied functions_fixed.php ile birebir olduğunu doğrula. agfo_uses_max_completion_tokens() için ada, text-ada-001, text-embedding-ada-002, adaptive içeren yeni bir model, gpt-4o, gemini-2.5-flash ve MiniMax-M3 davranışlarını regresyon testiyle karşılaştır. Değişiklik öncesi/sonrası public agfo_* fonksiyon ve wp_ajax_agfo_* action envanterlerinin aynı olduğunu, sürüm zincirinin tüm dosyalarda 16.16.2 olduğunu ve ZIP'in tek agfo-ai-manager kök klasörüyle açıldığını doğrula. Son olarak staging'de gerçek OpenRouter anahtarıyla AGFO AI > Chat Test üzerinden HTTP 200 smoke testi yap.",
+          "dependencies": [],
+          "status": "implemented",
+          "target_version": "16.16.2",
+          "completed_version": "16.16.2",
+          "changed_files": [
+            "includes/functions.php",
+            "AGFO-AI-MANAGER-SPEC.md",
+            "agfo-ai-manager.php",
+            "readme.txt",
+            "README.md",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "16.16.2 source patch and model-boundary regression verification",
+              "result": "PASS",
+              "date": "2026-08-09 14:17:00",
+              "version": "16.16.2",
+              "user_id": 0,
+              "summary": "Supplied 16.16.2 functions_fixed.php was applied to the exact 16.16.1 baseline; both requested hunks and short-pattern boundary behavior are covered by package verification.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "PHP/JS/JSON/version/API inventory and ZIP validation",
+              "result": "PASS",
+              "date": "2026-08-09 14:17:00",
+              "version": "16.16.2",
+              "user_id": 0,
+              "summary": "Static package checks cover syntax, JSON parsing, version consistency, public agfo_* and wp_ajax_agfo_* inventory preservation, UTF-8/LF integrity and installable ZIP structure.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Kaynak paket ve statik/regresyon kontrolleri tamamlanmıştır. Gerçek WordPress staging ortamında OpenRouter Chat Test HTTP 200 sonucu alınmadığı için görev tracker standardı gereği verified değil, implemented bırakılmıştır."
+        },
+        {
+          "id": "STAB-007",
+          "title": "Modern modellerde temperature alanını merkezî olarak yok say",
+          "instruction": "Bağımlı AGFO eklentileri temperature ayarı veya request alanı göndermeye devam etse bile GPT-5 ailesi ve o-serisi OpenAI/OpenRouter chat çağrılarında sampling alanlarını sağlayıcıya iletme. Eski canlı probe supported kaydının daha sıkı güncel güvenlik kuralını ezmesine izin verme. Henüz tanınmayan bir model açıkça temperature unsupported hatası döndürürse yalnız bir kez temperature kaldırılmış istekle retry yap; diğer HTTP hatalarında retry üretme.",
+          "work_package": "includes/functions.php içinde OpenAI/OpenRouter sampling ön-normalizasyonunun önceliğini değiştir; GPT-5/o-serisi için stale probe overrideını kaldır; agfo_get_priority_api_key() supports_temperature alanını efektif taşıma davranışıyla eşitle; agfo_api_post() içinde yalnız açık temperature reddine bağlı tek-seferlik top-level veya Gemini generationConfig temperature temizleme retryı ekle; public fonksiyon/AJAX/option sözleşmelerini koru.",
+          "verification": "PHP lint; JSON parse; gpt-5.4, gpt-5.5, gpt-5.6-sol, gpt-5-chat-latest ve o4-mini gövdelerinde temperature/sampling temizleme statik-regresyon testi; gpt-4o ve OpenRouter non-OpenAI modellerinde temperature koruma testi; açık temperature rejection gövdesinde tek retry, ilgisiz HTTP 400 gövdesinde retry olmaması; public API ve AJAX envanter karşılaştırması; gerçek provider smoke testi olmadan verified işaretleme.",
+          "dependencies": [],
+          "status": "implemented",
+          "target_version": "16.17.2",
+          "completed_version": "16.17.2",
+          "changed_files": [
+            "includes/functions.php",
+            "AGFO-AI-MANAGER-SPEC.md",
+            "agfo-ai-manager.php",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "16.17.2 sampling guard static regression",
+              "result": "PASS",
+              "date": "2026-08-10 20:36:00",
+              "version": "16.17.2",
+              "user_id": 0,
+              "summary": "Modern OpenAI/OpenRouter model ailelerinde stale supported probe kaydından bağımsız sampling temizleme ve açık temperature reddinde tek retry kaynak/test düzeyinde doğrulandı.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Gerçek OpenAI/OpenRouter anahtarıyla canlı HTTP 200 smoke yapılmadığı için implemented durumundadır."
+        },
+        {
+          "id": "STAB-008",
+          "title": "GPT-5 temperature korumasını doğrudan WordPress HTTP çağrılarına kadar genişlet",
+          "instruction": "GPT-5 ve o-serisi modellerde temperature/sampling alanlarının yalnız agfo_api_post() kullanan çağrılarda değil, eski bağımlı AGFO eklentilerinin doğrudan wp_remote_post() çağrılarında da sağlayıcıya ulaşmasını engelle. Canlı temperature capability probe testlerinin gerçek davranışı ölçmesini koru.",
+          "work_package": "includes/functions.php içinde tek effective default-sampling helperı oluştur; agfo_get_model_capabilities(), agfo_model_supports_temperature(), agfo_get_priority_api_key() ve agfo_api_post() aynı kurala bağlansın. OpenAI/OpenRouter chat-completions için dar kapsamlı http_request_args filtresi ekle. includes/class-model-intelligence.php temperature probe çağrılarını X-AGFO-Temperature-Probe başlığıyla filtreden muaf tut. Sürüm/revision/tracker/readme zincirini 16.17.7 PATCH olarak güncelle.",
+          "verification": "PHP lint; JSON parse; gpt-5.6-sol ve openai/gpt-5.6-sol için capability false regresyonu; gpt-4o için temperature korunumu; doğrudan OpenAI/OpenRouter HTTP args gövdesinde temperature temizleme; probe header varken temperature korunumu; agfo_api_post mevcut tek-retry davranışının korunması; public agfo_* ve wp_ajax_agfo_* envanter kaybı olmaması; ZIP bütünlüğü. Canlı provider smoke testi olmadan verified işaretleme.",
+          "dependencies": [
+            "STAB-007"
+          ],
+          "status": "implemented",
+          "target_version": "16.17.7",
+          "completed_version": "16.17.7",
+          "changed_files": [
+            "includes/functions.php",
+            "includes/class-model-intelligence.php",
+            "agfo-ai-manager.php",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "16.17.7 sampling shield regression",
+              "result": "PASS",
+              "date": "2026-09-02 21:10:00",
+              "version": "16.17.7",
+              "user_id": 0,
+              "summary": "gpt-5.6-sol, openai/gpt-5.6-sol ve o4-mini default-sampling olarak tanındı; doğrudan OpenAI/OpenRouter HTTP gövdelerinden temperature/top_p temizlendi; gpt-4o korundu; explicit temperature probe header bypass testi geçti.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "16.17.7 syntax, JSON and public inventory",
+              "result": "PASS",
+              "date": "2026-09-02 21:10:00",
+              "version": "16.17.7",
+              "user_id": 0,
+              "summary": "Tüm PHP lint ve JavaScript syntax kontrolleri, revision/tracker/data JSON parse ve önceki public agfo_* / wp_ajax_agfo_* envanter kaybı olmaması doğrulandı.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Kök neden: 16.17.2 koruması merkezi agfo_api_post() ve priority config yüzeyinde doğruydu; ancak bazı legacy/bağımlı çağrılar capability metadata içindeki stale supports_temperature=true değerini okuyabiliyor veya agfo_api_post() katmanını tamamen atlayarak wp_remote_post() kullanabiliyordu. Yeni runtime shield bu kaçış yolunu dar kapsamda kapatır."
+        }
+      ]
+    },
+    {
+      "id": "phase-runtime-core",
+      "title": "Faz 1 — Kalıcı İş, Varlık ve Kullanım Çekirdeği",
+      "order": 1,
+      "summary": "Runtime durumunu transient ve düz dosya sınırlarından çıkararak DB tabanlı iş kuyruğu, özel varlık deposu ve maliyet muhasebesine taşır.",
+      "tasks": [
+        {
+          "id": "CORE-001",
+          "title": "Üç tabloyu sürümlü ve tekrar çalıştırılabilir biçimde kur",
+          "instruction": "Jobs, assets ve usage tablolarını dbDelta ile kur. data.json sağlayıcı/model yapılandırması için kalmaya devam etsin. Migration yıkıcı olmasın ve eski sürüme dönüşte data.json okunabilirliğini korusun.",
+          "work_package": "class-schema.php tablo sözleşmeleri; class-installer.php aktivasyon/upgrade; şema sürüm option'ı; cron kurulum ve kaldırma davranışı.",
+          "verification": "Aktivasyonun iki kez çalıştırılması; tablo ve indekslerin varlığı; NULL idempotency davranışı; eski data.json dosyasının değişmeden kalması; deactivation sonrası cron temizliği.",
+          "dependencies": [
+            "STAB-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.8.0",
+          "completed_version": "16.8.0",
+          "changed_files": [
+            "includes/core/class-schema.php",
+            "includes/core/class-installer.php"
+          ],
+          "evidence": [],
+          "notes": "DB davranışı staging üzerinde doğrulanmalıdır."
+        },
+        {
+          "id": "JOB-001",
+          "title": "Atomik sahiplenmeli tek adımlı iş kuyruğunu kur",
+          "instruction": "İşi önce draft olarak yaz, bütçeyi rezerve et, sonra queued durumuna geçir. Worker bir çağrıda tek sağlayıcı isteği ve depolama adımı çalıştırsın; uzun while/sleep polling yapmasın. Claim işlemi lease token ile atomik olsun.",
+          "work_package": "Job store, worker ve public job API; retry/backoff; cancel; idempotency key; route zinciri; mevcut transient job sınıfına dokunmadan yeni agfo_job_* API'lerinin eklenmesi.",
+          "verification": "Eşzamanlı iki worker'ın aynı işi sahiplenememesi; queue→processing→storing→complete akışı; 429/5xx retry ve kontrollü failover; cancel erişim kontrolü; eski AJAX action'larının korunması.",
+          "dependencies": [
+            "CORE-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.8.0",
+          "completed_version": "16.8.0",
+          "changed_files": [
+            "includes/jobs/class-job-store.php",
+            "includes/jobs/class-job-worker.php",
+            "includes/jobs/class-job-api.php"
+          ],
+          "evidence": [],
+          "notes": "Gerçek sağlayıcı çağrısı ve eşzamanlılık staging smoke setinde doğrulanmalıdır."
+        },
+        {
+          "id": "ASSET-001",
+          "title": "Üretilen sesi web root dışındaki özel depoya al",
+          "instruction": "Yeni üretim akışında dosyaları varsayılan olarak web root dışında, opak adla ve provenance kaydıyla sakla. Büyük yanıtları stream ile diske yaz. Medya Kütüphanesine aktarımı yalnız açık opt-in ile yap.",
+          "work_package": "Asset store, partial→atomic rename, SHA-256, MIME kontrolü, retention cron'u, nonce+capability+ACL teslim endpoint'i ve agfo_asset_url public helper'ı.",
+          "verification": "Storage root realpath kontrolü; doğrudan URL bulunmaması; yetkisiz erişimin reddi; sahibi ve yöneticinin akış erişimi; retention temizliği; opt-in attachment oluşturma.",
+          "dependencies": [
+            "CORE-001",
+            "JOB-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.8.0",
+          "completed_version": "16.8.0",
+          "changed_files": [
+            "includes/assets/class-asset-store.php",
+            "includes/assets/class-asset-delivery.php"
+          ],
+          "evidence": [],
+          "notes": "Eski agfo_ai_store_generated_media() geriye uyumluluk için korunur; yeni iş API'si özel depoyu kullanır."
+        },
+        {
+          "id": "GOV-001",
+          "title": "Atomik bütçe rezervasyonu, kullanım rollup ve kill switch ekle",
+          "instruction": "Sağlayıcı, yetenek ve kaynak plugin bazında aylık tavanları destekle. Tahmin edilen maliyeti sağlayıcı çağrısından önce MySQL kilidi altında rezerve et; tamamlanınca gerçek maliyetle kapat. TTS için acil durdurma anahtarı sağla.",
+          "work_package": "Budget, usage ve kill switch sınıfları; jobs tablosundaki reserved/actual alanları; maliyet yönetim ekranı; fiyat snapshot'ı.",
+          "verification": "İki eşzamanlı rezervasyonun tavanı aşamaması; başarısız işte rezervasyonun çözülmesi; kullanım rollup toplamları; kill switch açıkken yeni ve kuyruktaki işlerin reddedilmesi.",
+          "dependencies": [
+            "CORE-001",
+            "JOB-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.8.0",
+          "completed_version": "16.8.0",
+          "changed_files": [
+            "includes/governance/class-budget.php",
+            "includes/governance/class-usage.php",
+            "includes/governance/class-killswitch.php",
+            "admin/class-operations.php"
+          ],
+          "evidence": [],
+          "notes": "OpenAI fiyatı sözleşmeye göre admin tarafından girilir; fiyatı sıfır olan rota parasal rezervasyon yapmaz."
+        },
+        {
+          "id": "MUSIC-001",
+          "title": "ElevenLabs, MiniMax ve Gemini Lyria ile ilk müzik üretim çekirdeğini kur",
+          "instruction": "music_generate yeteneğini üç sağlayıcıda gerçek API sözleşmeleriyle çalıştır; mevcut TTS, chat, job, asset, budget ve public API davranışlarını koru. Google entegrasyonunu Flow adıyla değil Gemini API Lyria 3 olarak uygula.",
+          "work_package": "ElevenLabs /v1/music binary stream adaptörü; MiniMax /v1/music_generation URL/hex indirme adaptörü ve music-2.6-free güvenli ilk test varsayılanı; Gemini /v1beta/interactions Lyria MP3 ses bloğu parserı; provider registry/default models; agfo_music_generate public facade; music payload sanitization; private asset/provenance; music budget and kill switch controls.",
+          "verification": "Tüm PHP dosyalarında php -l; adapter contract mock tests; provider model/payload/response fixtures; job API sanitization and metadata; API/AJAX inventory comparison; JSON validation; ZIP integrity; live WordPress tests with one short generation per configured provider.",
+          "dependencies": [
+            "JOB-001",
+            "ASSET-001",
+            "BUDGET-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.13.0",
+          "completed_version": "16.13.0",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "includes/functions.php",
+            "includes/class-ai-capability.php",
+            "includes/adapters/class-adapter-elevenlabs.php",
+            "includes/adapters/class-adapter-minimax.php",
+            "includes/adapters/class-adapter-gemini.php",
+            "includes/adapters/class-adapter-registry.php",
+            "includes/jobs/class-job-api.php",
+            "includes/jobs/class-job-worker.php",
+            "admin/class-operations.php"
+          ],
+          "evidence": [
+            {
+              "name": "Music adapter source and syntax verification",
+              "result": "PASS",
+              "date": "2026-08-01 01:30:00",
+              "version": "16.13.0",
+              "user_id": 0,
+              "summary": "Three music adapters, routing, payload sanitation, private asset storage linkage and public facade passed source-level and syntax checks. Live provider calls were not made in the build environment.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Kaynak ve mock adaptör testleri geçmiştir. MiniMax ilk test varsayılanı music-2.6-free, Gemini ilk sürüm çıktısı MP3’tür. Canlı provider smoke kanıtı olmadığı için görev implemented kalır."
+        }
+      ]
+    },
+    {
+      "id": "phase-tts",
+      "title": "Faz 2 — Metinden Sese (TTS)",
+      "order": 2,
+      "summary": "OpenAI, ElevenLabs ve MiniMax üzerinden sağlayıcı bağımsız TTS üretimini, canlı ses kataloglarını ve klasik sayfa editörü entegrasyonunu devreye alır.",
+      "tasks": [
+        {
+          "id": "TTS-001",
+          "title": "speech_synthesize yeteneği ve adaptör sözleşmesini ekle",
+          "instruction": "Yetenek matrisine speech_synthesize ekle. Giriş text, çıkış audio, maliyet birimi character ve transport queued olsun. OpenAI ve ElevenLabs body, auth, response ve hata ayrımlarını ayrı adaptörlerde tut.",
+          "work_package": "Adapter interface ve registry; OpenAI /v1/audio/speech adapter'ı; ElevenLabs text-to-speech adapter'ı; provider registry capability/default model alanları; agfo_speech_synthesize facade'ı.",
+          "verification": "Boş metin, uzun metin, geçersiz format ve eksik voice testleri; HTTP hata gövdesi redaksiyonu; stream dosyasının boş olmaması; rota ve fallback sınıflandırması.",
+          "dependencies": [
+            "JOB-001",
+            "ASSET-001",
+            "GOV-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.8.0",
+          "completed_version": "16.8.0",
+          "changed_files": [
+            "includes/class-ai-capability.php",
+            "includes/functions.php",
+            "includes/adapters/interface-adapter.php",
+            "includes/adapters/class-adapter-registry.php",
+            "includes/adapters/class-adapter-openai.php",
+            "includes/adapters/class-adapter-elevenlabs.php",
+            "includes/jobs/class-job-api.php"
+          ],
+          "evidence": [],
+          "notes": "Gerçek API anahtarları teslim paketine konmamıştır."
+        },
+        {
+          "id": "TTS-002",
+          "title": "Ses Stüdyosu ve iş/maliyet yönetim ekranlarını ekle",
+          "instruction": "Kullanıcıyı model listesine boğmadan sağlayıcı, model, voice, biçim, hız, okuma talimatı, saklama ve public opt-in alanlarıyla TTS işi başlatabilen bir admin stüdyosu oluştur. İşleri ve maliyetleri ayrı ekranlarda göster.",
+          "work_package": "Ses Stüdyosu formu ve AJAX polling; audio player; kontrollü download; işler tablosu; retry bağlantısı; bütçe/fiyat/kill switch formu; sayfa bazlı CSS/JS.",
+          "verification": "Yetkili/yetkisiz ekran erişimi; nonce kontrolleri; form submit; durum polling; complete çıktısının oynatılması ve indirilmesi; public opt-in varsayılanının kapalı olması; mobil admin görünümü.",
+          "dependencies": [
+            "TTS-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.8.0",
+          "completed_version": "16.8.0",
+          "changed_files": [
+            "admin/class-operations.php",
+            "assets/js/tts-studio.js",
+            "assets/css/operations.css"
+          ],
+          "evidence": [],
+          "notes": "Staging UI smoke doğrulaması gereklidir."
+        },
+        {
+          "id": "TTS-003",
+          "title": "TTS model ve konuşmacı kataloglarını sağlayıcıya duyarlı dropdownlara taşı",
+          "instruction": "Ses Stüdyosu kullanıcısından model veya Voice ID ezberlemesini isteme. OpenAI Speech API modellerini ve yerleşik sesleri kontrollü katalogdan göster; ElevenLabs API anahtarı mevcutsa TTS yapabilen modelleri ve hesaba açık sesleri sayfalanmış provider API yanıtından yükle. API anahtarını tarayıcıya açma, sonuçları kısa süreli cache et ve manuel yenileme sağla. Otomatik yönlendirmede her sağlayıcının model ve ses seçimini ayrı koru.",
+          "work_package": "Yeni includes/tts/class-tts-catalog.php katalog ve güvenli AJAX endpointi; Ses Stüdyosu model/ses dropdownları, ses araması, provider panelleri, model bilgisi ve ElevenLabs gelişmiş ayarları; provider_models rota haritası; OpenAI model-ses uyumluluk koruması; sayfa bazlı JS/CSS ve dokümantasyon güncellemesi.",
+          "verification": "OpenAI katalogda resmi TTS modelleri ile 13 yerleşik sesin bulunması; ElevenLabs model yanıtında can_do_text_to_speech filtresi; v2 voices pagination ve deduplication; API anahtarı yokken güvenli fallback; cache ve zorunlu refresh; AJAX nonce/capability; otomatik rotada OpenAI ve ElevenLabs model kimliklerinin karışmaması; TTS-1 uyumsuz ses reddi; boş gelişmiş ayarların provider varsayılanını ezmemesi; PHP/JS syntax ve staging üzerinde gerçek ElevenLabs hesap listesi smoke testi.",
+          "dependencies": [
+            "TTS-001",
+            "TTS-002"
+          ],
+          "status": "verified",
+          "target_version": "16.9.0",
+          "completed_version": "16.9.0",
+          "changed_files": [
+            "includes/tts/class-tts-catalog.php",
+            "includes/tts/index.php",
+            "admin/class-operations.php",
+            "assets/js/tts-studio.js",
+            "assets/css/operations.css",
+            "includes/jobs/class-job-api.php",
+            "includes/adapters/class-adapter-openai.php",
+            "includes/adapters/class-adapter-elevenlabs.php",
+            "agfo-ai-manager.php"
+          ],
+          "evidence": [
+            {
+              "name": "TTS catalog parsing and pagination mock",
+              "result": "PASS",
+              "date": "2026-07-31 22:29:00",
+              "version": "16.9.0",
+              "user_id": 0,
+              "summary": "OpenAI katalog sayıları, ElevenLabs TTS model filtresi, iki sayfalı voice pagination, transient cache ve force refresh için 11 assertion geçti.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "Provider-specific model routing and optional settings mock",
+              "result": "PASS",
+              "date": "2026-07-31 22:29:00",
+              "version": "16.9.0",
+              "user_id": 0,
+              "summary": "provider_models ile iki sağlayıcının ayrı model rotası ve boş ElevenLabs ayarlarının atlanması için 8 assertion geçti.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "OpenAI model and voice compatibility mock",
+              "result": "PASS",
+              "date": "2026-07-31 22:29:00",
+              "version": "16.9.0",
+              "user_id": 0,
+              "summary": "TTS-1 uyumsuz ses reddi, legacy modelde instructions alanının atılması ve GPT-4o mini TTS talimatının korunması için 6 assertion geçti.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "Live ElevenLabs production user acceptance",
+              "result": "PASS",
+              "date": "2026-07-31 22:49:00",
+              "version": "16.9.0",
+              "user_id": 0,
+              "summary": "Kullanıcı, gerçek ElevenLabs hesabı ve seçilen sesle üretimin başarılı ve yüksek kaliteli olduğunu doğruladı.",
+              "log_location": "user acceptance in project conversation"
+            }
+          ],
+          "notes": "Kaynak/mock kontrollerine ek olarak gerçek ElevenLabs hesabıyla canlı üretim kullanıcı tarafından doğrulandı."
+        },
+        {
+          "id": "TTS-004",
+          "title": "Klasik Sayfa editörüne modal TTS üretimi ve ses ekleme akışı bağla",
+          "instruction": "Klasik WordPress Sayfa editöründeki Medya Ekle satırına Seslendir düğmesi ekle. Modal seçili metni, seçim yoksa tüm sayfa içeriğini almalı; OpenAI/ElevenLabs model ve ses kataloglarını kullanmalı; işi kalıcı kuyrukta izlemeli; çıktıyı oynatmalı ve yalnız Medya Kütüphanesine açıkça yayımlanan kalıcı URL ile editöre audio shortcode eklemelidir. Blok editörü ve diğer post type davranışlarını değiştirme.",
+          "work_package": "Yeni classic editor integration sınıfı; page/post.php ve post-new.php ekran kapsamı; media_buttons düğmesi; erişilebilir modal; provider katalogları, ElevenLabs araması, gelişmiş ayarlar, iş submit/status/cancel polling; seçili/tüm metin çıkarımı; Media Library attachment URL döndürümü; TinyMCE ve Text sekmesine shortcode ekleme; sayfa bazlı CSS/JS; README, revision ve tracker güncellemesi.",
+          "verification": "Klasik page ekranında buton ve modal görünürlüğü; blok editörde görünmeme; manage_options yetkisi; seçili metin ve tüm içerik aktarımı; ElevenLabs katalog yükleme; nonce/capability; üretim/poll/cancel; özel çıktı URL sinin içeriğe eklenmemesi; public attachment oluştuğunda [audio] kısa kodunun Görsel ve Metin sekmelerinde imlece eklenmesi; PHP/JS syntax, JSON, public API/AJAX envanteri ve ZIP bütünlüğü.",
+          "dependencies": [
+            "TTS-003",
+            "JOB-001",
+            "ASSET-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.10.0",
+          "completed_version": "16.10.1",
+          "changed_files": [
+            "includes/editor/class-classic-editor-tts.php",
+            "includes/editor/index.php",
+            "assets/js/classic-editor-tts.js",
+            "assets/css/classic-editor-tts.css",
+            "includes/jobs/class-job-api.php",
+            "agfo-ai-manager.php",
+            "README.md",
+            "readme.txt"
+          ],
+          "evidence": [
+            {
+              "name": "Classic editor integration static verification",
+              "result": "PASS",
+              "date": "2026-07-31 23:20:00",
+              "version": "16.10.0",
+              "user_id": 0,
+              "summary": "PHP ve JavaScript syntax, scoped page/classic-editor hooks, capability guard, catalog/job AJAX sözleşmeleri, public attachment URL alanı ve editör insert kod yolu kaynak düzeyinde doğrulandı.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "16.10.0 user visibility regression report",
+              "result": "FAIL",
+              "date": "2026-07-31 23:07:00",
+              "version": "16.10.0",
+              "user_id": 0,
+              "summary": "Kullanıcı gerçek Klasik Sayfa editöründe Seslendir düğmesinin görünmediğini bildirdi; TTS-004 verified yapılmadı.",
+              "log_location": "user acceptance in project conversation"
+            }
+          ],
+          "notes": "16.10.0 gerçek ekran smoke testinde düğme görünmedi. 16.10.1 statik eligible ve block-editor tespit bağımlılığını kaldırıp JS fallback ekledi; yeniden kullanıcı smoke testi bekleniyor."
+        },
+        {
+          "id": "TTS-005",
+          "title": "MiniMax chat ve TTS sağlayıcı desteğini ekle",
+          "instruction": "MiniMax API anahtarını mevcut AGFO sağlayıcı kayıt defterine ekle; OpenAI uyumlu Chat Completions ve model listeleme uçlarını mevcut chat transportuyla çalıştır. speech_synthesize için MiniMax T2A HTTP adaptörü oluştur; kullanıcıdan model veya voice ID ezberlemesini istemeden hesabın erişebildiği sistem, klonlanmış ve tasarlanmış sesleri güvenli sunucu tarafı katalog çağrısıyla yükle. Ses Stüdyosu ve Klasik Sayfa editörü modalında MiniMax model, ses, dil, hız, ses düzeyi, perde ve çıktı ayarlarını göster. API anahtarını tarayıcıya açma; mevcut public API, AJAX action, option key, data.json ve bağımlı plugin davranışlarını koru.",
+          "work_package": "Provider registry içinde MiniMax models/chat/T2A/get_voice uçları ve Bearer auth; OpenAI uyumlu MiniMax-M3/M2.x chat/model discovery ve legacy max_tokens normalizasyonu; yeni AGFO_AIM_Adapter_MiniMax ile payload validation, maliyet tahmini, hex audio decode ve kontrollü temp file; adapter registry; MiniMax canlı voice catalog ve fallback modelleri; provider_models/provider_voices rotası; Ses Stüdyosu ve Klasik Editör sağlayıcı panelleri; MiniMax gelişmiş TTS alanları; sağlayıcı bütçesi ve HD/Turbo karakter fiyatları; README, revision ve native tracker güncellemesi. Veri tabanı migration yoktur.",
+          "verification": "MiniMax registry URL/auth/capability/default model alanlarını statik doğrula; OpenAI uyumlu chat body, /v1/chat/completions rotası, MiniMax-M3/M2.x model limitleri, max_tokens → max_completion_tokens dönüşümü ve sampling aralıklarını doğrula; T2A mock isteğinde /v1/t2a_v2, Bearer header, model, voice, language_boost, voice_setting, audio_setting ve output_format=hex alanlarını karşılaştır; provider hata kodu, geçersiz/boş hex, metin sınırı ve temp file yolu testlerini çalıştır; /v1/get_voice mock yanıtında system_voice, voice_cloning ve voice_generation kategorilerini doğrula; Ses Stüdyosu ve Klasik Editör MiniMax dropdown/arama/yenileme akışlarını kaynak düzeyinde doğrula; bütçe/fiyat girdilerini doğrula; tüm PHP/JS syntax, JSON, public API/AJAX envanteri ve ZIP bütünlüğünü kontrol et. Son olarak gerçek MiniMax anahtarıyla kısa Türkçe chat ve TTS staging smoke testi yap; bu iki canlı test geçmeden verified işaretleme.",
+          "dependencies": [
+            "TTS-003",
+            "JOB-001",
+            "GOV-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.11.0",
+          "completed_version": "16.11.0",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "includes/functions.php",
+            "includes/ajax/class-data.php",
+            "includes/class-ai-capability.php",
+            "includes/adapters/class-adapter-minimax.php",
+            "includes/adapters/class-adapter-registry.php",
+            "includes/tts/class-tts-catalog.php",
+            "includes/jobs/class-job-api.php",
+            "admin/class-operations.php",
+            "includes/editor/class-classic-editor-tts.php",
+            "assets/js/tts-studio.js",
+            "assets/js/classic-editor-tts.js",
+            "data/data.json",
+            "includes/AGFO-AI-Spec-Class.php",
+            "admin/class-admin.php",
+            "includes/partials/modal.php",
+            "includes/class-model-batch-scanner.php",
+            "README.md",
+            "readme.txt"
+          ],
+          "evidence": [
+            {
+              "name": "MiniMax T2A adapter and voice catalog mock",
+              "result": "PASS",
+              "date": "2026-07-31 23:51:00",
+              "version": "16.11.0",
+              "user_id": 0,
+              "summary": "32 assertion geçti: payload sınırları, resmi T2A endpointi, Bearer auth, HD/Turbo maliyetleri, hex çözme, provider/HTTP/geçersiz hex hataları, eksik anahtar, canlı voice kategorileri, Speech 01–2.8 modelleri, Türkçe ve senkron HTTP formatları.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "MiniMax chat, UI and source contract",
+              "result": "PASS",
+              "date": "2026-07-31 23:51:00",
+              "version": "16.11.0",
+              "user_id": 0,
+              "summary": "95 statik kontrol geçti: MiniMax-M3/M2.x model discovery, OpenAI-compatible chat route, model-aware completion limits, sampling normalization, Studio/Classic Editor controls, budget/pricing, provider-specific formats and package hygiene.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "PHP, JavaScript and JSON validation",
+              "result": "PASS",
+              "date": "2026-07-31 23:51:00",
+              "version": "16.11.0",
+              "user_id": 0,
+              "summary": "49 PHP dosyası php -l, 5 JavaScript dosyası node --check ve revision.json, tracker.json, data/data.json parse kontrollerinden geçti.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "Backward compatibility inventory",
+              "result": "PASS",
+              "date": "2026-07-31 23:51:00",
+              "version": "16.11.0",
+              "user_id": 0,
+              "summary": "Önceki 73 public agfo_* fonksiyonunun ve 21 wp_ajax_agfo_* action adının tamamı yeni pakette korundu.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Kaynak, mock HTTP ve paket öncesi doğrulamalar geçti. Gerçek MiniMax API anahtarı ve WordPress staging ortamı bu paket üretiminde kullanılmadı; canlı chat ve TTS kabul testi tamamlanana kadar implemented kalır."
+        },
+        {
+          "id": "TTS-006",
+          "title": "ElevenLabs ve MiniMax kredi/kota görünümünü ekle",
+          "instruction": "Ses Stüdyosunda kullanıcıyı sağlayıcı panellerine gitmeye zorlamadan kalan TTS kullanımını göster. ElevenLabs için yalnız resmi abonelik endpointinden gelen kesin veriyi kullan; API anahtarını tarayıcıya açma. MiniMax Audio Subscription için belgelenmiş bakiye endpointi yoksa kesin bakiye uydurma veya özel/kararsız endpoint kullanma; mevcut TTS yanıtlarındaki usage_characters ve AGFO kullanım tablosundan yalnız yerel tahmin üret ve bu farkı arayüzde görünür biçimde belirt.",
+          "work_package": "Yeni provider quota sınıfı; nonce ve manage_options korumalı AJAX action; ElevenLabs /v1/user/subscription çağrısı, 5 dakikalık transient cache ve zorunlu refresh; MiniMax aylık kota/sıfırlama ayarları, billing-cycle hesabı ve usage rollup sorgusu; Ses Stüdyosu ve Klasik Editör modalı kredi kartları, progress görünümü, iş tamamlanınca yenileme; Maliyet ekranı ayarları; sürüm, readme, revision ve tracker güncellemesi. Veri tabanı migration yoktur.",
+          "verification": "ElevenLabs endpoint URL/header/response parserını mock yanıtla doğrula; character_count, character_limit, next reset, tier ve status alanlarını karşılaştır; anahtarın JavaScript lokalizasyonuna girmediğini doğrula; MiniMax hesabında belgelenmemiş dış endpoint çağrısı olmadığını, yalnız local usage tablosunun sorgulandığını ve kartın yerel tahmin etiketi taşıdığını kontrol et; nonce/capability, sanitize/escape, PHP/JS syntax, JSON, public API/AJAX geriye uyumluluk ve ZIP bütünlüğünü test et. Gerçek ElevenLabs anahtarıyla canlı kota kartı ve gerçek WordPress ekranı görülmeden verified işaretleme.",
+          "dependencies": [
+            "TTS-005",
+            "GOV-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.12.0",
+          "completed_version": "16.12.0",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "includes/governance/class-provider-quota.php",
+            "includes/governance/class-usage.php",
+            "admin/class-operations.php",
+            "assets/js/tts-studio.js",
+            "assets/css/operations.css",
+            "README.md",
+            "readme.txt",
+            "includes/editor/class-classic-editor-tts.php",
+            "assets/js/classic-editor-tts.js",
+            "assets/css/classic-editor-tts.css"
+          ],
+          "evidence": [
+            {
+              "name": "Provider quota parser and local estimate mock",
+              "result": "PASS",
+              "date": "2026-08-01 01:18:00",
+              "version": "16.12.0",
+              "user_id": 0,
+              "summary": "10 assertion geçti: ElevenLabs exact/used/limit/remaining/tier ve MiniMax local/used/limit/remaining/disclosure davranışları doğrulandı.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "PHP, JavaScript and JSON validation",
+              "result": "PASS",
+              "date": "2026-08-01 01:18:00",
+              "version": "16.12.0",
+              "user_id": 0,
+              "summary": "50 PHP dosyası php -l, 5 JavaScript dosyası node --check ve revision.json, tracker.json, data/data.json parse kontrollerinden geçti.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "Backward compatibility inventory",
+              "result": "PASS",
+              "date": "2026-08-01 01:18:00",
+              "version": "16.12.0",
+              "user_id": 0,
+              "summary": "Önceki 73 public agfo_* fonksiyon ve 21 AJAX action korundu; yalnız wp_ajax_agfo_ai_provider_quota eklendi.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "MiniMax balance truthfulness guard",
+              "result": "PASS",
+              "date": "2026-08-01 01:18:00",
+              "version": "16.12.0",
+              "user_id": 0,
+              "summary": "MiniMax için belgelenmemiş bakiye endpointi kullanılmadı; UI ve response exact=false/local_estimate olarak işaretlendi ve portal dışı kullanımın hesaba katılmadığı açıklandı.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "MiniMax kartı kesin sağlayıcı bakiyesi değildir; yalnız AGFO AI Manager üzerinden tamamlanan TTS işlerini kapsayan yerel tahmindir. ElevenLabs canlı runtime ve gerçek ekran kabul testi bekleniyor."
+        },
+        {
+          "id": "TTS-007",
+          "title": "Klasik editör TTS çıktısına kalıcı reverb ve echo uygula",
+          "instruction": "Klasik editördeki Seslendir modalında kullanıcıya kuru ses, sıcak oda reverbü, yumuşak echo ve salon reverbü seçenekleri sun. Efekti tarayıcıdaki geçici önizlemeye değil, sağlayıcı TTS işi tamamlandıktan sonra nihai asset dosyasına kalıcı olarak uygula. Music Studio tarafından web kökü dışına kurulmuş yönetimli FFmpeg yolunu otomatik algıla; FFmpeg kullanılamıyorsa ücretli sağlayıcı çağrısını başlatmadan önce açık hata ver. Mevcut TTS sağlayıcı, model, ses, kota, iş kuyruğu, asset, Medya Kütüphanesi ve editöre ekleme davranışlarını koru.",
+          "work_package": "Yeni includes/audio/class-audio-effects.php sınıfı; FFmpeg/proc_open durum tespiti; AGFO_AIM_FFMPEG_PATH, AGFO_MS_FFMPEG_PATH, Music Studio yönetimli yol ve sistem yolları; warm_room, soft_echo ve hall filter graph presetleri; yüzde bazlı effect_amount; Classic Editor modal HTML/CSS/JS kontrolleri ve localStorage tercihi; speech_synthesize payload sanitization ve MP3 zorlaması; sağlayıcı çağrısından önce effect preflight; worker içinde sağlayıcı sonucu sonrası tek seferlik FFmpeg post-processing; effect hata durumunda provider retry yapmama, gerçek maliyet settlement ve provenance/metadata kaydı. Veri tabanı migrationı yoktur.",
+          "verification": "WordPress UI Runtime Guard statik envanteri; tüm PHP dosyalarında php -l; tüm JavaScript dosyalarında node --check; revision/tracker/data JSON parse; eski public agfo_* fonksiyon ve wp_ajax_agfo_* action envanter karşılaştırması; üç preset için sentetik WAV üzerinde gerçek FFmpeg render ve FFprobe süre/boyut kontrolü; preflight sırası, payload alanları, MP3 zorlaması, worker no-retry ve provenance statik assertionları. Gerçek Classic Editor ekranında bir TTS üretimi dinlenmeden verified işaretleme.",
+          "dependencies": [
+            "TTS-004",
+            "ASSET-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.14.0",
+          "completed_version": "16.14.0",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "includes/audio/class-audio-effects.php",
+            "includes/audio/index.php",
+            "includes/editor/class-classic-editor-tts.php",
+            "assets/js/classic-editor-tts.js",
+            "assets/css/classic-editor-tts.css",
+            "includes/jobs/class-job-api.php",
+            "includes/jobs/class-job-worker.php",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "FFmpeg audio effect render smoke",
+              "result": "PASS",
+              "date": "2026-08-01 22:14:00",
+              "version": "16.14.0",
+              "user_id": 0,
+              "summary": "warm_room, soft_echo ve hall presetleri sentetik WAV girdisi üzerinde gerçek FFmpeg ile MP3 üretti; çıktı boyutları ve FFprobe süreleri doğrulandı.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "Classic Editor effect contract and compatibility",
+              "result": "PASS",
+              "date": "2026-08-01 22:14:00",
+              "version": "16.14.0",
+              "user_id": 0,
+              "summary": "17 assertion geçti: bootstrap include, UI alanları, localStorage, payload, sanitize, MP3 zorlama, preflight sırası, worker post-processing/no-retry/cost settlement/provenance ve eski public API/AJAX envanterinin korunması.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "PHP, JavaScript and JSON validation",
+              "result": "PASS",
+              "date": "2026-08-01 22:14:00",
+              "version": "16.14.0",
+              "user_id": 0,
+              "summary": "53 PHP dosyası php -l, 5 JavaScript dosyası node --check ve revision.json, tracker.json, data/data.json parse kontrollerinden geçti.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "WordPress UI Runtime Guard static inventory",
+              "result": "PASS",
+              "date": "2026-08-01 22:14:00",
+              "version": "16.14.0",
+              "user_id": 0,
+              "summary": "Bootstrap include zinciri, Classic Editor hookları, enqueue kayıtları, capability/nonce ve modal asset yolu statik olarak envanterlendi; rapor runtime doğrulaması iddiasında bulunmaz.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Kaynak ve gerçek FFmpeg post-processing doğrulandı. Klasik editördeki modalın görünümü ve gerçek ElevenLabs/MiniMax çıktısında efektin işitsel kabulü kullanıcı ortamında gözlemlenmediği için görev implemented durumunda tutulur."
+        }
+      ]
+    },
+    {
+      "id": "phase-content-studio",
+      "title": "Faz 3 — İçerik Stüdyosu ve Prompt Yönetimi",
+      "order": 3,
+      "summary": "Klasik editörde kaynak sadakatli metin dönüşümü, düzenlenebilir prompt kütüphanesi ve TTS aktarımı.",
+      "tasks": [
+        {
+          "id": "CONTENT-001",
+          "title": "AGFO AI Suite işlevlerini AI Manager İçerik Stüdyosuna taşı",
+          "instruction": "Bağımsız AGFO AI Suite içindeki seçili/tüm metni alma, yeniden yazma, sonuç ekleme ve prompt özelleştirme işlevlerini AGFO AI Manager içine taşı. Mevcut Classic Editor TTS akışını bozmadan AI Düzenle aracı ekle; dönüştürülen sonucu seslendirme modalına aktar. Kaynakta olmayan gerçek, tarih, sayı, standart, kayıt, kanıt veya atıf üretimini prompt düzeyinde yasakla. Mevcut agfo_* public API, AJAX, option, job, asset ve TTS sözleşmelerini koru.",
+          "work_package": "Yeni content prompt library ve transformer sınıfları; Classic Editor Content Studio PHP/JS/CSS; seçili metin/tüm içerik yakalama; aktif AI Manager provider/model bilgisi; dil, ton, hedef okuyucu, uzunluk ve ek talimat alanları; sonuç önizleme, replace/append/copy/undo; TTS custom event handoff; AGFO AI > İçerik Promptları sayfası; eski agfo_suite_prompts için yalnız özelleştirilmiş değer migrationı; bağımsız AI Suite kapalıyken legacy AJAX aliasları ve agfo_ai_suite_ajax_info facade; standalone plugin aktifse yönetici bildirimi. Veri tabanı migrationı yoktur.",
+          "verification": "WordPress UI Runtime Guard statik envanteri; bootstrap include ve register zinciri; PHP syntax; JavaScript syntax; JSON parse; content AJAX nonce/capability; central agfo_api_post transport; prompt fact-preservation clauses; editor selection/full content, replace/append/undo/TTS handoff statik sözleşmesi; legacy alias ve migration kontrolleri; public function/AJAX inventory comparison; ZIP integrity. Gerçek Classic Editor ekranında görünürlük, dönüşüm, editöre uygulama ve sonucu seslendirme smoke testi olmadan verified işaretleme.",
+          "dependencies": [
+            "TTS-004"
+          ],
+          "status": "implemented",
+          "target_version": "16.15.0",
+          "completed_version": "16.15.0",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "includes/content/class-content-prompt-library.php",
+            "includes/content/class-content-transformer.php",
+            "includes/content/index.php",
+            "includes/editor/class-classic-editor-content.php",
+            "includes/editor/class-classic-editor-tts.php",
+            "assets/js/classic-editor-content.js",
+            "assets/js/classic-editor-tts.js",
+            "assets/css/classic-editor-content.css",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "Content Studio source and compatibility verification",
+              "result": "PASS",
+              "date": "2026-08-01 22:45:00",
+              "version": "16.15.0",
+              "user_id": 0,
+              "summary": "Prompt library, central transport, Classic Editor modal, editor apply/undo/TTS handoff and legacy AI Suite compatibility paths passed source-level assertions. Runtime screen was not opened.",
+              "log_location": "package build verification"
+            },
+            {
+              "name": "PHP, JavaScript and JSON validation",
+              "result": "PASS",
+              "date": "2026-08-01 22:45:00",
+              "version": "16.15.0",
+              "user_id": 0,
+              "summary": "All PHP files passed php -l; changed JavaScript files passed node --check; revision.json, tracker.json and data/data.json parsed successfully.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Kaynak ve statik sözleşmeler doğrulandı. Kullanıcının gerçek Classic Editor ekranında AI Düzenle modalı ve canlı provider yanıtı gözlemlenmediği için implemented bırakıldı."
+        },
+        {
+          "id": "CONTENT-002",
+          "title": "Classic Editor İçerik Stüdyosu canlı kabulünü tamamla",
+          "instruction": "Klasik editörde AI Düzenle düğmesinin görünürlüğünü, seçili metin yakalamayı, canlı model çağrısını, sonuç önizlemesini, seçili bölgeyi değiştirmeyi, geri almayı ve Sonucu Seslendir aktarımını gerçek WordPress ortamında doğrula.",
+          "work_package": "Yetkili kullanıcıyla post.php veya post-new.php ekranında tek uçtan uca kabul; bağımsız AI Suite aktif/pasif çakışma kontrolü; provider/model meta görünümü; AJAX nonce/capability; editör Visual/Text sekmeleri; TTS modalına aktarım; eski içerik ve TTS akışında regresyon kontrolü.",
+          "verification": "Ekran görüntüsü veya runtime log ile loaded version, hook, asset ve DOM; seçili metin dönüşümünde gerçek AI sonucu; Editörde Değiştir ve Geri Al; Sonucu Seslendir ile TTS metin alanının doldurulması; çift ücretli çağrı oluşmaması.",
+          "dependencies": [
+            "CONTENT-001"
+          ],
+          "status": "pending",
+          "target_version": "16.15.1",
+          "completed_version": "",
+          "changed_files": [],
+          "evidence": [
+            {
+              "name": "Classic Editor Content Studio initial runtime acceptance",
+              "result": "FAIL",
+              "date": "2026-08-01 23:10:00",
+              "version": "16.15.0",
+              "user_id": 1,
+              "summary": "Modal açıldı; kaynak metin dolu olmasına rağmen sayaç 0 kaldı. Yeniden Yaz düğmesi AJAX yerine WordPress post formunu submit ederek post listesine yönlendirdi.",
+              "log_location": "user runtime report and screenshot"
+            }
+          ],
+          "notes": "16.15.0 canlı kabulü başarısız oldu. 16.15.1 düzeltmesinin gerçek Classic Editor AJAX kabulü bekleniyor."
+        },
+        {
+          "id": "CONTENT-003",
+          "title": "İçerik Stüdyosu geç DOM event zincirini stabilize et",
+          "instruction": "Classic Editor admin footer sıralamasında modal HTML JavaScript çalıştıktan sonra eklense bile bütün modal kontrollerinin bağlanmasını sağla. Yeniden Yaz düğmesinin ana WordPress post formunu submit etmesini kesin olarak engelle; seçili/tüm metin, karakter sayacı, dönüşüm, kopyala, editöre uygula, altına ekle, geri al ve TTS aktarımını koru.",
+          "work_package": "Yeniden Yaz düğmesini submit davranışından çıkar; dönüşüm işlemini açık click/submit fonksiyonunda topla; modal içinde sonradan oluşan DOM elemanları için document seviyesinde delegated change/click/input/submit handlerları kullan; event preventDefault ve stopPropagation uygula. AJAX action, nonce, capability, payload ve editör sözleşmelerini değiştirme. Veri tabanı migrationı yoktur.",
+          "verification": "PHP syntax; JavaScript syntax; revision/tracker JSON parse; Yeniden Yaz düğmesinde type=button; doğrudan modal selector event bindinglerinin kaldırılması; delegated source input sayacı ve transform click/submit handlerları; eski AJAX/public API envanterinin korunması; ZIP integrity. Gerçek Classic Editor ekranında sayaç ve AJAX çalışma kanıtı olmadan verified yapma.",
+          "dependencies": [
+            "CONTENT-001"
+          ],
+          "status": "implemented",
+          "target_version": "16.15.1",
+          "completed_version": "16.15.1",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "includes/editor/class-classic-editor-content.php",
+            "assets/js/classic-editor-content.js",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [],
+          "notes": "Kaynak düzeltmesi uygulandı. Kullanıcı ortamındaki AJAX ve editör kabulü CONTENT-002 kapsamında bekleniyor."
+        },
+        {
+          "id": "CONTENT-004",
+          "title": "AI Düzenle dönüşümünü yeni model sampling kurallarıyla stabilize et",
+          "instruction": "Classic Editor AI Düzenle modalında Yeniden Yaz isteğinin yeni model temperature reddi nedeniyle sonuç üretmeden kesilmesini engelle. Provider capability supports_temperature=false ise Content Studio request body içinde temperature alanını hiç oluşturma. Editörde Değiştir ve Altına Ekle işlemlerinden sonra TinyMCE içeriğini temel textarea ve WordPress değişiklik dinleyicileriyle hemen senkronla.",
+          "work_package": "includes/content/class-content-transformer.php içinde provider body üretimini supports_temperature bilgisine bağla; Gemini generationConfig, Claude ve OpenAI-compatible top-level temperature alanlarını koşullu oluştur. assets/js/classic-editor-content.js içinde replace/insert sonrasında editor.save(), editor change olayı ve textarea input/change olaylarını tetikle. Mevcut AJAX action, nonce, prompt, TTS handoff ve modal UI sözleşmelerini değiştirme.",
+          "verification": "PHP lint; JavaScript node --check; Content Transformer gövde regresyonunda supports_temperature=false için temperature yokluğu ve true için mevcut davranış; JS kaynak kontrolünde replace/insert sonrası editor.save ve input/change senkronu; public AJAX/API envanter korunumu; gerçek Classic Editor ekranında Yeniden Yaz -> Sonuç -> Editörde Değiştir uçtan uca smoke yapılmadan verified işaretleme.",
+          "dependencies": [
+            "CONTENT-003",
+            "STAB-007"
+          ],
+          "status": "implemented",
+          "target_version": "16.17.2",
+          "completed_version": "16.17.2",
+          "changed_files": [
+            "includes/content/class-content-transformer.php",
+            "assets/js/classic-editor-content.js",
+            "agfo-ai-manager.php",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "16.17.2 Content Studio source regression",
+              "result": "PASS",
+              "date": "2026-08-10 20:36:00",
+              "version": "16.17.2",
+              "user_id": 0,
+              "summary": "Content Studio body builder capability-aware temperature omission and TinyMCE/textarea synchronization source-level assertions passed.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Canlı provider ve gerçek Classic Editor ekranı bu ortamda çalıştırılmadığı için implemented durumundadır."
+        }
+      ]
+    },
+    {
+      "id": "phase-video-deferred",
+      "title": "Faz 3 — Video (Ertelendi)",
+      "order": 4,
+      "summary": "Video üretimi bu sürümün kapsamından çıkarılmıştır; çekirdek gerçek kullanımda doğrulandıktan sonra yeniden planlanacaktır.",
+      "tasks": [
+        {
+          "id": "VIDEO-001",
+          "title": "Video üretim ve düzenleme yeteneklerini ekle",
+          "instruction": "Video generate/edit, webhook/poll, büyük dosya, süre bazlı fiyat ve codec/preview gereksinimlerini TTS çekirdeği canlı kullanımda doğrulanmadan uygulama.",
+          "work_package": "Gelecek sürümde video adaptörleri, provider_pending state machine, webhook HMAC/replay koruması, saniye bazlı maliyet ve video asset metadata'sı planlanacaktır.",
+          "verification": "Başlama ön koşulu: 16.8.x iş kuyruğu, bütçe rezervasyonu ve private asset store'un staging/canlı kullanım kanıtlarının verified olması.",
+          "dependencies": [
+            "JOB-001",
+            "ASSET-001",
+            "GOV-001"
+          ],
+          "status": "deferred",
+          "target_version": "future",
+          "completed_version": "",
+          "changed_files": [],
+          "evidence": [],
+          "notes": "Karar tarihi 2026-07-31: kapsamı hafifletmek ve TTS'yi öncelemek için ertelendi."
+        }
+      ]
+    },
+    {
+      "id": "phase-admin-ux",
+      "title": "Faz 5 — Admin Deneyimi ve Kontrol Merkezi",
+      "order": 5,
+      "summary": "AI Manager yönetim yüzeyini veri ve public sözleşmeleri değiştirmeden daha odaklı, erişilebilir ve doğrulanabilir hale getirir.",
+      "tasks": [
+        {
+          "id": "UI-001",
+          "title": "Quick Switch sağ panelini sekmeli kontrol çalışma alanına dönüştür",
+          "instruction": "Quick Switch modalında sürekli görünen dar sağ kolonu kaldır. Mevcut Hız Dağılımı, Benchmark, Kayıtlı Modeller ve Aktif Ayarlar işlevlerini, Model Seçimi ile aynı çalışma alanında ayrı ve erişilebilir sekmeler olarak göster. Mevcut provider/model kaydetme akışını, public APIleri, AJAX action adlarını, option keyleri ve data/data.json sözleşmesini değiştirme. İşlevsiz görünen alanları mevcut veri kaynaklarını kullanarak çalışır hale getir; yeni bir paralel veri katmanı oluşturma.",
+          "work_package": "includes/partials/modal.php içinde iki kolonlu filtre+workspace düzeni ve ARIA tab yapısı; assets/js/script.js içinde delegated tab navigasyonu, oturum içi sekme hatırlama, canlı benchmark çağrısı/fallback, speed_score tabanlı hız özeti, uyumsuz model sayımı, kayıtlı modellerde arama/kopyalama/seçme ve saved-vs-draft ayar karşılaştırması; includes/ajax/class-data.php içinde mevcut agfo_get_model_score ucuna ortak admin nonce doğrulaması; sürüm, README/readme, revision ve tracker zincirini 16.17.0 MINOR olarak güncelle. Veri tabanı migration yapma.",
+          "verification": "Tüm PHP dosyalarında php -l ve tüm JS dosyalarında node --check; revision/tracker/data JSON parse; plugin header, AGFO_AIM_VERSION, README, readme Stable tag, revision current_version ve tracker current_release değerlerinin 16.17.0 eşitliği; önceki public agfo_* fonksiyon ve wp_ajax_agfo_* action envanterinin korunması; beş tab buttonunun beş panel IDsiyle birebir ARIA eşleşmesi; agfo_get_model_score JS isteğinde nonce bulunduğunun ve PHP handlerında check_ajax_referer ile doğrulandığının statik testi; gerçek WordPress admininde modal, tab geçişleri, benchmark, kayıtlı model arama/kopyalama/seçme, hız özeti, kaydedilmemiş ayar rozeti ve Kaydet ve Uygula regresyon smoke testi.",
+          "dependencies": [
+            "STAB-006"
+          ],
+          "status": "implemented",
+          "target_version": "16.17.0",
+          "completed_version": "16.17.0",
+          "changed_files": [
+            "agfo-ai-manager.php",
+            "admin/class-admin.php",
+            "includes/class-model-batch-scanner.php",
+            "includes/partials/modal.php",
+            "includes/ajax/class-data.php",
+            "assets/js/script.js",
+            "AGFO-AI-MANAGER-SPEC.md",
+            "README.md",
+            "readme.txt",
+            "revision.json",
+            "revision.txt",
+            "tracker.json"
+          ],
+          "evidence": [
+            {
+              "name": "16.17.0 tabbed Quick Switch static package verification",
+              "result": "PASS",
+              "date": "2026-08-09 14:30:00",
+              "version": "16.17.0",
+              "user_id": 0,
+              "summary": "Kaynak düzeyinde tab/panel sözleşmesi, benchmark nonce zinciri, syntax, JSON, version ve public API/AJAX envanter kontrolleri paket üretiminde çalıştırıldı. Gerçek WordPress tarayıcı smoke testi ayrıca beklenir.",
+              "log_location": "package build verification"
+            }
+          ],
+          "notes": "Gerçek WordPress admin ekranında etkileşim ve görsel doğrulama yapılmadığı için tracker standardı gereği verified değil, implemented durumundadır."
+        }
+      ]
+    },
+    {
+      "id": "phase-image",
+      "title": "Faz 6 — Görsel Üretimi ve Öne Çıkan Görsel",
+      "order": 6,
+      "summary": "Klasik editörde yazı içeriğinden veya operatör promptundan öne çıkan görsel üretimi; sağlayıcı bağımsız image_generate yeteneği.",
+      "tasks": [
+        {
+          "id": "IMAGE-001",
+          "title": "Klasik editör AI Görsel Stüdyosu",
+          "instruction": "image_generate yeteneğini yetenek katmanına ekle; OpenAI, OpenRouter, Gemini, fal.ai ve MiniMax için görsel istek gövdesi kur; düzenlenebilir preset kütüphanesi ve klasik editör modalı üret; üretilen görseli medya kütüphanesine yazıp öne çıkan görsel olarak ata.",
+          "work_package": "includes/class-ai-image.php, includes/adapters/class-adapter-image.php, includes/image/*, includes/editor/class-classic-editor-image.php, assets/js/classic-editor-image.js, assets/css/classic-editor-image.css",
+          "verification": "php -l tüm dosyalarda; node --check; 154 assertion'lık geriye uyumluluk ve davranış koşusu; 16 render kontrolü; fonksiyon/sınıf envanteri farkı (kayıp yok).",
+          "status": "implemented",
+          "release": "16.16.0"
+        },
+        {
+          "id": "IMAGE-002",
+          "title": "Canlı sağlayıcı doğrulaması",
+          "instruction": "Her sağlayıcı için staging üzerinde gerçek üretim yap; dönen görselin medya kütüphanesine doğru MIME ve boyutla yazıldığını, öne çıkan görsel atamasının metaboxu güncellediğini doğrula.",
+          "work_package": "Staging doğrulaması",
+          "verification": "Sağlayıcı başına en az bir başarılı üretim ve bir hatalı model kimliğiyle anlamlı hata mesajı.",
+          "status": "open",
+          "release": "16.16.0"
+        },
+        {
+          "id": "IMAGE-003",
+          "title": "Modal görünürlük regresyonu düzeltmesi",
+          "instruction": "Modal ve overlay görünürlüğünü .is-open sınıfına taşı; [hidden] için display:none!important koruması ekle; sayfa yüklenirken kapalı durumu zorla.",
+          "work_package": "assets/css/classic-editor-image.css, assets/js/classic-editor-image.js",
+          "verification": "CSS guard statik kontrolü; node --check; modal açma/kapama davranış koşusu.",
+          "status": "implemented",
+          "release": "16.16.1"
+        },
+        {
+          "id": "IMAGE-004",
+          "title": "Görsel prompt kalitesi — sanat yönetmeni adımı",
+          "instruction": "Brief'i preset'e duyarlı sanat yönetmeni çağrısına çevir; son promptu görsel modelinin uzunluk sınırına göre boyutlandır ve özneyi başa al; preset metinlerini olumlu ve somut yaz; eski varsayılanın donmuş kopyalarını yok say; Gemini/FLUX Ultra en-boy parametrelerini ilet.",
+          "work_package": "includes/image/class-image-generator.php, includes/image/class-image-prompt-library.php, includes/adapters/class-adapter-image.php",
+          "verification": "php -l; 130 assertion'lık izole davranış koşusu (bütçe, mod, migration, ayar, adapter gövdeleri, geriye uyumluluk); public method envanteri farkı.",
+          "status": "implemented",
+          "release": "16.19.0"
+        },
+        {
+          "id": "IMAGE-005",
+          "title": "Sanat yönetmeni canlı kalite doğrulaması",
+          "instruction": "Aynı yazı için sanat yönetmeni açık/kapalı iki görsel üret; her preset ve her sağlayıcı için promptun bütçeyi aşmadığını ve sağlayıcının 400 döndürmediğini doğrula.",
+          "work_package": "Canlı test ortamı doğrulaması",
+          "verification": "Preset başına en az bir açık/kapalı karşılaştırması; Gemini imageConfig ve FLUX Ultra aspect_ratio kabulü.",
+          "status": "open",
+          "release": "16.19.0"
+        }
+      ]
+    },
+    {
+      "id": "phase-request-guard",
+      "title": "Faz 7 — Merkezi İstek Koruması ve Kontrol Merkezi",
+      "order": 7,
+      "summary": "Sağlayıcı parametre ve model uyumsuzluklarını tüm sitede, istek gönderilmeden önce ve ilk retten sonra kalıcı olarak önler; hızlı geçiş modalını yeniden tasarlar.",
+      "tasks": [
+        {
+          "id": "GUARD-001",
+          "title": "Temperature için varsayılan olarak kapalı politika",
+          "instruction": "OpenAI'de yalnız GPT-4/GPT-3.5 ve canlı testte supported çıkan modellere sampling parametresi gönder; diğer sağlayıcılarda reddedilen parametreyi öğren.",
+          "work_package": "includes/core/class-request-guard.php, includes/functions.php",
+          "verification": "tests/request-guard-tests.php T1–T4, T12, T13, T17–T19 (42/42 PASS)",
+          "status": "verified",
+          "release": "17.0.0"
+        },
+        {
+          "id": "GUARD-002",
+          "title": "Responses köprüsü ve yedek model",
+          "instruction": "Responses-only OpenAI modellerini chat gövdesinden /v1/responses'a çevir; model_not_found ve chat dışı modeller için aynı sağlayıcıda çalışan modele geç.",
+          "work_package": "includes/core/class-request-guard.php",
+          "verification": "tests/request-guard-tests.php T5–T8, T14, T18, T20–T22 (42/42 PASS)",
+          "status": "verified",
+          "release": "17.0.0"
+        },
+        {
+          "id": "GUARD-003",
+          "title": "Canlı sağlayıcı doğrulaması",
+          "instruction": "Gerçek anahtarla bir pro modeli chat testinden çalıştır; bir gpt-5.x modeline temperature gönderen bağımlı eklenti çağrısının 200 döndüğünü ve transport log'da AGFO_GUARD_PARAMS_REMOVED kaydını doğrula.",
+          "work_package": "Canlı WordPress",
+          "verification": "Transport log + chat test ekranı",
+          "status": "open",
+          "release": "17.0.0"
+        },
+        {
+          "id": "UI-017",
+          "title": "AI Kontrol Merkezi yeniden tasarımı",
+          "instruction": "Sütunlu model tablosu, 16 px checkbox, sabit alt çubuk, klavye gezinmesi, koruma paneli; tüm mevcut id'leri koru.",
+          "work_package": "includes/partials/modal.php, assets/css/control-center.css, assets/js/script.js",
+          "verification": "Chromium render 1440/700 px, etkileşim betiği, konsol hatası yok",
+          "status": "verified",
+          "release": "17.0.0"
+        }
+      ]
+    },
+    {
+      "id": "phase-model-boards",
+      "title": "Faz 8 — Model Kataloğu, Çeviri ve Görsel Panoları",
+      "order": 8,
+      "summary": "Yeni modelleri otomatik öne alır; çeviri ve görsel üretimi için kalite/fiyat karşılaştırması ve tek tıkla atama.",
+      "tasks": [
+        {
+          "id": "CAT-001",
+          "title": "Model meta verisi ve en yeni sıralaması",
+          "instruction": "Refresh sırasında created/pricing sakla; sürüm+tarih anahtarıyla en yeni üstte sırala; Yeni rozeti.",
+          "work_package": "includes/class-model-catalog.php, includes/ajax/class-data.php, assets/js/script.js",
+          "verification": "tests/model-catalog-tests.php C1–C4",
+          "status": "verified",
+          "release": "17.1.0"
+        },
+        {
+          "id": "CAT-002",
+          "title": "Çeviri panosu ve text_translate",
+          "instruction": "Benchmark kalitesi + 1.000 kelime maliyeti ile değer sıralaması; agfo_get_translation_config().",
+          "work_package": "includes/class-model-catalog.php, includes/class-ai-capability.php, assets/js/control-center-boards.js",
+          "verification": "tests/model-catalog-tests.php C5–C7",
+          "status": "verified",
+          "release": "17.1.0"
+        },
+        {
+          "id": "CAT-003",
+          "title": "Görsel üretimi panosu",
+          "instruction": "Görsel modelleri kalite notu, görsel başı fiyat ve varsayılan atama ile listele.",
+          "work_package": "includes/class-model-catalog.php, assets/js/control-center-boards.js",
+          "verification": "tests/model-catalog-tests.php C8; Chromium render",
+          "status": "verified",
+          "release": "17.1.0"
+        },
+        {
+          "id": "CAT-004",
+          "title": "Canlı doğrulama",
+          "instruction": "Canlı sitede OpenAI ve OpenRouter için Güncelle'ye bas; yayın tarihlerinin ve OpenRouter fiyatlarının dolduğunu, Çeviri sekmesinde fiyat görünmeyen model sayısının düştüğünü doğrula.",
+          "work_package": "Canlı WordPress",
+          "verification": "Modal görsel kontrol",
+          "status": "open",
+          "release": "17.1.0"
+        }
+      ]
+    },
+    {
+      "id": "phase-code-review",
+      "title": "Faz 9 — AI Kod İnceleme Servisi",
+      "order": 9,
+      "summary": "Plugin Installer için yükleme sonrası AI incelemesi.",
+      "tasks": [
+        {
+          "id": "REV-001",
+          "title": "agfo_ai_code_review servisi",
+          "instruction": "Hızlı/derin yönlendirme, JSON şema, maskeleme, kanıt doğrulaması.",
+          "work_package": "includes/class-code-review.php",
+          "verification": "tests/code-review-tests.php 16/16",
+          "status": "verified",
+          "release": "17.2.0"
+        },
+        {
+          "id": "REV-002",
+          "title": "Canlı doğrulama",
+          "instruction": "Installer 2.3.0 ile bir eklenti güncelleyip panelde gpt-4.1-mini raporunun geldiğini ve maliyetin göründüğünü doğrula.",
+          "work_package": "Canlı WordPress",
+          "verification": "Installer paneli",
+          "status": "open",
+          "release": "17.2.0"
+        }
+      ]
+    },
+    {
+      "id": "phase-editor-translate",
+      "title": "Faz 10 — Editörde Çeviri",
+      "order": 11,
+      "summary": "Sayfa/yazı editöründen tek tıkla çeviri; Çeviri sekmesinde seçilen modelin gerçekten kullanılması.",
+      "tasks": [
+        {
+          "id": "TR-001",
+          "title": "Toolbar Çevir butonu",
+          "instruction": "AI Düzenle yanında Çevir + hedef dil; seçili metin yoksa tüm içerik; stüdyo tercihlerini değiştirme.",
+          "work_package": "includes/editor/class-classic-editor-content.php, assets/js/classic-editor-content.js, assets/css/classic-editor-content.css",
+          "verification": "Chromium akış testi; tests/content-translate-tests.php T14–T16",
+          "status": "verified",
+          "release": "17.3.0"
+        },
+        {
+          "id": "TR-002",
+          "title": "Çeviri model yönlendirmesi",
+          "instruction": "translate_polish şablonu agfo_get_translation_config() kullanır, yoksa varsayılan modele döner; çıktı payı 1200–8000, kesilme işareti.",
+          "work_package": "includes/content/class-content-transformer.php",
+          "verification": "tests/content-translate-tests.php T1–T13",
+          "status": "verified",
+          "release": "17.3.0"
+        },
+        {
+          "id": "TR-003",
+          "title": "Canlı doğrulama",
+          "instruction": "Gerçek bir sayfada uzun bir bölümü çevir; meta satırında çeviri modelinin göründüğünü ve sonucun kesilmediğini doğrula.",
+          "work_package": "Canlı WordPress",
+          "verification": "Editör ekranı",
+          "status": "open",
+          "release": "17.3.0"
+        },
+        {
+          "id": "TR-004",
+          "title": "AI inceleme bulgularının düzeltilmesi",
+          "instruction": "Çürütülen eksik-kontrol iddiasını at; filtreyi tip güvenli yap; ön yüz modalını yönetici çubuğuna bağla.",
+          "work_package": "includes/class-code-review.php, includes/content/class-content-transformer.php, admin/class-admin.php",
+          "verification": "code-review R8–R9, content-translate T17–T18, admin-guard G1–G5",
+          "status": "verified",
+          "release": "17.3.1"
+        },
+        {
+          "id": "TR-005",
+          "title": "İnceleme kalitesi: zorunlu sınıflandırma ve sıkı çürütme",
+          "instruction": "Bulgu başına zorunlu şema anahtarı; çürütmede yalnız gerçek denetim; jail dizin sınırı.",
+          "work_package": "includes/class-code-review.php",
+          "verification": "code-review R10–R13",
+          "status": "verified",
+          "release": "17.3.2"
+        },
+        {
+          "id": "TR-006",
+          "title": "Spekülatif riskler ve callback çözümü",
+          "instruction": "Doğrulanamadığını söyleyen riski at; add_action AJAX satırında callback gövdesine bak; bağlamı fonksiyonla sınırla.",
+          "work_package": "includes/class-code-review.php",
+          "verification": "code-review R14–R18",
+          "status": "verified",
+          "release": "17.3.3"
+        }
+      ]
+    },
+    {
+      "id": "phase-editor-api-github",
+      "title": "Faz — AGFO AI Editor API ve GitHub güncellemesi",
+      "order": 11,
+      "summary": "Windows masaüstü AGFO AI Editor için REST uçları ve GitHub Releases üzerinden doğrulamalı güncelleme.",
+      "tasks": [
+        {
+          "id": "EAPI-001",
+          "title": "Editör REST API",
+          "instruction": "agfo-ai/v1/editor/info|transform|chat; yetki Content Studio yeteneği; anahtar sızdırma yok; 60.000 karakter sınırı.",
+          "work_package": "includes/api/class-editor-api.php, AGFO_AIM_Content_Transformer::chat()",
+          "verification": "editor-api E1–E29",
+          "status": "verified",
+          "release": "17.4.0"
+        },
+        {
+          "id": "EAPI-002",
+          "title": "GitHub Releases güncelleyici",
+          "instruction": "ai-manager-vX etiketleri; SHA-256 (asset digest / SHA256SUMS) zorunlu; data.json yedekle-geri yükle; klasör adı agfo-ai-manager.",
+          "work_package": "includes/core/class-github-updater.php",
+          "verification": "github-updater G1–G30",
+          "status": "verified",
+          "release": "17.4.0"
+        }
+      ]
+    }
+  ]
+}

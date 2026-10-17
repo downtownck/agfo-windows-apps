@@ -1,13 +1,15 @@
-# AGFO Windows Uygulamaları
+# AGFO Windows Uygulamaları ve AI Manager
 
 | Uygulama | Klasör | Sürüm etiketi | Yayınlanan dosya |
 |---|---|---|---|
 | AGFO System Care | `system-care/` | `system-care-vX.Y.Z` | `AGFO-System-Care-vX.Y.Z.zip` (kurulum + uygulama içi güncelleme paketi) |
 | AGFO SuperTools | `supertools/` | `supertools-vX.Y.Z` | `AGFO-SuperTools-vX.Y.Z.update.zip` (Güncelleme Merkezi) + `-Kurulum.zip` |
 | AGFO BackupSync | `backupsync/` | `backupsync-vX.Y.Z` | `AGFO-BackupSync-Setup.exe` (Windows'ta GitHub Actions derler) |
+| AGFO AI Editor | `ai-editor/` | `ai-editor-vX.Y.Z` | `AGFO-AI-Editor.exe` (tek dosya; ilk açılışta kullanıcı klasörüne kurulur) |
+| AGFO AI Manager (WordPress) | `ai-manager/` | `ai-manager-vX.Y.Z` | `agfo-ai-manager-X.Y.Z.zip` (siteler Eklentiler ekranından GitHub'dan günceller; `data/data.json` korunur) |
 
 ## Güncelleme nasıl yayılır
-1. Kod değişir, uygulamadaki sürüm numarası yükseltilir (System Care: `care_core.py` `VERSION`; SuperTools: `scanner_core.py` `APP_VERSION`; BackupSync: tüm dosyalardaki sürüm, test ile denetlenir).
+1. Kod değişir, uygulamadaki sürüm numarası yükseltilir (System Care: `care_core.py` `VERSION`; SuperTools: `scanner_core.py` `APP_VERSION`; BackupSync: tüm dosyalardaki sürüm, test ile denetlenir; AI Editor: `agfo_editor_core.py` `VERSION`; AI Manager: eklenti başlığı `Version` + `AGFO_AIM_VERSION`).
 2. İsteğe bağlı sürüm notu: `.github/release-notes/<etiket>.md`.
 3. Değişiklik `main` dalına gönderilir. Elle etiket gerekmez.
 4. **Release** iş akışı, sürüm numarası yükselmiş ve henüz yayınlanmamış her uygulama için: ortak modül kopyalarını denetler, testleri çalıştırır, paketi üretir, `SHA256SUMS.txt` ekler ve etiketiyle birlikte GitHub Release yayınlar (BackupSync EXE'leri Windows makinesinde derlenir). Sürümü değişmeyen uygulama yeniden yayınlanmaz.

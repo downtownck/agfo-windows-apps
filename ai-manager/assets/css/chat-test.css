@@ -1,0 +1,518 @@
+/* ═══════════════════════════════════════════════════════════
+ * AGFO Chat Test – chat-test.css v15.3.1
+ * WP Admin stillerini sıfırlayarak üzerine yazar
+ * ═══════════════════════════════════════════════════════════ */
+
+/* ── Sayfa wrapper ──────────────────────────────────────── */
+.agfo-chat-wrap { margin-right: 0 !important; }
+
+.agfo-chat-wrap .agfo-chat-page-header { margin-bottom: 16px; }
+.agfo-chat-wrap .agfo-chat-page-header h1 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  margin-bottom: 4px !important;
+  padding: 0 !important;
+}
+.agfo-chat-wrap .agfo-chat-page-header p {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ── Ana layout ─────────────────────────────────────────── */
+.agfo-chat-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 16px;
+  align-items: flex-start;
+  height: calc(100vh - 148px);
+  min-height: 500px;
+  max-height: 860px;
+}
+
+/* ── Sol Sidebar ────────────────────────────────────────── */
+.agfo-chat-sidebar {
+  width: 256px !important;
+  min-width: 240px !important;
+  max-width: 256px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 2px;
+  box-sizing: border-box;
+}
+.agfo-chat-sidebar::-webkit-scrollbar { width: 3px; }
+.agfo-chat-sidebar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+
+/* ── Kart ───────────────────────────────────────────────── */
+.agfo-chat-card {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05) !important;
+  box-sizing: border-box;
+}
+.agfo-chat-card-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #9ca3af !important;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin: 0 0 10px 0 !important;
+  padding-bottom: 8px !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  display: block;
+}
+
+/* ── Form elemanları (WP stillerini sıfırla) ────────────── */
+.agfo-chat-wrap .agfo-chat-label {
+  display: block !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  margin: 0 0 4px 0 !important;
+  padding: 0 !important;
+  line-height: 1.4 !important;
+}
+
+.agfo-chat-wrap .agfo-chat-select {
+  display: block !important;
+  width: 100% !important;
+  padding: 6px 8px !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  background: #f9fafb !important;
+  color: #1e293b !important;
+  box-sizing: border-box !important;
+  line-height: 1.4 !important;
+  height: auto !important;
+  min-height: 30px !important;
+  box-shadow: none !important;
+  transition: border-color .15s, box-shadow .15s;
+  margin: 0 !important;
+}
+.agfo-chat-wrap .agfo-chat-select:focus {
+  outline: none !important;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102,126,234,.2) !important;
+  background: #fff !important;
+}
+
+.agfo-chat-wrap .agfo-chat-range {
+  display: block !important;
+  width: 100% !important;
+  accent-color: #667eea;
+  cursor: pointer;
+  margin: 4px 0 !important;
+  padding: 0 !important;
+  height: 4px !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.agfo-chat-wrap .agfo-chat-input-sm {
+  display: block !important;
+  width: 100% !important;
+  padding: 6px 8px !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  background: #f9fafb !important;
+  color: #1e293b !important;
+  box-sizing: border-box !important;
+  height: auto !important;
+  min-height: 30px !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  transition: border-color .15s;
+}
+.agfo-chat-wrap .agfo-chat-input-sm:focus {
+  outline: none !important;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102,126,234,.2) !important;
+  background: #fff !important;
+}
+
+.agfo-chat-wrap .agfo-chat-textarea {
+  display: block !important;
+  width: 100% !important;
+  min-height: 72px !important;
+  max-height: 120px !important;
+  padding: 7px 9px !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-family: inherit !important;
+  background: #f9fafb !important;
+  color: #1e293b !important;
+  resize: vertical !important;
+  box-sizing: border-box !important;
+  line-height: 1.5 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  transition: border-color .15s;
+}
+.agfo-chat-wrap .agfo-chat-textarea:focus {
+  outline: none !important;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102,126,234,.2) !important;
+  background: #fff !important;
+}
+
+/* Checkbox satırı */
+.agfo-chat-check-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px;
+  padding: 6px 0 !important;
+  margin: 0 !important;
+}
+.agfo-chat-check-row input[type="checkbox"] {
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 !important;
+  cursor: pointer;
+  accent-color: #667eea;
+  flex-shrink: 0;
+}
+.agfo-chat-check-row label {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  cursor: pointer;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+
+/* Stats */
+.agfo-chat-stats { display: flex !important; flex-direction: column !important; gap: 4px; }
+.agfo-chat-stat-row {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 6px;
+  background: #f8fafc;
+  border-radius: 4px;
+  font-size: 11px !important;
+  line-height: 1.4;
+}
+.agfo-chat-stat-row span:first-child { color: #6b7280; }
+.agfo-chat-stat-row span:last-child  { font-weight: 700; color: #1e293b; }
+
+/* ── Sağ: Chat Ana Alan ─────────────────────────────────── */
+.agfo-chat-main {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  height: 100% !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06) !important;
+  box-sizing: border-box;
+}
+
+/* Chat header */
+.agfo-chat-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  background: #fafafa !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box;
+}
+.agfo-chat-header-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px;
+}
+.agfo-chat-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+.agfo-chat-header-dot.active { background: #10b981 !important; }
+.agfo-chat-header-label {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  margin: 0 !important;
+}
+.agfo-chat-header-model {
+  font-size: 11px !important;
+  color: #9ca3af !important;
+  font-family: monospace !important;
+  margin: 0 !important;
+}
+
+/* Mesaj alanı */
+.agfo-chat-messages {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px;
+  background: #f9fafb !important;
+  box-sizing: border-box;
+}
+.agfo-chat-messages::-webkit-scrollbar { width: 4px; }
+.agfo-chat-messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+/* Karşılama */
+.agfo-chat-welcome {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1;
+  min-height: 200px;
+  color: #9ca3af;
+  text-align: center;
+  gap: 8px;
+  margin: auto;
+}
+.agfo-chat-welcome-icon { font-size: 36px; line-height: 1; }
+.agfo-chat-welcome-text { font-size: 13px; }
+
+/* Mesaj baloncukları */
+.agfo-chat-msg {
+  display: flex !important;
+  gap: 8px;
+  align-items: flex-end;
+  animation: agfoMsgIn .18s ease;
+  max-width: 100%;
+}
+@keyframes agfoMsgIn {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.agfo-chat-msg.user      { flex-direction: row-reverse !important; }
+.agfo-chat-msg.error     { justify-content: center !important; }
+
+.agfo-chat-avatar {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 13px !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+.agfo-chat-msg.user      .agfo-chat-avatar { background: #667eea !important; color: #fff !important; }
+.agfo-chat-msg.assistant .agfo-chat-avatar { background: #e0e7ff !important; color: #4338ca !important; }
+
+.agfo-chat-bubble-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  max-width: 78%;
+}
+.agfo-chat-msg.user .agfo-chat-bubble-wrap { align-items: flex-end !important; }
+
+.agfo-chat-bubble {
+  padding: 10px 14px !important;
+  border-radius: 14px !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  color: #1e293b !important;
+  word-break: break-word;
+  white-space: pre-wrap;
+  display: block !important;
+  box-sizing: border-box;
+}
+.agfo-chat-msg.user .agfo-chat-bubble {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: #fff !important;
+  border-bottom-right-radius: 4px !important;
+  border: none !important;
+}
+.agfo-chat-msg.assistant .agfo-chat-bubble {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-bottom-left-radius: 4px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+.agfo-chat-msg.error .agfo-chat-bubble {
+  background: #fef2f2 !important;
+  border: 1px solid #fecaca !important;
+  color: #dc2626 !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  max-width: 90%;
+  padding: 8px 12px !important;
+}
+
+.agfo-chat-meta {
+  font-size: 10px !important;
+  color: #9ca3af !important;
+  margin: 3px 0 0 0 !important;
+  padding: 0 2px !important;
+  line-height: 1.3 !important;
+}
+
+/* Typing indicator */
+.agfo-chat-typing .agfo-chat-bubble {
+  background: #fff !important;
+  border: 1px solid #e5e7eb !important;
+  padding: 12px 16px !important;
+}
+.agfo-typing-dots { display: flex !important; gap: 4px; align-items: center; }
+.agfo-typing-dots span {
+  width: 6px; height: 6px;
+  background: #9ca3af;
+  border-radius: 50%;
+  display: inline-block;
+  animation: agfoDot 1.2s infinite;
+}
+.agfo-typing-dots span:nth-child(2) { animation-delay: .2s; }
+.agfo-typing-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes agfoDot {
+  0%, 80%, 100% { transform: scale(.7); opacity: .4; }
+  40%           { transform: scale(1.1); opacity: 1; }
+}
+
+/* ── Input alanı ────────────────────────────────────────── */
+.agfo-chat-input-area {
+  padding: 12px 14px !important;
+  border-top: 1px solid #f3f4f6 !important;
+  background: #ffffff !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box;
+}
+
+.agfo-chat-wrap .agfo-chat-input {
+  display: block !important;
+  width: 100% !important;
+  padding: 9px 12px !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+  resize: none !important;
+  background: #f9fafb !important;
+  color: #1e293b !important;
+  line-height: 1.5 !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+  margin: 0 0 10px 0 !important;
+  transition: border-color .15s, box-shadow .15s;
+}
+.agfo-chat-wrap .agfo-chat-input:focus {
+  outline: none !important;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102,126,234,.18) !important;
+  background: #fff !important;
+}
+
+.agfo-chat-input-actions {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 10px;
+}
+.agfo-chat-hint { font-size: 11px; color: #9ca3af; }
+.agfo-chat-hint kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: monospace;
+  color: #6b7280;
+}
+
+/* ── Butonlar (WP button stillerini tamamen ezer) ───────── */
+.agfo-chat-wrap .agfo-btn-primary,
+.agfo-chat-wrap .agfo-btn-primary:hover,
+.agfo-chat-wrap .agfo-btn-primary:focus,
+.agfo-chat-wrap .agfo-btn-primary:active,
+.agfo-chat-wrap .agfo-btn-primary:visited {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px;
+  padding: 8px 18px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 7px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  line-height: 1.4 !important;
+  box-shadow: 0 2px 6px rgba(102,126,234,.35) !important;
+  height: auto !important;
+  transition: opacity .2s, transform .1s;
+  vertical-align: middle;
+}
+.agfo-chat-wrap .agfo-btn-primary:hover { opacity: .88 !important; }
+.agfo-chat-wrap .agfo-btn-primary:active { transform: scale(.97); }
+.agfo-chat-wrap .agfo-btn-primary:disabled,
+.agfo-chat-wrap .agfo-btn-primary[disabled] {
+  opacity: .5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.agfo-chat-wrap .agfo-btn-secondary,
+.agfo-chat-wrap .agfo-btn-secondary:hover,
+.agfo-chat-wrap .agfo-btn-secondary:focus,
+.agfo-chat-wrap .agfo-btn-secondary:visited {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px;
+  padding: 7px 13px !important;
+  background: #f3f4f6 !important;
+  color: #4b5563 !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 7px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  line-height: 1.4 !important;
+  height: auto !important;
+  box-shadow: none !important;
+  transition: background .15s, color .15s;
+  vertical-align: middle;
+}
+.agfo-chat-wrap .agfo-btn-secondary:hover {
+  background: #e5e7eb !important;
+  color: #1e293b !important;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .agfo-chat-layout {
+    flex-direction: column !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  .agfo-chat-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .agfo-chat-card { flex: 1; min-width: 200px; }
+  .agfo-chat-main { height: 520px !important; }
+}/* chat-test.css */

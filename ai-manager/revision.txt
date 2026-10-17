@@ -1,0 +1,829 @@
+Tarih: 2026-10-18
+Eski Versiyon: 17.3.3
+Yeni Versiyon: 17.4.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/api/class-editor-api.php; includes/api/index.php; includes/core/class-github-updater.php; includes/content/class-content-transformer.php; tests/editor-api-tests.php; tests/github-updater-tests.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Windows masaüstü AGFO AI Editor'ün AI Manager üzerinden çalışabilmesi için REST API eklendi; eklenti
+artık GitHub Releases'ten (downtownck/agfo-windows-apps) doğrulamalı olarak güncellenebiliyor.
+
+Yapılanlar:
+- includes/api/class-editor-api.php: agfo-ai/v1 altında editor/info (sürüm, şablon kataloğu, metin ve çeviri
+  sağlayıcı/model ADLARI, max_chars), editor/transform (source_html ya da source_text; şablon, dil, ton,
+  okuyucu, uzunluk, ek talimat, from_scratch, preserve_facts → AGFO_AIM_Content_Transformer::transform),
+  editor/chat (messages + document + instruction). Her uç giriş + Content Studio yetkisi ister (401/403);
+  60.000 karakter, 40 mesaj, mesaj başına 20.000 karakter sınırı; anahtar, auth başlığı ve sağlayıcı URL'si
+  yanıtlara girmez. agfo_ai_editor_api_enabled filtresiyle kapatılabilir.
+- AGFO_AIM_Content_Transformer::chat(): belge <agfo_document> içinde veri olarak, son 12 tur transcript olarak
+  aynı build_body() yolundan gönderilir (OpenAI uyumlu, Claude, Gemini). Kod çiti temizlenir; truncated bildirilir.
+- includes/core/class-github-updater.php: ai-manager-vX.Y.Z etiketli, taslak/ön sürüm olmayan en yüksek sürüm;
+  6 saat önbellek ("Tekrar denetle" önbelleği atlar). Paket upgrader_pre_download'da eklenti tarafından indirilir,
+  GitHub asset digest'i ve/veya SHA256SUMS.txt ile SHA-256 doğrulanır; özet yoksa ya da uyuşmazsa kurulum durur
+  ve geçici dosya silinir. Yalnız github.com / *.githubusercontent.com / api.github.com. data/data.json kurulumdan
+  önce uploads/agfo-ai-manager-backup/ altına (deny dosyalarıyla) yedeklenir, kurulumdan sonra geri yüklenir;
+  bozuk yedek geçerli dosyanın üzerine yazılmaz. Paket klasörü agfo-ai-manager/ değilse yeniden adlandırılır.
+  agfo_aim_github_updates = 0 ya da agfo_ai_manager_github_updates filtresiyle kapatılabilir.
+
+Geriye Uyumluluk: Tam. Mevcut AJAX, public fonksiyon, option ve data.json sözleşmeleri değişmedi.
+
+Migration: Gerekmiyor.
+
+Doğrulama: editor-api 29/29, github-updater 30/30; mevcut testler: admin-guard 5/5, binary-codec 9/9,
+code-review 36/36, content-translate 18/18, image-prompt 130/130, model-catalog 21/21, request-guard 42/42;
+tüm PHP dosyalarında php -l temiz.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.3.2
+Yeni Versiyon: 17.3.3
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/class-code-review.php; tests/code-review-tests.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Snippet Editor 2.9.0 incelemesinde hızlı model "agfo_sn_ai_review AJAX'ında nonce/yetki eksik"
+riskini Yüksek olarak raporladı; aynı metinde "fonksiyonun tamamı verilmemiş, doğrulanamıyor" diyordu ve
+handler aslında check_ajax_referer + current_user_can içeriyor.
+
+Yapılanlar:
+- Kendi doğrulanamadığını söyleyen risk ("doğrulanamıyor", "tamamı verilmemiş", "cannot be verified" …)
+  kanıtsız sayılıp atılır. "Girdi doğrulanmıyor" gibi gerçek iddialar etkilenmez.
+- wp_ajax_* / admin_post_* kayıt satırına (add_action) bağlanan "kontrol yok" iddiası, kaydın işaret ettiği
+  callback fonksiyonunun gövdesine göre değerlendirilir ('func', [ __CLASS__, 'm' ], array( $this, 'm' ),
+  [ self::class, 'm' ], 'Class::m'). Gövde kurulu dosyadan (source_root) ya da gösterilen satırlardan bulunur.
+- Çürütme penceresi düzeltildi (test sırasında bulunan zayıflık): bağlam, belirtilen satırın 15 satır
+  sonrasına kadar değil, çevreleyen fonksiyonun kapanan süslü parantezine kadar alınır; böylece bir sonraki
+  metottaki kontrol bu metot hakkındaki iddiayı çürütemez. Gösterilen satırlarda boşluk varsa pencere orada
+  durur. function_body() da sabit 40 satır yerine fonksiyon sonunda biter.
+
+Geriye Uyumluluk: Tam.
+
+Migration: Gerekmiyor.
+
+Doğrulama: code-review 36/36 (R14 kendi doğrulanamadığını söyleyen risk, R15 callback gövdesi, R16 callback
+adları, R17 gösterilen satırlarla, R18 komşu metot çürütemez).
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.3.1
+Yeni Versiyon: 17.3.2
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/class-code-review.php; tests/code-review-tests.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: 17.3.1 incelemesinin (Installer 2.3.1) iki derin analiz bulgusu ve hızlı incelemenin bulguları hiç
+sınıflandırmaması düzeltildi.
+
+Yapılanlar:
+- Bulgu başına zorunlu yanıt: findings artık F1…Fn anahtarlı bir nesne; strict JSON şemada her anahtar zorunlu,
+  bu yüzden model bulgu atlayamaz (gpt-4.1-mini 9 gruplu bulgunun hiçbirini sınıflandırmamıştı). Bulgular
+  şemada ilk sırada; model özeti yazmadan önce sınıflandırır. En çok 60 anahtar. Sağlayıcı şemayı 400 ile
+  reddederse istek bir kez eski liste şemasıyla yinelenir. Liste biçimindeki yanıtlar da kabul edilmeye devam eder.
+- Çürütme kontrolü sıkılaştırıldı (derin analiz bulgusu): yetki iddiasını yalnız gerçek current_user_can() /
+  user_can() çağrısı çürütür; required_capability ya da permission_callback adının geçmesi yetmez. Nonce
+  iddiasını core nonce fonksiyonları ya da tanımı bunlardan birini çağıran *verify*nonce() sarmalayıcısı
+  çürütür; sarmalayıcının tanımı kurulu dosyadan veya gönderilen satırlardan bulunur, bulunamazsa risk kalır.
+- source_root sınırı dizin ayırıcısıyla denetlenir (derin analiz bulgusu): wp-content-evil gibi aynı önekli
+  kardeş klasörler reddedilir. Dosya okuma read_source() içinde toplandı.
+
+Geriye Uyumluluk: Tam. Public fonksiyonlar aynı; build_body() ve schema() yeni isteğe bağlı parametre aldı.
+
+Migration: Gerekmiyor.
+
+Doğrulama: code-review 31/31 (R10 gerçek denetim, R11 dizin sınırı, R12 anahtarlı şema, R13 şema reddinde
+geri dönüş). Diğer paketler değişmeden geçti.
+
+Risk / Manuel Kontrol: Canlı sağlayıcıda anahtarlı şema denenmedi; ret durumunda otomatik geri dönüş var.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.3.0
+Yeni Versiyon: 17.3.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/content/class-content-transformer.php; admin/class-admin.php; includes/class-code-review.php; tests/content-translate-tests.php; tests/code-review-tests.php; tests/admin-guard-tests.php (NEW); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Installer AI incelemesinin 17.3.0 raporundaki bulgular düzeltildi.
+
+Yapılanlar:
+- Kod inceleme: "nonce / yetki kontrolü yok" türündeki risk, belirtilen satırın bağlı olduğu fonksiyonda
+  (function satırından 15 satır aşağıya kadar) o kontrol bulunuyorsa atılır ve "contradicted" sayılır.
+  Tüketici payload'a source_root verirse bağlam kurulu dosyadan okunur (yalnız .php/.js, kök ve wp-content
+  dışına çıkılmaz); vermezse gönderilen satırlardan kurulur. Sistem talimatına iki kural eklendi: fonksiyonun
+  başı görünmüyorsa eksik kontrol iddia etme; [test file] / ×N grupları tek seferde sınıflandır.
+  Kanıt eşleşmesi isset() ile yapılır (satır kodu "0" ya da boş olabilir).
+- agfo_ai_content_translation_templates filtresi: dizi olmayan çıktı varsayılana döner, skaler olmayan ve boş
+  değerler atılır (PHP 8'de TypeError riski kapandı).
+- AI Kontrol Merkezi: ön yüzde yönetici çubuğu görünmüyorsa modal HTML'i ve switcher/kontrol merkezi
+  dosyaları yüklenmez; paylaşılan agfo-progress çubuğu yüklenmeye devam eder. wp-admin'de davranış aynı.
+  agfo_aim_frontend_control_center filtresiyle bir ön yüz sayfası yeniden açılabilir.
+
+Geriye Uyumluluk: Tam. Hook, AJAX action ve option değişmedi. Rapora yeni "contradicted" alanı eklendi.
+
+Migration: Gerekmiyor.
+
+Doğrulama: code-review 21/21 (R8 çürütülen iddia, R9 kaynak okuma ve yol sınırı), content-translate 18/18,
+admin-guard 5/5 (yeni), diğer paketler değişmeden geçti.
+
+Risk / Manuel Kontrol: Ön yüzde yönetici çubuğunu kapatmış bir yönetici ön yüzde AI hızlı geçiş modalını
+artık görmez (zaten açacak düğmesi yoktu).
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.2.0
+Yeni Versiyon: 17.3.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/content/class-content-transformer.php; includes/editor/class-classic-editor-content.php; assets/js/classic-editor-content.js; assets/css/classic-editor-content.css; tests/content-translate-tests.php (NEW); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Klasik editöre tek tıkla çalışan "Çevir" butonu eklendi; çeviriler Çeviri (text_translate) model yönlendirmesini kullanır.
+
+Yapılanlar:
+- Editör araç çubuğunda "AI Düzenle"nin yanına "Çevir" butonu ve hedef dil listesi eklendi. Tıklanınca seçili
+  metin (seçim yoksa tüm içerik) "Çevir ve düzelt" şablonuyla hemen çevrilir; sonuç İçerik Stüdyosu'nda açılır,
+  "Editörde Değiştir" / "Altına Ekle" ile uygulanır. Seçilen hedef dil tarayıcıda hatırlanır (ilk değer English).
+- Tek tıkla çeviri, İçerik Stüdyosu'nun kayıtlı tercihlerini (işlem, dil, ton) değiştirmez.
+- "Çevir ve düzelt" şablonu (butondan ya da stüdyodan) artık agfo_get_translation_config() ile Çeviri
+  yönlendirmesindeki modeli kullanır; yönlendirme boşsa ya da anahtarı yoksa varsayılan metin modeline döner.
+  Stüdyoda şablon seçilince üst bilgi "Çeviri modeli" olur, ana buton "Çevir" yazar.
+- Çeviri çıktı payı kaynak uzunluğuna göre ölçeklenir (en az 1200, en çok 8000 token; önceki tavan 2600 uzun
+  sayfaları kesiyordu). Çeviri zaman aşımı 120 sn.
+- Sağlayıcı uzunluk sınırında durursa (length / max_tokens / MAX_TOKENS) sonuç "kesildi" olarak işaretlenir ve
+  kullanıcı uyarılır.
+- Yeni filtreler: agfo_ai_content_languages (hedef dil listesi), agfo_ai_content_translation_templates.
+- Yeni public yardımcılar: AGFO_AIM_Content_Transformer::is_translation_template(), ::translation_config();
+  AGFO_AIM_Classic_Editor_Content::languages(), ::translate_controls_html().
+
+Geriye Uyumluluk: Tam. AJAX action, şablon anahtarları ve option'lar değişmedi. Çeviri yönlendirmesi
+tanımlı değilse davranış eskisiyle aynıdır (yalnız çıktı payı ve zaman aşımı büyüdü).
+
+Migration: Gerekmiyor.
+
+Doğrulama: php -l temiz, node --check temiz. tests/content-translate-tests.php 16/16. Chromium'da toolbar +
+modal akışı: istek translate_polish + seçilen dil + "Benzer uzunluk" ile gitti, sonuç editöre uygulandı,
+stüdyo tercihleri korunarak "Aktif model"e geri dönüldü, konsol hatası yok.
+
+Risk / Manuel Kontrol: Canlı WordPress ve canlı sağlayıcı çağrısı yapılmadı. Blok (Gutenberg) editöründe buton
+görünmez; yalnız klasik editör.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.1.2
+Yeni Versiyon: 17.2.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/class-code-review.php (NEW); includes/class-ai-capability.php; tests/code-review-tests.php (NEW); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: AGFO Plugin Installer 2.3.0'ın yükleme sonrası AI incelemesi için kod inceleme servisi eklendi.
+
+Yapılanlar:
+- AGFO_AIM_Code_Review + public agfo_ai_code_review( $payload, [ 'mode' => 'quick'|'deep' ] ) ve
+  agfo_ai_code_review_model(). Tüketici (Installer) bulguları, satır farklarını, public yüzey farkını ve son
+  revizyon notunu gönderir; yapılandırılmış rapor alır. Servis hiçbir dosyaya dokunmaz, hiçbir şeyi
+  engellemez.
+- İki yeni yönlendirme (Yetenek Yönlendirme kartında görünür): code_review (hızlı; boşsa OpenAI'de
+  gpt-4.1-mini, o da yoksa varsayılan chat modeli) ve code_review_deep (derin; boşsa varsayılan chat modeli).
+  text_translate ile aynı chat yapılandırma yolunu kullanır.
+- İstek: OpenAI/OpenRouter'da strict JSON Schema, Gemini'de responseMimeType=application/json,
+  DeepSeek/Groq vb. json_object, Claude'da şema talimatı; temperature 0 (desteklemeyen modelde istek
+  koruması kaldırır); reasoning modellerinde reasoning_effort=low ve geniş token payı.
+- Gizlilik: gönderimden önce agfo_redact_secrets + define('…PASSWORD/KEY/SECRET…'), api_key/password/
+  token atamaları ve sk-/ghp_ biçimli anahtarlar maskelenir.
+- Doğrulama katmanı: her risk, gönderilen satır farklarında ya da kod parçalarında görünen bir dosya:satır
+  göstermek zorunda; göstermeyen risk "kanıtsız" sayılıp atılır. Uydurma bulgu referansları (F9 gibi)
+  yok sayılır; modelin atladığı bulgular "İncelenmedi" olarak görünür kalır. Hüküm (ok/review/rollback)
+  doğrulanmış içerikten yeniden hesaplanır; kanıtsız bir "rollback" hükmü yükseltemez.
+- Rapor: verdict, summary, findings (issue/justified/false_positive), risks, actions, counts, meta (model,
+  süre, token, maliyet) ve yalnız doğrulanmış kalemlerden üretilen düzeltme metni (fix_prompt).
+
+Geriye Uyumluluk: Tam. Yalnız yeni yetenekler ve fonksiyonlar eklendi.
+
+Migration: Gerekmiyor.
+
+Doğrulama: php -l temiz. tests/code-review-tests.php 16/16 (varsayılan model gpt-4.1-mini, yönlendirme
+önceliği, strict şema + temperature 0, sırların maskelenmesi, kanıtsız riskin atılması, uydurma ref'in yok
+sayılması, hükmün yeniden hesaplanması, JSON olmayan yanıtın hata sayılması, sağlayıcıya özel gövdeler).
+Diğer paketler: binary-codec 9/9, request-guard 42/42, model-catalog 21/21, image-prompt 130/130.
+Installer ile uçtan uca: 16.19.0 → 17.2.0 geçişi 0,1 sn'de pakete çevrildi (≈13 bin token).
+
+Risk / Manuel Kontrol: Canlı sağlayıcı çağrısı yapılmadı. gpt-4.1-mini'nin hesabınızda listelendiğini AI
+Kontrol Merkezi'nde "Güncelle" ile doğrulayın; listede yoksa varsayılan chat modeli kullanılır.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.1.1
+Yeni Versiyon: 17.1.2
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/core/class-binary-codec.php (NEW); includes/functions.php; includes/class-ai-image.php; includes/class-ai-media.php; includes/adapters/class-adapter-gemini.php; includes/audio/class-audio-effects.php; includes/tts/class-speech-long.php; tests/binary-codec-tests.php (NEW); revision.txt; revision.json; tracker.json; readme.txt; regression.json; regression-report.json
+
+Özet: Code Health "riskli yürütme/obfuscation fonksiyonu" bulguları incelendi; kullanım yerleri tek ve
+denetlenebilir noktalara toplandı, iki gerçek sağlamlık iyileştirmesi yapıldı.
+
+İnceleme sonucu (güvenlik açığı yok):
+- base64_decode/base64_encode (class-ai-image, class-ai-media, adapter-gemini, functions.php): sağlayıcıların
+  JSON içinde döndürdüğü görsel/ses baytlarını ve şifreli API anahtarlarını çözüyordu; hiçbir çıktı
+  çalıştırılmıyor veya değerlendirilmiyordu.
+- proc_open (audio-effects, speech-long): yalnız FFmpeg, dizi argümanla (kabuk yok); program yolu kod
+  sabiti/filtresinden geliyor, realpath + is_executable kontrolünden geçiyordu.
+
+Yapılanlar:
+- AGFO_AIM_Binary_Codec (includes/core/class-binary-codec.php): eklentideki tek Base64 noktası. Önce
+  libsodium'un sabit zamanlı çözücüsü (sodium_base642bin) kullanılır; şifreli API anahtarları da buradan
+  geçtiği için zamanlama sızıntısına karşı daha güvenlidir. URL-safe ve dolgusuz giriş, satır kırılımlı veri
+  ve data: URI desteklenir; geçersiz giriş null döner. encode() base64_encode() ile bayt bayt aynıdır;
+  önceden kaydedilmiş anahtarlar aynen çözülür. Standart çözücü yalnız libsodium olmayan sunucular için
+  yedek olarak bu dosyada kaldı.
+- Dört çağrı noktası koda yönlendirildi; functions.php kodlayıcıyı kendisi yükler (yükleme sırasından
+  bağımsız).
+- AGFO_AIM_Audio_Effects::run_ffmpeg(): eklentinin tek süreç başlatıcısı. Uzun ses birleştirme
+  (class-speech-long) artık bunu kullanır. Yalnız doğrulanmış FFmpeg programı çalıştırılabilir (başka
+  program reddedilir), NUL baytlı argüman reddedilir, kabuk yoktur. Birleştirme artık 600 sn zaman aşımına
+  sahiptir (önce sınırsızdı ve stderr dolarsa kilitlenebilirdi); hata çıktısı transport log'a yazılır.
+
+Kalan bulgular (gerekçeli): class-binary-codec.php (libsodium yoksa yedek Base64) ve
+class-audio-effects.php (FFmpeg için proc_open). İkisi de tek noktada, belgeli ve testli.
+
+Geriye Uyumluluk: Tam. Kayıtlı API anahtarları, medya kayıt akışı, ses efektleri ve birleştirme davranışı
+aynı.
+
+Migration: Gerekmiyor.
+
+Doğrulama: php -l temiz. tests/binary-codec-tests.php 9/9 (RFC 4648 test vektörleri, gidiş-dönüş,
+satır kırılımı, URL-safe/dolgusuz, geçersiz giriş, eski şifreli anahtarın çözülmesi), request-guard 42/42,
+model-catalog 21/21, image-prompt 130/130 PASS. Gerçek FFmpeg ile: sinüs sesi üretildi; /bin/echo ve NUL
+argümanı reddedildi; başarısız komutta stderr döndü.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.1.0
+Yeni Versiyon: 17.1.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; tests/request-guard-tests.php; tests/model-catalog-tests.php;
+tests/image-prompt-tests.php; revision.txt; revision.json; tracker.json; readme.txt; regression-report.json
+
+Özet: AGFO Plugin Installer Code Health "pluggable-risk" uyarıları giderildi.
+
+Kök neden: Test dosyalarındaki yardımcılar kısa, öneksiz global adlarla (ok(), r(), body(), fake_server())
+ve WordPress taklitleri (get_option, add_filter, wp_remote_post vb.) korumasız tanımlıydı. Dosyalar yalnız
+komut satırında çalışır (PHP_SAPI kontrolü) ve WordPress tarafından yüklenmez; canlı çakışma riski yoktu,
+ancak statik tarama bunları çakışma adayı olarak raporladı.
+
+Yapılanlar:
+- Yardımcılar önekli adlara taşındı: agfo_aim_test_ok(), agfo_aim_test_response(), agfo_aim_test_body(),
+  agfo_aim_test_fake_server().
+- Üç test dosyasındaki tüm üst düzey fonksiyon ve sınıf tanımları if (!function_exists(...)) /
+  if (!class_exists(..., false)) korumasına alındı (PHP tokenizer ile, çok satırlı tanımlar dahil).
+- Eklentinin kendi agfo_* public API'si bilerek sarılmadı: function_exists() ile sarmak, başka bir eklentinin
+  aynı adı önce tanımlayıp merkezi taşıma katmanını ele geçirmesine izin verirdi.
+
+Geriye Uyumluluk: Çalışma zamanı kodu değişmedi; yalnız tests/ klasörü.
+
+Migration: Gerekmiyor.
+
+Doğrulama: php -l temiz. request-guard 42/42, model-catalog 21/21, image-prompt 130/130 PASS. Tokenizer
+taraması tests/ içinde korumasız global tanım bulmadı.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.0.1
+Yeni Versiyon: 17.1.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/class-model-catalog.php (NEW); includes/ajax/class-data.php; includes/class-ai-capability.php; includes/functions.php; includes/partials/modal.php; assets/js/script.js; assets/js/control-center-boards.js (NEW); assets/css/control-center.css; admin/class-admin.php; tests/model-catalog-tests.php (NEW); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Model listeleri en yeni model üstte olacak şekilde sıralanıyor; AI Kontrol Merkezi'ne Çeviri ve
+Görsel üretimi sekmeleri eklendi.
+
+Kök neden / gerekçe:
+- "Modelleri güncelle" sağlayıcının /models yanıtındaki yayın tarihini (created), fiyatları (OpenRouter,
+  Together) ve çıktı türlerini atıp yalnız model adını saklıyordu. Liste AGFO asistan puanına göre
+  sıralandığı ve çoğu model S 99–100 aldığı için yeni çıkan bir model listede kayboluyordu.
+- Çeviri ve görsel üretimi için model seçimi, kalite ve fiyatı yan yana gösteren bir yüzey yoktu.
+
+Yapılanlar:
+- AGFO_AIM_Model_Catalog (includes/class-model-catalog.php):
+  - capture_meta(): yenileme sırasında yayın zamanı, $/1M girdi-çıktı, görsel başı fiyat, bağlam ve çıktı
+    türleri option agfo_models_{sağlayıcı}_meta içine yazılır (model listesi biçimi değişmedi).
+  - version_key(): gpt-5.6-sol → 5.06, gpt-5.10 → 5.10 (5.9'un üstünde), claude-opus-4-5 → 4.05; tarih
+    rakamları sürüm sayılmaz. release_ts(): önce sağlayıcı tarihi, sonra id içindeki tarih
+    (2026-03-05, 20251101, 05-2026).
+  - Model satırlarına released, version, is_new eklenir. "Yeni" = son 60 günde yayımlanmış, tarih yoksa
+    markasının en yüksek sürüm ailesi (o-serisi GPT ailesiyle birlikte değerlendirilir).
+  - quality(): eklentinin benchmark tablosundan en uzun eşleşen anahtarla kalite puanı (gpt-5.4-nano artık
+    gpt-5'in puanını almaz); benchmark yoksa AGFO puanı −8, "tahmini" olarak işaretlenir.
+  - translation_board(): anahtarı olan tüm sağlayıcıların chat modelleri; 1.000 kelime için ≈1.700 girdi +
+    1.900 çıktı token, reasoning modellerinde çıktı ×1,4; Değer = (kalite − 60) ÷ maliyet; tarihli kopyalar
+    takma adıyla birleştirilir; kodlama/arama/medya modelleri dışarıda. Öneriler: En iyi değer, En kaliteli,
+    En ucuz.
+  - image_board(): Görsel Stüdyosu'nun modelleri; anahtar, editoryal kalite notu (A/B/C, filtre:
+    agfo_ai_image_model_note), güçlü yanlar, görsel başı fiyat (yönetici tarifesi
+    agfo_ai_pricing_rates[sağlayıcı][model][per_image] veya sağlayıcı API), prompt sınırı.
+- Yeni yetenek text_translate: her chat sağlayıcısı destekler; agfo_get_provider_for_capability('text_translate')
+  ve yeni agfo_get_translation_config() agfo_get_priority_api_key() ile aynı biçimde yapılandırma döndürür.
+  Çeviri modeli seçilmemişse varsayılan chat modeli kullanılır. agfo_get_priority_api_key() isteğe bağlı
+  üçüncü parametre ($provider_override) aldı.
+- AI Kontrol Merkezi:
+  - Modeller sekmesinde Sırala seçici (En yeni [varsayılan] / Puan / Fiyat / Ad, oturumda hatırlanır) ve
+    "Yeni" rozeti. Tüm modellerin yayın tarihi biliniyorsa tarihe, değilse sürüm ailesine göre sıralar.
+  - Çeviri sekmesi: kalite eşiği (80/85/90), kapsam (tüm sağlayıcılar / seçili), üç öneri, tablo (kalite,
+    $/1M, ≈ 1.000 kelime maliyeti, değer çubuğu), "Çeviri için kullan".
+  - Görsel üretimi sekmesi: üç öneri (Önerilen / En iyi değer / En ucuz), tablo, satır içinde görsel başı
+    fiyat girişi, "Varsayılan yap" (Görsel Stüdyosu varsayılanı).
+  - Liste araç çubuğu buton metinleri kısaltıldı (Güncelle, Test et); alt çubuktaki taşma giderildi.
+- AJAX: agfo_aim_board_translation, agfo_aim_board_image, agfo_aim_set_translation_model,
+  agfo_aim_set_image_model, agfo_aim_set_image_price (hepsi manage_options + nonce).
+
+Geriye Uyumluluk: Tam. Model listesi option'ları ve data.json biçimi değişmedi; yeni alanlar yalnız eklendi.
+agfo_get_priority_api_key() eski iki parametreli çağrılarla aynı çalışır. Yetenek Yönlendirme kartında
+"Çeviri" satırı da görünür.
+
+Migration: Gerekmiyor. Yayın tarihleri ve OpenRouter fiyatları her sağlayıcı için bir kez "Güncelle"ye
+basıldığında dolar; o zamana kadar sürüm numarası ve id içindeki tarih kullanılır.
+
+Doğrulama: php -l, node --check temiz. tests/model-catalog-tests.php 21/21, tests/request-guard-tests.php
+42/42, tests/image-prompt-tests.php 130/130 PASS. Modal gerçek data.json ile render edildi; listeye eklenen
+gpt-5.7 en üstte "Yeni" rozetiyle göründü; Çeviri ve Görsel sekmeleri Chromium'da sayfa hatası olmadan çalıştı.
+
+Risk / Manuel Kontrol: Kalite puanı çeviriye özel bir benchmark değildir; genel benchmark tablosuna dayanır.
+Görsel kalite notu editoryaldir. Canlı WordPress'te her sağlayıcı için bir kez "Güncelle"ye basın.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 17.0.0
+Yeni Versiyon: 17.0.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/editor/class-classic-editor-image.php;
+assets/js/classic-editor-image.js; assets/css/classic-editor-image.css; revision.txt; revision.json;
+readme.txt; regression.json; regression-report.json
+
+Özet: Görsel Stüdyosu'nda Model alanı yalnız seçili modeli gösteriyordu.
+
+Kök neden: Alan <input list> + <datalist> idi. Tarayıcılar datalist seçeneklerini kutudaki mevcut metne
+göre süzer; "gpt-image-2" yazılıyken yalnız gpt-image-2 önerildi, diğer modeller hiç görünmedi.
+
+Yapılanlar:
+- Model alanı gerçek bir <select> oldu: seçili sağlayıcının tüm modelleri ve en sonda "Diğer model
+  (kimliği yazın)…" seçeneği. "Diğer" seçilince serbest metin kutusu açılır.
+- Liste, AI Kontrol Merkezi'nden indirilen sağlayıcı model listelerindeki görsel modelleriyle
+  (gpt-image-*, dall-e-*, imagen-*, *-image, flux, recraft) otomatik genişler; yeni görsel modeli için kod
+  değişikliği gerekmez (AGFO_AIM_Classic_Editor_Image::model_options()).
+- Sağlayıcı değişince model ilk seçeneğe döner; modal açılırken daha önce yazılmış özel model kimliği
+  korunur.
+
+Geriye Uyumluluk: #agfo-classic-image-model (name="model") gönderilen değerin kaynağı olarak kaldı;
+AJAX action'ları, ayarlar ve agfo_ai_image_model_catalog filtresi değişmedi.
+
+Migration: Gerekmiyor.
+
+Doğrulama: php -l ve node --check temiz. Modal stub'larla render edilip Chromium'da denendi: OpenAI için
+6 seçenek (katalog 3 + indirilen listeden 2 + Diğer), seçim gizli alana yazılıyor ve etiket güncelleniyor,
+"Diğer" ile özel kimlik giriliyor, fal.ai'ye geçişte liste ve değer yenileniyor; sayfa hatası yok.
+tests/request-guard-tests.php 42/42, tests/image-prompt-tests.php 130/130 PASS.
+
+Risk / Manuel Kontrol: Canlı WordPress'te klasik editörde Görsel Stüdyosu'nu açıp model listesini kontrol edin.
+
+====================================================================================================
+
+Tarih: 2026-10-07
+Eski Versiyon: 16.19.0
+Yeni Versiyon: 17.0.0
+Değişiklik Tipi: MAJOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/core/class-request-guard.php (NEW); includes/functions.php; includes/ajax/class-data.php; includes/class-model-intelligence.php; includes/partials/modal.php; assets/css/control-center.css (NEW); assets/css/style.css; assets/js/script.js; admin/class-admin.php; tests/request-guard-tests.php (NEW); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Temperature ve model uyumsuzluğu hataları merkezi istek korumasıyla kalıcı olarak önlendi; AI Kontrol
+Merkezi modalı baştan tasarlandı.
+
+Neden MAJOR: Sağlayıcıya giden HTTP istekleri artık merkezde yeniden yazılabiliyor (parametre kaldırma,
+Responses API'ye yönlendirme, yedek modele geçiş). Bu, bağımlı eklentilerin gördüğü taşıma davranışını
+değiştirir. Public fonksiyon imzaları, AJAX action adları, option anahtarları ve data.json şeması korunur.
+
+Kök nedenler:
+1. Temperature koruması model adı listesine bağlıydı (gpt-5*, o-serisi). Yeni bir aile çıktığında ya da
+   OpenAI dışı bir sağlayıcı parametreyi reddettiğinde koruma devreye girmiyordu. agfo_api_post() içindeki
+   yeniden deneme yalnız o fonksiyonu kullananları koruyordu; wp_remote_post() kullanan yeni eklentiler
+   korumasızdı.
+2. OpenAI pro / codex / deep-research modelleri yalnız /v1/responses ucunda çalışır. Global model olarak
+   seçildiklerinde bağımlı eklentilerin chat/completions isteği 404 dönüyordu ("only supported in
+   v1/responses" veya "not a chat model").
+3. Erişim verilmeyen (model_not_found) ya da chat dışı (embedding, tts, instruct) model global seçimde
+   kalınca tüm bağımlı eklentiler aynı hatayı alıyordu.
+4. Uyumluluk testi reasoning modellerine 8 token veriyordu; model düşünürken sınıra takılıyor, çalışan
+   modeller (gpt-5.1 vb.) "chat ✗" olarak kaydediliyordu.
+5. agfo_api_post() OpenAI/OpenRouter gövdesini her çağrıda decode/encode ediyordu; boş JSON nesneleri
+   diziye dönüşüyor ve araç şemalarını ("properties" boş nesne) bozuyordu.
+6. data.json (~125 KB) her yetenek sorgusunda diskten okunuyordu: model listesi oluşturulurken model başına
+   bir kez, her agfo_api_post() çağrısında birkaç kez.
+
+Yapılanlar:
+- AGFO_AIM_Request_Guard (includes/core/class-request-guard.php): sitedeki her HTTP isteğini üç kancada
+  izler: http_request_args (gönderim öncesi temizlik), pre_http_request (Responses köprüsü, Gemini model
+  URL'i), http_response (ret yanıtından öğrenip aynı isteği bir kez onarma). Yalnız kayıtlı sağlayıcıların
+  chat uçları (/chat/completions, /v1/responses, /v1/messages, :generateContent) etkilenir.
+- Temperature politikası OpenAI'de varsayılan olarak kapalı: yalnız GPT-4 / GPT-3.5 aileleri ya da canlı
+  testte "supported" çıkan modeller temperature alır. Yeni aileler ilk günden korunur. Diğer sağlayıcılarda
+  sağlayıcı bir kez reddettiğinde öğrenilir ve bir daha gönderilmez. Claude'a temperature ve top_p birlikte
+  gönderilmez.
+- Öğrenen ret listesi (option: agfo_aim_learned_rules): sağlayıcının adını verdiği parametre (temperature,
+  top_p, logit_bias, reasoning_effort, max_tokens→max_completion_tokens dönüşümü, Gemini generationConfig
+  alanları vb.) kaydedilir. İlk hatalı istek aynı çağrı içinde onarılıp yeniden gönderilir, sonrakiler hiç
+  hata almaz. model, messages, tools gibi alanlar asla silinmez.
+- Responses köprüsü: responses-only OpenAI modelleri için chat gövdesi /v1/responses gövdesine çevrilir
+  (system→instructions, max_tokens→max_output_tokens (en az 256), reasoning_effort→reasoning.effort,
+  response_format→text.format, görsel parçalar); yanıt chat.completion biçimine geri çevrilir (choices,
+  usage, finish_reason). Akış (stream) ve araç (tools) içeren istekler köprülenmez.
+- Yedek model: "erişim yok" veya "chat değil" yanıtı alınan model 3 gün boyunca aynı sağlayıcının çalışan
+  bir modeline yönlendirilir; agfo_get_priority_api_key() bu modeli bağımlı eklentilere hiç vermez.
+  Modaldan kapatılabilir (option: agfo_aim_model_fallback_enabled).
+- Canlı testler X-AGFO-Raw-Probe başlığıyla korumayı atlar; kanıt gerçek kalır ve sonuç korumaya aktarılır.
+  Reasoning modelleri testte 512 token + reasoning_effort=low alır; uzunluk sınırı yanıtı "chat çalışıyor"
+  sayılır; eski yanlış "chat ✗" kayıtları okuma anında düzeltilir.
+- agfo_get_model_capabilities(): yeni sampling_policy ve transport_route alanları; responses-only modeller
+  köprü sayesinde supports_chat=true, erişimi olmayanlar compatibility_level=blocked.
+- agfo_get_priority_api_key(): yeni alanlar sampling_policy, transport_route, model_fallback_from, is_reasoning.
+- agfo_api_post(): gövde yalnız değiştiğinde ve boş nesneler korunarak yeniden yazılır.
+- data.json istek içi önbelleği (agfo_aim_data_cache), her yazımda yenilenir.
+- AI Kontrol Merkezi yeniden tasarlandı: hizalı sütunlu model tablosu (bağlam, fiyat, hız, puan ve durum
+  rozetleri: Hazır / Responses köprüsü / Erişim yok / Temp otomatik), wp-admin ve tema stillerinden yalıtılmış
+  16 px checkbox'lar, sabit alt çubukta seçili model ve Kaydet, klavyeyle gezinme (yukarı/aşağı/Enter),
+  durum göstergesi, alert() yerine bildirim kutusu, Fusion yalnız OpenRouter'da etkin, "Kullanılamayanları
+  gizle" filtresi, "Ayarlar ve koruma" sekmesinde öğrenilmiş kurallar tablosu + sıfırlama + yedek model
+  anahtarı, mobil yerleşim. Stiller assets/css/control-center.css'e taşındı; style.css'teki eski modal
+  kuralları kaldırıldı.
+
+Yeni public yüzeyler: AGFO_AIM_Request_Guard::sampling_policy(), ::model_route(), ::sanitize_body(),
+::fallback_model(), ::learn(), ::remember_param(), ::remember_route(), ::reset(), ::chat_to_responses(),
+::responses_to_chat(), ::reencode(); fonksiyonlar agfo_aim_probe_temperature_status(), agfo_aim_data_cache();
+filtreler agfo_ai_guard_body, agfo_ai_fallback_model, agfo_ai_model_fallback_enabled,
+agfo_ai_responses_bridge_enabled; AJAX agfo_aim_guard_rules, agfo_aim_guard_reset.
+
+Geriye Uyumluluk: Public fonksiyon imzaları, AJAX action adları, option anahtarları, data.json şeması ve
+modalda JS'in kullandığı tüm id'ler korundu (#qs-model gizli kaynak olarak duruyor). Tek davranış farkı:
+bilinmeyen yeni OpenAI ailelerine artık temperature gönderilmez; canlı test "supported" derse açılır.
+
+Migration: Gerekmiyor. Öğrenilen kurallar ilk ret yanıtıyla birikir.
+
+Doğrulama: Tüm PHP dosyalarında php -l, script.js'te node --check temiz. tests/request-guard-tests.php
+42/42 PASS (sahte sağlayıcı sunucusu + WordPress HTTP filtre zinciri: gelecek model, öğrenme, köprü, yedek
+model, Gemini URL değişimi, Claude top_p, boş nesne korunumu, raw-probe atlaması, önbellek, aralık hatasının öğrenilmemesi, pro modeli sınıflandırması, eski yanlış "chat ✗" düzeltmesi). Mevcut
+tests/image-prompt-tests.php 130/130 PASS. Modal gerçek data.json ile render edildi; Chromium'da wp-admin
+checkbox/select stilleri taklit edilerek 1440 px ve 700 px genişlikte görüntülendi; satır seçimi, klavye,
+filtre, kaydet ve sekme etkileşimleri konsol hatası olmadan çalıştı.
+
+Risk / Manuel Kontrol: Canlı sağlayıcı çağrısı ve canlı WordPress çalıştırması bu ortamda yapılmadı.
+Responses köprüsü OpenAI'nin belgelenmiş Responses biçimine göre yazıldı; ilk canlı kullanımda bir pro
+modelini Chat Test ekranından deneyin. Yedek model bir isteği farklı modelle yanıtlayabilir; transport
+log'unda AGFO_GUARD_MODEL_FALLBACK satırı görünür, istenmezse modaldan kapatılabilir.
+
+====================================================================================================
+
+Tarih: 2026-09-29
+Eski Versiyon: 16.18.0
+Yeni Versiyon: 16.19.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/image/class-image-generator.php;
+includes/image/class-image-prompt-library.php; includes/adapters/class-adapter-image.php;
+revision.txt; revision.json; tracker.json; readme.txt; regression.json (YENİ)
+
+Özet: Klasik editör görsel stüdyosunun ürettiği görsellerin sıradan kalmasının nedenleri giderildi.
+
+Tespit edilen kök nedenler:
+1. Brief adımı preset'ten habersizdi. Metin modeli her preset için aynı talimatla "80 kelimelik tek
+   sahne" yazıyordu; en güvenli, en literal sahneyi seçiyordu. İnfografik ve albüm kapağı bile
+   "yazı ve rakam içermeyen sahne" brief'i alıyordu.
+2. Son prompt kural listesiydi: sanat yönetimi + özne + çıktı parametreleri + zorunlu kurallar alt
+   alta, çoğu olumsuz cümle ("no ..., no ..."). Görsel modelleri betimleyici düzyazıya daha iyi
+   yanıt verir; olumsuz cümlelerde adı geçen nesneyi çizme eğilimindedir (özellikle FLUX).
+3. Özne promptun ortasındaydı. Imagen (~480 token), FLUX (~512 token), MiniMax (1500 karakter) ve
+   Recraft (1000 karakter) uzun promptu kesiyor; kesilen kısım çoğu zaman özneydi.
+4. Brief çağrısı 700 token ile sınırlıydı. Reasoning/thinking modellerinde (gpt-5 ailesi, Gemini 2.5)
+   bu pay düşünme tokenlarına gidiyor, görünür yanıt boş dönüyor ve sistem sessizce ham başlığa
+   düşüyordu.
+5. Gemini görsel modellerine en-boy oranı iletilmiyordu (kare çıktı); FLUX Pro Ultra image_size
+   parametresini yok sayıyor, aspect_ratio bekliyor.
+6. Admin sayfasında bir kez "Kaydet"e basılınca tüm preset metinleri option'a donuyordu; sonraki
+   varsayılan iyileştirmeleri hiç devreye girmiyordu.
+
+Yapılanlar:
+- Sanat yönetmeni adımı (varsayılan açık): metin modeli yazıyı, preset sanat yönetimini, zorunlu
+  kuralları ve operatör notunu birlikte okur; sessizce üç konsept düşünüp klişe olmayanı seçer ve
+  tek betimleyici prompt yazar (özne ve eylem, mekân, kompozisyon, lens, ışık, palet, doku, duygu).
+  Yasak öğeleri adıyla anmaz, dışarıda bırakır. Sıcaklık 0.8.
+- Brief türü preset'e göre: scene (felsefi, editoryal, kurumsal), cover (albüm kapakları — dil
+  tespiti, kültürel ayrıntı, tipografi planı, başlık ve kredi satırı tırnak içinde), infographic
+  (başlık/özet/3-6 blok, yalnızca kaynaktaki rakamlar, 90 kelime altında görünür metin).
+- Prompt bütçesi: AGFO_AIM_Image_Adapter::prompt_budget() — MiniMax 1400, FLUX 1800, Recraft 950,
+  Imagen 1800, DALL·E 3 3800, gpt-image/Gemini/OpenRouter 6000 karakter; agfo_ai_image_prompt_budget
+  filtresiyle değiştirilebilir. Sanat yönetmeni kelime hedefini bu bütçeden hesaplar.
+- Son prompt: sanat yönetmeni çıktısı + tek satır teknik kuyruk (oran, gerekiyorsa başlık, kısa
+  kural). fal için kuyruk yalnızca olumlu ifadeler içerir.
+- Sanat yönetmeni kapalıysa ya da çağrı başarısızsa eski yapı kullanılır, ancak özne artık başta ve
+  sanat yönetimi bütçeye göre kısaltılır.
+- "Yalnızca prompt" kapsamında da sanat yönetmeni çalışır: kısa operatör notu tam prompta genişler;
+  not zaten ayrıntılı bir promptsa anlamı ve ifadesi korunur.
+- Preset metinleri kural listesinden olumlu, somut sanat yönetimine çevrildi. Kullanıcı gereksinimleri
+  (tek/iki kişi, felsefi ton, sürrealizm yok, dile göre kültür, dini sembol yok, mütevazı giyim, dile
+  göre kredi satırı, infografik hiyerarşisi ve paleti) korundu.
+- 16.16.x varsayılanlarının kaydedilmiş birebir kopyaları (boşluk normalize edilmiş md5) yok sayılır;
+  gerçekten değiştirilmiş promptlar korunur. save_overrides() artık değişmemiş varsayılanı saklamaz.
+- Gemini generateContent görsel modellerine generationConfig.imageConfig.aspectRatio; FLUX Pro
+  Ultra'ya aspect_ratio iletilir. OpenAI, Imagen, FLUX dev, Recraft ve MiniMax gövdeleri değişmedi.
+- Brief token payı: OpenAI uyumlu 1500 (reasoning modelde 6000), Claude 1500, Gemini 4096. Claude'a
+  sıcaklık yalnızca canlı probe "supported" derse gönderilir.
+- Görsel sağlayıcısı yoksa brief çağrısı yapılmadan hata dönülür (boşa metin modeli harcanmaz).
+- Görsel Promptları sayfasına "Sanat yönetmeni" onay kutusu eklendi.
+
+Yeni public yüzeyler: AGFO_AIM_Image_Adapter::prompt_budget(),
+AGFO_AIM_Image_Prompt_Library::compact_guardrails(), ::legacy_prompt_hashes(), ::prompt_hash(),
+AGFO_AIM_Image_Generator::art_director_system(); filtreler agfo_ai_image_art_director_enabled,
+agfo_ai_image_art_director_system, agfo_ai_image_prompt_budget.
+
+Geriye Uyumluluk: Tam. AJAX action adları, option anahtarları, preset anahtarları, mevcut filtreler
+(agfo_ai_image_prompts, agfo_ai_image_final_prompt), public method imzaları korundu.
+build_subject_brief() üçüncü parametresi opsiyonel; iki parametreli çağrı eski gibi çalışır ve dönüşe
+yalnızca art_directed anahtarı eklenir. compose_prompt() eski argümanlarla çalışır.
+
+Migration: Gerekmiyor. Option şeması değişmedi; eski kopyalar okuma anında yok sayılır.
+
+Doğrulama: Değişen 4 PHP dosyasında ve tüm pakette php -l temiz. İzole davranış koşusu 130/130 PASS:
+tüm preset × sağlayıcı kombinasyonlarında promptun bütçeyi aşmaması ve öznenin başta olması, sanat
+yönetmeni yolunda kural listesi dökülmemesi, fal kuyruğunda olumsuz isim olmaması, başlığın tekrar
+etmemesi, mod bazlı sistem promptları, eski varsayılan kopyalarının yok sayılıp özel promptun
+korunması, ayar kutusunun kalıcılığı, adapter gövdeleri, brief temizleme, reasoning/Gemini token
+payı, yalnızca-prompt kapsamı, public method envanteri.
+
+Risk / Manuel Kontrol: Canlı sağlayıcı çağrısı bu ortamda yapılmadı. Gemini imageConfig ve FLUX Ultra
+aspect_ratio parametreleri sağlayıcı dokümantasyonuna göre eklendi; ilk canlı üretimde 400 dönerse
+agfo_ai_image_* filtreleriyle veya ayar kutusuyla geri alınabilir. Sanat yönetmeni istek başına bir
+metin modeli çağrısı ekler (önizleme ve üretim ayrı ayrı çağırır); maliyet küçük ama sıfır değil.
+
+Tarih: 2026-09-13
+Eski Versiyon: 16.17.7
+Yeni Versiyon: 16.18.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/tts/class-speech-long.php (YENİ); includes/jobs/class-job-api.php; revision.txt
+
+Özet: Uzun metin seslendirme eklendi. Her TTS sağlayıcısı tek isteği karakter sayısıyla sınırlıyor
+(OpenAI 4096; ElevenLabs modele göre; MiniMax modele göre). Bugüne kadar yönetici bu sınırı yalnızca
+giriş alanının maxlength değerine yansıtıyordu; sınırı aşan metin hiç seslendirilemiyordu. Yeni modül
+metni doğal sınırlardan bölüp her parça için mevcut iş kuyruğuna bir iş açıyor ve grubu tek birim
+olarak raporluyor. Yeni kuyruk, yeniden deneme veya maliyet katmanı YAZILMADI; mevcut job store,
+bütçe ayırma ve killswitch olduğu gibi kullanılıyor.
+
+Yeni public fonksiyonlar:
+- agfo_speech_synthesize_long( string $text, array $options = [] ) -> grup dizisi | WP_Error
+- agfo_speech_split_preview( string $text, array $options = [] )   -> parça planı, hiçbir şey göndermez
+- agfo_speech_group_status( string|array $group )                  -> toplu durum, maliyet, parça listesi
+- agfo_speech_group_merge( string $group_uuid, array $args = [] )  -> FFmpeg ile tek dosya (opsiyonel)
+- agfo_speech_limit( array $options = [] )                         -> geçerli rota için etkin sınır
+
+Kritik tasarım kararı — sınır, birincil rotanın değil EN KÜÇÜK rotanın sınırıdır:
+AGFO_AIM_Job_API::submit() yedek rotaları koruyor ve bir iş 429/5xx sonrası başka sağlayıcıya
+düşebiliyor. ElevenLabs'e göre (40.000) boyutlandırılmış bir parça, OpenAI'ye (4096) düştüğü anda
+reddedilirdi. Bu yüzden parça boyu, çözümlenen bütün rotaların max_characters değerlerinin en
+küçüğünden hesaplanıyor. Üstüne %90 emniyet payı uygulanıyor (agfo_speech_long_safety_margin
+filtresiyle değiştirilebilir), çünkü payload gönderilmeden önce sanitize ediliyor ve sağlayıcılar
+karakteri birebir aynı saymıyor.
+
+Bölme sırası: paragraf -> cümle -> yan cümle (virgül, noktalı virgül, tire) -> kelime -> son çare
+olarak karakter. Cümle ayırıcı Türkçe kısaltmaları tanıyor (Dr., Prof., vb., yy., Sok. ...), sayıdan
+sonra gelen noktayı ve tek harfli baş harfleri cümle sonu saymıyor. Görünmez Unicode ve kontrol
+karakterleri ölçümden önce temizleniyor. Uzunluk mb_strlen ile karakter olarak sayılıyor, bayt olarak
+değil — Türkçe metinde bu ikisi arasında %40'a varan fark oluyor.
+
+Mükerrer faturalandırma koruması: her parçanın idempotency_key değeri metin + sıra + sağlayıcı +
+model + ses hash'inden üretiliyor. Aynı metin yeniden gönderilirse job store mevcut işi döndürüyor,
+sağlayıcıya ikinci istek gitmiyor. Ses veya model değişirse anahtar da değişiyor, yani yanlışlıkla
+eski ses geri verilmiyor.
+
+Hata davranışı: bir parça reddedilirse döngü orada duruyor. Bütçe aşımı veya killswitch hatası kalan
+bütün parçalarda tekrarlanacağı için yüzlerce başarısız iş açmanın anlamı yok. O ana kadar gönderilen
+işler grup kaydında kalıyor, çağıran taraf iptal edebiliyor.
+
+Grup kaydı wp_options içinde tek anahtarda (agfo_aim_speech_groups), son 60 grupla sınırlı halka
+tampon olarak tutuluyor, autoload kapalı. Yeni tablo açılmadı.
+
+Birleştirme opsiyonel: agfo_speech_group_merge() FFmpeg varsa parçaları tek dosyada topluyor
+(önce -c copy, olmazsa yeniden kodlama) ve medya kütüphanesine yazıyor. FFmpeg yoksa açık hata
+dönüyor; çağıran taraf parçaları sırayla çalmaya devam edebilir.
+
+includes/jobs/class-job-api.php içine yalnızca AGFO_AIM_Job_API::routes_for() public sarmalayıcısı
+eklendi; mevcut resolve_routes() mantığı değişmedi.
+
+Geriye Uyumluluk: Tam. Mevcut public fonksiyonlar, AJAX action adları, option anahtarları, veri şeması
+ve agfo_speech_synthesize() davranışı değişmedi. Yeni dosya yalnızca yeni fonksiyonlar ekliyor.
+
+Migration: Gerekmiyor.
+
+Doğrulama: 64 PHP dosyasında php -l temiz. İzole fonksiyonel test 44/44 PASS: model ve rota bazlı
+sınır çözümlemesi (yedek rotada en küçüğün seçilmesi dahil), hiçbir parçanın sınırı aşmaması,
+kelime kaybı ve sıra bozulması olmaması, parçaların cümle sonunda bitmesi ve ortalama doluluğun
+sınırın yarısını aşması, kısaltmalarda yanlış cümle bölmesi olmaması, sınırdan uzun tek cümlenin ve
+tek kelimenin kayıpsız parçalanması, Türkçe karakterlerin karakter olarak sayılması, görünmez
+Unicode temizliği, önizlemenin hiç iş göndermemesi, her parçaya bir iş düşmesi, aynı metnin aynı
+idempotency anahtarını üretmesi, farklı sesin farklı anahtar üretmesi ve grup durumunun
+complete/running/partial/failed olarak doğru toplanması.
+
+Risk / Manuel Kontrol: Canlı ortamda önce agfo_speech_split_preview() ile parça sayısı ve maliyet
+görülmeli. Yüzlerce parçalık bir kitap gönderilmeden önce bütçe tavanı kontrol edilmeli;
+agfo_speech_long_max_chunks filtresi varsayılan 500 parçada duruyor. Birleştirme yalnızca aynı
+sağlayıcı ve formattan gelen parçalarda güvenilir.
+
+------------------------------------------------------------
+
+Tarih: 2026-09-02
+Eski Versiyon: 16.17.6
+Yeni Versiyon: 16.17.7
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/functions.php; includes/class-model-intelligence.php; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: GPT-5 ve o-serisi modellerde temperature koruması capability metadata ve doğrudan WordPress HTTP taşıma katmanına genişletildi. agfo_get_model_capabilities() artık stale successful probe kaydı bulunsa bile bu model aileleri için supports_temperature=false döndürür. OpenAI/OpenRouter chat-completions uçlarına doğrudan wp_remote_post() kullanan legacy bağımlı eklentiler de sağlayıcıya temperature/sampling alanı gönderemez.
+Kök Neden: 16.17.2 düzeltmesi agfo_api_post() ve agfo_get_priority_api_key() üzerinden geçen akışları koruyordu; fakat bazı eski/bağımlı kodlar model_capabilities içindeki tarihsel supports_temperature=true değerini okuyabiliyor veya merkezi taşıma fonksiyonunu tamamen atlayabiliyordu. Bu iki kaçış yolu yeni modelde aynı HTTP 400 hatasını yeniden görünür hale getirebiliyordu.
+Geriye Uyumluluk: Public fonksiyon imzaları, AJAX action adları, option keyleri ve veri şeması korunur. Temperature destekleyen gpt-4o ve non-OpenAI modellerin gövdeleri değiştirilmez.
+Migration: Gerekmiyor.
+Tracker Güncellemesi: STAB-008 implemented; current_release 16.17.7.
+Doğrulama: PHP/JSON syntax, capability ve HTTP args sampling regresyonu, probe bypass, public API/AJAX envanteri ve ZIP bütünlüğü paket üretiminde kontrol edilir.
+Risk / Manuel Kontrol: Canlı WordPress ortamında gpt-5.6-sol ile önce AI Düzenle/Chat Test, ardından temperature gönderen eski bir bağımlı plugin akışı denenmelidir. Provider request logunda temperature alanı bulunmamalıdır.
+
+------------------------------------------------------------
+
+16.17.6 | 2026-08-30 | PATCH
+- Structured AGFO Academy generation now accepts an explicit output language.
+- Selected language is enforced independently from the course title, source language and LMS delivery language.
+- Default remains Türkçe when no language is supplied.
+
+16.17.5 | 2026-08-30 | PATCH
+- GPT-5.6 Content Studio: reasoning_effort=none, task-sized token budget and shorter timeout.
+- New agfo_content_generate_structured() JSON Schema service for AGFO Academy structured course authoring.
+- Adds latency/finish/reasoning diagnostics; no database migration.
+
+Tarih: 2026-08-29
+Eski Versiyon: 16.17.3
+Yeni Versiyon: 16.17.4
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/content/class-content-context.php; includes/content/class-content-prompt-library.php; includes/content/class-content-transformer.php; includes/editor/class-classic-editor-content.php; assets/js/classic-editor-content.js; README.md; revision.json; revision.txt
+Özet: İçerik Stüdyosuna AGFO Academy / Eğitim işlemi eklendi. Eğitim metni oluşturulurken kaynak metne ek olarak mevcut WordPress post/page başlığı, post type, taksonomiler ve güvenli kayıtlı custom field/meta değerleri okunur. Böylece süre, fiyat, eğitmen, sağlayıcı, yöntem, sınav veya sertifika bilgisi sayfada mevcutsa model bunları bilir ve 'sağlayıcıya göre değişebilir' gibi jenerik kaçış cümleleri kurmaz.
+Gizlilik: Password, token, nonce, API key, auth/session, özel toplantı/portal linkleri, telefon/e-posta ve büyük builder metadata alanları modele gönderilmez. ACF companion field referansları da ayıklanır.
+Davranış: Kısa eğitim brieflerinde Benzer uzunluk 220-450 kelimelik gerçek eğitim sayfası açıklaması olarak yorumlanabilir. Versiyon-spesifik standart değişiklikleri, akreditasyon/tanınma, sınav ve sertifika hakları yalnız kaynak veya sayfa bağlamı doğruluyorsa yazılır.
+Geriye Uyumluluk: Mevcut promptlar ve AJAX action korunur. Yeni post_id/current_title alanları opsiyoneldir. Veri tabanı migration'ı yoktur.
+Manuel Kontrol: Eğitim custom field'larında kaydedilmiş değerler bulunurken AGFO Academy / Eğitim seçilip sonuç satırında 'sayfa bağlamı: X meta' ibaresi görülmeli; çıktı ilgili gerçek değerleri kullanmalı. Kaydedilmemiş meta değişiklikleri önce WordPress'te güncellenmelidir.
+
+------------------------------------------------------------
+
+Tarih: 2026-08-29
+Eski Versiyon: 16.17.2
+Yeni Versiyon: 16.17.3
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/content/class-content-prompt-library.php; includes/content/class-content-transformer.php; includes/functions.php; assets/js/classic-editor-content.js; revision.json; revision.txt
+Özet: İçerik Stüdyosu > Geliştir işlemi 30 kelime ve altındaki kısa başlık/brief girdilerini artık gerçek bir içerik genişletme görevi olarak ele alır. Benzer uzunluk seçili olsa bile kısa brief için etkin uzunluk 100-220 kelimelik açıklayıcı içerik olarak yorumlanır. From-scratch modu stable general knowledge kullanımına izin verecek şekilde guardrail ile uyumlu hale getirildi. Sonuç metasında model fallback olmadığı, doğrudan çağrı veya aynı modelde temperature parametre retry kullanıldığı görünür.
+Kök Neden: Geliştir promptu 'yalnız mevcut veya mantıksal olarak ima edilen bilgiyi aç' diyordu; mandatory guardrail ise kaynakta bulunmayan hiçbir olguyu eklemeyi yasaklıyordu. Bu nedenle 'ISO 9001:2026 ... eğitimi hakkında detaylı bilgi' gibi kısa bir briefte modelin geliştirebileceği içerik kalmıyor ve 11 kelime 11 kelime olarak dönüyordu. Ayrıca from-scratch seçeneği UI'da mevcut olsa da aynı çelişen guardrail tarafından fiilen kısıtlanıyordu.
+Fallback: İçerik Stüdyosu için başka modele/provider'a otomatik fallback yoktur. agfo_get_priority_api_key() tek seçili model döndürür. agfo_api_post() içindeki tek fallback, açık temperature reddinde aynı modelle bir kez yeniden denemedir.
+Geriye Uyumluluk: Public agfo_* fonksiyon imzaları, AJAX action adları, option anahtarları, provider registry ve mevcut içerik UI alanları korunmuştur. agfo_api_post() dönüşüne yalnız geriye uyumlu temperature_retry boolean alanı eklenmiştir.
+Migration: Gerekmiyor.
+Doğrulama: PHP syntax, JavaScript syntax, JSON parse, sürüm zinciri ve ZIP bütünlüğü statik olarak doğrulanır. Canlı WordPress + gerçek OpenAI uçtan uca testi kullanıcı ortamında yapılmalıdır.
+
+------------------------------------------------------------
+
+Tarih: 2026-08-10
+Eski Versiyon: 16.17.1
+Yeni Versiyon: 16.17.2
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/functions.php; includes/content/class-content-transformer.php; assets/js/classic-editor-content.js; admin/class-admin.php; includes/partials/modal.php; includes/class-model-batch-scanner.php; assets/js/script.js; AGFO-AI-MANAGER-SPEC.md; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: Classic Editor AI Düzenle akışında modern model temperature reddi nedeniyle sonuç üretiminin kesilmesi önlendi. GPT-5 ailesi ve o-serisi için temperature ve mevcut uyumsuz sampling alanları merkezî taşıma katmanında yok sayılır; eski supported probe kaydı bu kuralı artık ezmez. Henüz tanınmayan bir chat modeli açık temperature unsupported hatası döndürürse agfo_api_post() isteği temperature olmadan yalnız bir kez tekrarlar. İçerik Stüdyosu request body üretimi supports_temperature bilgisine bağlandı; Editörde Değiştir/Altına Ekle sonrası TinyMCE, textarea ve WordPress change/input durumu senkronlanır.
+Geriye Uyumluluk: Mevcut public agfo_* fonksiyonları, wp_ajax_agfo_* action adları, option keyleri, prompt sözleşmeleri, provider registry ve data/data.json şeması korunmuştur. Bağımlı pluginlerin temperature ayarlarını kaldırması gerekmez; AI Manager gerektiğinde parametreyi iletmez.
+Migration: Gerekmiyor.
+Kök Neden: Content Studio şablonları temperature üretiyordu. Merkezî transport eski canlı probe kaydını en yüksek öncelik saydığı için, daha sonra temperature kabul etmeyen modern bir model aynı kimlikle seçildiğinde parametre korunabiliyor ve provider HTTP 400 döndürüyordu. Bu durumda AJAX başarılı sonuç üretmediği için modal yeni metin oluşturamıyordu. Ayrıca editör uygulamasında TinyMCE değişikliği temel textarea ile anında senkronlanmıyordu.
+Tracker Güncellemesi: STAB-007 ve CONTENT-004 implemented; current_release 16.17.2.
+Implemented: STAB-007 — modern model default-sampling koruması ve explicit rejection retry. CONTENT-004 — capability-aware Content Studio body ve TinyMCE/textarea senkronu.
+Verified: Bu revizyonda yeni görev verified yapılmadı.
+Açık Kalan / Blocked: Gerçek WordPress Classic Editor + canlı sağlayıcı uçtan uca smoke testi bekleniyor; görevler blocked değildir.
+Doğrulama Kanıtı: PHP/JS/JSON syntax, model-family sampling regresyonu, explicit temperature rejection retry testi, Content Studio body testi, public API/AJAX envanteri, sürüm zinciri ve ZIP bütünlüğü paket üretiminde kontrol edilir.
+Risk / Manuel Kontrol: Klasik editörde GPT-5/o-serisi gibi modern bir model seçilip AI Düzenle > Yeniden Yaz ile gerçek sonuç alınmalı; Editörde Değiştir sonrası hem Visual/Text görünümü hem WordPress güncelleme kaydı doğrulanmalıdır. Temperature destekleyen legacy/non-OpenAI modellerin mevcut davranışı da smoke edilmelidir.
+
+------------------------------------------------------------
+
+Tarih: 2026-08-09
+Eski Versiyon: 16.17.0
+Yeni Versiyon: 16.17.1
+Degisiklik Tipi: PATCH
+Degisen Dosyalar: agfo-ai-manager.php; admin/class-admin.php; includes/ajax/class-data.php; includes/functions.php; includes/class-ai-jobs.php; readme.txt; revision.txt
+Ozet: AGFO_Admin, AGFO_Ajax_Data ve AGFO_Encryptor class adlari plugin'e ozel AGFO_AIM_* onekine tasindi. Bu adlar AGFO kod standardinin acikca yasakladigi genel adlardi ve function_exists/class_exists korumasi olmadan taniminiyordu; baska bir AGFO eklentisi ayni adi tanimlarsa olusan "Cannot redeclare" hatasi derleme aninda gerceklesir ve try/catch ile yakalanamaz. Eklentinin geri kalani zaten AGFO_AIM_* onekini kullaniyordu, bu uc ad konvansiyon oncesinden kalmisti.
+Geriye Uyumluluk: Eski adlar, serbest kaldiklari surece class_alias ile korunur; bir baskasi adi almissa alias atlanir ve fatal hata olusmaz. Public agfo_* fonksiyonlari, wp_ajax_agfo_* action adlari, option keyleri, $GLOBALS['AGFO_ENC'] degiskeni, provider registry ve data/data.json semasi degismedi.
+Migration: Gerekmiyor.
+Kok Neden: Uc class, AGFO_AIM_* isimlendirme konvansiyonu yerlesmeden once yazilmis ve sonraki revizyonlarda gozden kacmisti.
+Dogrulama: Degisen bes dosyada php -l temiz; eklenti genelinde eski adlara kalan referans yok; alias blogu hem adin serbest hem de baskasi tarafindan alinmis oldugu durumda ayri ayri calistirilarak dogrulandi, ikisinde de fatal olusmuyor.
+Risk / Manuel Kontrol: WordPress admininde AI Manager menusu acilmali, Quick Switch modali calismalimeli, chat dispatch ve sifreleme akisi denenmeli.
+
+------------------------------------------------------------
+
+Tarih: 2026-08-09
+Eski Versiyon: 16.16.2
+Yeni Versiyon: 16.17.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; admin/class-admin.php; includes/class-model-batch-scanner.php; includes/partials/modal.php; includes/ajax/class-data.php; assets/js/script.js; AGFO-AI-MANAGER-SPEC.md; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: Quick Switch modalındaki dar sağ kolon kaldırıldı. Model Seçimi, Hız, Benchmark, Kayıtlı Modeller ve Aktif Ayarlar aynı modal içinde sekmeli bir çalışma alanı olarak düzenlendi. Benchmark model seçimiyle canlı yüklenir; kayıtlı modeller aranabilir, kopyalanabilir ve tek tıkla seçilebilir; aktif ayarlar kaydedilmiş durum ile modal taslağını karşılaştırır.
+Geriye Uyumluluk: Public agfo_* fonksiyonları, wp_ajax_agfo_* action adları, option keyleri, provider registry, mevcut Quick Switch save/model AJAX sözleşmeleri ve data/data.json şeması korunmuştur. agfo_get_model_score action adı değişmemiştir.
+Migration: Gerekmiyor.
+Kök Neden: Quick Switch sağ paneli model seçim alanını daraltıyor, aynı anda sürekli görünmesi gerekmeyen bilgi kartları görsel yük oluşturuyor ve Benchmark kartı mevcut AJAX score ucuna bağlanmadığı için pratikte boş kalıyordu. Blacklist metriği de istemci tarafında sürekli 0 yazıyordu.
+Tracker Güncellemesi: phase-admin-ux / UI-001 eklendi; current_release 16.17.0 yapıldı.
+Implemented: UI-001 — sekmeli modal, canlı benchmark, aranabilir kayıtlı model listesi, gerçek hız/uyumsuz özeti ve kaydedilmiş/taslak ayar karşılaştırması pakete işlendi.
+Verified: Bu revizyonda yeni bir görev verified yapılmadı.
+Açık Kalan / Blocked: UI-001 blocked değildir; gerçek WordPress admin ortamında görsel/etkileşim smoke testi beklediği için implemented durumundadır.
+Doğrulama Kanıtı: PHP lint, JavaScript syntax, JSON parse, sürüm zinciri, public agfo_* / wp_ajax_agfo_* envanter korunumu, tab panel ID/ARIA eşleşmesi, benchmark nonce çağrı/handler eşleşmesi ve ZIP bütünlüğü paket üretiminde kontrol edilir.
+Risk / Manuel Kontrol: WordPress admininde modal açılmalı; beş sekme arasında tıklama ve ok tuşları çalışmalı; sağlayıcı/model değişiminde listeler güncellenmeli; Benchmark seçili model için sonuç veya fallback göstermeli; Kayıtlı Modeller arama/kopyala/seç akışı çalışmalı; Aktif Ayarlar kaydetmeden önce fark rozetini, kaydettikten sonra eşit durumu göstermelidir.
+
+Tarih: 2026-08-09
+Eski Versiyon: 16.16.1
+Yeni Versiyon: 16.16.2
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: includes/functions.php; AGFO-AI-MANAGER-SPEC.md; agfo-ai-manager.php; readme.txt; README.md; revision.json; revision.txt; tracker.json
+Özet: Merkezî token alanı normalizasyonunun dışarı raporlanan bilgisi gerçek taşıma davranışıyla eşitlendi. agfo_get_priority_api_key() artık OpenRouter ve MiniMax chat için uses_max_completion_tokens=true döndürür. agfo_uses_max_completion_tokens() kısa legacy 'ada' desenini kelime sınırıyla kontrol eder; ada/text-ada ailesi legacy kalırken ilgisiz model kimliklerinin içindeki tesadüfi 'ada' alt-dizeleri legacy sayılmaz.
+Geriye Uyumluluk: agfo_get_priority_api_key() imzası ve diğer dönüş anahtarları değişmedi. Public agfo_* fonksiyon imzaları, wp_ajax_agfo_* action adları, option anahtarları, provider registry sözleşmeleri ve data/data.json şeması korunmuştur. Yalnız mevcut uses_max_completion_tokens bool alanı OpenRouter ve MiniMax için taşıma katmanıyla tutarlı hale gelmiştir.
+Migration: Gerekmiyor.
+Kök Neden: agfo_api_post() OpenRouter ve MiniMax chat gövdelerinde max_tokens alanını zaten max_completion_tokens alanına dönüştürürken agfo_get_priority_api_key() bu bilgiyi yalnız OpenAI için true raporluyordu. Ayrıca kısa 'ada' legacy deseni alt-dize aramasıyla ilgisiz yeni model adlarını yanlışlıkla legacy sayabiliyordu.
+Tracker Güncellemesi: phase-stabilization / STAB-006 eklendi; current_release 16.16.2 yapıldı.
+Implemented: STAB-006 — kod, spesifikasyon ve sürüm zinciri pakete işlendi.
+Verified: Bu revizyonda yeni bir görev verified yapılmadı.
+Açık Kalan / Blocked: STAB-006 blocked değildir; gerçek WordPress staging ortamında OpenRouter AGFO AI > Chat Test HTTP 200 smoke testi beklediği için implemented durumundadır.
+Doğrulama Kanıtı: Supplied functions_orig.php ile paket baseline includes/functions.php SHA-256 olarak eşleşti; supplied functions_fixed.php uygulandı. PHP/JS/JSON syntax, sürüm tutarlılığı, public agfo_* ve wp_ajax_agfo_* envanter korunumu, model-boundary regresyonu, UTF-8/LF ve ZIP bütünlüğü paket üretiminde kontrol edildi.
+Risk / Manuel Kontrol: Staging'de gerçek OpenRouter anahtarıyla AGFO AI → Chat Test üzerinden bir istek gönderilip HTTP 200 alınmalıdır. Bu canlı smoke tamamlanmadan STAB-006 verified yapılmamalıdır.
+
+Tarih: 2026-08-06
+Eski Versiyon: 16.16.0
+Yeni Versiyon: 16.16.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; assets/css/classic-editor-image.css; assets/js/classic-editor-image.js; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: Görsel Stüdyosu modalı çağrılmadan ekranda kalıyor ve kapatılamıyordu. Modal ile overlay'in display kuralları tarayıcının [hidden] kuralıyla aynı özgüllükte olduğu için onu eziyordu; 'Kapat' hidden özniteliğini true yapsa da modal görünür kalıyordu. Görünürlük artık .is-open sınıfıyla sürülüyor, [hidden] koruması !important ile garanti altına alındı ve sayfa yüklenirken modalın kapalı olduğu ayrıca zorlanıyor.
+Geriye Uyumluluk: Public API, AJAX action, option key, PHP sınıf ve fonksiyonlarının hiçbirine dokunulmadı. Değişiklik yalnızca görsel modalının CSS görünürlük kuralları ve JS aç/kapa fonksiyonlarıyla sınırlıdır.
+Migration: Gerekmiyor.
+Kök Neden: assets/css/classic-editor-image.css içinde .agfo-classic-image-modal için display:flex tanımlanmış, ancak İçerik Stüdyosu CSS'inde bulunan '.selector[hidden]{display:none!important}' koruması bu dosyaya taşınmamıştı. Sınıf seçicisi ile tarayıcının [hidden] öznitelik seçicisi eşit özgüllüktedir; sonra yüklenen eklenti kuralı kazandığı için hidden özniteliği hiçbir etki yaratmıyordu. Aynı kusur 'Medyada Aç' bağlantısını da (WordPress .button sınıfı display:inline-block verdiği için) sürekli görünür yapıyordu.
+Risk / Manuel Kontrol: Yazı düzenleme ekranı açıldığında modalin görünmediği; AI Görsel düğmesiyle açıldığı; başlık ×, alt bardaki Kapat, overlay tıklaması ve Esc ile kapandığı; görsel üretildikten sonra da kapanabildiği doğrulanmalıdır.
+
+Tarih: 2026-08-06
+Eski Versiyon: 16.15.2
+Yeni Versiyon: 16.16.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/functions.php; includes/class-ai-capability.php; includes/class-ai-image.php; includes/adapters/class-adapter-image.php; includes/image/class-image-prompt-library.php; includes/image/class-image-generator.php; includes/image/index.php; includes/editor/class-classic-editor-image.php; assets/js/classic-editor-image.js; assets/css/classic-editor-image.css; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: Klasik editöre AI Görsel Stüdyosu eklendi. Yeni 'image_generate' yeteneği; OpenAI, OpenRouter, Gemini, fal.ai ve MiniMax için sağlayıcı bazlı görsel istek gövdesi; düzenlenebilir görsel prompt presetleri (felsefi öne çıkan görsel, şarkı albüm kapağı, tıklanma odaklı kapak, dikey infografik, editoryal, kurumsal); ek prompt boş bırakıldığında yazının başlık ve içeriğinden metin modeliyle görsel özeti türetme; üretilen görselin medya kütüphanesine yazılması ve tek tıkla öne çıkan görsel atanması.
+Geriye Uyumluluk: Mevcut public API, AJAX action, option key, job, TTS, müzik, asset, chat ve data.json sözleşmeleri korunmuştur. agfo_get_provider_for_capability() ikinci parametresine yeni opsiyonel 'provider' anahtarı eklendi; geçirilmediğinde çözümleme davranışı birebir eskisi gibidir. Registry'ye yalnızca yetenek ve varsayılan model alanı eklendi; hiçbir endpoint, auth şeması veya sağlayıcı tipi değiştirilmedi. Ses medya katmanının (class-ai-media.php) MIME beyaz listesi görsel tiplerini kabul etmediği için görseller ayrı bir katmandan geçer; ses akışı etkilenmez.
+Migration: Gerekmiyor. Yeni option'lar (agfo_aim_image_prompts, agfo_aim_image_settings) ilk kullanımda oluşur.
+Tracker Güncellemesi: IMAGE-001 implemented; canlı sağlayıcı doğrulaması açık.
+Risk / Manuel Kontrol: Her sağlayıcı için canlı üretim staging'de doğrulanmalıdır. Görsel model kimlikleri sağlayıcı tarafında değişebildiğinden model alanı serbest metindir; 404/400 dönen bir model kimliğinde hata mesajı sağlayıcıdan aktarılır. fal.ai kuyruk polling'i mevcut merkezi agfo_async_poll_result() üzerinden çalışır; uzun süren üretimlerde PHP max_execution_time kontrol edilmelidir.
+
+Tarih: 2026-08-03
+Eski Versiyon: 16.15.1
+Yeni Versiyon: 16.15.2
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/functions.php; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: agfo_model_temperature_status() fonksiyonunun ikinci parametresi opsiyonel yapıldı; tek argümanlı (yalnızca model kimliği) eski çağrılar artık fatal ArgumentCountError üretmiyor. Tek argümanlı çağrıda model, data.json model_capabilities altındaki tüm sağlayıcılarda büyük/küçük harf duyarsız aranır ve yalnızca canlı probe kanıtı varsa 'supported'/'unsupported' döner; kanıt yoksa güvenli varsayılan 'unknown' döner.
+Geriye Uyumluluk: İki parametreli mevcut çağrılar birebir aynı davranır; tek parametreli eski çağrılar yeniden çalışır hale gelmiştir. Public API, option, AJAX ve data.json sözleşmeleri korunmuştur.
+Migration: Gerekmiyor.
+Kök Neden: 16.7.0'da fonksiyon imzası tek parametreden iki zorunlu parametreye çıkarılmıştı; bu, public API için MAJOR nitelikte bir kırılmaydı ve agfo-flow-rollout-tracker (satır 679/763) tek argümanla çağırdığı için PHP Fatal error oluşuyordu.
+Risk / Manuel Kontrol: agfo-flow-rollout-tracker sayfası açılarak fatal hatanın kaybolduğu; probe edilmiş bir modelde iki parametreli çağrının 'supported'/'unsupported', probe edilmemiş modelde 'unknown' döndüğü doğrulanmalıdır.
+
+Tarih: 2026-08-01
+Eski Versiyon: 16.12.0
+Yeni Versiyon: 16.13.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/functions.php; includes/class-ai-capability.php; includes/adapters/class-adapter-elevenlabs.php; includes/adapters/class-adapter-minimax.php; includes/adapters/class-adapter-gemini.php; includes/adapters/class-adapter-registry.php; includes/jobs/class-job-api.php; includes/jobs/class-job-worker.php; admin/class-operations.php; revision.json; tracker.json; README.md; readme.txt
+Özet: ElevenLabs Music, MiniMax Music 2.6/2.6 Free ve Google Gemini API Lyria 3 için ilk çalışan music_generate altyapısı, public facade, bütçe ve kill switch kontrolleri eklendi. MiniMax ilk test varsayılanı music-2.6-free, Lyria ilk çıktı biçimi MP3 olarak sınırlandı.
+Geriye Uyumluluk: Mevcut public API, option, AJAX, TTS, chat ve veri tabanı sözleşmeleri korunmuştur.
+Migration: Gerekmiyor.
+Tracker Güncellemesi: MUSIC-001 implemented; canlı sağlayıcı doğrulaması açık.
+Risk / Manuel Kontrol: Her sağlayıcı için kısa üretim, private asset playback/download, media-library opt-in, bütçe rezervasyonu ve hata/failover davranışı staging üzerinde doğrulanmalıdır.
+
+Tarih: 2026-08-01
+Eski Versiyon: 16.13.0
+Yeni Versiyon: 16.14.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/audio/class-audio-effects.php; includes/audio/index.php; includes/editor/class-classic-editor-tts.php; assets/js/classic-editor-tts.js; assets/css/classic-editor-tts.css; includes/jobs/class-job-api.php; includes/jobs/class-job-worker.php; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: Klasik editör Seslendir modalına kuru, sıcak oda reverbü, yumuşak echo ve salon reverbü presetleri ile yüzde bazlı etki miktarı eklendi. Efekt, sağlayıcı TTS üretiminden sonra yönetimli veya sistem FFmpeg ile kalıcı MP3 dosyasına uygulanır.
+Geriye Uyumluluk: Mevcut public API, AJAX action, option, job, TTS, müzik, asset ve veri tabanı sözleşmeleri korunmuştur. Yeni payload alanları yalnız eklemedir.
+Migration: Gerekmiyor.
+Tracker Güncellemesi: TTS-007 implemented; gerçek Classic Editor ekranı ve işitsel kabul testi açık.
+Doğrulama Kanıtı: PHP/JS/JSON syntax; UI statik envanteri; FFmpeg preset render testi; payload sanitize ve preflight kontrolleri; AJAX/public API envanter karşılaştırması; ZIP bütünlük testi.
+Risk / Manuel Kontrol: Klasik editör modalında bir efekt seçilerek gerçek ElevenLabs veya MiniMax TTS işi tamamlanmalı; oynatıcıdaki dosyada efekt duyulmalı ve Medya Kütüphanesine eklenen dosya MP3 olmalıdır.
+
+Tarih: 2026-08-01
+Eski Versiyon: 16.14.0
+Yeni Versiyon: 16.15.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/content/class-content-prompt-library.php; includes/content/class-content-transformer.php; includes/content/index.php; includes/editor/class-classic-editor-content.php; includes/editor/class-classic-editor-tts.php; assets/js/classic-editor-content.js; assets/js/classic-editor-tts.js; assets/css/classic-editor-content.css; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: AGFO AI Suite işlevleri AI Manager içine modern İçerik Stüdyosu olarak taşındı. Classic Editor AI Düzenle modalı, kaynak sadakatli prompt kütüphanesi, editöre uygulama/ekleme/geri alma ve sonucu mevcut TTS modalına aktarma eklendi.
+Geriye Uyumluluk: Mevcut TTS, reverb/echo, müzik, job, asset, bütçe, option ve AJAX sözleşmeleri korunmuştur. Bağımsız AI Suite kapalıysa legacy agfo_suite_* AJAX aliasları ve agfo_ai_suite_ajax_info() facade sağlanır.
+Migration: Veri tabanı migrationı yoktur. Gerçekten özelleştirilmiş agfo_suite_prompts değerleri bir kez yeni prompt seçeneğine aktarılır; eski varsayılan promptlar yeni modern varsayılanları ezmez.
+Tracker Güncellemesi: CONTENT-001 implemented; CONTENT-002 pending.
+Doğrulama Kanıtı: WordPress UI Runtime Guard statik envanteri; PHP/JS/JSON syntax; bootstrap/include/hook zinciri; nonce/capability; merkezi transport; prompt güvenlik kuralları; editör apply/undo/TTS handoff; legacy sözleşme ve ZIP bütünlük kontrolleri.
+Risk / Manuel Kontrol: Gerçek Classic Editor ekranında AI Düzenle görünürlüğü, seçili metin dönüşümü, editöre uygulama, geri alma ve Sonucu Seslendir akışı tek uçtan uca smoke ile doğrulanmalıdır.
+
+Tarih: 2026-08-01
+Eski Versiyon: 16.15.0
+Yeni Versiyon: 16.15.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/editor/class-classic-editor-content.php; assets/js/classic-editor-content.js; README.md; readme.txt; revision.json; revision.txt; tracker.json
+Özet: İçerik Stüdyosu modalı admin footer içinde JavaScript'ten sonra oluştuğunda doğrudan event bindingler bağlanmıyor, karakter sayacı 0 kalıyor ve submit türündeki Yeniden Yaz düğmesi WordPress post formuna düşerek post listesine yönlendiriyordu. Düğme type=button yapıldı ve bütün modal kontrolleri delegated event zincirine taşındı.
+Geriye Uyumluluk: Mevcut AJAX action, nonce, capability, prompt, TTS handoff, public API, option ve editör davranışları korunmuştur.
+Migration: Gerekmiyor.
+Tracker Güncellemesi: CONTENT-002 runtime kabulünde FAIL kaydı eklendi; CONTENT-003 implemented olarak eklendi.
+Doğrulama Kanıtı: Kullanıcı ekran görüntüsünde modal açıkken dolu kaynak alanına rağmen 0 karakter gösterimi ve Yeniden Yaz tıklamasında post listesine yönlenme; kaynak hook/event karşılaştırması; PHP/JS/JSON syntax; event sözleşmesi ve ZIP bütünlük kontrolü.
+Risk / Manuel Kontrol: Klasik editörde modalı açın; kaynak sayacı dolu metnin karakter sayısını göstermeli ve Yeniden Yaz tıklaması sayfadan ayrılmadan AJAX durumunu İşleniyor olarak değiştirmelidir.

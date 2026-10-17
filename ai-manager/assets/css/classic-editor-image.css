@@ -1,0 +1,327 @@
+@charset "UTF-8";
+
+/* AGFO AI Manager — Classic Editor image studio. Added in 16.16.0. */
+
+.agfo-classic-image-toolbar-button .dashicons,
+.agfo-classic-image-featured-button .dashicons {
+    line-height: 1.4;
+    font-size: 17px;
+}
+
+.agfo-classic-image-featured-wrap {
+    margin: 12px 0 0;
+}
+
+.agfo-classic-image-featured-button {
+    width: 100%;
+    text-align: center;
+}
+
+/* CHANGED 16.16.1: Modal ve overlay varsayilan olarak gizlidir. Onceden yalnizca
+   HTML 'hidden' ozniteligine guveniliyordu; asagidaki display kurallari tarayicinin
+   [hidden] kuraliyla ayni ozgullukte oldugu icin onu eziyor ve modal her zaman
+   ekranda kaliyordu. Artik gorunurluk .is-open sinifiyla surulur ve [hidden]
+   korumasi ayrica !important ile garanti altina alinir. */
+.agfo-classic-image-modal[hidden],
+.agfo-classic-image-overlay[hidden],
+#agfo-classic-image-title-row[hidden],
+#agfo-classic-image-prompt-view[hidden],
+#agfo-classic-image-open-media[hidden] {
+    display: none !important;
+}
+
+.agfo-classic-image-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(12, 16, 22, .55);
+    z-index: 160000;
+    display: none;
+}
+
+.agfo-classic-image-overlay.is-open {
+    display: block;
+}
+
+body.agfo-classic-image-modal-open {
+    overflow: hidden;
+}
+
+.agfo-classic-image-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(1120px, 94vw);
+    max-height: 92vh;
+    display: none;
+    flex-direction: column;
+    background: #f6f7f7;
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .32);
+    z-index: 160001;
+    overflow: hidden;
+}
+
+.agfo-classic-image-modal.is-open {
+    display: flex;
+}
+
+.agfo-classic-image-modal.is-busy {
+    cursor: progress;
+}
+
+.agfo-classic-image-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px;
+    background: #fff;
+    border-bottom: 1px solid #dcdcde;
+}
+
+.agfo-classic-image-header h2 {
+    margin: 0;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.agfo-classic-image-header p {
+    margin: 4px 0 0;
+    color: #646970;
+}
+
+.agfo-classic-image-close {
+    background: none;
+    border: 0;
+    font-size: 26px;
+    line-height: 1;
+    color: #646970;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.agfo-classic-image-close:hover {
+    color: #1d2327;
+}
+
+.agfo-classic-image-body {
+    padding: 18px 22px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+
+.agfo-classic-image-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+.agfo-classic-image-model span {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #646970;
+}
+
+.agfo-classic-image-model strong {
+    font-size: 14px;
+}
+
+.agfo-classic-image-grid {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.agfo-classic-image-grid-four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.agfo-classic-image-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.agfo-classic-image-modal label {
+    display: block;
+    font-weight: 600;
+}
+
+.agfo-classic-image-modal label > span {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.agfo-classic-image-modal label > span small {
+    font-weight: 400;
+    color: #646970;
+}
+
+.agfo-classic-image-modal select,
+.agfo-classic-image-modal input[type="text"],
+.agfo-classic-image-modal textarea {
+    width: 100%;
+    max-width: none;
+}
+
+.agfo-classic-image-modal .agfo-classic-image-model-custom {
+    margin-top: 8px;
+}
+
+.agfo-classic-image-modal .agfo-classic-image-model-custom[hidden] {
+    display: none;
+}
+
+.agfo-classic-image-modal small {
+    display: block;
+    margin-top: 4px;
+    font-weight: 400;
+    color: #646970;
+}
+
+.agfo-classic-image-title-row {
+    margin-bottom: 14px;
+}
+
+.agfo-classic-image-prompt-label {
+    display: block;
+    margin-bottom: 16px;
+}
+
+.agfo-classic-image-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 16px;
+}
+
+.agfo-classic-image-preview {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    overflow: hidden;
+}
+
+.agfo-classic-image-preview img {
+    max-width: 100%;
+    max-height: 420px;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+}
+
+.agfo-classic-image-placeholder {
+    color: #8c8f94;
+    font-style: italic;
+}
+
+.agfo-classic-image-meta {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 260px;
+}
+
+.agfo-classic-image-meta-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.agfo-classic-image-meta pre {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 10px;
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
+    max-height: 320px;
+}
+
+.agfo-classic-image-status {
+    margin-top: 16px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border-left: 4px solid #dcdcde;
+    background: #fff;
+}
+
+.agfo-classic-image-status.is-working {
+    border-left-color: #2271b1;
+    background: #f0f6fc;
+}
+
+.agfo-classic-image-status.is-complete {
+    border-left-color: #00a32a;
+    background: #f0f6f0;
+}
+
+.agfo-classic-image-status.is-failed {
+    border-left-color: #d63638;
+    background: #fcf0f1;
+}
+
+.agfo-classic-image-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 22px;
+    background: #fff;
+    border-top: 1px solid #dcdcde;
+}
+
+.agfo-classic-image-secondary-actions,
+.agfo-classic-image-primary-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+    .agfo-classic-image-grid-four,
+    .agfo-classic-image-grid-three {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .agfo-classic-image-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .agfo-classic-image-grid-four,
+    .agfo-classic-image-grid-three {
+        grid-template-columns: 1fr;
+    }
+
+    .agfo-classic-image-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

@@ -5,6 +5,8 @@ name: Release
 #   system-care-vX.Y.Z  -> AGFO-System-Care-vX.Y.Z.zip (uygulama ici guncelleme paketi, MANIFEST'li)
 #   supertools-vX.Y.Z   -> AGFO-SuperTools-vX.Y.Z.update.zip (Guncelleme Merkezi paketi) + tam kurulum ZIP'i
 #   backupsync-vX.Y.Z   -> AGFO-BackupSync-Setup.exe + AGFO-BackupSync.exe (Windows'ta derlenir) + kaynak ZIP
+#   ai-manager-vX.Y.Z   -> agfo-ai-manager-X.Y.Z.zip (WordPress eklentisi; siteler GitHub'dan gunceller)
+#   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + ekran goruntusu
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -25,6 +27,8 @@ jobs:
       sc: ${{ steps.d.outputs.sc }}
       st: ${{ steps.d.outputs.st }}
       bs: ${{ steps.d.outputs.bs }}
+      am: ${{ steps.d.outputs.am }}
+      ae: ${{ steps.d.outputs.ae }}
     steps:
       - uses: actions/checkout@v4
       - id: d
@@ -37,6 +41,10 @@ jobs:
           echo "sc=$(need system-care-v$SC)" >> "$GITHUB_OUTPUT"
           echo "st=$(need supertools-v$ST)" >> "$GITHUB_OUTPUT"
           echo "bs=$(need backupsync-v$BS)" >> "$GITHUB_OUTPUT"
+          AM=$(sed -n "s/^define('AGFO_AIM_VERSION', *'\([0-9.]*\)');/\1/p" ai-manager/agfo-ai-manager.php)
+          AE=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" ai-editor/src/agfo_editor_core.py)
+          echo "am=$(need ai-manager-v$AM)" >> "$GITHUB_OUTPUT"
+          echo "ae=$(need ai-editor-v$AE)" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   system-care:
@@ -174,3 +182,78 @@ jobs:
           $notes = ".github/release-notes/$env:TAG.md"
           if (-not (Test-Path $notes)) { "AGFO BackupSync $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
           gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO BackupSync $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA
+
+  ai-manager:
+    needs: detect
+    if: needs.detect.outputs.am != ''
+    runs-on: ubuntu-latest
+    env: { TAG: '${{ needs.detect.outputs.am }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Surum / etiket denetimi
+        run: |
+          V="${TAG#ai-manager-v}"
+          C=$(sed -n "s/^define('AGFO_AIM_VERSION', *'\([0-9.]*\)');/\1/p" ai-manager/agfo-ai-manager.php)
+          H=$(sed -n 's/^ \* Version: *\([0-9.]*\).*/\1/p' ai-manager/agfo-ai-manager.php)
+          [ "$V" = "$C" ] && [ "$V" = "$H" ] || { echo "Etiket $V / AGFO_AIM_VERSION $C / baslik $H uyusmuyor"; exit 1; }
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - name: PHP ayrisma + testler
+        working-directory: ai-manager
+        run: |
+          php -v | head -1
+          find . -name '*.php' -print0 | xargs -0 -n1 php -l > /tmp/lint.txt || { grep -v '^No syntax errors' /tmp/lint.txt; exit 1; }
+          for t in tests/*-tests.php; do echo "== $t"; php "$t" | tail -3 || exit 1; php "$t" > /dev/null || { echo "FAIL $t"; exit 1; }; done
+      - name: Paketle
+        run: |
+          mkdir -p out pkg
+          rsync -a --exclude '.git' ai-manager/ pkg/agfo-ai-manager/
+          (cd pkg && zip -qr "../out/agfo-ai-manager-${VERSION}.zip" agfo-ai-manager)
+          unzip -l "out/agfo-ai-manager-${VERSION}.zip" | grep -q 'agfo-ai-manager/agfo-ai-manager.php'
+          unzip -l "out/agfo-ai-manager-${VERSION}.zip" | grep -q 'agfo-ai-manager/includes/core/class-github-updater.php'
+          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          NOTES=".github/release-notes/${TAG}.md"; [ -f "$NOTES" ] || { echo "AGFO AI Manager ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
+          gh release create "$TAG" out/* --title "AGFO AI Manager ${VERSION}" --notes-file "$NOTES" --target "$GITHUB_SHA"
+
+  ai-editor:
+    needs: detect
+    if: needs.detect.outputs.ae != ''
+    runs-on: windows-latest
+    env: { TAG: '${{ needs.detect.outputs.ae }}' }
+    defaults:
+      run: { shell: pwsh }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket ve ortak modul denetimi
+        run: |
+          $v = $env:TAG -replace '^ai-editor-v',''
+          $c = (Select-String -Path ai-editor/src/agfo_editor_core.py -Pattern "^VERSION = '([0-9.]+)'").Matches[0].Groups[1].Value
+          if ($v -ne $c) { throw "Etiket $v ile agfo_editor_core.py VERSION $c uyusmuyor" }
+          if ((Get-FileHash shared/agfo_github_update.py).Hash -ne (Get-FileHash ai-editor/src/agfo_github_update.py).Hash) { throw 'Ortak modul kopyasi farkli' }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Derle (testler + PyInstaller + EXE oz-testi)
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File ai-editor/packaging/build_windows.ps1
+      - name: Arayuz duman testi + ekran goruntusu
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          $png = Join-Path (Resolve-Path out) "AGFO-AI-Editor-v$env:VERSION-ekran.png"
+          $o = python ai-editor/src/agfo_ai_editor.pyw --smoke $png | Out-String
+          Write-Host $o
+          if ($o -notmatch 'AGFO EDITOR SMOKE OK') { throw 'GUI duman testi basarisiz' }
+          if (-not (Test-Path $png)) { throw 'Ekran goruntusu yok' }
+      - name: Paketle
+        run: |
+          Copy-Item ai-editor/dist/AGFO-AI-Editor.exe out/
+          Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
+          Get-Content out/SHA256SUMS.txt
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          $notes = ".github/release-notes/$env:TAG.md"
+          if (-not (Test-Path $notes)) { "AGFO AI Editor $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
+          gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO AI Editor $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA

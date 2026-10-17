@@ -1,0 +1,587 @@
+{
+  "schema_version": 2,
+  "project": {
+    "slug": "agfo-ai-manager",
+    "version": "17.4.0",
+    "kind": "wordpress-plugin"
+  },
+  "inventory": {
+    "customizer_settings": [],
+    "theme_mods_read": [],
+    "options_registered": [],
+    "options_read": [
+      "active_plugins",
+      "agfo_",
+      "agfo_ai_budget_warning",
+      "agfo_ai_capability_routing",
+      "agfo_ai_manager_transport_log",
+      "agfo_ai_minimax_audio_monthly_quota",
+      "agfo_ai_minimax_audio_reset_day",
+      "agfo_ai_pricing_rates",
+      "agfo_ai_schema_error",
+      "agfo_ai_storage_error",
+      "agfo_global_preferred_model",
+      "agfo_legacy_notice_shown",
+      "agfo_model_filter_settings",
+      "agfo_models_",
+      "agfo_models_{$code}",
+      "agfo_models_{$code}_filtered_count",
+      "agfo_models_{$code}_raw_count",
+      "agfo_models_{$code}_updated",
+      "agfo_models_{$provider}",
+      "agfo_openrouter_fusion_analysis_models",
+      "agfo_openrouter_fusion_judge_model",
+      "agfo_openrouter_fusion_max_completion_tokens",
+      "agfo_openrouter_fusion_max_tool_calls",
+      "agfo_openrouter_fusion_mode",
+      "agfo_openrouter_fusion_profile",
+      "agfo_openrouter_fusion_temperature",
+      "agfo_reasoning_mode",
+      "agfo_selected_provider"
+    ],
+    "post_meta": [
+      "_agfo_ai_generated",
+      "_agfo_ai_image_prompt",
+      "_agfo_ai_provenance",
+      "_agfo_ai_source",
+      "_wp_attachment_image_alt"
+    ],
+    "term_meta": [],
+    "shortcodes": [],
+    "ajax_actions": [
+      "a",
+      "agfo_ai_content_transform",
+      "agfo_ai_image_generate",
+      "agfo_ai_image_preview_prompt",
+      "agfo_ai_image_set_featured",
+      "agfo_ai_job_run",
+      "agfo_ai_job_start",
+      "agfo_ai_job_status",
+      "agfo_ai_model_speed",
+      "agfo_ai_provider_quota",
+      "agfo_ai_tts_catalog",
+      "agfo_aim_board_image",
+      "agfo_aim_board_translation",
+      "agfo_aim_guard_reset",
+      "agfo_aim_guard_rules",
+      "agfo_aim_mi_list",
+      "agfo_aim_mi_probe",
+      "agfo_aim_set_image_model",
+      "agfo_aim_set_image_price",
+      "agfo_aim_set_translation_model",
+      "agfo_chat_test",
+      "agfo_clear_model_cache",
+      "agfo_download_models",
+      "agfo_get_model_score",
+      "agfo_job_cancel",
+      "agfo_job_status",
+      "agfo_job_submit",
+      "agfo_probe_model_capabilities",
+      "agfo_qs_get_compatible_models",
+      "agfo_qs_get_data",
+      "agfo_qs_get_models_only",
+      "agfo_qs_save",
+      "agfo_refresh_all_models",
+      "agfo_refresh_provider_models",
+      "agfo_suite_get_status",
+      "agfo_suite_process",
+      "agfo_suite_save_prompts",
+      "agfo_x",
+      "agfo_y",
+      "c",
+      "demo_save"
+    ],
+    "admin_post_actions": [
+      "agfo_ai_asset_download",
+      "agfo_ai_retry_job",
+      "agfo_ai_save_governance",
+      "agfo_ai_tracker_update",
+      "b"
+    ],
+    "rest_routes": [
+      "a/b",
+      "agfo-ai/v1//models/compatible",
+      "agfo-ai/v1//models/intelligence"
+    ],
+    "cron_hooks_scheduled": [],
+    "nav_menus": [],
+    "outgoing_actions": [
+      "agfo_ai_budget_warning",
+      "agfo_ai_call_finished",
+      "agfo_ai_call_stage",
+      "agfo_ai_call_started",
+      "agfo_ai_image_generated",
+      "agfo_ai_job_completed",
+      "agfo_ai_job_failed",
+      "agfo_ai_register_adapters"
+    ],
+    "outgoing_filters": [
+      "agfo_ai_asset_max_bytes",
+      "agfo_ai_capabilities",
+      "agfo_ai_classic_editor_tts_capability",
+      "agfo_ai_code_review_quick_candidates",
+      "agfo_ai_content_context_meta_lines",
+      "agfo_ai_content_languages",
+      "agfo_ai_content_studio_capability",
+      "agfo_ai_content_translation_templates",
+      "agfo_ai_fallback_model",
+      "agfo_ai_ffmpeg_path",
+      "agfo_ai_guard_body",
+      "agfo_ai_image_allowed_types",
+      "agfo_ai_image_art_director_enabled",
+      "agfo_ai_image_art_director_system",
+      "agfo_ai_image_final_prompt",
+      "agfo_ai_image_model_catalog",
+      "agfo_ai_image_model_note",
+      "agfo_ai_image_prompt_budget",
+      "agfo_ai_image_prompts",
+      "agfo_ai_image_studio_capability",
+      "agfo_ai_media_allowed_types",
+      "agfo_ai_model_fallback_enabled",
+      "agfo_ai_responses_bridge_enabled",
+      "agfo_ai_store_path",
+      "agfo_ai_worker_batch_size",
+      "agfo_aim_frontend_control_center",
+      "agfo_capability_config",
+      "agfo_provider_capabilities",
+      "agfo_speech_long_max_chunks",
+      "agfo_speech_long_safety_margin",
+      "http_request_args",
+      "http_response",
+      "https_local_ssl_verify",
+      "pre_http_request"
+    ],
+    "css_variables_defined": [
+      "--ax-accent",
+      "--ax-accent-ink",
+      "--ax-accent-weak",
+      "--ax-bad",
+      "--ax-bad-weak",
+      "--ax-bridge",
+      "--ax-bridge-weak",
+      "--ax-canvas",
+      "--ax-font",
+      "--ax-ink",
+      "--ax-ink-2",
+      "--ax-ink-3",
+      "--ax-line",
+      "--ax-line-2",
+      "--ax-ok",
+      "--ax-ok-weak",
+      "--ax-r-sm",
+      "--ax-radius",
+      "--ax-shadow",
+      "--ax-surface",
+      "--ax-warn",
+      "--ax-warn-weak"
+    ],
+    "css_variables_consumed": [
+      "--ax-accent",
+      "--ax-accent-ink",
+      "--ax-accent-weak",
+      "--ax-bad",
+      "--ax-bad-weak",
+      "--ax-bridge",
+      "--ax-bridge-weak",
+      "--ax-canvas",
+      "--ax-font",
+      "--ax-ink",
+      "--ax-ink-2",
+      "--ax-ink-3",
+      "--ax-line",
+      "--ax-line-2",
+      "--ax-ok",
+      "--ax-ok-weak",
+      "--ax-r-sm",
+      "--ax-radius",
+      "--ax-shadow",
+      "--ax-surface",
+      "--ax-warn",
+      "--ax-warn-weak"
+    ]
+  },
+  "tests": [
+    {
+      "id": "image.prompt.behaviour",
+      "title": "Image studio prompt composition, budgets, migration and adapter bodies",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/image-prompt-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "FAIL 0",
+      "covers": [
+        "ajax:agfo_ai_image_generate",
+        "ajax:agfo_ai_image_preview_prompt"
+      ],
+      "since": "16.19.0"
+    },
+    {
+      "id": "image.prompt.subject_first",
+      "title": "Plain composition keeps SUBJECT at the start",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/image/class-image-generator.php",
+      "text": "$head[] = 'SUBJECT:';",
+      "since": "16.19.0"
+    },
+    {
+      "id": "image.adapter.gemini_aspect",
+      "title": "Gemini image models receive imageConfig.aspectRatio",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/adapters/class-adapter-image.php",
+      "text": "'imageConfig'        => [ 'aspectRatio' => $ratio ]",
+      "since": "16.19.0"
+    },
+    {
+      "id": "image.settings.art_director_toggle",
+      "title": "Prompt page renders the art director toggle with hidden zero value",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/image/class-image-generator.php",
+      "text": "name=\"image_defaults[art_director]\" value=\"0\"",
+      "since": "16.19.0"
+    },
+    {
+      "id": "image.live.generate_compare",
+      "title": "Live: same post generated with art director on and off, per preset",
+      "type": "browser",
+      "evidence_level": "live_runtime",
+      "required_for_package": false,
+      "purpose": "Provider calls cost money and need real keys; run manually on the test site. Not a package gate.",
+      "steps": [],
+      "covers": [
+        "button:#agfo-classic-image-generate"
+      ],
+      "since": "16.19.0"
+    },
+    {
+      "id": "guard.behaviour",
+      "title": "Request guard: sampling policy, learned refusals, Responses bridge, model fallback, JSON object preservation",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/request-guard-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "covers": [
+        "ajax:agfo_aim_guard_rules",
+        "ajax:agfo_aim_guard_reset"
+      ],
+      "since": "17.0.0"
+    },
+    {
+      "id": "guard.bootstrap",
+      "title": "Guard is loaded and hooked at plugin load",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "agfo-ai-manager.php",
+      "text": "AGFO_AIM_Request_Guard::register_hooks();",
+      "since": "17.0.0"
+    },
+    {
+      "id": "guard.probe_raw",
+      "title": "Capability probes bypass the guard",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/ajax/class-data.php",
+      "text": "'X-AGFO-Raw-Probe' => '1'",
+      "since": "17.0.0"
+    },
+    {
+      "id": "guard.post_reencode",
+      "title": "agfo_api_post rewrites body only on change",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/functions.php",
+      "text": "if ($decoded !== $decoded_before) {",
+      "since": "17.0.0"
+    },
+    {
+      "id": "modal.ids",
+      "title": "Modal keeps the ids script.js and other plugins rely on",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/partials/modal.php",
+      "text": "<select id=\"qs-model\"",
+      "since": "17.0.0"
+    },
+    {
+      "id": "modal.list",
+      "title": "Model table container present",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/partials/modal.php",
+      "text": "id=\"qs-model-list\"",
+      "since": "17.0.0"
+    },
+    {
+      "id": "modal.style_enqueued",
+      "title": "control-center.css enqueued",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "admin/class-admin.php",
+      "text": "assets/css/control-center.css",
+      "since": "17.0.0"
+    },
+    {
+      "id": "modal.browser",
+      "title": "AI Kontrol Merkezi opens, lists models, selects with click and keyboard, saves (live)",
+      "type": "browser",
+      "required_for_package": false,
+      "covers": [
+        "ajax:agfo_qs_get_data",
+        "ajax:agfo_qs_save",
+        "button:#qs-save-btn",
+        "button:#agfo-probe-model-btn"
+      ],
+      "steps": [
+        {
+          "action": "goto",
+          "url": "${AGFO_TEST_BASE_URL}/wp-admin/"
+        },
+        {
+          "action": "eval",
+          "script": "agfoOpenSwitcher()"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#qs-model-list .ax-row"
+        },
+        {
+          "action": "click",
+          "selector": "#qs-model-list .ax-row:not([hidden])"
+        },
+        {
+          "action": "click",
+          "selector": "#qs-save-btn"
+        },
+        {
+          "action": "expect_text",
+          "selector": "#qs-status-indicator",
+          "text": "Kaydedildi"
+        }
+      ],
+      "since": "17.0.0"
+    },
+    {
+      "id": "image.studio.model_select",
+      "title": "Image studio model field is a select, not a datalist (all models visible)",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/editor/class-classic-editor-image.php",
+      "text": "<select id=\"agfo-classic-image-model-select\"",
+      "since": "17.0.1"
+    },
+    {
+      "id": "image.studio.no_datalist",
+      "title": "Datalist removed from image studio",
+      "type": "not_contains",
+      "required_for_package": true,
+      "target": "includes/editor/class-classic-editor-image.php",
+      "text": "<datalist",
+      "since": "17.0.1"
+    },
+    {
+      "id": "catalog.behaviour",
+      "title": "Model catalogue: recency, quality, translation and image boards, translation routing",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/model-catalog-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "covers": [
+        "ajax:agfo_aim_board_translation",
+        "ajax:agfo_aim_board_image",
+        "ajax:agfo_aim_set_translation_model",
+        "ajax:agfo_aim_set_image_model",
+        "ajax:agfo_aim_set_image_price"
+      ],
+      "since": "17.1.0"
+    },
+    {
+      "id": "catalog.meta_capture",
+      "title": "Model refresh stores provider metadata",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/ajax/class-data.php",
+      "text": "AGFO_AIM_Model_Catalog::capture_meta($provider_code, $raw_list);",
+      "since": "17.1.0"
+    },
+    {
+      "id": "modal.tabs_17_1",
+      "title": "Translation and Image tabs present",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/partials/modal.php",
+      "text": "data-agfo-tab=\"translate\"",
+      "since": "17.1.0"
+    },
+    {
+      "id": "modal.sort",
+      "title": "Sort control present",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/partials/modal.php",
+      "text": "id=\"qs-model-sort\"",
+      "since": "17.1.0"
+    },
+    {
+      "id": "boards.enqueued",
+      "title": "Boards script enqueued",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "admin/class-admin.php",
+      "text": "assets/js/control-center-boards.js",
+      "since": "17.1.0"
+    },
+    {
+      "id": "tests.no_short_globals",
+      "title": "Test helpers use the agfo_aim_test_ prefix",
+      "type": "not_contains",
+      "required_for_package": true,
+      "target": "tests/request-guard-tests.php",
+      "text": "function r(",
+      "since": "17.1.1"
+    },
+    {
+      "id": "codec.behaviour",
+      "title": "Base64 codec parity and legacy key decryption",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/binary-codec-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "since": "17.1.2"
+    },
+    {
+      "id": "codec.single_point_image",
+      "title": "Image storage decodes through the codec",
+      "type": "not_contains",
+      "required_for_package": true,
+      "target": "includes/class-ai-image.php",
+      "text": "base64_decode(",
+      "since": "17.1.2"
+    },
+    {
+      "id": "codec.single_point_media",
+      "title": "Media storage decodes through the codec",
+      "type": "not_contains",
+      "required_for_package": true,
+      "target": "includes/class-ai-media.php",
+      "text": "base64_decode(",
+      "since": "17.1.2"
+    },
+    {
+      "id": "process.single_runner",
+      "title": "Long speech merge has no own proc_open",
+      "type": "not_contains",
+      "required_for_package": true,
+      "target": "includes/tts/class-speech-long.php",
+      "text": "proc_open(",
+      "since": "17.1.2"
+    },
+    {
+      "id": "process.allowlist",
+      "title": "Process runner only executes the resolved FFmpeg",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/audio/class-audio-effects.php",
+      "text": "Yalnız doğrulanmış FFmpeg çalıştırılabilir.",
+      "since": "17.1.2"
+    },
+    {
+      "id": "review.behaviour",
+      "title": "AI code review: routing, schema, redaction, evidence checks",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/code-review-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "since": "17.2.0"
+    },
+    {
+      "id": "review.loaded",
+      "title": "Code review service loaded",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "agfo-ai-manager.php",
+      "text": "includes/class-code-review.php",
+      "since": "17.2.0"
+    },
+    {
+      "id": "translate.behaviour",
+      "title": "Editor translation: route, budget, truncation, toolbar markup",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/content-translate-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "since": "17.3.0"
+    },
+    {
+      "id": "translate.toolbar",
+      "title": "Toolbar Çevir button rendered by media_buttons",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/editor/class-classic-editor-content.php",
+      "text": "self::translate_controls_html( $editor_id )",
+      "since": "17.3.0"
+    },
+    {
+      "id": "translate.route",
+      "title": "Translation template uses agfo_get_translation_config",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/content/class-content-transformer.php",
+      "text": "agfo_get_translation_config()",
+      "since": "17.3.0"
+    },
+    {
+      "id": "admin.frontend_guard",
+      "title": "Front-end control center loads only with the admin bar",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/admin-guard-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "since": "17.3.1"
+    },
+    {
+      "id": "review.contradiction",
+      "title": "Code review drops claims refuted by code",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/class-code-review.php",
+      "text": "if ( self::contradicted( $r, $context, $resolver ) ) {",
+      "since": "17.3.1"
+    }
+  ]
+}

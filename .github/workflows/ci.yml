@@ -17,6 +17,7 @@ jobs:
           cmp shared/agfo_github_update.py system-care/agfo_github_update.py
           cmp shared/agfo_github_update.py supertools/agfo_github_update.py
           cmp shared/agfo_github_update.py backupsync/src/agfo_github_update.py
+          cmp shared/agfo_github_update.py ai-editor/src/agfo_github_update.py
       - name: Testler
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
@@ -26,6 +27,17 @@ jobs:
           python -m compileall -q supertools system-care backupsync/src
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
           python -m unittest discover -s backupsync/tests
+          xvfb-run -a python -m unittest discover -s ai-editor/tests
+
+  ai-manager-php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP ayrisma + testler
+        working-directory: ai-manager
+        run: |
+          find . -name '*.php' -print0 | xargs -0 -n1 php -l > /tmp/lint.txt || { grep -v '^No syntax errors' /tmp/lint.txt; exit 1; }
+          for t in tests/*-tests.php; do php "$t" > /tmp/t.txt || { cat /tmp/t.txt; echo "FAIL $t"; exit 1; }; echo "$t: $(tail -1 /tmp/t.txt)"; done
 
   windows-tests:
     runs-on: windows-latest

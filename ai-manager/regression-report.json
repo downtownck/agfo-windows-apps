@@ -1,0 +1,1406 @@
+{
+  "schema_version": 2,
+  "runner_version": "1.1.0",
+  "generated_at": "2026-10-07T12:22:15+00:00",
+  "project": {
+    "slug": "agfo-ai-manager",
+    "version": "17.4.0",
+    "kind": "wordpress-plugin"
+  },
+  "contract": "/home/claude/w/agfo-ai-manager/regression.json",
+  "runtime": {
+    "allow_live_runtime": false,
+    "base_url": null,
+    "wp_path": null
+  },
+  "counts": {
+    "pass": 130,
+    "fail": 0,
+    "warn": 0,
+    "skip": 2
+  },
+  "package_gate": {
+    "status": "pass",
+    "blockers": []
+  },
+  "interaction_coverage": {
+    "expected": [
+      "admin_post:agfo_ai_asset_download",
+      "admin_post:agfo_ai_retry_job",
+      "admin_post:agfo_ai_save_governance",
+      "admin_post:agfo_ai_tracker_update",
+      "admin_post:b",
+      "ajax:a",
+      "ajax:agfo_ai_content_transform",
+      "ajax:agfo_ai_image_generate",
+      "ajax:agfo_ai_image_preview_prompt",
+      "ajax:agfo_ai_image_set_featured",
+      "ajax:agfo_ai_job_run",
+      "ajax:agfo_ai_job_start",
+      "ajax:agfo_ai_job_status",
+      "ajax:agfo_ai_model_speed",
+      "ajax:agfo_ai_provider_quota",
+      "ajax:agfo_ai_tts_catalog",
+      "ajax:agfo_aim_board_image",
+      "ajax:agfo_aim_board_translation",
+      "ajax:agfo_aim_guard_reset",
+      "ajax:agfo_aim_guard_rules",
+      "ajax:agfo_aim_mi_list",
+      "ajax:agfo_aim_mi_probe",
+      "ajax:agfo_aim_set_image_model",
+      "ajax:agfo_aim_set_image_price",
+      "ajax:agfo_aim_set_translation_model",
+      "ajax:agfo_chat_test",
+      "ajax:agfo_clear_model_cache",
+      "ajax:agfo_download_models",
+      "ajax:agfo_get_model_score",
+      "ajax:agfo_job_cancel",
+      "ajax:agfo_job_status",
+      "ajax:agfo_job_submit",
+      "ajax:agfo_probe_model_capabilities",
+      "ajax:agfo_qs_get_compatible_models",
+      "ajax:agfo_qs_get_data",
+      "ajax:agfo_qs_get_models_only",
+      "ajax:agfo_qs_save",
+      "ajax:agfo_refresh_all_models",
+      "ajax:agfo_refresh_provider_models",
+      "ajax:agfo_suite_get_status",
+      "ajax:agfo_suite_process",
+      "ajax:agfo_suite_save_prompts",
+      "ajax:agfo_x",
+      "ajax:agfo_y",
+      "ajax:c",
+      "ajax:demo_save",
+      "rest:a/b",
+      "rest:agfo-ai/v1//models/compatible",
+      "rest:agfo-ai/v1//models/intelligence"
+    ],
+    "covered": [
+      "ajax:agfo_ai_image_generate",
+      "ajax:agfo_ai_image_preview_prompt",
+      "ajax:agfo_aim_board_image",
+      "ajax:agfo_aim_board_translation",
+      "ajax:agfo_aim_guard_reset",
+      "ajax:agfo_aim_guard_rules",
+      "ajax:agfo_aim_set_image_model",
+      "ajax:agfo_aim_set_image_price",
+      "ajax:agfo_aim_set_translation_model",
+      "ajax:agfo_qs_get_data",
+      "ajax:agfo_qs_save",
+      "button:#agfo-classic-image-generate",
+      "button:#agfo-probe-model-btn",
+      "button:#qs-save-btn"
+    ],
+    "uncovered": [
+      "admin_post:agfo_ai_asset_download",
+      "admin_post:agfo_ai_retry_job",
+      "admin_post:agfo_ai_save_governance",
+      "admin_post:agfo_ai_tracker_update",
+      "admin_post:b",
+      "ajax:a",
+      "ajax:agfo_ai_content_transform",
+      "ajax:agfo_ai_image_set_featured",
+      "ajax:agfo_ai_job_run",
+      "ajax:agfo_ai_job_start",
+      "ajax:agfo_ai_job_status",
+      "ajax:agfo_ai_model_speed",
+      "ajax:agfo_ai_provider_quota",
+      "ajax:agfo_ai_tts_catalog",
+      "ajax:agfo_aim_mi_list",
+      "ajax:agfo_aim_mi_probe",
+      "ajax:agfo_chat_test",
+      "ajax:agfo_clear_model_cache",
+      "ajax:agfo_download_models",
+      "ajax:agfo_get_model_score",
+      "ajax:agfo_job_cancel",
+      "ajax:agfo_job_status",
+      "ajax:agfo_job_submit",
+      "ajax:agfo_probe_model_capabilities",
+      "ajax:agfo_qs_get_compatible_models",
+      "ajax:agfo_qs_get_models_only",
+      "ajax:agfo_refresh_all_models",
+      "ajax:agfo_refresh_provider_models",
+      "ajax:agfo_suite_get_status",
+      "ajax:agfo_suite_process",
+      "ajax:agfo_suite_save_prompts",
+      "ajax:agfo_x",
+      "ajax:agfo_y",
+      "ajax:c",
+      "ajax:demo_save",
+      "rest:a/b",
+      "rest:agfo-ai/v1//models/compatible",
+      "rest:agfo-ai/v1//models/intelligence"
+    ]
+  },
+  "inventory_counts": {
+    "customizer_settings": 0,
+    "theme_mods_read": 0,
+    "options_registered": 0,
+    "options_read": 28,
+    "post_meta": 5,
+    "term_meta": 0,
+    "shortcodes": 0,
+    "ajax_actions": 41,
+    "admin_post_actions": 5,
+    "rest_routes": 3,
+    "cron_hooks_scheduled": 0,
+    "nav_menus": 0,
+    "outgoing_actions": 8,
+    "outgoing_filters": 34,
+    "css_variables_defined": 22,
+    "css_variables_consumed": 22
+  },
+  "current_inventory": {
+    "customizer_settings": [],
+    "theme_mods_read": [],
+    "options_registered": [],
+    "options_read": [
+      "active_plugins",
+      "agfo_",
+      "agfo_ai_budget_warning",
+      "agfo_ai_capability_routing",
+      "agfo_ai_manager_transport_log",
+      "agfo_ai_minimax_audio_monthly_quota",
+      "agfo_ai_minimax_audio_reset_day",
+      "agfo_ai_pricing_rates",
+      "agfo_ai_schema_error",
+      "agfo_ai_storage_error",
+      "agfo_global_preferred_model",
+      "agfo_legacy_notice_shown",
+      "agfo_model_filter_settings",
+      "agfo_models_",
+      "agfo_models_{$code}",
+      "agfo_models_{$code}_filtered_count",
+      "agfo_models_{$code}_raw_count",
+      "agfo_models_{$code}_updated",
+      "agfo_models_{$provider}",
+      "agfo_openrouter_fusion_analysis_models",
+      "agfo_openrouter_fusion_judge_model",
+      "agfo_openrouter_fusion_max_completion_tokens",
+      "agfo_openrouter_fusion_max_tool_calls",
+      "agfo_openrouter_fusion_mode",
+      "agfo_openrouter_fusion_profile",
+      "agfo_openrouter_fusion_temperature",
+      "agfo_reasoning_mode",
+      "agfo_selected_provider"
+    ],
+    "post_meta": [
+      "_agfo_ai_generated",
+      "_agfo_ai_image_prompt",
+      "_agfo_ai_provenance",
+      "_agfo_ai_source",
+      "_wp_attachment_image_alt"
+    ],
+    "term_meta": [],
+    "shortcodes": [],
+    "ajax_actions": [
+      "a",
+      "agfo_ai_content_transform",
+      "agfo_ai_image_generate",
+      "agfo_ai_image_preview_prompt",
+      "agfo_ai_image_set_featured",
+      "agfo_ai_job_run",
+      "agfo_ai_job_start",
+      "agfo_ai_job_status",
+      "agfo_ai_model_speed",
+      "agfo_ai_provider_quota",
+      "agfo_ai_tts_catalog",
+      "agfo_aim_board_image",
+      "agfo_aim_board_translation",
+      "agfo_aim_guard_reset",
+      "agfo_aim_guard_rules",
+      "agfo_aim_mi_list",
+      "agfo_aim_mi_probe",
+      "agfo_aim_set_image_model",
+      "agfo_aim_set_image_price",
+      "agfo_aim_set_translation_model",
+      "agfo_chat_test",
+      "agfo_clear_model_cache",
+      "agfo_download_models",
+      "agfo_get_model_score",
+      "agfo_job_cancel",
+      "agfo_job_status",
+      "agfo_job_submit",
+      "agfo_probe_model_capabilities",
+      "agfo_qs_get_compatible_models",
+      "agfo_qs_get_data",
+      "agfo_qs_get_models_only",
+      "agfo_qs_save",
+      "agfo_refresh_all_models",
+      "agfo_refresh_provider_models",
+      "agfo_suite_get_status",
+      "agfo_suite_process",
+      "agfo_suite_save_prompts",
+      "agfo_x",
+      "agfo_y",
+      "c",
+      "demo_save"
+    ],
+    "admin_post_actions": [
+      "agfo_ai_asset_download",
+      "agfo_ai_retry_job",
+      "agfo_ai_save_governance",
+      "agfo_ai_tracker_update",
+      "b"
+    ],
+    "rest_routes": [
+      "a/b",
+      "agfo-ai/v1//models/compatible",
+      "agfo-ai/v1//models/intelligence"
+    ],
+    "cron_hooks_scheduled": [],
+    "nav_menus": [],
+    "outgoing_actions": [
+      "agfo_ai_budget_warning",
+      "agfo_ai_call_finished",
+      "agfo_ai_call_stage",
+      "agfo_ai_call_started",
+      "agfo_ai_image_generated",
+      "agfo_ai_job_completed",
+      "agfo_ai_job_failed",
+      "agfo_ai_register_adapters"
+    ],
+    "outgoing_filters": [
+      "agfo_ai_asset_max_bytes",
+      "agfo_ai_capabilities",
+      "agfo_ai_classic_editor_tts_capability",
+      "agfo_ai_code_review_quick_candidates",
+      "agfo_ai_content_context_meta_lines",
+      "agfo_ai_content_languages",
+      "agfo_ai_content_studio_capability",
+      "agfo_ai_content_translation_templates",
+      "agfo_ai_fallback_model",
+      "agfo_ai_ffmpeg_path",
+      "agfo_ai_guard_body",
+      "agfo_ai_image_allowed_types",
+      "agfo_ai_image_art_director_enabled",
+      "agfo_ai_image_art_director_system",
+      "agfo_ai_image_final_prompt",
+      "agfo_ai_image_model_catalog",
+      "agfo_ai_image_model_note",
+      "agfo_ai_image_prompt_budget",
+      "agfo_ai_image_prompts",
+      "agfo_ai_image_studio_capability",
+      "agfo_ai_media_allowed_types",
+      "agfo_ai_model_fallback_enabled",
+      "agfo_ai_responses_bridge_enabled",
+      "agfo_ai_store_path",
+      "agfo_ai_worker_batch_size",
+      "agfo_aim_frontend_control_center",
+      "agfo_capability_config",
+      "agfo_provider_capabilities",
+      "agfo_speech_long_max_chunks",
+      "agfo_speech_long_safety_margin",
+      "http_request_args",
+      "http_response",
+      "https_local_ssl_verify",
+      "pre_http_request"
+    ],
+    "css_variables_defined": [
+      "--ax-accent",
+      "--ax-accent-ink",
+      "--ax-accent-weak",
+      "--ax-bad",
+      "--ax-bad-weak",
+      "--ax-bridge",
+      "--ax-bridge-weak",
+      "--ax-canvas",
+      "--ax-font",
+      "--ax-ink",
+      "--ax-ink-2",
+      "--ax-ink-3",
+      "--ax-line",
+      "--ax-line-2",
+      "--ax-ok",
+      "--ax-ok-weak",
+      "--ax-r-sm",
+      "--ax-radius",
+      "--ax-shadow",
+      "--ax-surface",
+      "--ax-warn",
+      "--ax-warn-weak"
+    ],
+    "css_variables_consumed": [
+      "--ax-accent",
+      "--ax-accent-ink",
+      "--ax-accent-weak",
+      "--ax-bad",
+      "--ax-bad-weak",
+      "--ax-bridge",
+      "--ax-bridge-weak",
+      "--ax-canvas",
+      "--ax-font",
+      "--ax-ink",
+      "--ax-ink-2",
+      "--ax-ink-3",
+      "--ax-line",
+      "--ax-line-2",
+      "--ax-ok",
+      "--ax-ok-weak",
+      "--ax-r-sm",
+      "--ax-radius",
+      "--ax-shadow",
+      "--ax-surface",
+      "--ax-warn",
+      "--ax-warn-weak"
+    ]
+  },
+  "results": [
+    {
+      "id": "syntax.json.tracker.json",
+      "status": "pass",
+      "title": "JSON parses: tracker.json",
+      "detail": "",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.json.revision.json",
+      "status": "pass",
+      "title": "JSON parses: revision.json",
+      "detail": "",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.json.regression.json",
+      "status": "pass",
+      "title": "JSON parses: regression.json",
+      "detail": "",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.json.regression-report.json",
+      "status": "pass",
+      "title": "JSON parses: regression-report.json",
+      "detail": "",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.json.tests/fixture-image-prompts-16.16.json",
+      "status": "pass",
+      "title": "JSON parses: tests/fixture-image-prompts-16.16.json",
+      "detail": "",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.json.data/data.json",
+      "status": "pass",
+      "title": "JSON parses: data/data.json",
+      "detail": "",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.agfo-ai-manager.php",
+      "status": "pass",
+      "title": "PHP syntax: agfo-ai-manager.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/agfo-ai-manager.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.admin/index.php",
+      "status": "pass",
+      "title": "PHP syntax: admin/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/admin/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.admin/class-admin.php",
+      "status": "pass",
+      "title": "PHP syntax: admin/class-admin.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/admin/class-admin.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.admin/class-operations.php",
+      "status": "pass",
+      "title": "PHP syntax: admin/class-operations.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/admin/class-operations.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.admin/views/index.php",
+      "status": "pass",
+      "title": "PHP syntax: admin/views/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/admin/views/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.public/index.php",
+      "status": "pass",
+      "title": "PHP syntax: public/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/public/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.assets/index.php",
+      "status": "pass",
+      "title": "PHP syntax: assets/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/assets/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.assets/css/index.php",
+      "status": "pass",
+      "title": "PHP syntax: assets/css/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/assets/css/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.assets/js/index.php",
+      "status": "pass",
+      "title": "PHP syntax: assets/js/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/assets/js/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/admin-guard-tests.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/admin-guard-tests.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/admin-guard-tests.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/model-catalog-tests.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/model-catalog-tests.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/model-catalog-tests.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/image-prompt-tests.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/image-prompt-tests.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/image-prompt-tests.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/index.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/content-translate-tests.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/content-translate-tests.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/content-translate-tests.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/code-review-tests.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/code-review-tests.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/code-review-tests.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/request-guard-tests.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/request-guard-tests.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/request-guard-tests.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.tests/binary-codec-tests.php",
+      "status": "pass",
+      "title": "PHP syntax: tests/binary-codec-tests.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/tests/binary-codec-tests.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-model-public-api.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-model-public-api.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-model-public-api.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-ai-jobs.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-ai-jobs.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-ai-jobs.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-ai-image.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-ai-image.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-ai-image.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-code-review.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-code-review.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-code-review.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-ai-media.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-ai-media.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-ai-media.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-ai-capability.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-ai-capability.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-ai-capability.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-model-batch-scanner.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-model-batch-scanner.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-model-batch-scanner.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/functions.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/functions.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/functions.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-model-intelligence.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-model-intelligence.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-model-intelligence.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/AGFO-AI-Spec-Class.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/AGFO-AI-Spec-Class.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/AGFO-AI-Spec-Class.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/class-model-catalog.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/class-model-catalog.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/class-model-catalog.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/partials/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/partials/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/partials/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/partials/modal.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/partials/modal.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/partials/modal.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/editor/class-classic-editor-tts.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/editor/class-classic-editor-tts.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/editor/class-classic-editor-tts.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/editor/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/editor/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/editor/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/editor/class-classic-editor-image.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/editor/class-classic-editor-image.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/editor/class-classic-editor-image.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/editor/class-classic-editor-content.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/editor/class-classic-editor-content.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/editor/class-classic-editor-content.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/jobs/class-job-api.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/jobs/class-job-api.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/jobs/class-job-api.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/jobs/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/jobs/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/jobs/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/jobs/class-job-store.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/jobs/class-job-store.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/jobs/class-job-store.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/jobs/class-job-worker.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/jobs/class-job-worker.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/jobs/class-job-worker.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/governance/class-provider-quota.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/governance/class-provider-quota.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/governance/class-provider-quota.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/governance/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/governance/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/governance/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/governance/class-killswitch.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/governance/class-killswitch.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/governance/class-killswitch.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/governance/class-usage.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/governance/class-usage.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/governance/class-usage.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/governance/class-budget.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/governance/class-budget.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/governance/class-budget.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/assets/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/assets/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/assets/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/assets/class-asset-delivery.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/assets/class-asset-delivery.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/assets/class-asset-delivery.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/assets/class-asset-store.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/assets/class-asset-store.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/assets/class-asset-store.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/tts/class-tts-catalog.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/tts/class-tts-catalog.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/tts/class-tts-catalog.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/tts/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/tts/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/tts/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/tts/class-speech-long.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/tts/class-speech-long.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/tts/class-speech-long.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/audio/class-audio-effects.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/audio/class-audio-effects.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/audio/class-audio-effects.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/audio/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/audio/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/audio/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/image/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/image/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/image/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/image/class-image-prompt-library.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/image/class-image-prompt-library.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/image/class-image-prompt-library.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/image/class-image-generator.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/image/class-image-generator.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/image/class-image-generator.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/content/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/content/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/content/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/content/class-content-prompt-library.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/content/class-content-prompt-library.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/content/class-content-prompt-library.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/content/class-content-context.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/content/class-content-context.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/content/class-content-context.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/content/class-content-transformer.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/content/class-content-transformer.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/content/class-content-transformer.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/tracker/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/tracker/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/tracker/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/tracker/class-native-tracker.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/tracker/class-native-tracker.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/tracker/class-native-tracker.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/ajax/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/ajax/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/ajax/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/ajax/class-data.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/ajax/class-data.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/ajax/class-data.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/core/class-request-guard.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/core/class-request-guard.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/core/class-request-guard.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/core/class-installer.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/core/class-installer.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/core/class-installer.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/core/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/core/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/core/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/core/class-binary-codec.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/core/class-binary-codec.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/core/class-binary-codec.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/core/class-schema.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/core/class-schema.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/core/class-schema.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/class-adapter-gemini.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/class-adapter-gemini.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/class-adapter-gemini.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/index.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/class-adapter-image.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/class-adapter-image.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/class-adapter-image.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/class-adapter-minimax.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/class-adapter-minimax.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/class-adapter-minimax.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/class-adapter-openai.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/class-adapter-openai.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/class-adapter-openai.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/class-adapter-elevenlabs.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/class-adapter-elevenlabs.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/class-adapter-elevenlabs.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/interface-adapter.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/interface-adapter.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/interface-adapter.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.includes/adapters/class-adapter-registry.php",
+      "status": "pass",
+      "title": "PHP syntax: includes/adapters/class-adapter-registry.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/includes/adapters/class-adapter-registry.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.php.data/index.php",
+      "status": "pass",
+      "title": "PHP syntax: data/index.php",
+      "detail": "No syntax errors detected in /home/claude/w/agfo-ai-manager/data/index.php",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/classic-editor-tts.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/classic-editor-tts.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/classic-editor-content.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/classic-editor-content.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/tts-studio.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/tts-studio.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/agfo-progress.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/agfo-progress.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/chat-test.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/chat-test.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/classic-editor-image.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/classic-editor-image.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/script.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/script.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.js.assets/js/control-center-boards.js",
+      "status": "pass",
+      "title": "JavaScript syntax: assets/js/control-center-boards.js",
+      "detail": "",
+      "evidence_level": "local_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/agfo-progress.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/agfo-progress.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/control-center.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/control-center.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/style.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/style.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/classic-editor-tts.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/classic-editor-tts.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/chat-test.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/chat-test.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/classic-editor-content.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/classic-editor-content.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/classic-editor-image.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/classic-editor-image.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "syntax.css.assets/css/operations.css",
+      "status": "pass",
+      "title": "CSS brace balance: assets/css/operations.css",
+      "detail": "balance=0; min=0",
+      "evidence_level": "source",
+      "required_for_package": false
+    },
+    {
+      "id": "image.prompt.behaviour",
+      "status": "pass",
+      "title": "Image studio prompt composition, budgets, migration and adapter bodies",
+      "detail": "exit=0; expected=0\nstdout_contains='FAIL 0':True\noutput:\nPASS 130 / FAIL 0",
+      "evidence_level": "local_runtime",
+      "required_for_package": true
+    },
+    {
+      "id": "image.prompt.subject_first",
+      "status": "pass",
+      "title": "Plain composition keeps SUBJECT at the start",
+      "detail": "text=\"$head[] = 'SUBJECT:';\"",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "image.adapter.gemini_aspect",
+      "status": "pass",
+      "title": "Gemini image models receive imageConfig.aspectRatio",
+      "detail": "text=\"'imageConfig'        => [ 'aspectRatio' => $ratio ]\"",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "image.settings.art_director_toggle",
+      "status": "pass",
+      "title": "Prompt page renders the art director toggle with hidden zero value",
+      "detail": "text='name=\"image_defaults[art_director]\" value=\"0\"'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "image.live.generate_compare",
+      "status": "skip",
+      "title": "Live: same post generated with art director on and off, per preset",
+      "detail": "Live runtime execution disabled. Re-run with --allow-live-runtime against an authorized test/staging environment.",
+      "evidence_level": "live_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "guard.behaviour",
+      "status": "pass",
+      "title": "Request guard: sampling policy, learned refusals, Responses bridge, model fallback, JSON object preservation",
+      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nPASS T1 future gpt-5.6 + temperature succeeds\nPASS T1 temperature/top_p stripped before first send (no wasted call)\nPASS T2 unknown future family protected deny-by-default\nPASS T3 classic gpt-4.1 keeps temperature\nPASS T4 first refusal repaired inside the same call\nPASS T4 learned: second call stripped pre-flight\nPASS T5 pro model returns 200\nPASS T5 answer in chat.completions shape\nPASS T5 system->instructions, max_output_tokens floor, reasoning effort mapped\nPASS T5 known pro model goes straight to /v1/responses\nPASS T5 usage mapped\nPASS T6 codex model bridged\nPASS T7 unavailable model recovered via fallback\nPASS T7 unavailable learned\nPASS T7 second call swapped pre-flight\nPASS T8 fallback can be switched off\nPASS T9 probes stay genuine\nPASS T10 tool schema {} preserved while temperature removed\nPASS T11 untouched body sent byte-identical\nPASS T12 Claude keeps temperature, drops top_p pre-flight\nPASS T13 Gemini generationConfig.topK repaired\nPASS T14 Gemini unavailable model -> fallback URL\nPASS T14 internal marker never reaches provider\nPASS T15 max_tokens converted to max_completion_tokens\nPASS T16 reasoning_effort refusal repaired\nPASS T17 agfo_api_post future model single clean call\nPASS T18 non-chat global model replaced for dependent plugins\nPASS T18 pro model kept, flagged responses_bridge, no temperature\nPASS T18 dependent plugins told not to send temperature\nPASS T19 status unsupported for future family\nPASS T19 single-arg legacy signature still works\nPASS T20 pro model chat-capable via bridge\nPASS T20 unavailable model flagged\nPASS T21 multimodal + json_schema translation\nPASS T22 stream/tools excluded from bridge\nPASS T23 non-AI hosts untouched\nPASS T24 data cache invalidated on write\nPASS T25 reset clears learned rules\nPASS T26 range error not learned as refusal\nPASS T27 pro model stays on Responses bridge\nPASS T27 instruct rule is OpenAI-only\nPASS T28 stale chat false-negative corrected\n\n42 pass / 0 fail",
+      "evidence_level": "local_runtime",
+      "required_for_package": true
+    },
+    {
+      "id": "guard.bootstrap",
+      "status": "pass",
+      "title": "Guard is loaded and hooked at plugin load",
+      "detail": "text='AGFO_AIM_Request_Guard::register_hooks();'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "guard.probe_raw",
+      "status": "pass",
+      "title": "Capability probes bypass the guard",
+      "detail": "text=\"'X-AGFO-Raw-Probe' => '1'\"",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "guard.post_reencode",
+      "status": "pass",
+      "title": "agfo_api_post rewrites body only on change",
+      "detail": "text='if ($decoded !== $decoded_before) {'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "modal.ids",
+      "status": "pass",
+      "title": "Modal keeps the ids script.js and other plugins rely on",
+      "detail": "text='<select id=\"qs-model\"'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "modal.list",
+      "status": "pass",
+      "title": "Model table container present",
+      "detail": "text='id=\"qs-model-list\"'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "modal.style_enqueued",
+      "status": "pass",
+      "title": "control-center.css enqueued",
+      "detail": "text='assets/css/control-center.css'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "modal.browser",
+      "status": "skip",
+      "title": "AI Kontrol Merkezi opens, lists models, selects with click and keyboard, saves (live)",
+      "detail": "Live runtime execution disabled. Re-run with --allow-live-runtime against an authorized test/staging environment.",
+      "evidence_level": "live_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "image.studio.model_select",
+      "status": "pass",
+      "title": "Image studio model field is a select, not a datalist (all models visible)",
+      "detail": "text='<select id=\"agfo-classic-image-model-select\"'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "image.studio.no_datalist",
+      "status": "pass",
+      "title": "Datalist removed from image studio",
+      "detail": "text='<datalist'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "catalog.behaviour",
+      "status": "pass",
+      "title": "Model catalogue: recency, quality, translation and image boards, translation routing",
+      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nPASS C1 5.6 < 5.7 and 5.9 < 5.10\nPASS C1 dates never read as versions\nPASS C2 gpt-5.7 on top and flagged new\nPASS C2 o-series not flagged new next to gpt-5.7\nPASS C3 created timestamp captured\nPASS C3 date in id parsed\nPASS C3 MM-YYYY parsed\nPASS C4 OpenRouter prices normalised\nPASS C4 per-image price captured\nPASS C5 nano does not inherit gpt-5 score\nPASS C5 unknown model gets penalised estimate\nPASS C6 three picks produced\nPASS C6 picks are consistent\nPASS C6 dated duplicates collapsed\nPASS C6 coding/media models excluded\nPASS C6 eligibility respects threshold and price\nPASS C7 default translation config = default chat model\nPASS C7 routed translation config\nPASS C7 default chat untouched by translation route\nPASS C8 keyed A-tier first\nPASS C8 cheapest and value picks use admin prices\n\n21 pass / 0 fail",
+      "evidence_level": "local_runtime",
+      "required_for_package": true
+    },
+    {
+      "id": "catalog.meta_capture",
+      "status": "pass",
+      "title": "Model refresh stores provider metadata",
+      "detail": "text='AGFO_AIM_Model_Catalog::capture_meta($provider_code, $raw_list);'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "modal.tabs_17_1",
+      "status": "pass",
+      "title": "Translation and Image tabs present",
+      "detail": "text='data-agfo-tab=\"translate\"'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "modal.sort",
+      "status": "pass",
+      "title": "Sort control present",
+      "detail": "text='id=\"qs-model-sort\"'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "boards.enqueued",
+      "status": "pass",
+      "title": "Boards script enqueued",
+      "detail": "text='assets/js/control-center-boards.js'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "tests.no_short_globals",
+      "status": "pass",
+      "title": "Test helpers use the agfo_aim_test_ prefix",
+      "detail": "text='function r('",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "codec.behaviour",
+      "status": "pass",
+      "title": "Base64 codec parity and legacy key decryption",
+      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nsodium: yes\nPASS B1 RFC 4648 vectors encode and decode\nPASS B2 binary round trip\nPASS B3 line-wrapped input\nPASS B4 URL-safe, unpadded input\nPASS B5 invalid and empty input rejected\nPASS B6 data URI split\nPASS B7 legacy stored key decrypts\nPASS B8 new key round trip\nPASS B9 non-ciphertext returns null (caller falls back)\n\n9 pass / 0 fail",
+      "evidence_level": "local_runtime",
+      "required_for_package": true
+    },
+    {
+      "id": "codec.single_point_image",
+      "status": "pass",
+      "title": "Image storage decodes through the codec",
+      "detail": "text='base64_decode('",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "codec.single_point_media",
+      "status": "pass",
+      "title": "Media storage decodes through the codec",
+      "detail": "text='base64_decode('",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "process.single_runner",
+      "status": "pass",
+      "title": "Long speech merge has no own proc_open",
+      "detail": "text='proc_open('",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "process.allowlist",
+      "status": "pass",
+      "title": "Process runner only executes the resolved FFmpeg",
+      "detail": "text='Yalnız doğrulanmış FFmpeg çalıştırılabilir.'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "review.behaviour",
+      "status": "pass",
+      "title": "AI code review: routing, schema, redaction, evidence checks",
+      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nPASS R1 quick review defaults to gpt-4.1-mini\nPASS R1 deep review uses default chat model\nPASS R2 Yetenek Yönlendirme route overrides default\nPASS R3 review returns a report\nPASS R3 request: gpt-4.1-mini, strict JSON schema, temperature 0\nPASS R3 secrets masked before sending\nPASS R3 risk without evidence dropped\nPASS R3 invented finding ref ignored, real ones classified\nPASS R3 rollback kept when a verified high risk exists\nPASS R3 fix prompt built from verified items\nPASS R3 cost computed from token prices when known\nPASS R4 unbacked rollback downgraded to ok; skipped finding marked not reviewed\nPASS R5 non-JSON reply is an error, not a report\nPASS R6 fenced JSON parsed\nPASS R7 provider-specific JSON modes\nPASS R7 reasoning model gets effort + room\nPASS R8 refuted \"no nonce/capability\" claim dropped\nPASS R8 unrefuted and unrelated risks kept\nPASS R8 nonce present does not refute a capability claim\nPASS R9 context read from the installed file back to the function line\nPASS R9 traversal and non-code paths refused\nPASS R10 unresolvable nonce wrapper does not refute\nPASS R10 required_capability / permission_callback names alone do not refute\nPASS R10 wrapper calling a core nonce function refutes\nPASS R10 no-op wrapper does not refute\nPASS R11 plugin folder inside wp-content readable\nPASS R11 sibling folder with wp-content prefix refused\nPASS R12 schema requires F1..Fn, findings first, list form when none\nPASS R12 request body carries the keyed schema\nPASS R12 keyed reply classified, nothing left unreviewed\nPASS R13 schema rejection falls back to list form once (object,array)\nPASS R14 self-declared unverifiable risk dropped; \"doğrulanmıyor\" claim kept\nPASS R15 callback with checks refutes the claim; callback without checks keeps it\nPASS R16 hook callback names resolved; non-AJAX hooks ignored\nPASS R17 shown callback body refutes; unseen body keeps the claim (other filters decide)\nPASS R18 neighbouring method cannot refute the claim\n\n36 pass / 0 fail",
+      "evidence_level": "local_runtime",
+      "required_for_package": true
+    },
+    {
+      "id": "review.loaded",
+      "status": "pass",
+      "title": "Code review service loaded",
+      "detail": "text='includes/class-code-review.php'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "translate.behaviour",
+      "status": "pass",
+      "title": "Editor translation: route, budget, truncation, toolbar markup",
+      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nPASS  T1 translate_polish is a translation template\nPASS  T2 translation uses the routed model\nPASS  T3 result flags translation_route\nPASS  T4 translation timeout is 120 s\nPASS  T5 target language reaches the system prompt\nPASS  T6 no route falls back to the default model\nPASS  T7 route without key is ignored\nPASS  T8 rewrite keeps the default model and 45 s timeout\nPASS  T9 translation budget scales (1200 / 4800)\nPASS  T10 translation budget capped at 8000\nPASS  T11 summarize budget unchanged\nPASS  T12 truncation detected across providers\nPASS  T13 transform returns truncated=true\nPASS  T14 toolbar group has button and six languages\nPASS  T15 filtered languages are added and escaped\nPASS  T16 editor JS contains translate wiring\nPASS  T17 non-scalar filter values are ignored\nPASS  T18 non-array filter output falls back to the default\n\n18 pass, 0 fail",
+      "evidence_level": "local_runtime",
+      "required_for_package": true
+    },
+    {
+      "id": "translate.toolbar",
+      "status": "pass",
+      "title": "Toolbar Çevir button rendered by media_buttons",
+      "detail": "text='self::translate_controls_html( $editor_id )'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "translate.route",
+      "status": "pass",
+      "title": "Translation template uses agfo_get_translation_config",
+      "detail": "text='agfo_get_translation_config()'",
+      "evidence_level": "source",
+      "required_for_package": true
+    },
+    {
+      "id": "admin.frontend_guard",
+      "status": "pass",
+      "title": "Front-end control center loads only with the admin bar",
+      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nPASS G1 front end without admin bar: not needed\nPASS G2 switcher assets skipped, shared progress bar kept\nPASS G3 front end with admin bar: loaded\nPASS G4 wp-admin always loads\nPASS G5 filter can opt a front-end page in\n\n5 pass / 0 fail",
+      "evidence_level": "local_runtime",
+      "required_for_package": true
+    },
+    {
+      "id": "review.contradiction",
+      "status": "pass",
+      "title": "Code review drops claims refuted by code",
+      "detail": "text='if ( self::contradicted( $r, $context, $resolver ) ) {'",
+      "evidence_level": "source",
+      "required_for_package": true
+    }
+  ]
+}
