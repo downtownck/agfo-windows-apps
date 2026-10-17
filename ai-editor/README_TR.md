@@ -10,9 +10,9 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
 (etiket `ai-editor-v*`, SHA-256 doğrulamalı). EXE kod imzalı değildir; SmartScreen uyarabilir.
 
 ## Bağlantı (Ayarlar › Bağlantı)
-- **AGFO AI Manager (önerilen):** WordPress sitenizdeki AI Manager 17.4.0+ kullanılır; API anahtarları sitede kalır.
-  WordPress › Kullanıcılar › Profil › *Uygulama Parolaları* bölümünden bir parola oluşturup site adresi, kullanıcı adı
-  ve bu parolayı girin (yönetici kullanıcı gerekir, bağlantı HTTPS olmalıdır). AI Manager'daki sağlayıcı/model,
+- **AGFO AI Manager (önerilen):** WordPress sitenizdeki AI Manager 17.5.0+ kullanılır; API anahtarları sitede kalır.
+  WordPress › AI Manager › *AI Editor bağlantısı* sayfasında "Anahtar oluştur"a basın; site adresini ve çıkan
+  anahtarın tamamını editöre yapıştırın. (İsteğe bağlı: WordPress Uygulama Parolası ile kullanıcı adı + parola.) AI Manager'daki sağlayıcı/model,
   çeviri yönlendirmesi ve sitenize özel içerik şablonları editörde otomatik görünür.
 - **Doğrudan sağlayıcı:** OpenAI, Anthropic, Gemini, OpenRouter veya DeepSeek anahtarı. Anahtar Windows DPAPI ile
   yalnız sizin Windows hesabınızda çözülebilecek şekilde saklanır.

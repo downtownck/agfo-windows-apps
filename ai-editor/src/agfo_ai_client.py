@@ -93,10 +93,11 @@ def redact(text: str) -> str:
 class ManagerBackend:
     kind = 'manager'
 
-    def __init__(self, site_url: str, user: str, app_password: str, request=_request):
+    def __init__(self, site_url: str, user: str = '', app_password: str = '', token: str = '', request=_request):
         self.base = self.normalize_url(site_url)
         self.user = (user or '').strip()
         self.password = re.sub(r'\s+', '', app_password or '')   # WP uygulama parolasi bosluklu gosterilir
+        self.token = re.sub(r'\s+', '', token or '')            # AI Manager 17.5+ baglanti anahtari (agfoed.…)
         self._request = request
         self._route_style = None   # 'pretty' | 'query'
         self.info_cache = None
@@ -114,19 +115,26 @@ class ManagerBackend:
         return url
 
     def configured(self) -> bool:
-        return bool(self.base and self.user and self.password)
+        return bool(self.base and (self.token or (self.user and self.password)))
+
+    def auth_headers(self) -> dict:
+        if self.token:
+            # Anahtar varsa yalniz anahtar gonderilir: hatali bir uygulama parolasi WordPress'te istegi
+            # anahtar denetlenmeden reddettirebilir.
+            return {'X-AGFO-Editor-Token': self.token}
+        basic = base64.b64encode(('%s:%s' % (self.user, self.password)).encode('utf-8')).decode('ascii')
+        # X-AGFO-Editor-Auth: Authorization basligini PHP'ye iletmeyen sunucular icin (AI Manager 17.4.1+)
+        return {'Authorization': 'Basic ' + basic, 'X-AGFO-Editor-Auth': basic}
 
     def _url(self, route: str, style: str) -> str:
         if style == 'query':
             return self.base + '/?rest_route=' + urllib.parse.quote('/agfo-ai/v1' + route, safe='/')
         return self.base + '/wp-json/agfo-ai/v1' + route
 
-    def _call(self, route: str, payload=None, timeout=TIMEOUT):
-        if not self.configured():
-            raise AIError('AI Manager bağlantısı ayarlanmamış (Ayarlar › Bağlantı).')
-        token = base64.b64encode(('%s:%s' % (self.user, self.password)).encode('utf-8')).decode('ascii')
-        # X-AGFO-Editor-Auth: Authorization basligini PHP'ye iletmeyen sunucular icin (AI Manager 17.4.1+)
-        headers = {'Authorization': 'Basic ' + token, 'X-AGFO-Editor-Auth': token}
+    def _call(self, route: str, payload=None, timeout=TIMEOUT, auth=True, extra_headers=None):
+        if auth and not self.configured():
+            raise AIError('AI Manager bağlantısı ayarlanmamış (Ayarlar › Bağlantı › Bağlantı anahtarı).')
+        headers = self.auth_headers() if auth else dict(extra_headers or {})
         styles = [self._route_style] if self._route_style else ['pretty', 'query']
         last = None
         for style in styles:
@@ -154,7 +162,7 @@ class ManagerBackend:
         if status == 403:
             raise AIError('Bu WordPress kullanıcısının AI Manager editör yetkisi yok: ' + _error_message(decoded, status))
         if status == 404 and code in ('rest_no_route', ''):
-            raise AIError('Sitede AI Manager editör ucu bulunamadı. AGFO AI Manager 17.4.0 veya üstüne güncelleyin.')
+            raise AIError('Sitede AI Manager editör ucu bulunamadı. AGFO AI Manager 17.5.0 veya üstüne güncelleyin.')
         raise AIError('AI Manager: ' + _error_message(decoded, status))
 
     @staticmethod
@@ -171,6 +179,9 @@ class ManagerBackend:
         if code == 'application_passwords_disabled':
             return ('Sitede Uygulama Parolaları kapalı. Bir güvenlik eklentisi (ör. Wordfence, SafeGuard) bunu kapatmış '
                     'olabilir; o eklentide "Application Passwords" iznini açın.')
+        if code == 'agfo_editor_token_invalid':
+            return ('Bağlantı anahtarı geçersiz veya silinmiş. WordPress › AI Manager › AI Editor bağlantısı sayfasından '
+                    'yeni bir anahtar oluşturup tamamını yapıştırın.')
         if code == 'agfo_editor_auth' and data.get('credentials_received') is False:
             return ('Kimlik bilgileri sunucuya ulaşmadı: web sunucusu yetkilendirme başlığını PHP\'ye iletmiyor. '
                     'AI Manager 17.4.1 veya üstüne güncelleyin (WordPress › Eklentiler ekranında güncelleme görünür); '
@@ -180,6 +191,49 @@ class ManagerBackend:
                     'parolasını kontrol edin; parola WordPress › Profil › Uygulama Parolaları\'ndan alınmalıdır.')
         return ('Kimlik doğrulanamadı%s: kullanıcı adı veya uygulama parolası hatalı (WordPress › Profil › Uygulama Parolaları).'
                 % (' (%s)' % code if code else ''))
+
+    def ping(self) -> dict:
+        """Girissiz baglanti denetimi (AI Manager 17.5+): surum ve hangi kimlik basliginin PHP'ye ulastigi."""
+        # Kimlik basliklari da gonderilir (uc herkese acik; yalniz basligin PHP'ye ulasip ulasmadigi raporlanir).
+        return self._call('/editor/ping', timeout=30, auth=False, extra_headers=self.auth_headers() if self.configured() else {})
+
+    def diagnose(self) -> dict:
+        """Ayarlar › Test: once ping (kimliksiz), sonra info. {'ok', 'message', 'info', 'ping'} dondurur."""
+        out = {'ok': False, 'message': '', 'info': None, 'ping': None}
+        ping_note = ''
+        try:
+            out['ping'] = self.ping()
+        except AIError as e:
+            if 'bulunamadı' in str(e):
+                ping_note = ('Sitedeki AI Manager 17.5.0\'dan eski. WordPress › Eklentiler ekranından AI Manager\'ı güncelleyin '
+                             '(Güncelle görünmezse Panel › Güncellemeler › Tekrar kontrol et); ardından AI Manager › AI Editor '
+                             'bağlantısı sayfasından anahtar oluşturun.')
+            else:
+                ping_note = str(e)
+            # ping yoksa (eski surum) yine de info dene
+        try:
+            out['info'] = self.info()
+            out['ok'] = True
+            return out
+        except AIError as e:
+            msg = str(e)
+        p = out['ping'] or {}
+        rec = p.get('received') or {}
+        extra = []
+        if p:
+            extra.append('Sunucu: AI Manager %s' % (p.get('plugin_version') or '?'))
+            if self.token and not rec.get('token') and p.get('token_auth'):
+                extra.append('Bağlantı anahtarı sunucuya ulaşmadı (bir güvenlik duvarı/önbellek özel başlıkları siliyor olabilir).')
+            if not self.token and not rec.get('authorization') and not rec.get('x_auth'):
+                extra.append('Kullanıcı adı/parola sunucuya ulaşmadı.')
+            if not self.token and p.get('app_passwords') is False:
+                extra.append('Sitede Uygulama Parolaları kapalı; bunun yerine "Bağlantı anahtarı" kullanın.')
+            if not self.token and p.get('token_auth'):
+                extra.append('Öneri: AI Manager › AI Editor bağlantısı sayfasından anahtar oluşturup "Bağlantı anahtarı" alanına yapıştırın.')
+        if ping_note:
+            extra.append(ping_note)
+        out['message'] = msg + ('\n' + '\n'.join(extra) if extra else '')
+        return out
 
     def info(self) -> dict:
         self.info_cache = self._call('/editor/info', timeout=30)
@@ -395,9 +449,10 @@ def build_backends(settings: dict, unprotect) -> list:
     """Ayarlara gore denenecek baglanti sirasi. 'auto': AI Manager, olmazsa dogrudan."""
     out = []
     mode = settings.get('mode', 'auto')
-    if mode in ('manager', 'auto') and settings.get('manager_url') and settings.get('manager_user'):
+    if mode in ('manager', 'auto') and settings.get('manager_url') and (settings.get('manager_token') or settings.get('manager_user')):
         try:
-            out.append(ManagerBackend(settings['manager_url'], settings['manager_user'], unprotect(settings.get('manager_secret', ''))))
+            out.append(ManagerBackend(settings['manager_url'], settings.get('manager_user', ''), unprotect(settings.get('manager_secret', '')),
+                                      unprotect(settings.get('manager_token', ''))))
         except AIError:
             if mode == 'manager':
                 raise

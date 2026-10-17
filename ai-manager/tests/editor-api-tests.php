@@ -67,8 +67,9 @@ foreach ( $GLOBALS['AGFO_E']['ACTIONS']['rest_api_init'] ?? [] as $cb ) { $cb();
 $r = $GLOBALS['AGFO_E']['ROUTES'];
 ea_check( 'E1 three editor routes registered', isset( $r['agfo-ai/v1/editor/info'], $r['agfo-ai/v1/editor/transform'], $r['agfo-ai/v1/editor/chat'] ) );
 ea_check( 'E2 methods GET/POST/POST', ( $r['agfo-ai/v1/editor/info']['methods'] ?? '' ) === 'GET' && ( $r['agfo-ai/v1/editor/transform']['methods'] ?? '' ) === 'POST' && ( $r['agfo-ai/v1/editor/chat']['methods'] ?? '' ) === 'POST' );
-$all_perm = true; foreach ( $r as $route ) { $all_perm = $all_perm && is_callable( $route['permission_callback'] ?? null ) && ( $route['permission_callback'] ?? '' ) !== '__return_true'; }
-ea_check( 'E3 every route has a real permission callback', $all_perm );
+$all_perm = true; foreach ( $r as $path => $route ) { if ( $path === 'agfo-ai/v1/editor/ping' ) { continue; } // 17.5.0: public diagnostics (booleans only, see editor-token-tests K16)
+    $all_perm = $all_perm && is_callable( $route['permission_callback'] ?? null ) && ( $route['permission_callback'] ?? '' ) !== '__return_true'; }
+ea_check( 'E3 every route except /editor/ping has a real permission callback', $all_perm && ( $r['agfo-ai/v1/editor/ping']['permission_callback'] ?? '' ) === '__return_true' );
 
 // E4-E6: permissions.
 $GLOBALS['AGFO_E']['LOGGED'] = false;

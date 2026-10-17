@@ -1,4 +1,32 @@
 Tarih: 2026-10-18
+Eski Versiyon: 17.4.1
+Yeni Versiyon: 17.5.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/api/class-editor-tokens.php (yeni); includes/api/class-editor-api.php; tests/editor-token-tests.php (yeni); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: agfo.app'te AI Editor 17.4.1 sonrasında da Uygulama Parolası ile kabul edilmedi. Uygulama Parolaları sunucu
+başlıklarına ve güvenlik eklentilerine bağımlı olduğu için editöre özel, bu bağımlılıkları olmayan bir bağlantı
+anahtarı eklendi.
+
+Yapılanlar:
+- Yeni yönetim sayfası: AI Manager › AI Editor bağlantısı. Anahtar oluştur (etiketli, kullanıcı başına en fazla 10),
+  oluşturulan anahtar bir kez gösterilir, listeden tek tek silinir, son kullanım zamanı görünür.
+- Anahtar biçimi agfoed.<kullanıcı>.<kimlik>.<gizli>; yalnız HMAC-SHA256 (wp_salt) saklanır, hash_equals ile denetlenir.
+- X-AGFO-Editor-Token (veya Authorization: Bearer agfoed…) yalnız /agfo-ai/v1/editor/* için kabul edilir;
+  determine_current_user (öncelik 31) ve permission_callback aşamalarında çözülür. Geçersiz anahtar 401
+  agfo_editor_token_invalid; yetkisiz kullanıcı 403.
+- GET /editor/ping (girişsiz): sürüm, anahtar desteği, Uygulama Parolası durumu, HTTPS ve hangi kimlik başlığının
+  PHP'ye ulaştığı (yalnız evet/hayır).
+
+Geriye Uyumluluk: Tam (Uygulama Parolası yolu ve X-AGFO-Editor-Auth yedeği aynen çalışır).
+
+Migration: Gerekmiyor.
+
+Doğrulama: editor-token 19/19 (yeni), editor-api 39/39, diğer tüm test dosyaları geçti; php -l temiz.
+
+====================================================================================================
+
+Tarih: 2026-10-18
 Eski Versiyon: 17.4.0
 Yeni Versiyon: 17.4.1
 Değişiklik Tipi: PATCH

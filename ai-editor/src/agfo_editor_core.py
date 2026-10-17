@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
-VERSION = '1.0.1'
+VERSION = '1.1.0'
 APP_NAME = 'AGFO AI Editor'
 IS_WIN = sys.platform == 'win32'
 MAX_CHARS = 60000
@@ -50,6 +50,7 @@ DEFAULT_SETTINGS = {
     'manager_url': '',
     'manager_user': '',
     'manager_secret': '',          # DPAPI ile sifreli (agfo_secrets)
+    'manager_token': '',           # AI Manager 17.5+ baglanti anahtari, DPAPI ile sifreli
     'direct_provider': 'openai',
     'direct_model': '',
     'direct_keys': {},             # saglayici -> sifreli anahtar

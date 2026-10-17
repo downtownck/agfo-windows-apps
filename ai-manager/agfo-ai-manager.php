@@ -3,7 +3,7 @@
  * Plugin Name: AGFO AI Manager
  * Plugin URI: https://agfocert.com/
  * Description: AI Model Yönetimi + Multi-Source Benchmark
- * Version: 17.4.1
+ * Version: 17.5.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AGFOCERT
@@ -12,11 +12,11 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: agfo-ai-manager
  * Domain Path: /languages
- * Revision: 17.4.1 - AI Editor auth fallback (X-AGFO-Editor-Auth) for servers that strip the Authorization header; 401 responses carry WordPress' real reason.
+ * Revision: 17.5.0 - AI Editor connection keys (X-AGFO-Editor-Token, per-user, HMAC-stored, revocable) and /editor/ping diagnostics.
  */
 if (!defined('ABSPATH')) exit;
 
-define('AGFO_AIM_VERSION',    '17.4.1');
+define('AGFO_AIM_VERSION',    '17.5.0');
 define('AGFO_AIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AGFO_AIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AGFO_AIM_DATA_DIR',   AGFO_AIM_PLUGIN_DIR . 'data/');
@@ -40,6 +40,7 @@ require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-ai-image.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-model-catalog.php'; // NEW 17.1.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-code-review.php'; // NEW 17.2.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-api.php'; // NEW 17.4.0
+require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-tokens.php'; // NEW 17.5.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/core/class-github-updater.php'; // NEW 17.4.0
 
 // 16.8.0 persistent runtime core. Existing public functions remain untouched.
@@ -157,6 +158,9 @@ add_action('plugins_loaded', function () {
     }
     if (class_exists('AGFO_AIM_Editor_API')) {
         AGFO_AIM_Editor_API::register_hooks(); // NEW 17.4.0
+    }
+    if (class_exists('AGFO_AIM_Editor_Tokens')) {
+        AGFO_AIM_Editor_Tokens::register_hooks(); // NEW 17.5.0
     }
     AGFO_AIM_Job_Worker::register_hooks();
     AGFO_AIM_Asset_Delivery::register_hooks();

@@ -14,6 +14,7 @@ import json
 import os
 import pathlib
 import queue
+import re
 import sys
 import threading
 import traceback
@@ -1309,18 +1310,24 @@ class SettingsDialog(tk.Toplevel):
         self.url = tk.StringVar(value=s['manager_url'])
         self.user = tk.StringVar(value=s['manager_user'])
         self.pw = tk.StringVar()
+        self.token = tk.StringVar()
         has_pw = bool(s.get('manager_secret'))
-        self._row(g1, 0, 'Site adresi', ttk.Entry(g1, textvariable=self.url, width=44))
-        self._row(g1, 1, 'Kullanıcı adı', ttk.Entry(g1, textvariable=self.user, width=44))
-        self._row(g1, 2, 'Uygulama parolası', ttk.Entry(g1, textvariable=self.pw, width=44, show='•'))
-        app.lbl(g1, ('Kayıtlı (değiştirmek için yazın). ' if has_pw else '') +
-                'WordPress › Kullanıcılar › Profil › Uygulama Parolaları bölümünden oluşturun. Yönetici kullanıcı gerekir; '
-                'API anahtarları sitede kalır.', muted=True, wraplength=480).grid(row=3, column=1, sticky='w', pady=(2, 6))
+        has_tok = bool(s.get('manager_token'))
+        self._row(g1, 0, 'Site adresi', ttk.Entry(g1, textvariable=self.url, width=50))
+        self._row(g1, 1, 'Bağlantı anahtarı', ttk.Entry(g1, textvariable=self.token, width=50, show='•'))
+        app.lbl(g1, ('Kayıtlı (değiştirmek için yapıştırın). ' if has_tok else '') +
+                'Önerilen yol: WordPress › AI Manager › 🖊️ AI Editor bağlantısı › "Anahtar oluştur" ve çıkan değerin tamamını '
+                'buraya yapıştırın. API anahtarlarınız sitede kalır.', muted=True, wraplength=500).grid(row=2, column=1, sticky='w', pady=(2, 8))
+        self._row(g1, 3, 'Kullanıcı adı', ttk.Entry(g1, textvariable=self.user, width=50))
+        self._row(g1, 4, 'Uygulama parolası', ttk.Entry(g1, textvariable=self.pw, width=50, show='•'))
+        app.lbl(g1, ('Kayıtlı. ' if has_pw else '') + 'İsteğe bağlı: anahtar yoksa WordPress Uygulama Parolası ile de bağlanabilir.',
+                muted=True, wraplength=500).grid(row=5, column=1, sticky='w', pady=(2, 6))
         r = tk.Frame(g1, bg=PANEL)
-        r.grid(row=4, column=1, sticky='w')
+        r.grid(row=6, column=1, sticky='w')
         app.btn(r, 'Bağlantıyı test et', self.test_manager, 'normal')
-        self.m_res = app.lbl(g1, '', muted=True, wraplength=480)
-        self.m_res.grid(row=5, column=1, sticky='w', pady=(4, 0))
+        self.forget_btn = app.btn(r, 'Kayıtlı bilgileri sil', self.forget_manager, 'ghost')
+        self.m_res = app.lbl(g1, '', muted=True, wraplength=500)
+        self.m_res.grid(row=7, column=1, sticky='w', pady=(4, 0))
 
         g2 = tk.LabelFrame(f, text=' Doğrudan sağlayıcı ', bg=PANEL, fg=ACCENT, font=('Segoe UI', 9, 'bold'), bd=1, padx=10, pady=8, relief='solid')
         g2.pack(fill='x', pady=6)
@@ -1387,7 +1394,16 @@ class SettingsDialog(tk.Toplevel):
 
     def _manager(self):
         pw = self.pw.get().strip() or secrets.unprotect(self.app.settings.get('manager_secret', ''))
-        return ai.ManagerBackend(self.url.get(), self.user.get(), pw)
+        tok = self.token.get().strip() or secrets.unprotect(self.app.settings.get('manager_token', ''))
+        return ai.ManagerBackend(self.url.get(), self.user.get(), pw, tok)
+
+    def forget_manager(self):
+        for k in ('manager_secret', 'manager_token'):
+            self.app.settings[k] = ''
+        self.pw.set('')
+        self.token.set('')
+        core.save_settings(self.app.settings)
+        self.m_res.configure(text='Kayıtlı anahtar ve parola silindi.', fg=MUTED)
 
     def _direct(self):
         key = self.key.get().strip() or secrets.unprotect((self.app.settings.get('direct_keys') or {}).get(self.prov.get(), ''))
@@ -1404,6 +1420,11 @@ class SettingsDialog(tk.Toplevel):
         def done(ok, res):
             if not self.winfo_exists():
                 return
+            if ok and isinstance(res, dict) and 'ok' in res:
+                if not res['ok']:
+                    self.m_res.configure(text=res['message'], fg=BAD_C)
+                    return
+                res = res['info']
             if ok:
                 t = 'Bağlandı: AI Manager %s · kullanıcı %s · %d şablon · metin: %s%s' % (
                     res.get('plugin_version', '?'), res.get('user', '?'), len(res.get('templates') or {}),
@@ -1413,7 +1434,7 @@ class SettingsDialog(tk.Toplevel):
                 self.m_res.configure(text=t, fg=OK_C if res.get('text_ready', True) else WARN)
             else:
                 self.m_res.configure(text=res, fg=BAD_C)
-        self.app._start_job('AI Manager testi', b.info, done)
+        self.app._start_job('AI Manager testi', b.diagnose, done)
 
     def test_direct(self):
         b = self._direct()
@@ -1450,6 +1471,13 @@ class SettingsDialog(tk.Toplevel):
         s['manager_user'] = self.user.get().strip()
         if self.pw.get().strip():
             s['manager_secret'] = secrets.protect(self.pw.get().strip())
+        if self.token.get().strip():
+            tok = re.sub(r'\s+', '', self.token.get())
+            if not re.match(r'^agfoed\.\d+\.[a-z0-9]{8}\.[A-Za-z0-9]{40}$', tok):
+                messagebox.showerror('Ayarlar', 'Bağlantı anahtarı eksik ya da hatalı kopyalanmış. "agfoed." ile başlayan değerin '
+                                     'tamamını yapıştırın.', parent=self)
+                return
+            s['manager_token'] = secrets.protect(tok)
         s['mode'] = self.mode.get()
         s['direct_provider'] = self.prov.get()
         s['direct_model'] = self.model.get().strip()

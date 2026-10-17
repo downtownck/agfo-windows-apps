@@ -2,10 +2,14 @@
 
 AGFO ekosisteminin merkezi AI sağlayıcı, model, yetenek, iş kuyruğu, medya ve maliyet yönetim katmanıdır.
 
-**Version:** 17.4.1  
+**Version:** 17.5.0  
 **Requires WordPress:** 6.0+  
 **Requires PHP:** 7.4+
 
+
+## 17.5.0 — AI Editor bağlantı anahtarı
+
+AI Editor bağlantı anahtarı: AI Manager › AI Editor bağlantısı sayfasından tek tıkla anahtar oluşturulur, editöre yapıştırılır (X-AGFO-Editor-Token). Uygulama Parolası gerekmez; Authorization başlığını düşüren sunucularda ve Uygulama Parolalarını kapatan güvenlik eklentilerinde de çalışır. Anahtarlar kullanıcıya bağlı, yalnız HMAC olarak saklanır, tek tek silinebilir ve yalnız /agfo-ai/v1/editor/* uçlarında geçerlidir. Yeni /editor/ping ucu bağlantı tanısı için yalnız sürüm ve evet/hayır bilgileri döndürür.
 
 ## 17.4.1 — AI Editor kimlik doğrulama düzeltmesi
 

@@ -122,6 +122,12 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
             if ( ! self::enabled() ) {
                 return;
             }
+            // NEW 17.5.0: unauthenticated connection check for the editor's diagnostics (booleans only).
+            register_rest_route( self::NAMESPACE_V1, '/editor/ping', [
+                'methods'             => 'GET',
+                'callback'            => [ __CLASS__, 'rest_ping' ],
+                'permission_callback' => '__return_true',
+            ] );
             register_rest_route( self::NAMESPACE_V1, '/editor/info', [
                 'methods'             => 'GET',
                 'callback'            => [ __CLASS__, 'rest_info' ],
@@ -148,8 +154,32 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
             return 'manage_options';
         }
 
+        public static function rest_ping() {
+            $app_pw = function_exists( 'wp_is_application_passwords_available' ) ? (bool) wp_is_application_passwords_available() : null;
+            return new WP_REST_Response( [
+                'plugin'          => 'agfo-ai-manager',
+                'plugin_version'  => defined( 'AGFO_AIM_VERSION' ) ? AGFO_AIM_VERSION : '',
+                'api_version'     => self::API_VERSION,
+                'token_auth'      => class_exists( 'AGFO_AIM_Editor_Tokens' ),
+                'app_passwords'   => $app_pw,
+                'https'           => function_exists( 'is_ssl' ) ? (bool) is_ssl() : null,
+                'received'        => [
+                    'authorization' => ! empty( $_SERVER['HTTP_AUTHORIZATION'] ) || ! empty( $_SERVER['PHP_AUTH_USER'] ) || ! empty( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ),
+                    'x_auth'        => ! empty( $_SERVER[ self::AUTH_HEADER ] ),
+                    'token'         => class_exists( 'AGFO_AIM_Editor_Tokens' ) ? AGFO_AIM_Editor_Tokens::token_sent() : false,
+                ],
+            ], 200 );
+        }
+
         /** @return bool|WP_Error */
         public static function can_use() {
+            // NEW 17.5.0: editor connection key (X-AGFO-Editor-Token) — works even when the server drops
+            // the Authorization header or a security plugin disables Application Passwords.
+            if ( function_exists( 'is_user_logged_in' ) && ! is_user_logged_in() && class_exists( 'AGFO_AIM_Editor_Tokens' ) ) {
+                if ( ! AGFO_AIM_Editor_Tokens::authenticate_request() && AGFO_AIM_Editor_Tokens::token_sent() ) {
+                    return new WP_Error( 'agfo_editor_token_invalid', 'Bağlantı anahtarı geçersiz veya silinmiş. AI Manager › AI Editor bağlantısı sayfasından yeni anahtar oluşturun.', [ 'status' => 401, 'credentials_received' => true ] );
+                }
+            }
             if ( ! function_exists( 'is_user_logged_in' ) || ! is_user_logged_in() ) {
                 if ( self::$auth_error instanceof WP_Error ) {
                     // WordPress' own reason: invalid_username, incorrect_password, application_passwords_disabled …

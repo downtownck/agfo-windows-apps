@@ -186,7 +186,7 @@ class ManagerTests(unittest.TestCase):
         self.assertIn('?rest_route=/agfo-ai/v1/editor/info', http.calls[1]['url'])
         for status, body, needle in ((401, {'code': 'agfo_editor_auth', 'message': 'x'}, 'uygulama parolası'),
                                      (403, {'code': 'agfo_editor_forbidden', 'message': 'yetki yok'}, 'yetkisi yok'),
-                                     (404, {'code': 'rest_no_route', 'message': 'no route'}, '17.4.0'),
+                                     (404, {'code': 'rest_no_route', 'message': 'no route'}, '17.5.0'),
                                      (503, {'code': 'agfo_content_config', 'message': 'Model yok'}, 'Model yok')):
             b2 = ai.ManagerBackend('https://site.test', 'u', 'p', request=FakeHTTP([(status, body)] * 2))
             with self.assertRaises(ai.AIError) as cm:
@@ -220,6 +220,32 @@ class ManagerTests(unittest.TestCase):
         with self.assertRaises(ai.AIError) as cm:
             b.info()
         self.assertIn('https://www.agfo.app', str(cm.exception))
+
+    def test_token_only_header_and_diagnose(self):
+        tok = 'agfoed.5.abcdefgh.' + 'A' * 40
+        http = FakeHTTP([(200, {'plugin_version': '17.5.0', 'token_auth': True, 'received': {'token': True}}),
+                         (200, {'plugin_version': '17.5.0', 'templates': {}})])
+        b = ai.ManagerBackend('https://agfo.app', 'agfoai', 'wrongpw', tok, request=http)
+        r = b.diagnose()
+        self.assertTrue(r['ok'])
+        self.assertEqual(http.calls[0]['headers'], {'X-AGFO-Editor-Token': tok})  # ping: basligin ulasip ulasmadigini olcer
+        self.assertEqual(http.calls[1]['headers'], {'X-AGFO-Editor-Token': tok})  # parola gonderilmez
+        http = FakeHTTP([(200, {'plugin_version': '17.5.0', 'token_auth': True, 'received': {'token': False}}),
+                         (401, {'code': 'agfo_editor_auth', 'data': {'status': 401, 'credentials_received': False}})])
+        r = ai.ManagerBackend('https://agfo.app', token=tok, request=http).diagnose()
+        self.assertFalse(r['ok'])
+        self.assertIn('anahtarı sunucuya ulaşmadı', r['message'])
+        http = FakeHTTP([(404, {'code': 'rest_no_route', 'message': 'x'}), (404, {'code': 'rest_no_route', 'message': 'x'}),
+                         (401, {'code': 'incorrect_password', 'data': {'status': 401}})])
+        r = ai.ManagerBackend('https://agfo.app', 'u', 'p', request=http).diagnose()
+        self.assertIn('17.5.0', r['message'])
+        b2 = ai.ManagerBackend('https://agfo.app', token=tok, request=FakeHTTP([(401, {'code': 'agfo_editor_token_invalid'})]))
+        with self.assertRaises(ai.AIError) as cm:
+            b2.info()
+        self.assertIn('yeni bir anahtar', str(cm.exception))
+        s = dict(core.DEFAULT_SETTINGS, mode='manager', manager_url='https://agfo.app', manager_token=secrets.protect(tok))
+        bs = ai.build_backends(s, secrets.unprotect)
+        self.assertEqual((len(bs), bs[0].token), (1, tok))
 
     def test_chat(self):
         http = FakeHTTP([(200, {'text': 'Cevap', 'model': 'm'})])
@@ -476,6 +502,19 @@ class GuiTests(unittest.TestCase):
         self.assertIn('BRCGS', act['extra'])
         self.assertEqual(self.fake[-1][1][2]['audience'], 'Denetçi / akreditasyon kurumu')
 
+    def test_settings_token_validation(self):
+        dlg = self.m.SettingsDialog(self.app)
+        dlg.url.set('agfo.app')
+        dlg.token.set('agfoed.5.kısa')
+        with mock.patch.object(self.m.messagebox, 'showerror') as err, mock.patch.object(self.app, '_refresh_connection_label'):
+            dlg.save()
+            self.assertTrue(err.called)
+            tok = 'agfoed.5.abcdefgh.' + 'B' * 40
+            dlg.token.set(' ' + tok + '\n')
+            dlg.save()
+        self.assertEqual(secrets.unprotect(self.app.settings['manager_token']), tok)
+        self.assertNotIn('BBBB', json.dumps(self.app.settings))
+
     def test_settings_dialog_encrypts(self):
         dlg = self.m.SettingsDialog(self.app)
         dlg.url.set('agfocert.com')
@@ -493,3 +532,63 @@ class GuiTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+import shutil
+import socket
+import subprocess
+import time
+import urllib.request
+
+
+@unittest.skipUnless(shutil.which('php'), 'php yok')
+class EndToEndWithRealAIManagerCode(unittest.TestCase):
+    """Gercek AI Manager editor API + anahtar sinifi, php -S ile; istemci gercek HTTP ile konusur."""
+
+    def _server(self, strip_auth=False):
+        sock = socket.socket()
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        root = pathlib.Path(__file__).resolve().parents[2] / 'ai-manager'
+        env = dict(os.environ, AIM_ROOT=str(root), STRIP_AUTH='1' if strip_auth else '0',
+                   E2E_STATE=os.path.join(tempfile.mkdtemp(prefix='agfo-e2e-'), 'meta.json'))
+        router = pathlib.Path(__file__).resolve().parent / 'e2e' / 'router.php'
+        proc = subprocess.Popen(['php', '-S', '127.0.0.1:%d' % port, str(router)], env=env,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.addCleanup(proc.kill)
+        for _ in range(100):
+            try:
+                socket.create_connection(('127.0.0.1', port), timeout=0.2).close()
+                break
+            except OSError:
+                time.sleep(0.05)
+        return 'http://localhost:%d' % port
+
+    def test_token_flow(self):
+        base = self._server(strip_auth=True)
+        key = urllib.request.urlopen(base + '/__mkkey').read().decode()
+        b = ai.ManagerBackend(base, token=key)
+        d = b.diagnose()
+        self.assertTrue(d['ok'], d['message'])
+        self.assertTrue(d['ping']['received']['token'])
+        self.assertEqual(d['info']['user'], 'AGFO AI')
+        r = b.transform('merhaba dünya', core.action_by_key('proofread'), {})
+        self.assertEqual(r['text'], 'MERHABA DÜNYA')
+        bad = ai.ManagerBackend(base, token=key[:-1] + ('x' if key[-1] != 'x' else 'y'))
+        with self.assertRaises(ai.AIError) as cm:
+            bad.info()
+        self.assertIn('yeni bir anahtar', str(cm.exception))
+
+    def test_app_password_flows(self):
+        base = self._server()
+        ok = ai.ManagerBackend(base, 'agfoai', 'abcd efgh ijkl mnop qrst uvwx')
+        self.assertEqual(ok.info()['user'], 'AGFO AI')
+        with self.assertRaises(ai.AIError) as cm:
+            ai.ManagerBackend(base, 'agfoai', 'yanlis').info()
+        self.assertIn('bu kullanıcıya ait değil', str(cm.exception))
+
+    def test_stripped_authorization_uses_fallback_header(self):
+        base = self._server(strip_auth=True)
+        ok = ai.ManagerBackend(base, 'agfoai', 'abcd efgh ijkl mnop qrst uvwx')
+        self.assertEqual(ok.info()['user'], 'AGFO AI')     # X-AGFO-Editor-Auth yedegi
