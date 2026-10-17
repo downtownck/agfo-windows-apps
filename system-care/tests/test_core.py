@@ -513,4 +513,26 @@ def update_apply_and_rollback():
     man = c.build_manifest(inst)
     assert man['app'] == 'agfo-system-care' and 'app.pyw' in man['files'] and 'VERSION' not in man['files']
 
+
+@test
+def phantom_view():
+    import datetime as dt
+    today = dt.date(2026, 10, 17)
+    devs = [{'id': 'USBSTOR\\DISK&VEN_SANDISK\\1', 'name': 'SanDisk USB', 'cls': 'DiskDrive', 'arrival': '2025-01-02 10:00', 'removal': '2025-01-03 11:00', 'regwrite': ''},
+            {'id': 'USB\\VID_1&PID_2\\X', 'name': 'Telefon', 'cls': 'WPD', 'arrival': '', 'removal': '', 'regwrite': '2026-10-10 09:00'},
+            {'id': 'SWD\\PRINTENUM\\{A}', 'name': 'Eski yazıcı', 'cls': 'PrintQueue', 'arrival': '2024-01-01 00:00', 'removal': '', 'regwrite': ''},
+            {'id': 'ROOT\\LEGACY_X\\0000', 'name': 'Legacy', 'cls': 'LegacyDriver', 'arrival': '', 'removal': '', 'regwrite': ''},
+            {'id': 'ACPI\\PNP0A08\\1', 'name': 'PCI Bus', 'cls': 'System', 'arrival': '2020-01-01 00:00', 'removal': '', 'regwrite': ''}]
+    g, st = c.build_phantom_view(devs, today)
+    flat = {d['name']: d for items in g.values() for d in items}
+    assert flat['SanDisk USB']['seen'] == '2025-01-03 11:00' and flat['SanDisk USB']['age'] == 652 and flat['SanDisk USB']['default']
+    assert flat['Telefon']['age'] == 7 and not flat['Telefon']['default']                 # 30 gunden yeni
+    assert flat['Eski yazıcı']['caution'] and not flat['Eski yazıcı']['default']          # SWD\ yazilim aygiti
+    assert flat['Legacy']['age'] is None and flat['Legacy']['caution']                   # ROOT\
+    assert flat['PCI Bus']['caution'] and not flat['PCI Bus']['default']                 # System sinifi
+    assert st == {'total': 5, 'old30': 3, 'old365': 3, 'caution': 3}, st
+    assert list(g) == sorted(g, key=str.lower)
+    g2, _ = c.build_phantom_view([{'id': 'USB\\F', 'cls': 'USB', 'regwrite': '2099-01-01 00:00'}], today)
+    assert g2['USB'][0]['age'] == 0                                                      # gelecek tarih negatif olmaz
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

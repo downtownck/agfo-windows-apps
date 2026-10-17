@@ -26,13 +26,13 @@ foreach($file in $files){
  Copy-Item -LiteralPath (Join-Path $root $file) -Destination $target -Force
  Unblock-File -LiteralPath $target -ErrorAction SilentlyContinue   # Internet'ten indirilen ZIP'in Zone.Identifier isaretini kaldir
 }
-Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value '3.4.0' -Encoding ASCII
+Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value '3.5.0' -Encoding ASCII
 $pythonW=Join-Path (Split-Path $python -Parent) 'pythonw.exe'
 if(-not (Test-Path $pythonW)) { $pythonW=$python }
 $menu=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\AGFO'
 New-Item -ItemType Directory -Path $menu -Force | Out-Null
 $link=Join-Path $menu 'AGFO System Care.lnk'
 $sc=(New-Object -ComObject WScript.Shell).CreateShortcut($link)
-$sc.TargetPath=$pythonW;$sc.Arguments='"'+(Join-Path $dest 'app.pyw')+'"';$sc.WorkingDirectory=$dest;$sc.IconLocation=(Join-Path $dest 'assets\agfo.ico')+',0';$sc.Description='AGFO System Care 3.4.0';$sc.Save()
+$sc.TargetPath=$pythonW;$sc.Arguments='"'+(Join-Path $dest 'app.pyw')+'"';$sc.WorkingDirectory=$dest;$sc.IconLocation=(Join-Path $dest 'assets\agfo.ico')+',0';$sc.Description='AGFO System Care 3.5.0';$sc.Save()
 Write-Host ('Kurulum tamamlandi: '+$dest)
 Start-Process -FilePath $pythonW -ArgumentList ('"'+(Join-Path $dest 'app.pyw')+'"') -WorkingDirectory $dest

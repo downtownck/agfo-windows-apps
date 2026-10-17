@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -9,6 +9,7 @@
       "Programlar",
       "Bloatware",
       "Sürücüler",
+      "Aygıt temizliği",
       "Uygulama güncellemeleri",
       "Bakım ve sağlık"
     ],
@@ -31,7 +32,9 @@
       "recycle-paths",
       "driver-analyze",
       "appx-list",
-      "appx-remove"
+      "appx-remove",
+      "phantom-list",
+      "phantom-remove"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -40,7 +43,9 @@
       "-Paths <pipe list>",
       "-IncludeWU yes|no",
       "-Packages <pipe list of PackageFullName>",
-      "-Provisioned yes|no"
+      "-Provisioned yes|no",
+      "-InstanceIds <pipe list>",
+      "-ForceRestorePoint yes|no"
     ],
     "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle)",
     "engines_winget": {
@@ -290,6 +295,20 @@
       "required_for_package": true
     },
     {
+      "id": "SC-035",
+      "purpose": "Aygit temizligi: son gorulme = max(baglanma, ayrilma, kayit yazma); yas; gelecek tarih 0; ROOT/SWD/System 'dikkat' ve secilmez; 30+ gun varsayilan; istatistik",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-036",
+      "purpose": "GUI aygit temizligi: gruplar, sayaclar, varsayilan secim, dikkat etiketi, suzgec/arama ve secimin korunmasi, yalnizca isaretli InstanceId'ler, once 24 saat sinirini asan geri yukleme noktasi, yeniden tarama",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "required_for_package": true
+    },
+    {
       "id": "SC-W01",
       "purpose": "Windows: BleachBit tasinabilir 6.0.4 indirilir, motor klasorune acilir, --list-cleaners calisir",
       "type": "windows_runtime",
@@ -334,6 +353,12 @@
     {
       "id": "SC-W08",
       "purpose": "Windows: kurulu uygulamada Guncelleme ile yeni ZIP uygulanir, uygulama yeniden baslar; yedege donus calisir",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W09",
+      "purpose": "Windows: phantom-list gercek bagli olmayan aygitlari getirir; pnputil /remove-device ile bir USB bellek kaydi kaldirilir; bagli aygit reddedilir; zorlanmis geri yukleme noktasi olusur ve frekans degeri geri yuklenir",
       "type": "windows_runtime",
       "required_for_package": false
     }

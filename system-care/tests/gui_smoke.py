@@ -360,6 +360,31 @@ ins = (core.sdio_dirs()['root'] / 'agfo-install.txt').read_text()
 check('sdio.install_script', 'restorepoint' in ins and 'select missing better' in ins and '\ninstall\n' in ins)
 
 
+# 4b Aygit temizligi
+app.ph_scan(); wait_idle(30)
+pht = app.ph_tree
+ph_rows = {pht.labels[i][0]: i for i in pht.labels if pht.payload.get(i)}
+check('ph.rows', set(ph_rows) == {'SanDisk Ultra USB Device', 'Galaxy S10', 'USB Serial Port (COM7)', 'HP LaserJet (eski)'}, list(ph_rows))
+check('ph.chips', app.ph_chips['total'][0].get() == '4 bağlı olmayan aygıt' and app.ph_chips['caution'][0].get() == '1 dikkat', [v.get() for v, _ in app.ph_chips.values()])
+check('ph.default_old_selected', ph_rows['SanDisk Ultra USB Device'] in pht.checked and ph_rows['USB Serial Port (COM7)'] in pht.checked
+      and ph_rows['Galaxy S10'] not in pht.checked and ph_rows['HP LaserJet (eski)'] not in pht.checked)
+check('ph.caution_tag', 'risky' in pht.tree.item(ph_rows['HP LaserJet (eski)'], 'tags'))
+app.ph_filter.set('1 yıldan eski'); app._ph_render()
+names_old = {pht.labels[i][0] for i in pht.labels if pht.payload.get(i)}
+check('ph.filter_year', names_old == {'SanDisk Ultra USB Device', 'USB Serial Port (COM7)', 'HP LaserJet (eski)'}, names_old)
+app.ph_filter.set('Tümü'); app._ph_render()
+check('ph.selection_kept', app.ph_count.get() == '2 aygıt seçili', app.ph_count.get())
+app.ph_q.set('com7'); app.update()
+check('ph.search', [pht.labels[i][0] for i in pht.labels if pht.payload.get(i)] == ['USB Serial Port (COM7)'])
+app.ph_q.set(''); app.update()
+shot(5, '4b-aygit-temizligi')
+app.ph_remove(); wait_idle(30)
+lt = logtext()
+ids = lt.split('INSTANCEIDS=')[-1].split('\n')[0].split('|')
+check('ph.remove_only_checked', set(ids) == {'USBSTOR\\DISK&VEN_SANDISK&PROD_ULTRA\\4C53', 'FTDIBUS\\VID_0403+PID_6001\\0000'}, ids)
+check('ph.force_restore_point_first', 'FORCE=yes' in lt and lt.rfind('Geri yükleme noktası başlatıldı') < lt.rfind('Bağlı olmayan aygıtları kaldır'), lt[-600:])
+check('ph.rescan_after', lt.rfind('Bağlı olmayan aygıtlar başlatıldı') > lt.rfind('Bağlı olmayan aygıtları kaldır'))
+
 # 5 Uygulamalar
 app.apps_scan(); wait_idle()
 at = app.app_tree
@@ -368,13 +393,13 @@ at.set_checked(list(at.labels)[1], False)
 app.apps_update(); wait_idle()
 check('apps.update_selected', 'upgrade --id Mozilla.Firefox' in logtext() and 'upgrade --id 7zip.7zip' not in logtext())
 check('apps.state_col', at.tree.set(list(at.labels)[0], 'state') == 'Başarılı', at.tree.set(list(at.labels)[0], 'state'))
-shot(5, '5-uygulamalar')
+shot(6, '5-uygulamalar')
 
 # 6 Bakim (gercek pwsh)
 os.environ['TEMP'] = str(TMP / 'temp'); (TMP / 'temp').mkdir(exist_ok=True)
 app.run_ps('temp-preview', False); wait_idle(60)
 check('maint.temp_preview_real_ps', '7 gunden eski' in logtext(), logtext()[-300:])
-shot(6, '6-bakim')
+shot(7, '6-bakim')
 
 # 7 Guncelleme (paket yukleme) - gercek paketten turetilmis 3.3.1 paketi bir kurulum kopyasina uygulanir
 import shutil, zipfile  # noqa: E402
@@ -437,13 +462,15 @@ check('upd.rollback', 'AGFO_UPDATE_MARKER_331' not in (inst / 'app.pyw').read_te
 # 7b GitHub tek tik guncelleme (sahte GitHub API + indirme; gercek dogrulama/uygulama kodu)
 import hashlib, io  # noqa: E402
 ghu = app_mod.ghu
-pkg341 = make_pkg(TMP / 'AGFO-System-Care-v3.4.1.zip', '3.4.1', 'AGFO_GH_MARKER_341')
+_v = [int(x) for x in core.VERSION.split('.')]
+NEXT = '%d.%d.%d' % (_v[0], _v[1], _v[2] + 1)
+pkg341 = make_pkg(TMP / ('AGFO-System-Care-v%s.zip' % NEXT), NEXT, 'AGFO_GH_MARKER_NEXT')
 PKG = pkg341.read_bytes()
 GH = {'digest': 'sha256:' + hashlib.sha256(PKG).hexdigest()}
-RELS = lambda: [{'tag_name': 'system-care-v3.4.1', 'name': 'System Care 3.4.1', 'draft': False, 'prerelease': False, 'body': 'Hata düzeltmeleri',
-                 'html_url': 'https://github.com/downtownck/agfo-windows-apps/releases/tag/system-care-v3.4.1', 'published_at': '2026-10-18T09:00:00Z',
-                 'assets': [{'name': 'AGFO-System-Care-v3.4.1.zip', 'size': len(PKG), 'digest': GH['digest'],
-                             'browser_download_url': 'https://github.com/downtownck/agfo-windows-apps/releases/download/system-care-v3.4.1/AGFO-System-Care-v3.4.1.zip'}]},
+RELS = lambda: [{'tag_name': 'system-care-v' + NEXT, 'name': 'System Care ' + NEXT, 'draft': False, 'prerelease': False, 'body': 'Hata düzeltmeleri',
+                 'html_url': 'https://github.com/downtownck/agfo-windows-apps/releases/tag/system-care-v' + NEXT, 'published_at': '2026-10-18T09:00:00Z',
+                 'assets': [{'name': 'AGFO-System-Care-v%s.zip' % NEXT, 'size': len(PKG), 'digest': GH['digest'],
+                             'browser_download_url': 'https://github.com/downtownck/agfo-windows-apps/releases/download/system-care-v%s/AGFO-System-Care-v%s.zip' % (NEXT, NEXT)}]},
                 {'tag_name': 'supertools-v9.0.0', 'draft': False, 'prerelease': False, 'assets': []}]
 ghu.fetch_json = lambda url, user_agent='': RELS()
 
@@ -459,7 +486,7 @@ ghu._open = lambda url, **k: _R(PKG)
 app.gh_check(force=True)
 for _ in range(60):
     app.update(); time.sleep(0.05)
-check('gh.banner_shown', app.gh_banner.winfo_ismapped() and '3.4.1' in app.gh_banner_text.get(), app.gh_banner_text.get())
+check('gh.banner_shown', app.gh_banner.winfo_ismapped() and NEXT in app.gh_banner_text.get(), app.gh_banner_text.get())
 subprocess.run(['import', '-window', 'root', '-crop', '%dx%d+%d+%d' % (app.winfo_width(), app.winfo_height(), app.winfo_rootx(), app.winfo_rooty()),
                 str(SHOTS / '8-github-bandi.png')], check=False)
 # once bozuk indirme: SHA tutmaz -> kurulum degismez
@@ -469,12 +496,12 @@ app.gh_update(); wait_idle(60)
 check('gh.bad_download_rejected', (inst / 'VERSION').read_text() == ver_before and 'SHA-256' in logtext() and app.gh_banner.winfo_ismapped(), logtext()[-500:])
 ghu._open = lambda url, **k: _R(PKG)
 app.gh_update(); wait_idle(90)
-check('gh.one_click_applied', 'AGFO_GH_MARKER_341' in (inst / 'app.pyw').read_text(encoding='utf-8') and (inst / 'VERSION').read_text() == '3.4.1'
+check('gh.one_click_applied', 'AGFO_GH_MARKER_NEXT' in (inst / 'app.pyw').read_text(encoding='utf-8') and (inst / 'VERSION').read_text() == NEXT
       and (inst / 'agfo_github_update.py').is_file(), (inst / 'VERSION').read_text())
 check('gh.banner_hidden_after', not app.gh_banner.winfo_ismapped())
-check('gh.download_cleaned', not any(core.GH_DOWNLOAD_DIR.glob('*.part')) and not (core.GH_DOWNLOAD_DIR / 'AGFO-System-Care-v3.4.1.zip').exists())
+check('gh.download_cleaned', not any(core.GH_DOWNLOAD_DIR.glob('*.part')) and not (core.GH_DOWNLOAD_DIR / ('AGFO-System-Care-v%s.zip' % NEXT)).exists())
 st = ghu.load_state(core.GH_STATE)
-check('gh.state_saved', st.get('last_result', {}).get('version') == '3.4.1')
+check('gh.state_saved', st.get('last_result', {}).get('version') == NEXT)
 app.upd_win.destroy()
 app.refresh_engines(); wait_idle()
 check('upd.closed_dialog_no_crash', not app.busy and all(b.winfo_exists() for b in app.action_buttons))

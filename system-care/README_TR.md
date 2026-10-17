@@ -1,7 +1,14 @@
-# AGFO System Care 3.4.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.5.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.5.0'da ne değişti — Aygıt temizliği
+Yeni **Aygıt temizliği** sekmesi, bu bilgisayara bir zamanlar bağlanmış ama şu an bağlı olmayan aygıtları (eski USB bellekler, telefonlar, yazıcılar, USB-seri/COM portları, kaldırılmış donanım) listeler ve seçilenleri kaldırır. Uwe Sieber'in DeviceCleanup aracıyla aynı ölçütleri kullanır, fakat üçüncü taraf araç indirmez: işlem System Care'in kendi koduyla yapılır.
+- Liste: `Get-PnpDevice` ile bağlı olmayan aygıtlar (genellikle Aygıt Yöneticisi kodu 45). **Son görülme**: aygıtın son bağlanma/ayrılma tarihi veya `HKLM\SYSTEM\CurrentControlSet\Enum` altındaki kayıt anahtarının son yazma zamanı (hangisi en yeniyse). Sınıfa göre gruplu; süzgeç (30 günden eski / 1 yıldan eski / tarihi bilinmeyen) ve arama.
+- Varsayılan seçim: 30 günden eski olanlar. Sistem/yazılım aygıtları (`ROOT\`, `SWD\`, System, SoftwareDevice vb.) turuncu **Dikkat** olarak işaretlenir ve varsayılan seçilmez.
+- Kaldırma (yönetici): Windows 10 2004 ve sonrası `pnputil /remove-device`, daha eskilerde SetupAPI. Kaldırmadan hemen önce aygıtın hâlâ bağlı olmadığı yeniden denetlenir; bağlı aygıta asla dokunulmaz. Aygıt yeniden takılırsa Windows onu yeni aygıt olarak tanır ve sürücüsünü yeniden kurar. Son COM portu kullanan aygıt kaldırılınca Windows 10 1903+ port rezervasyonunu kendisi serbest bırakır.
+- **Önce geri yükleme noktası**: Windows 8+ 24 saatte yalnızca bir nokta oluşturur; bu seçenek `SystemRestorePointCreationFrequency` değerini geçici olarak 0 yapar, noktayı oluşturur ve değeri eski haline getirir.
 
 ## 3.4.0'da ne değişti — GitHub'dan tek tıkla güncelleme
 - Açılışta (en fazla 6 saatte bir) `downtownck/agfo-windows-apps` deposundaki `system-care-v*` sürümleri denetlenir. Yeni sürüm varsa üstte **Şimdi güncelle / Notlar / Bu sürümü atla** bandı çıkar.

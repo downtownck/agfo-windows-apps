@@ -1,13 +1,15 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
  [ValidateSet('yes','no')][string]$IncludeWU = 'yes',
  [string]$Packages = '',
- [ValidateSet('yes','no')][string]$Provisioned = 'no'
+ [ValidateSet('yes','no')][string]$Provisioned = 'no',
+ [string]$InstanceIds = '',
+ [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no'
 )
-# AGFO System Care 3.2.0 gorev motoru.
+# AGFO System Care 3.5.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -46,6 +48,37 @@ function PendingReboot {
  $pfr=Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue
  return [bool]($pfr -and $pfr.PendingFileRenameOperations)
 }
+function AgfoNative {
+ # Kayit anahtari son yazma zamani (DeviceCleanup'in 'son kullanim' olcutu) ve SetupAPI ile aygit kaldirma (pnputil /remove-device yoksa).
+ if(-not ('AgfoNative' -as [type])) {
+  Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public static class AgfoNative {
+  [DllImport("advapi32.dll", CharSet=CharSet.Unicode)] static extern int RegOpenKeyEx(UIntPtr hKey, string sub, int opt, int sam, out UIntPtr res);
+  [DllImport("advapi32.dll", CharSet=CharSet.Unicode)] static extern int RegQueryInfoKey(UIntPtr hKey, IntPtr cls, IntPtr clsLen, IntPtr res, IntPtr subKeys, IntPtr maxSub, IntPtr maxCls, IntPtr vals, IntPtr maxValName, IntPtr maxValLen, IntPtr secDesc, out long lastWrite);
+  [DllImport("advapi32.dll")] static extern int RegCloseKey(UIntPtr h);
+  public static long LastWrite(string sub) {
+    UIntPtr h; if (RegOpenKeyEx(new UIntPtr(0x80000002u), sub, 0, 0x20019, out h) != 0) return 0;
+    long t; int r = RegQueryInfoKey(h, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, out t);
+    RegCloseKey(h); return r == 0 ? t : 0; }
+  [StructLayout(LayoutKind.Sequential)] public struct SP_DEVINFO_DATA { public int cbSize; public Guid ClassGuid; public int DevInst; public IntPtr Reserved; }
+  [DllImport("setupapi.dll", SetLastError=true)] static extern IntPtr SetupDiCreateDeviceInfoList(IntPtr guid, IntPtr hwnd);
+  [DllImport("setupapi.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool SetupDiOpenDeviceInfo(IntPtr set, string id, IntPtr hwnd, int flags, ref SP_DEVINFO_DATA d);
+  [DllImport("setupapi.dll", SetLastError=true)] static extern bool SetupDiRemoveDevice(IntPtr set, ref SP_DEVINFO_DATA d);
+  [DllImport("setupapi.dll")] static extern bool SetupDiDestroyDeviceInfoList(IntPtr set);
+  public static int Remove(string instanceId) {
+    IntPtr set = SetupDiCreateDeviceInfoList(IntPtr.Zero, IntPtr.Zero);
+    if (set == new IntPtr(-1)) return Marshal.GetLastWin32Error();
+    try { SP_DEVINFO_DATA d = new SP_DEVINFO_DATA(); d.cbSize = Marshal.SizeOf(typeof(SP_DEVINFO_DATA));
+      if (!SetupDiOpenDeviceInfo(set, instanceId, IntPtr.Zero, 0, ref d)) return Marshal.GetLastWin32Error();
+      if (!SetupDiRemoveDevice(set, ref d)) return Marshal.GetLastWin32Error();
+      return 0; } finally { SetupDiDestroyDeviceInfoList(set); } }
+}
+'@
+ }
+}
+function FileTimeDate([long]$ft) { if($ft -gt 0) { try { return [DateTime]::FromFileTimeUtc($ft).ToLocalTime().ToString('yyyy-MM-dd HH:mm') } catch {} } ; return '' }
+function SafeDateTime($d) { try { if($d) { return ([datetime]$d).ToString('yyyy-MM-dd HH:mm') } } catch {} ; return '' }
 function SafeDate($d) { try { if($d) { return ([datetime]$d).ToString('yyyy-MM-dd') } } catch {} ; return '' }
 function IsProtectedPath([string]$p) {
  # Geri donusume tasima icin kesin yasak kokler. Yalnizca bunlarin ALTINDAKI uygulama klasorleri kabul edilir.
@@ -173,6 +206,50 @@ switch($Action) {
   Write-Output ('Kaldirilan: {0}, basarisiz/atlanan: {1}. Store uygulamalari Microsoft Store''dan yeniden kurulabilir.' -f $ok,$fail)
   if($fail -gt 0) { exit 2 }
  }
+ 'phantom-list' {
+  # Su an bagli olmayan (Aygit Yoneticisi'nde gizli, genellikle kod 45 CM_PROB_PHANTOM) aygitlar.
+  $all=@(Get-PnpDevice -ErrorAction SilentlyContinue | Where-Object { -not $_.Present })
+  Write-Output ('Bagli olmayan aygit: '+$all.Count)
+  $dates=@{}
+  if($all.Count -gt 0) {
+   try {
+    foreach($pr in @($all | Get-PnpDeviceProperty -KeyName 'DEVPKEY_Device_LastArrivalDate','DEVPKEY_Device_LastRemovalDate' -ErrorAction SilentlyContinue)) {
+     if($pr.Data) { $dates[$pr.InstanceId+'|'+$pr.KeyName]=SafeDateTime $pr.Data }
+    }
+   } catch { Write-Output ('UYARI: tarih ozellikleri okunamadi: '+$_.Exception.Message) }
+  }
+  $native=$true; try { AgfoNative } catch { $native=$false }
+  foreach($d in $all) {
+   $id=[string]$d.InstanceId
+   $lw=''; if($native) { try { $lw=FileTimeDate ([AgfoNative]::LastWrite('SYSTEM\CurrentControlSet\Enum\'+$id)) } catch {} }
+   $prob=0; try { $prob=[int]$d.Problem } catch {}
+   Emit ([ordered]@{type='phantom';id=$id;name=[string]$d.FriendlyName;cls=[string]$d.Class;status=[string]$d.Status;problem=$prob;
+     arrival=[string]$dates[$id+'|DEVPKEY_Device_LastArrivalDate'];removal=[string]$dates[$id+'|DEVPKEY_Device_LastRemovalDate'];regwrite=$lw})
+  }
+ }
+ 'phantom-remove' {
+  RequireAdmin
+  $list=@($InstanceIds -split '\|' | Where-Object { $_ -and $_.Trim() })
+  if($list.Count -eq 0) { Write-Output 'Kaldirilacak aygit yok.'; break }
+  $build=[int][Environment]::OSVersion.Version.Build
+  $usePnputil=$build -ge 19041   # pnputil /remove-device: Windows 10 2004 ve sonrasi
+  if(-not $usePnputil) { AgfoNative }
+  $ok=0; $fail=0
+  foreach($id in $list) {
+   $id=$id.Trim()
+   $dev=Get-PnpDevice -InstanceId $id -ErrorAction SilentlyContinue
+   if(-not $dev) { Write-Output ('Zaten yok: '+$id); Emit ([ordered]@{type='phantom-removed';id=$id;ok=$true;reason='missing'}); continue }
+   if($dev.Present) { Write-Output ('BAGLI AYGIT, atlandi: '+$id); $fail++; Emit ([ordered]@{type='phantom-removed';id=$id;ok=$false;reason='present'}); continue }
+   if($usePnputil) {
+    $out=& pnputil.exe /remove-device "$id" 2>&1 | Out-String
+    $code=$LASTEXITCODE
+   } else { $code=[AgfoNative]::Remove($id); $out='' }
+   if($code -eq 0 -or $code -eq 3010) { Write-Output ('Kaldirildi: '+$dev.FriendlyName+' ['+$id+']'); $ok++; Emit ([ordered]@{type='phantom-removed';id=$id;ok=$true;reason=''}) }
+   else { Write-Output ('Kaldirilamadi ('+$code+'): '+$id+' '+$out.Trim()); $fail++; Emit ([ordered]@{type='phantom-removed';id=$id;ok=$false;reason=('kod '+$code)}) }
+  }
+  Write-Output ('Kaldirilan: {0}, basarisiz/atlanan: {1}. Aygit yeniden takilirsa Windows onu yeni aygit olarak tanir.' -f $ok,$fail)
+  if($fail -gt 0) { exit 2 }
+ }
  'devices' {
   $bad=@(Get-CimInstance Win32_PnPEntity -Filter 'ConfigManagerErrorCode <> 0' -ErrorAction SilentlyContinue)
   Write-Output ('Sorunlu aygit sayisi: '+$bad.Count)
@@ -255,7 +332,19 @@ switch($Action) {
  'restore-point' {
   RequireAdmin
   $before=@(Get-ComputerRestorePoint -ErrorAction SilentlyContinue).Count
-  Checkpoint-Computer -Description 'AGFO Care - Bakim oncesi' -RestorePointType 'MODIFY_SETTINGS' -WarningAction SilentlyContinue
+  # Windows 8+ 24 saatte bir noktaya izin verir; ForceRestorePoint=yes iken SystemRestorePointCreationFrequency gecici olarak 0 yapilir ve sonra eski haline getirilir.
+  $srKey='HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore'; $prevFreq=$null; $hadFreq=$false
+  if($ForceRestorePoint -eq 'yes') {
+   $cur=Get-ItemProperty -LiteralPath $srKey -Name SystemRestorePointCreationFrequency -ErrorAction SilentlyContinue
+   if($cur) { $hadFreq=$true; $prevFreq=$cur.SystemRestorePointCreationFrequency }
+   New-ItemProperty -LiteralPath $srKey -Name SystemRestorePointCreationFrequency -PropertyType DWord -Value 0 -Force | Out-Null
+  }
+  try { Checkpoint-Computer -Description 'AGFO Care - Bakim oncesi' -RestorePointType 'MODIFY_SETTINGS' -WarningAction SilentlyContinue }
+  finally {
+   if($ForceRestorePoint -eq 'yes') {
+    if($hadFreq) { Set-ItemProperty -LiteralPath $srKey -Name SystemRestorePointCreationFrequency -Value $prevFreq } else { Remove-ItemProperty -LiteralPath $srKey -Name SystemRestorePointCreationFrequency -ErrorAction SilentlyContinue }
+   }
+  }
   $after=@(Get-ComputerRestorePoint -ErrorAction SilentlyContinue).Count
   if($after -gt $before) { Write-Output 'Sistem geri yukleme noktasi olusturuldu.' }
   else {

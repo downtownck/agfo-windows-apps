@@ -68,8 +68,8 @@ ACTIONS = {
  ],
 }
 # Sekme ici dugmelerin kullandigi diger care_tasks.ps1 eylemleri
-INTERNAL_PS_ACTIONS = ['appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
-ADMIN_ACTIONS = {'driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
+INTERNAL_PS_ACTIONS = ['phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
+ADMIN_ACTIONS = {'phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
 DANGER_TEXT = {
  'temp-clean':'7 günden eski Temp dosyaları kalıcı olarak silinir. Önizleme yapmanız önerilir.',
  'component-clean':'Windows bileşen deposu temizlenecek. Bu işlem zaman alabilir.',
@@ -514,7 +514,7 @@ class App(tk.Tk):
     def _build(self):
         top = tk.Frame(self, bg=BG); top.pack(fill='x', padx=22, pady=(16, 6))
         tk.Label(top, text='AGFO  /  SUPERTOOLS', fg=ACCENT, bg=BG, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
-        tk.Label(top, text='System Care 3.4', fg=FG, bg=BG, font=('Segoe UI', 22, 'bold')).pack(anchor='w')
+        tk.Label(top, text='System Care 3.5', fg=FG, bg=BG, font=('Segoe UI', 22, 'bold')).pack(anchor='w')
         tk.Label(top, text='BleachBit · Bulk Crap Uninstaller · Snappy Driver Installer Origin · WinGet · Windows Update — tek arayüzde',
                  fg=MUTED, bg=BG, font=('Segoe UI', 10)).pack(anchor='w', pady=(2, 0))
         st = tk.Frame(self, bg=PANEL, padx=12, pady=8); st.pack(fill='x', padx=22, pady=8)
@@ -540,7 +540,7 @@ class App(tk.Tk):
         self.tabs = ttk.Notebook(paned)
         paned.add(self.tabs, stretch='always', minsize=int(360 * self.scale))
         for title, builder in [('  Motorlar  ', self._tab_engines), ('  Temizlik  ', self._tab_clean), ('  Programlar  ', self._tab_programs), ('  Bloatware  ', self._tab_bloat),
-                               ('  Sürücüler  ', self._tab_drivers), ('  Uygulama güncellemeleri  ', self._tab_apps), ('  Bakım ve sağlık  ', self._tab_maint)]:
+                               ('  Sürücüler  ', self._tab_drivers), ('  Aygıt temizliği  ', self._tab_phantom), ('  Uygulama güncellemeleri  ', self._tab_apps), ('  Bakım ve sağlık  ', self._tab_maint)]:
             f = tk.Frame(self.tabs, bg=PANEL)
             self.tabs.add(f, text=title)
             builder(f)
@@ -1134,6 +1134,110 @@ class App(tk.Tk):
             exe, params = core.build_uninstall(p['prog'], True)
             jobs.append(Job('Kaldır: ' + p['name'], shell=(exe, params), after=self._after_uninstall(p['prog'])))
         jobs[-1].on_done = lambda j: self.bloat_scan()
+        self.start(jobs)
+
+    # ------------------------------------------------------------------ AYGIT TEMIZLIGI (bagli olmayan aygitlar)
+    PH_FILTERS = ['Tümü', '30 günden eski', '1 yıldan eski', 'Tarihi bilinmeyen']
+
+    def _tab_phantom(self, f):
+        head = tk.Frame(f, bg=PANEL); head.pack(fill='x', padx=16, pady=(12, 2))
+        tk.Label(head, text='Aygıt temizliği', fg=FG, bg=PANEL, font=('Segoe UI', 12, 'bold')).pack(side='left')
+        self.ph_chips = {}
+        for key, text, color in [('total', 'bağlı olmayan aygıt', ACCENT), ('old30', '30+ gün', OK_C), ('old365', '1+ yıl', OK_C), ('caution', 'dikkat', WARN)]:
+            v = tk.StringVar(value='— ' + text)
+            tk.Label(head, textvariable=v, fg=color, bg=PANEL2, font=('Segoe UI', 9, 'bold'), padx=10, pady=3).pack(side='left', padx=(10, 0))
+            self.ph_chips[key] = (v, text)
+        self.label(f, 'Bu bilgisayara bir zamanlar bağlanmış ama şu an bağlı olmayan aygıtlar (eski USB bellekler, telefonlar, yazıcılar, '
+                      'COM portları, kaldırılmış donanım). Aygıt Yöneticisi bunları gizler; birikmeleri COM port numaralarını ve sürücü listesini şişirir. '
+                      'Kaldırılan aygıt yeniden takılırsa Windows onu yeni aygıt olarak tanır ve sürücüsünü yeniden kurar. '
+                      '"Dikkat" (turuncu) satırlar sistem/yazılım aygıtlarıdır; varsayılan olarak seçilmez.', wraplength=int(1100 * self.scale)).pack(fill='x', padx=16, pady=(2, 4))
+        bar = tk.Frame(f, bg=PANEL); bar.pack(fill='x', padx=16)
+        self.btn(bar, 'Tara', self.ph_scan, 'go')
+        self.btn(bar, '30 günden eskileri seç', lambda: self.ph_tree.set_all(True, lambda i: bool((self.ph_tree.payload.get(i) or {}).get('default'))), 'ghost', action=False)
+        self.btn(bar, 'Tümünü seç', lambda: self.ph_tree.set_all(True), 'ghost', action=False)
+        self.btn(bar, 'Seçimi kaldır', lambda: self.ph_tree.set_all(False), 'ghost', action=False)
+        self.btn(bar, 'Seçilenleri kaldır', self.ph_remove, 'danger')
+        self.ph_rp = tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar, text='Önce geri yükleme noktası (24 saat sınırı aşılarak)', variable=self.ph_rp).pack(side='left', padx=(10, 0))
+        self.ph_count = tk.StringVar(value='')
+        tk.Label(bar, textvariable=self.ph_count, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold')).pack(side='right')
+        flt = tk.Frame(f, bg=PANEL); flt.pack(fill='x', padx=16, pady=(6, 0))
+        tk.Label(flt, text='Göster:', fg=FG, bg=PANEL).pack(side='left')
+        self.ph_filter = ttk.Combobox(flt, state='readonly', width=22, values=self.PH_FILTERS); self.ph_filter.current(0)
+        self.ph_filter.pack(side='left', padx=6)
+        self.ph_filter.bind('<<ComboboxSelected>>', lambda _e: self._ph_render())
+        tk.Label(flt, text='Ara:', fg=FG, bg=PANEL).pack(side='left', padx=(10, 0))
+        self.ph_q = tk.StringVar()
+        ttk.Entry(flt, textvariable=self.ph_q, width=30).pack(side='left', padx=6)
+        self.ph_q.trace_add('write', lambda *_: self._ph_render())
+        cols = [('seen', 'Son görülme', 145, 'w'), ('age', 'Gün', 60, 'e'), ('status', 'Durum', 170, 'w'), ('id', 'Aygıt örnek kimliği', 480, 'w')]
+        self.ph_tree = CheckTree(f, cols, first=('Aygıt', 330), on_change=self._ph_count)
+        self.ph_tree.pack(fill='both', expand=True, padx=16, pady=8)
+        self.ph_groups, self.ph_sel = {}, None
+
+    def ph_scan(self):
+        def done(job):
+            devs = [d for d in job.data if d.get('type') == 'phantom']
+            self.ph_groups, st = core.build_phantom_view(devs)
+            for k, (v, text) in self.ph_chips.items():
+                v.set('%d %s' % (st.get(k, 0), text))
+            self.ph_sel = None
+            self._ph_render()
+        self.start([Job('Bağlı olmayan aygıtlar', cmd=ps_cmd('phantom-list'), on_done=done, show_output=False)])
+
+    def _ph_render(self):
+        t = self.ph_tree
+        if self.ph_sel is None:
+            self.ph_sel = {d['id'] for g in self.ph_groups.values() for d in g if d['default']}
+        elif t.labels:
+            visible = {pl['id'] for pl in t.payload.values() if pl}
+            self.ph_sel = {pl['id'] for pl in t.checked_payloads() if pl} | (self.ph_sel - visible)
+        t.clear()
+        mode, q = self.ph_filter.get(), self.ph_q.get().strip().lower()
+        for n, (cls, items) in enumerate(self.ph_groups.items()):
+            show = []
+            for d in items:
+                if mode == '30 günden eski' and not (d['age'] is not None and d['age'] >= 30):
+                    continue
+                if mode == '1 yıldan eski' and not (d['age'] is not None and d['age'] >= 365):
+                    continue
+                if mode == 'Tarihi bilinmeyen' and d['age'] is not None:
+                    continue
+                if q and q not in ((d.get('name') or '') + ' ' + d['id'] + ' ' + cls).lower():
+                    continue
+                show.append(d)
+            if not show:
+                continue
+            gid = 'g%d' % n
+            t.add(gid, '%s (%d)' % (cls, len(show)), ('', '', '', ''), tags=('group',), open_=True)
+            for m, d in enumerate(show):
+                t.add('%s_%d' % (gid, m), d.get('name') or '(adsız aygıt)', (d['seen'] or 'bilinmiyor', '' if d['age'] is None else d['age'],
+                      'Dikkat: sistem aygıtı' if d['caution'] else 'Bağlı değil', d['id']), parent=gid, checked=d['id'] in self.ph_sel,
+                      tags=('risky',) if d['caution'] else (), payload=d)
+        t.refresh_marks()
+        self._ph_count()
+
+    def _ph_count(self):
+        n = len([p for p in self.ph_tree.checked_payloads() if p])
+        self.ph_count.set('%d aygıt seçili' % n if n else '')
+
+    def ph_remove(self):
+        sel = [p for p in self.ph_tree.checked_payloads() if p]
+        if not sel:
+            messagebox.showinfo('Aygıt temizliği', 'Önce tarayın ve kaldırılacak aygıtları işaretleyin.'); return
+        if not self.need_admin('phantom-remove'):
+            return
+        caution = [p for p in sel if p['caution']]
+        msg = '%d bağlı olmayan aygıt kaldırılacak.\nAygıtlar yeniden takılırsa Windows onları yeni aygıt olarak tanır.' % len(sel)
+        if caution:
+            msg += '\n\nDİKKAT: %d sistem/yazılım aygıtı seçili (ör. %s).' % (len(caution), caution[0].get('name') or caution[0]['id'])
+        if not messagebox.askyesno('Aygıt temizliği', msg + '\n\nDevam edilsin mi?'):
+            return
+        jobs = []
+        if self.ph_rp.get():
+            jobs.append(Job('Geri yükleme noktası', cmd=ps_cmd('restore-point', ForceRestorePoint='yes'), cancel_ok=False))
+        jobs.append(Job('Bağlı olmayan aygıtları kaldır (%d)' % len(sel), cmd=ps_cmd('phantom-remove', InstanceIds='|'.join(p['id'] for p in sel)),
+                        cancel_ok=False, on_done=lambda j: self.ph_scan()))
         self.start(jobs)
 
     # ------------------------------------------------------------------ SURUCU MERKEZI (SDIO tarzi gorunum)

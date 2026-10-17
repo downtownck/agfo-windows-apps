@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '3.4.0'
+VERSION = '3.5.0'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -1575,3 +1575,49 @@ GH_PREFIX = 'system-care-v'
 GH_ASSET = r'AGFO-System-Care-v\d+(?:\.\d+)+\.zip'
 GH_STATE = APP_DATA_DIR / 'github-update.json'
 GH_DOWNLOAD_DIR = APP_DATA_DIR / 'update-download'
+
+
+# --------------------------------------------------------------------------- Aygit temizligi (bagli olmayan / hayalet aygitlar)
+# DeviceCleanup (Uwe Sieber) ile ayni olcutler: yalnizca su an bagli olmayan aygitlar; 'son gorulme' = son baglanma /
+# ayrilma tarihi veya Enum kayit anahtarinin son yazma zamani. Kaldirilan aygit yeniden takilirsa Windows onu yeni aygit
+# olarak tanir. Uygulama kendi kodunu kullanir; ucuncu taraf arac indirmez.
+PHANTOM_CAUTION_CLASSES = {'softwaredevice', 'softwarecomponent', 'system', 'computer', 'processor', 'firmware', 'hdc', 'scsiadapter'}
+PHANTOM_DEFAULT_DAYS = 30
+
+
+def phantom_last_seen(d):
+    vals = [v for v in (d.get('arrival'), d.get('removal'), d.get('regwrite')) if v]
+    return max(vals) if vals else ''
+
+
+def phantom_is_caution(d):
+    iid = (d.get('id') or '').upper()
+    return (d.get('cls') or '').lower() in PHANTOM_CAUTION_CLASSES or iid.startswith(('ROOT\\', 'SWD\\', 'HTREE\\', 'ACPI_HAL\\'))
+
+
+def build_phantom_view(devs, today=None):
+    """-> (gruplar {sinif: [aygit...]}, istatistik). Her aygita 'seen', 'age' (gun ya da None), 'caution', 'default' eklenir."""
+    import datetime as _dt
+    today = today or _dt.date.today()
+    groups = {}
+    stats = {'total': 0, 'old30': 0, 'old365': 0, 'caution': 0}
+    for d in devs:
+        d = dict(d)
+        d['seen'] = phantom_last_seen(d)
+        age = None
+        if d['seen']:
+            try:
+                age = max(0, (today - _dt.date.fromisoformat(d['seen'][:10])).days)   # saat sapmasi: gelecek tarih -> 0
+            except ValueError:
+                age = None
+        d['age'] = age
+        d['caution'] = phantom_is_caution(d)
+        d['default'] = (not d['caution']) and age is not None and age >= PHANTOM_DEFAULT_DAYS
+        groups.setdefault(d.get('cls') or 'Diğer', []).append(d)
+        stats['total'] += 1
+        stats['old30'] += 1 if (age is not None and age >= 30) else 0
+        stats['old365'] += 1 if (age is not None and age >= 365) else 0
+        stats['caution'] += 1 if d['caution'] else 0
+    for g in groups.values():
+        g.sort(key=lambda x: (x['seen'] or '0000', (x.get('name') or '').lower()))
+    return dict(sorted(groups.items(), key=lambda kv: kv[0].lower())), stats
