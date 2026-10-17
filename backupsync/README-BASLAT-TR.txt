@@ -1,4 +1,4 @@
-AGFO BackupSync v2.3.2 - TEK TIK WINDOWS KURULUM
+AGFO BackupSync v2.3.3 - TEK TIK WINDOWS KURULUM
 =================================================
 
 1) ZIP'i tamamen cikar.
@@ -81,3 +81,11 @@ V2.3.2 - PYTHON DLL HATASI DUZELTMESI + AGFO KOYU TEMA
 - Arayuz AGFO standardina alindi: koyu tema (System Care / SuperTools ile ayni renkler),
   "AGFO / SUPERTOOLS" baslik, koyu sekme seridi, koyu liste/kutu/log alanlari, duz dugmeler.
   Koyu zemin uzerinde koyu yazi yoktur. Hicbir islev kaldirilmadi.
+
+V2.3.3 - PROFIL KAYDETME / ONIZLEME HATASI DUZELTMESI
+-----------------------------------------------------
+- Duzeltildi: Var olan bir profil kaydedilirken, Onizleme veya Simdi calistir'da cikan
+  'Exception calling "Replace" with "3" argument(s): Yol gecerli bir bicimde degil.' hatasi.
+  Neden: PowerShell, .NET'e verilen $null degerini bos metne ceviriyordu; dosya degistirme
+  islemi bu yuzden reddediliyordu. Ayni hata canli durum dosyasinin guncellenmesini de
+  sessizce engelliyordu; o da duzeldi.

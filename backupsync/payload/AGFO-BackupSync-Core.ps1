@@ -1,6 +1,6 @@
 ﻿# AGFO BackupSync v2.0 - shared engine / profile functions.
 # Windows PowerShell 5.1 compatible. No dependency for Robocopy mode.
-$script:AgfoVersion = '2.3.2'
+$script:AgfoVersion = '2.3.3'
 $script:AgfoRoot = Join-Path $env:LOCALAPPDATA 'AGFO-BackupSync'
 $script:AgfoAppDir = Join-Path $script:AgfoRoot 'app'
 $script:AgfoProfiles = Join-Path $script:AgfoRoot 'profiles'
@@ -75,7 +75,10 @@ function Write-AgfoJson([string]$Path, [object]$Value) {
     try {
         [System.IO.File]::WriteAllText($tmp, $json, $utf8)
         if ([System.IO.File]::Exists($Path)) {
-            [System.IO.File]::Replace($tmp, $Path, $null)
+            # PowerShell turns $null into '' for .NET string parameters -> "path is not of a legal form".
+            # [NullString]::Value passes a real null (no backup file). Fallback for file systems without Replace.
+            try { [System.IO.File]::Replace($tmp, $Path, [NullString]::Value) }
+            catch [System.PlatformNotSupportedException], [System.IO.IOException] { [System.IO.File]::Copy($tmp, $Path, $true) }
         } else {
             [System.IO.File]::Move($tmp, $Path)
         }

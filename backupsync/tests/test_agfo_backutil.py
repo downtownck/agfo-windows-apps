@@ -410,7 +410,7 @@ class FrozenEnvAndThemeTests(unittest.TestCase):
         s = self.GUI.read_text(encoding='utf-8-sig')
         self.assertLess(s.index('Clear-AgfoFrozenEnvironment\n'), s.index("Initialize-Agfo\n"))
         self.assertEqual(s.count("Join-Path $PSScriptRoot 'AGFO-BackupSync.exe'"), s.count('Set-AgfoHelperEnvironment $psi'))
-        self.assertIn('SetDllDirectoryW($null)', s)
+        self.assertIn('SetDllDirectoryW([NullString]::Value)', s)
 
     def test_gui_uses_agfo_dark_theme(self):
         s = self.GUI.read_text(encoding='utf-8-sig')
@@ -434,3 +434,19 @@ class FrozenEnvAndThemeTests(unittest.TestCase):
                   '$btnSave', '$btnDelete', '$btnImport'):
             self.assertIn(b + ' = UiButton', s)
             self.assertIn(b + '.Add_Click', s)
+
+
+class NullStringTests(unittest.TestCase):
+    """v2.3.3 - PowerShell $null -> '' donusumu: File.Replace 'Yol gecerli bir bicimde degil' hatasi."""
+
+    def test_no_null_into_dotnet_string_paths(self):
+        import re
+        root = Path(__file__).resolve().parents[1] / 'payload'
+        for f in root.glob('*.ps1'):
+            s = f.read_text(encoding='utf-8-sig')
+            self.assertFalse(re.search(r'::Replace\([^)]*\$null', s), f.name)
+            self.assertFalse(re.search(r'SetDllDirectoryW\(\$null\)', s), f.name)
+        core = (root / 'AGFO-BackupSync-Core.ps1').read_text(encoding='utf-8-sig')
+        self.assertIn('[System.IO.File]::Replace($tmp, $Path, [NullString]::Value)', core)
+        test = (root / 'AGFO-BackupSync-Test.ps1').read_text(encoding='utf-8-sig')
+        self.assertIn("'resave existing profile'", test)

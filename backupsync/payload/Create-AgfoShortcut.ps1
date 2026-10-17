@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory=$true)][string]$LinkPath,
     [Parameter(Mandatory=$true)][string]$ExePath,
     [string]$ExeArgs = '',
-    [string]$Description = 'AGFO BackupSync v2.3.2'
+    [string]$Description = 'AGFO BackupSync v2.3.3'
 )
 $ErrorActionPreference='Stop'
 $parent=[System.IO.Path]::GetDirectoryName($LinkPath)

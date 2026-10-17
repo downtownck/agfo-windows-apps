@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import uuid
 
-VERSION = '2.3.2'
+VERSION = '2.3.3'
 INSTALL_DIR = Path(r'C:\agfo-backutil')
 APP_EXE = 'AGFO-BackupSync.exe'
 SETUP_EXE = 'AGFO-BackupSync-Setup.exe'
@@ -36,7 +36,7 @@ def scrub_frozen_env(env=None) -> dict[str, str]:
     """PyInstaller onefile ortam degiskenlerini (_PYI_*, _MEIPASS2) cikarilmis kopya dondurur.
 
     Bu degiskenler alt surece gecerse, ayni (onefile) exe kendini 'cocuk surec' sanip baska bir
-    _MEI klasorunden python312.dll yuklemeye calisir: 'Failed to load Python DLL' hatasi (v2.3.0, v2.3.2'de duzeltildi).
+    _MEI klasorunden python312.dll yuklemeye calisir: 'Failed to load Python DLL' hatasi (v2.3.0, v2.3.1'de duzeltildi).
     PYINSTALLER_RESET_ENVIRONMENT=1, PyInstaller 6.9+ derlenmis alt exe'ye bastan baslamasini soyler.
     """
     src = os.environ if env is None else env

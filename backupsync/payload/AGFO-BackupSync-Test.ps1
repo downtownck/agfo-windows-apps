@@ -71,4 +71,21 @@ $blocked = $false
 try { $null = Validate-AgfoPaths $nestedP $false } catch { $blocked = $true }
 Check $blocked 'destination inside source blocked'
 
+# v2.3.3: saving an EXISTING profile/status file (File.Replace) must work (was: "path is not of a legal form").
+$jsonDir = Join-Path ([System.IO.Path]::GetTempPath()) ('agfo-test-' + [guid]::NewGuid().ToString('N'))
+try {
+    $jsonFile = Join-Path $jsonDir 'p.json'
+    Write-AgfoJson $jsonFile ([pscustomobject]@{ n = 1 })
+    Write-AgfoJson $jsonFile ([pscustomobject]@{ n = 2 })
+    Check ((Read-AgfoJson $jsonFile).n -eq 2) 'overwrite existing JSON'
+    Check (@(Get-ChildItem -LiteralPath $jsonDir -File).Count -eq 1) 'no temp/backup files left'
+    $saved = New-AgfoProfile
+    $saved.profileName = 'Resave'
+    $savedPath = Save-AgfoProfile $saved
+    $saved.threads = 4
+    $null = Save-AgfoProfile $saved
+    Check ((Read-AgfoProfile $savedPath).threads -eq 4) 'resave existing profile'
+    Remove-Item -LiteralPath $savedPath -Force
+} finally { Remove-Item -LiteralPath $jsonDir -Recurse -Force -ErrorAction SilentlyContinue }
+
 Write-Host ('PASS: ' + $script:Tests + ' defensive checks') -ForegroundColor Green

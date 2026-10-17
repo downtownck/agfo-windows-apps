@@ -19,7 +19,7 @@ import subprocess
 import sys
 from typing import Any
 
-VERSION = '2.3.2'
+VERSION = '2.3.3'
 
 
 def _add(items: list[dict[str, Any]], kind: str, path: str, name: str, origin: str,

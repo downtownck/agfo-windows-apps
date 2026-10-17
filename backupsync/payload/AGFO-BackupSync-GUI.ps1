@@ -20,7 +20,7 @@ function Clear-AgfoFrozenEnvironment {
 public static extern bool SetDllDirectoryW(string lpPathName);
 '@
         }
-        [void][AgfoNative.DllPath]::SetDllDirectoryW($null)
+        [void][AgfoNative.DllPath]::SetDllDirectoryW([NullString]::Value)
     } catch { }
 }
 function Set-AgfoHelperEnvironment([System.Diagnostics.ProcessStartInfo]$Psi) {
@@ -76,7 +76,7 @@ $boldFont = [System.Drawing.Font]::new('Segoe UI', 9, [System.Drawing.FontStyle]
 $bigFont = [System.Drawing.Font]::new('Segoe UI', 16, [System.Drawing.FontStyle]::Bold)
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'AGFO BackupSync v2.3.2 | Windows / NAS'
+$form.Text = 'AGFO BackupSync v2.3.3 | Windows / NAS'
 $form.Size = [System.Drawing.Size]::new(1220, 820)
 $form.MinimumSize = [System.Drawing.Size]::new(1220, 820)
 $form.MaximumSize = [System.Drawing.Size]::new(1220, 820)
@@ -309,7 +309,7 @@ $heading.Font = $bigFont
 $heading.ForeColor = $fgColor
 $subheading = UiLabel $header 'Windows 11 | NAS yedekleme | Sürüm arşivi | Gece zamanlaması' 27 55 950 20
 $subheading.ForeColor = $mutedColor
-$headerVersion = UiLabel $header 'v2.3.2' 1090 30 100 22 $true
+$headerVersion = UiLabel $header 'v2.3.3' 1090 30 100 22 $true
 $headerVersion.ForeColor = $accentColor
 $headerVersion.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
 $headerLine = New-Object System.Windows.Forms.Panel
@@ -558,7 +558,7 @@ $lblDriveStatus = UiLabel $tabDrives 'Surucu harfleri okunuyor...' 22 577 846 53
 $lblDriveStatus.ForeColor = $mutedColor
 [void](UiLabel $tabDrives 'Gece yedekleri esleme harfini degil, orijinal UNC/yerel yolu kullanir. SUBST yeniden baslatmada kaybolur.' 22 608 848 26)
 
-$footer = UiLabel $form 'AGFO BackupSync v2.3.2  |  Tek yönlü aktarım  |  Şifre ve parola kaydedilmez  |  Kaynak dosyalar silinmez' 26 751 1150 31
+$footer = UiLabel $form 'AGFO BackupSync v2.3.3  |  Tek yönlü aktarım  |  Şifre ve parola kaydedilmez  |  Kaynak dosyalar silinmez' 26 751 1150 31
 $footer.ForeColor = $mutedColor
 
 function Selected-ProfileItem { return $listProfiles.SelectedItem }
