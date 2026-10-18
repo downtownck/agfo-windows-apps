@@ -282,7 +282,8 @@ class PdfView(tk.Frame):
                 c.create_text(X1 + 9, Y1 + 9, text='✎', fill='#5c3c00', font=('Segoe UI', 9, 'bold'), tags=('ov', 'ov%d' % i))
             elif t in ('text', 'whiteout'):
                 img = P.render_text_image(ov.get('text', ''), cc - a, d - b, ov.get('size', 11), ov.get('color', '000000'),
-                                          ov.get('whiteout', False), ov.get('bold', False), dpi=72 * z)
+                                          ov.get('whiteout', False), ov.get('bold', False), dpi=72 * z,
+                                          bg=ov.get('bg', 'ffffff'))
                 ph = ImageTk.PhotoImage(img.resize((w, h)), master=self)
                 self.ov_imgs.append(ph)
                 c.create_image(X1, Y1, image=ph, anchor='nw', tags=('ov', 'ov%d' % i))
@@ -578,12 +579,16 @@ class PdfView(tk.Frame):
         if text == info['text'] and abs(float(size) - float(info.get('size') or 11)) < 0.05 and bool(bold) == bool(info.get('bold')):
             return
         try:
-            self.pr.edit_text(i, info, text, size, bold)
+            how = self.pr.edit_text(i, info, text, size, bold)
         except P.PdfError as e:
             messagebox.showwarning('Metni düzenle', str(e), parent=self)
             return
         self._rerender(i)
-        self.app.flash('Metin değiştirildi (gerçek PDF metni). Geri almak için ↶.')
+        if how == 'overlay':
+            self.app.flash('Bu sayfanın yapısı yerinde değişikliğe uygun değil; eski satır zemin rengiyle örtülüp yeni metin '
+                           'üstüne yazıldı (Seç aracıyla taşınabilir). Geri almak için ↶.', 10000)
+        else:
+            self.app.flash('Metin değiştirildi (gerçek PDF metni; sayfanın geri kalanına dokunulmadı). Geri almak için ↶.')
 
     def _delete_image_at(self, i, px, py):
         try:

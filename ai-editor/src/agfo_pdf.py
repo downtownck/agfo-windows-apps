@@ -141,6 +141,11 @@ def find_font(bold=False):
     return None
 
 
+def _pixels(im):
+    raw = im.convert('RGB').tobytes()
+    return [tuple(raw[k:k + 3]) for k in range(0, len(raw), 3)]
+
+
 def hex_rgb(h: str):
     h = (h or '000000').lstrip('#')
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
@@ -161,12 +166,12 @@ def wrap_lines(draw, font, text, max_w):
     return out
 
 
-def render_text_image(text, w_pt, h_pt, size=11, color='000000', whiteout=False, bold=False, dpi=200):
-    """Metin kutusunu RGBA goruntu olarak cizer (noktalar -> piksel, dpi cozunurlukte)."""
+def render_text_image(text, w_pt, h_pt, size=11, color='000000', whiteout=False, bold=False, dpi=200, bg='ffffff'):
+    """Metin kutusunu RGBA goruntu olarak cizer (noktalar -> piksel, dpi cozunurlukte). bg: ortme rengi."""
     from PIL import Image, ImageDraw, ImageFont
     k = dpi / 72.0
     W, H = max(1, int(w_pt * k)), max(1, int(h_pt * k))
-    img = Image.new('RGBA', (W, H), (255, 255, 255, 255 if whiteout else 0))
+    img = Image.new('RGBA', (W, H), hex_rgb(bg or 'ffffff') + (255 if whiteout else 0,))
     d = ImageDraw.Draw(img)
     fp = find_font(bold)
     font = ImageFont.truetype(fp, max(4, int(size * k))) if fp else ImageFont.load_default()
@@ -349,15 +354,73 @@ class PdfProject:
         p['src'], p['index'] = key, 0
         return key
 
+    def text_color(self, i, info):
+        """Satirdaki metnin GORUNEN rengi (sayfa cizilerek): pdfium'un bildirdigi dolgu rengi ozel renk alanlarinda
+        (Separation/ICC/desen) yaniltici olabiliyor (or. beyaz zemine beyaz yazi)."""
+        try:
+            k = 2.0
+            img = self.render(i, k).convert('RGB')
+            a, b, c, d = info['drect']
+            box = (max(0, int(a * k)), max(0, int(b * k)), min(img.width, int(c * k) + 1), min(img.height, int(d * k) + 1))
+            if box[2] - box[0] < 2 or box[3] - box[1] < 2:
+                return None
+            px = _pixels(img.crop(box))
+            from collections import Counter
+            bg = Counter(px).most_common(1)[0][0]
+            far = [q for q in px if sum(abs(q[n] - bg[n]) for n in range(3)) > 120]
+            if len(far) < 3:
+                return None
+            far.sort(key=lambda q: -sum(abs(q[n] - bg[n]) for n in range(3)))
+            top = far[:max(3, len(far) // 4)]          # kenar yumusatmasi olmayan en belirgin pikseller
+            return '%02x%02x%02x' % tuple(sum(q[n] for q in top) // len(top) for n in range(3))
+        except Exception:
+            return None
+
     def edit_text(self, i, info, new_text, size=None, bold=None, color=None):
+        """Metni yerinde degistirir. Icerik yapisi uygun degilse ozgun metnin uzerine (zemin rengiyle) yazar;
+        donus: ('inplace'|'overlay')."""
         import agfo_pdf_edit as E
         p = self.pages[i]
         self.require('modify', [p['src']])
+        if not color:
+            color = info.get('color') or '000000'
+            bg = self._bg_color(i, info)
+            dist = sum(abs(int(color[k:k + 2], 16) - int(bg[k:k + 2], 16)) for k in (0, 2, 4))
+            if dist < 150:            # bildirilen renk zeminde gorunmuyor (ozel renk alani): gorunen rengi kullan
+                color = self.text_color(i, info) or ('000000' if sum(int(bg[k:k + 2], 16) for k in (0, 2, 4)) > 380 else 'ffffff')
+        if info.get('invisible'):              # gorunmez (OCR) metin: goruntunun ustune zemin renginde kutu + metin
+            self._overlay_edit(i, info, new_text, size, bold, color if color != info.get('color') else '000000')
+            return 'overlay'
         try:
-            data = E.replace_text(self._load_bytes(p['src']), p['index'], info, new_text, size, bold, color)
+            data = E.replace_text(self._reader(p['src']), p['index'], self._load_bytes(p['src']), info, new_text, size, bold, color)
         except E.EditError as e:
-            raise PdfError(str(e)) from e
-        return self._swap_source(i, data)
+            if info.get('nested') or info.get('rotated') or 'yazı tipi' in str(e):
+                raise PdfError(str(e)) from e
+            self._overlay_edit(i, info, new_text, size, bold, color)
+            return 'overlay'
+        self._swap_source(i, data)
+        return 'inplace'
+
+    def _overlay_edit(self, i, info, new_text, size, bold, color):
+        """Yedek yol: eski satiri zemin rengindeki kutuyla ortup yeni metni ustune yazar (katman olarak, duzenlenebilir)."""
+        a, b, c, d = info['drect']
+        pad = 1.5
+        lines = max(1, (new_text or '').count('\n') + 1)
+        sz = float(size or info.get('size') or 11)
+        rect = (a - pad, b - pad, max(c + pad, a + 40), max(d + pad, b + lines * sz * 1.25 + pad))
+        self.add_overlay(i, {'type': 'text', 'rect': rect, 'text': new_text, 'size': sz, 'bold': bool(bold if bold is not None else info.get('bold')),
+                             'color': (color or '000000').lstrip('#'), 'whiteout': True, 'bg': self._bg_color(i, info)})
+
+    def _bg_color(self, i, info):
+        try:
+            k = 2.0
+            img = self.render(i, k).convert('RGB')
+            a, b, c, d = info['drect']
+            from collections import Counter
+            px = _pixels(img.crop((max(0, int(a * k)), max(0, int(b * k)), int(c * k) + 1, int(d * k) + 1)))
+            return '%02x%02x%02x' % Counter(px).most_common(1)[0][0]
+        except Exception:
+            return 'ffffff'
 
     def remove_image(self, i, info):
         import agfo_pdf_edit as E
@@ -366,9 +429,9 @@ class PdfProject:
         if not info.get('objects'):
             raise PdfError('Bu resim bir şablon (form) nesnesinin parçası; yalnız resim silinemiyor. "Üstüne yaz" ile örtebilirsiniz.')
         try:
-            data = E.remove_objects(self._load_bytes(p['src']), p['index'], info['objects'])
+            data = E.remove_objects(self._reader(p['src']), p['index'], self._load_bytes(p['src']), info['objects'])
         except E.EditError as e:
-            raise PdfError(str(e)) from e
+            raise PdfError('Resim bu sayfada içerikten çıkarılamadı: %s "Üstüne yaz" ile örtebilirsiniz.' % e) from e
         return self._swap_source(i, data)
 
     def _add_source_pages(self, path, at, indices=None):
@@ -626,7 +689,7 @@ class PdfProject:
                     w_pt, h_pt = ov['rect'][2] - ov['rect'][0], ov['rect'][3] - ov['rect'][1]
                     if t == 'text':
                         img = render_text_image(ov.get('text', ''), w_pt, h_pt, ov.get('size', 11), ov.get('color', '000000'),
-                                                ov.get('whiteout', False), ov.get('bold', False))
+                                                ov.get('whiteout', False), ov.get('bold', False), bg=ov.get('bg', 'ffffff'))
                     else:
                         from PIL import Image
                         img = Image.open(io.BytesIO(ov['data'])).convert('RGBA')

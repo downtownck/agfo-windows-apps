@@ -82,11 +82,64 @@ def _font_dirs():
 _FONT_CACHE = {}
 
 
+_FILE_INDEX = None
+FAMILY_ALIASES = {'timesnewroman': 'times', 'couriernew': 'cour', 'arialnarrow': 'arialn', 'bookantiqua': 'bkant',
+                  'centurygothic': 'gothic', 'trebuchetms': 'trebuc', 'lucidaconsole': 'lucon', 'comicsansms': 'comic',
+                  'palatinolinotype': 'pala', 'garamond': 'gara', 'helvetica': 'arial', 'helveticaneue': 'arial'}
+
+
+def _file_index():
+    global _FILE_INDEX
+    if _FILE_INDEX is None:
+        idx = {}
+        for d in _font_dirs():
+            try:
+                names = os.listdir(d)
+            except OSError:
+                continue
+            for fn in names:
+                if fn.lower().endswith(('.ttf', '.otf')):
+                    idx.setdefault(re.sub(r'[^a-z0-9]', '', os.path.splitext(fn)[0].lower()), os.path.join(d, fn))
+        _FILE_INDEX = idx
+    return _FILE_INDEX
+
+
+def _family_file(name, bold, italic):
+    """Ozgun yazi tipinin ailesi sistemde kuruluysa onun dosyasi (or. ABCDEF+DejaVuSans-Bold -> DejaVuSans-Bold.ttf,
+    Arial-BoldMT -> arialbd.ttf, TimesNewRomanPSMT -> times.ttf, Calibri,Bold -> calibrib.ttf)."""
+    n = name.split('+')[-1]
+    n = re.split(r'[-,]', n)[0]
+    fam = re.sub(r'[^a-z0-9]', '', n.lower())
+    fam = re.sub(r'(psmt|mt|ps)$', '', fam)
+    fam = re.sub(r'(regular|roman|book|medium)$', '', fam) or fam
+    fam = FAMILY_ALIASES.get(fam, fam)
+    if not fam:
+        return None
+    if bold and italic:
+        suffixes = ['bolditalic', 'boldoblique', 'bi', 'z']
+    elif bold:
+        suffixes = ['bold', 'bd', 'b', 'semibold']
+    elif italic:
+        suffixes = ['italic', 'oblique', 'i', 'it']
+    else:
+        suffixes = ['', 'regular', 'roman', 'book', 'r']
+    idx = _file_index()
+    for suf in suffixes:
+        p = idx.get(fam + suf)
+        if p:
+            return p
+    return None
+
+
 def pick_font(name='', bold=False, italic=False, serif=False):
-    """Ozgun yazi tipine en yakin TrueType dosyasi."""
+    """Ozgun yazi tipine en yakin TrueType dosyasi: once ayni aile (kuruluysa), sonra benzer aile."""
     key = (name.lower(), bool(bold), bool(italic), bool(serif))
     if key in _FONT_CACHE:
         return _FONT_CACHE[key]
+    same = _family_file(name, bold, italic) if name else None
+    if same and same.lower().endswith('.ttf'):
+        _FONT_CACHE[key] = same
+        return same
     n = name.lower().split('+')[-1]
     slot = (1 if bold else 0) + (2 if italic else 0)
     dirs = _font_dirs()
@@ -161,6 +214,8 @@ def find_line(pdf, index, x, y):
             return {'nested': True, 'rect': _box(tp, ci), 'text': '', 'objects': [], **info}
         l0, b0, r0, t0 = tops[k0].get_bounds()
         size = max(4.0, t0 - b0)
+        mode = lambda o: raw.FPDFTextObj_GetTextRenderMode(o.raw)  # noqa: E731
+        info['invisible'] = mode(tops[k0]) in (3, 7)         # taranmis sayfanin OCR katmani ya da kirpma metni
         chosen = {k0}
         # ayni satirda (taban cizgisi ortusen) ve yakin olan diger metin nesneleri: satir parcalanmis olabilir
         changed = True
@@ -168,7 +223,7 @@ def find_line(pdf, index, x, y):
             changed = False
             ls, rs = min(tops[k].get_bounds()[0] for k in chosen), max(tops[k].get_bounds()[2] for k in chosen)
             for k, o in enumerate(tops):
-                if k in chosen or o.type != OBJ_TEXT:
+                if k in chosen or o.type != OBJ_TEXT or mode(o) in (3, 7):
                     continue
                 l, b, r, t = o.get_bounds()
                 vo = min(t, t0) - max(b, b0)
@@ -255,28 +310,215 @@ def _save(doc):
     return buf.getvalue()
 
 
-def remove_objects(src_bytes, index, ordinals):
-    """Sayfanin ust duzey nesnelerini cikarir; tek sayfalik yeni PDF baytlari dondurur."""
-    pdfium, raw = _lib()
-    src, new = _single_page(src_bytes, index)
+# ----------------------------------------------------------------------------- 1.4.2: cerrahi icerik duzenleme
+# 1.4.0/1.4.1 sayfayi pdfium ile yeniden uretiyordu (FPDFPage_GenerateContent). Gercek belgelerde bu; renk alanlarini
+# (Separation/ICC), saydamlik (ExtGState, yumusak maske), kirpma yollarini ve yazi tipi kodlamalarini bozabiliyor:
+# metin bozuk yazi tipiyle, siyah kutu icinde ya da beyaz uzerine beyaz gorunuyordu. Artik ozgun icerik akisi yeniden
+# uretilmez: yalniz silinecek metin/resim operatorleri icerikten cikarilir, geri kalan her sey oldugu gibi kalir.
+# Yeni metin ayri bir katman (yalniz o metni iceren sayfa) olarak sayfanin ustune birlestirilir.
+SHOW_OPS = (b'Tj', b'TJ', b"'", b'"')
+POS_OPS = (b'Td', b'TD', b'Tm', b'T*', b"'", b'"', b'ET', b'BT')
+
+
+def _nonempty_show(operands, op):
     try:
-        page = new[0]
-        tops = _top_objects(page)
-        for k in sorted(set(ordinals), reverse=True):
-            if 0 <= k < len(tops):
-                page.remove_obj(tops[k])
-                tops[k].close()
+        if op == b'Tj' or op == b"'":
+            return len(operands[0]) > 0
+        if op == b'"':
+            return len(operands[2]) > 0
+        if op == b'TJ':
+            return any(not isinstance(x, (int, float)) and hasattr(x, '__len__') and len(x) > 0 for x in operands[0])
+    except (IndexError, TypeError):
+        return False
+    return False
+
+
+def _page_ops(page, pdf):
+    from pypdf.generic import ContentStream
+    contents = page.get_contents()
+    if contents is None:
+        return None
+    return ContentStream(contents, pdf)
+
+
+def _xobject_subtype(page, name):
+    try:
+        res = page['/Resources'].get_object()
+        xo = res['/XObject'].get_object()
+        return str(xo[name].get_object().get('/Subtype'))
+    except Exception:
+        return ''
+
+
+def _pdfium_order(pdf_bytes, index, kind):
+    """pdfium'un ust duzey nesne listesinde, verilen turdeki nesnelerin sira numaralari (icerik sirasi)."""
+    pdfium, _raw = _lib()
+    doc = pdfium.PdfDocument(pdf_bytes)
+    try:
+        page = doc[index]
+        return [k for k, o in enumerate(page.get_objects(max_depth=1)) if o.type == kind]
+    finally:
+        doc.close()
+
+
+def _one_page_writer(reader, index):
+    import pypdf
+    w = pypdf.PdfWriter()
+    w.add_page(reader.pages[index])
+    return w
+
+
+def _writer_bytes(w):
+    buf = io.BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
+def strip_ops(reader, index, pdf_bytes, ordinals, kind):
+    """Sayfadan secili ust duzey nesneleri (metin ya da resim) ICERIK AKISINDAN cikarir; baska hicbir sey degismez.
+    Donus: (pypdf yazici, sayfa). Esleme dogrulanamazsa EditError."""
+    from pypdf.generic import ArrayObject, FloatObject, NameObject, NumberObject
+    order = _pdfium_order(pdf_bytes, index, kind)
+    targets = {order.index(k) for k in ordinals if k in order}
+    if len(targets) != len(set(ordinals)):
+        raise EditError('Nesne eşlenemedi.')
+    w = _one_page_writer(reader, index)
+    page = w.pages[0]
+    cs = _page_ops(page, w)
+    if cs is None:
+        raise EditError('Sayfada içerik yok.')
+    ops = cs.operations
+    # 1) icerikteki ilgili operatorleri say: pdfium ile birebir eslesmeli
+    found = []
+    for n, (operands, op) in enumerate(ops):
+        if kind == OBJ_TEXT and op in SHOW_OPS and _nonempty_show(operands, op):
+            found.append(n)
+        elif kind == OBJ_IMAGE and ((op == b'Do' and operands and _xobject_subtype(page, operands[0]) == '/Image')
+                                    or op == b'INLINE IMAGE'):
+            found.append(n)
+    if len(found) != len(order):
+        raise EditError('Bu sayfanın içerik yapısı yerinde düzenlemeye uygun değil (%d / %d).' % (len(found), len(order)))
+    kill = {found[t] for t in targets}
+    # 2) yeniden yaz: silinen metin operatoru sonrakinin konumunu etkiliyorsa gorunmez yap (ilerleme korunur)
+    out = []
+    tr_stack, tr = [], 0
+    for n, (operands, op) in enumerate(ops):
+        if op == b'q':
+            tr_stack.append(tr)
+        elif op == b'Q':
+            tr = tr_stack.pop() if tr_stack else 0
+        elif op == b'Tr' and operands:
+            try:
+                tr = int(operands[0])
+            except (TypeError, ValueError):
+                pass
+        if n not in kill:
+            out.append((operands, op))
+            continue
+        if kind == OBJ_IMAGE:
+            continue
+        # silinen operatorden sonra, yeni konumlandirma olmadan, SILINMEYEN bir metin operatoru geliyorsa
+        # (konumu bu operatorun ilerlemesine bagli) bu operatoru silmek yerine gorunmez yap
+        follows = False
+        for m in range(n + 1, len(ops)):
+            op2 = ops[m][1]
+            if op2 in SHOW_OPS and op2 not in (b"'", b'"'):
+                if m not in kill and _nonempty_show(ops[m][0], op2):
+                    follows = True
+                    break
+                continue
+            if op2 in POS_OPS:
+                break
+        if op == b"'":
+            out.append(([], b'T*'))
+            if follows:
+                out.extend([([NumberObject(3)], b'Tr'), ([operands[0]], b'Tj'), ([NumberObject(tr)], b'Tr')])
+            continue
+        if op == b'"':
+            out.extend([([operands[0]], b'Tw'), ([operands[1]], b'Tc'), ([], b'T*')])
+            if follows:
+                out.extend([([NumberObject(3)], b'Tr'), ([operands[2]], b'Tj'), ([NumberObject(tr)], b'Tr')])
+            continue
+        if follows:
+            out.extend([([NumberObject(3)], b'Tr'), (operands, op), ([NumberObject(tr)], b'Tr')])
+    _ = (ArrayObject, FloatObject, NameObject)
+    cs.operations = out
+    page.replace_contents(cs)
+    return w, page
+
+
+METRIC_GROUPS = (('arial', 'helvetica', 'liberationsans', 'arimo'), ('times', 'liberationserif', 'tinos'),
+                 ('cour', 'liberationmono', 'cousine'), ('calibri', 'carlito'), ('cambria', 'caladea'))
+
+
+def _metric_compatible(orig_name, font_path):
+    """Yedek yazi tipi ozgunle ayni aile ya da ayni olculere sahip (Arial/Helvetica/Liberation Sans gibi) mi?"""
+    a = re.sub(r'[^a-z]', '', orig_name.split('+')[-1].lower())
+    b = re.sub(r'[^a-z]', '', os.path.splitext(os.path.basename(font_path))[0].lower())
+    if not a:
+        return True
+    fam_a = re.split(r'(bold|italic|oblique|regular|mt|ps)', a)[0]
+    if fam_a and b.startswith(fam_a[:6]):
+        return True
+    return any(any(a.startswith(k) for k in g) and any(b.startswith(k) for k in g) for g in METRIC_GROUPS)
+
+
+def text_width(text, font_path, size):
+    try:
+        from PIL import ImageFont
+        return ImageFont.truetype(font_path, 100).getlength(text) * size / 100.0
+    except Exception:
+        return 0.0
+
+
+def text_layer(width, height, origin, lines, size, color, font_path, lead, hscale=1.0):
+    """Yalniz yeni metni iceren tek sayfalik PDF (pdfium ile; ozgun sayfaya dokunmaz). (baytlar, yazi_tipi_adi)."""
+    pdfium, raw = _lib()
+    doc = pdfium.PdfDocument.new()
+    keep = []
+    try:
+        page = doc.new_page(width, height)
+        with open(font_path, 'rb') as f:
+            data = f.read()
+        fbuf = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
+        keep.append(fbuf)
+        font = raw.FPDFText_LoadFont(doc.raw, fbuf, len(data), raw.FPDF_FONT_TRUETYPE, 1)
+        if not font:
+            raise EditError('Yazı tipi yüklenemedi: %s' % os.path.basename(font_path))
+        nbuf = ctypes.create_string_buffer(256)
+        raw.FPDFFont_GetBaseFontName(font, nbuf, 256)
+        base_name = nbuf.value.decode('latin-1', 'replace')
+        r, g, b = (int(color[k:k + 2], 16) for k in (0, 2, 4))
+        x0, y0 = origin
+        for n, line in enumerate(lines):
+            if not line.strip():
+                continue
+            obj = raw.FPDFPageObj_CreateTextObj(doc.raw, font, ctypes.c_float(size))
+            ws = (line + '\x00').encode('utf-16-le')
+            wbuf = ctypes.create_string_buffer(ws, len(ws))
+            keep.append(wbuf)
+            raw.FPDFText_SetText(obj, ctypes.cast(wbuf, raw.FPDF_WIDESTRING))
+            raw.FPDFPageObj_SetFillColor(obj, r, g, b, 255)
+            raw.FPDFPageObj_Transform(obj, hscale, 0, 0, 1, x0, y0 - n * lead)
+            raw.FPDFPage_InsertObject(page.raw, obj)
         page.gen_content()
         page.close()
-        return _save(new)
+        out = _save(doc)
+        raw.FPDFFont_Close(font)
+        return _fix_space_mapping(out, base_name), base_name
     finally:
-        new.close()
-        src.close()
+        doc.close()
 
 
-def replace_text(src_bytes, index, info, new_text, size=None, bold=None, color=None, italic=None):
-    """info (find_line) nesnelerini cikarir, yerine new_text'i (cok satir olabilir) ayni taban cizgisinden yazar."""
-    pdfium, raw = _lib()
+def remove_objects(reader, index, pdf_bytes, ordinals, kind=OBJ_IMAGE):
+    """Ust duzey resim (ya da metin) nesnelerini icerikten cikarir; tek sayfalik PDF baytlari."""
+    w, _page = strip_ops(reader, index, pdf_bytes, ordinals, kind)
+    return _writer_bytes(w)
+
+
+def replace_text(reader, index, pdf_bytes, info, new_text, size=None, bold=None, color=None, italic=None):
+    """Satirin metin operatorlerini icerikten cikarir, yeni metni ayni taban cizgisine ayri katman olarak yazar."""
+    import pypdf
     if info.get('nested'):
         raise EditError('Bu metin bir form/şablon nesnesinin içinde; yerinde düzenlenemez. "Üstüne yaz" aracını kullanın.')
     if info.get('rotated'):
@@ -286,56 +528,31 @@ def replace_text(src_bytes, index, info, new_text, size=None, bold=None, color=N
     italic = info.get('italic') if italic is None else italic
     color = (color or info.get('color') or '000000').lstrip('#')
     lines = (new_text or '').replace('\r\n', '\n').split('\n')
-    font_path = None
+    w, page = strip_ops(reader, index, pdf_bytes, info['objects'], OBJ_TEXT)
     if any(ln.strip() for ln in lines):
         font_path = pick_font(info.get('font', ''), bold, italic, info.get('serif'))
         if not font_path:
             raise EditError('Uygun bir TrueType yazı tipi bulunamadı (Arial / Liberation / DejaVu).')
-    src, new = _single_page(src_bytes, index)
-    keep = []
-    try:
-        page = new[0]
-        tops = _top_objects(page)
-        for k in sorted(set(info['objects']), reverse=True):
-            if 0 <= k < len(tops):
-                page.remove_obj(tops[k])
-                tops[k].close()
-        if font_path:
-            with open(font_path, 'rb') as f:
-                data = f.read()
-            fbuf = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
-            keep.append(fbuf)
-            font = raw.FPDFText_LoadFont(new.raw, fbuf, len(data), raw.FPDF_FONT_TRUETYPE, 1)
-            if not font:
-                raise EditError('Yazı tipi yüklenemedi: %s' % os.path.basename(font_path))
-            keep.append(font)
-            nbuf = ctypes.create_string_buffer(256)
-            raw.FPDFFont_GetBaseFontName(font, nbuf, 256)
-            base_name = nbuf.value.decode('latin-1', 'replace')
-            x0, y0 = info['origin']
-            r, g, b = (int(color[k:k + 2], 16) for k in (0, 2, 4))
-            lead = max(size * 1.2, info.get('line_height') or 0)
-            for n, line in enumerate(lines):
-                if not line.strip():
-                    continue
-                obj = raw.FPDFPageObj_CreateTextObj(new.raw, font, ctypes.c_float(size))
-                ws = (line + '\x00').encode('utf-16-le')
-                wbuf = ctypes.create_string_buffer(ws, len(ws))
-                keep.append(wbuf)
-                raw.FPDFText_SetText(obj, ctypes.cast(wbuf, raw.FPDF_WIDESTRING))
-                raw.FPDFPageObj_SetFillColor(obj, r, g, b, 255)
-                raw.FPDFPageObj_Transform(obj, 1, 0, 0, 1, x0, y0 - n * lead)
-                raw.FPDFPage_InsertObject(page.raw, obj)
-        page.gen_content()
-        page.close()
-        out = _save(new)
-        if font_path:
-            raw.FPDFFont_Close(keep[1])
-            out = _fix_space_mapping(out, base_name)
-        return out
-    finally:
-        new.close()
-        src.close()
+        mb = page.mediabox
+        # katman sayfasi ozgun sayfanin kullanici uzayiyla ayni koordinatlari kullansin (orijin 0,0'da degilse)
+        x0, y0 = float(mb.left), float(mb.bottom)
+        width, height = float(mb.right), float(mb.top)
+        lead = max(size * 1.2, info.get('line_height') or 0)
+        # yedek aile kullaniliyorsa: eski metnin ozgun genisligiyle yedek yazi tipindeki genisligini oranla, yeni metni
+        # ayni oranda yatay olcekle (satir uzunlugu ve gorunum ozgune yakin kalir)
+        hscale = 1.0
+        old = (info.get('text') or '').split('\n')[0]
+        w_old = (info.get('rect') or (0, 0, 0, 0))[2] - (info.get('rect') or (0, 0, 0, 0))[0]
+        w_sub = text_width(old, font_path, size)
+        if old.strip() and w_old > 4 and w_sub > 4 and not _metric_compatible(info.get('font', ''), font_path):
+            hscale = max(0.9, min(1.12, w_old / w_sub))
+            if abs(hscale - 1.0) < 0.03:
+                hscale = 1.0
+        layer, _name = text_layer(max(width, 1), max(height, 1), info['origin'], lines, size, color, font_path, lead, hscale)
+        lp = pypdf.PdfReader(io.BytesIO(layer)).pages[0]
+        _ = (x0, y0)
+        page.merge_page(lp, over=True)         # kullanici uzayinda birlesir; /Rotate'li sayfada da dogru konum
+    return _writer_bytes(w)
 
 
 def _cmap_nbsp_to_space(cmap):
