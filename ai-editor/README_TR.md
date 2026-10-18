@@ -30,6 +30,10 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
   uygunsuzluk bulgusu, uygunluk ifadesi, DÖF ve kök neden değerlendirmesi, yönetici özeti). Kayıt no, tarih, ölçüm
   veya madde metni uydurulmaz.
 
+- **Kaynaklar (1.2):** PDF, Word, Excel, PowerPoint, metin ve e-posta dosyalarını ekleyip onlara soru sorun (tıklanabilir
+  sayfa atıflarıyla) ya da onlardan makale, eğitim notu, SSS, quiz, denetim kontrol listesi, karşılaştırma, sunum taslağı
+  üretin. Büyük belgelerde yerel arama yalnız ilgili bölümleri gönderir; kişisel bilgiler gönderimden önce maskelenebilir.
+
 Kısayollar: Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+W, Ctrl+F, Ctrl+H, F3, Ctrl+E (AI ile düzenle), Ctrl+Enter (sohbet).
 
 Veriler: `%LOCALAPPDATA%\AGFO-AI-Editor` (ayarlar, kurtarma kayıtları, hata günlüğü). Metinleriniz yalnızca seçtiğiniz

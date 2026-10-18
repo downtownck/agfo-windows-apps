@@ -2,7 +2,7 @@
   "schema_version": 2,
   "project": {
     "slug": "agfo-ai-manager",
-    "version": "17.5.0",
+    "version": "17.6.0",
     "kind": "wordpress-plugin"
   },
   "inventory": {

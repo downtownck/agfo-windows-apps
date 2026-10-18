@@ -161,6 +161,16 @@ $u = $GLOBALS['AGFO_E']['SENT'][0]['body']['contents'][0]['parts'][0]['text'] ??
 ea_check( 'E29 only the last 12 turns are sent', strpos( $u, 'turn-18' ) === false && strpos( $u, 'turn-19' ) !== false && strpos( $u, 'son soru' ) !== false );
 $GLOBALS['AGFO_E']['REPLY'] = null;
 
+// ---- 17.6.0: max_output_tokens on /editor/chat
+$ca = AGFO_AIM_Editor_API::chat_args();
+ea_check( 'E40 max_output_tokens arg bounded 256..8000', isset( $ca['max_output_tokens'] ) && $ca['max_output_tokens']['validate_callback']( 8000 ) && ! $ca['max_output_tokens']['validate_callback']( 9000 ) && ! $ca['max_output_tokens']['validate_callback']( 10 ) );
+$GLOBALS['AGFO_E']['DEFAULT'] = ea_cfg( 'openai', 'gpt-4.1-mini' );
+$GLOBALS['AGFO_E']['SENT'] = [];
+AGFO_AIM_Editor_API::rest_chat( new AGFO_E_Request( [ 'messages' => [ [ 'role' => 'user', 'content' => 'Makale yaz' ] ], 'document' => 'kaynak', 'max_output_tokens' => 6000 ] ) );
+$sent = $GLOBALS['AGFO_E']['SENT'][0] ?? [];
+$mt = $sent['body']['max_completion_tokens'] ?? ( $sent['body']['max_tokens'] ?? 0 );
+ea_check( 'E41 long generation: 6000 output tokens and 180 s timeout', $mt === 6000 && ( $sent['args']['timeout'] ?? 0 ) === 180 );
+
 // ---- 17.4.1: X-AGFO-Editor-Auth fallback (Authorization header stripped by the web server)
 $GLOBALS['AGFO_E']['APPPW'] = [];
 function wp_authenticate_application_password( $input, $login, $password ) {

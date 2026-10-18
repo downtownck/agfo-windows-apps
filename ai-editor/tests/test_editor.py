@@ -525,6 +525,43 @@ class GuiTests(unittest.TestCase):
         self.assertIn('BRCGS', act['extra'])
         self.assertEqual(self.fake[-1][1][2]['audience'], 'Denetçi / akreditasyon kurumu')
 
+    def test_sources_ask_cite_and_create(self):
+        src = os.path.join(TMP, 'kaynak.txt')
+        pathlib.Path(src).write_text('Madde 4.11.2: Temizlik prosedürleri doğrulanmalıdır. İletişim: ali@firma.com', encoding='utf-8')
+        self.app._load_sources([src])
+        self.assertTrue(self.pump(lambda: len(self.app.src_docs) == 1))
+        self.assertEqual(self.app.settings['sources'], [os.path.abspath(src)])
+        seen = []
+
+        def fake(backends, fn, messages, document, max_tokens):
+            seen.append((messages, document, max_tokens))
+            if 'Question:' in messages[-1]['content']:
+                return {'text': 'Temizlik doğrulanmalıdır [K1].', 'via': 'Test', 'model': 'm'}
+            return {'text': '## Temizlik\n\nProsedür doğrulanır [K1].', 'via': 'Test', 'model': 'm'}
+        with mock.patch.object(self.m.ai, 'run_with_fallback', fake):
+            self.app.src_q.insert('1.0', '4.11.2 ne der?')
+            self.app.ask_sources()
+            self.assertTrue(self.pump(lambda: 'kaynak.txt, bölüm 1' in self.app.src_view.get('1.0', 'end')))
+            self.assertIn('[K1] kaynak.txt — bölüm 1', seen[0][1])
+            self.assertNotIn('ali@firma.com', seen[0][1])                  # maskeleme varsayilan acik
+            self.assertEqual(seen[0][2], 2500)
+            self.assertEqual(self.app.src_last_answer, 'Temizlik doğrulanmalıdır.')
+            n_docs = len(self.app.docs)
+            labels = list(self.app.src_answers.values())[0]
+            self.app.open_citation(labels['K1'])
+            self.assertEqual(len(self.app.docs), n_docs + 1)
+            self.assertFalse(self.app.cur().dirty)
+            self.app.create_var.set('Denetim kontrol listesi')
+            self.app.create_from_sources()
+            self.assertTrue(self.pump(lambda: self.app.cur().title.startswith('✨')))
+        body = self.app.cur().text.get('1.0', 'end-1c')
+        self.assertTrue(body.endswith('## Kaynaklar\n- [K1] kaynak.txt, bölüm 1'), body)
+        self.assertEqual(seen[-1][2], 6000)
+        self.assertIn('audit checklist', seen[-1][0][-1]['content'])
+        self.app.src_tree.selection_set(self.app.src_tree.get_children()[0])
+        self.app.remove_sources()
+        self.assertEqual((self.app.src_docs, self.app.settings['sources']), ({}, []))
+
     def test_settings_token_validation(self):
         dlg = self.m.SettingsDialog(self.app)
         dlg.url.set('agfo.app')

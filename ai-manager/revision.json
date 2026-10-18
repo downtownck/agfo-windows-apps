@@ -1,6 +1,18 @@
 {
-  "current_version": "17.5.0",
+  "current_version": "17.6.0",
   "releases": [
+    {
+      "version": "17.6.0",
+      "date": "2026-10-18",
+      "type": "MINOR",
+      "summary": "AI Editor 1.2 'Kaynaklar' için: /editor/chat isteğe bağlı max_output_tokens (256–8000) kabul eder; uzun içerik üretiminde (makale, eğitim notu, kontrol listesi) çıktı 2400 belirteçte kesilmez, zaman aşımı 180 sn olur.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/api/class-editor-api.php",
+        "includes/content/class-content-transformer.php",
+        "tests/editor-api-tests.php"
+      ]
+    },
     {
       "version": "17.5.0",
       "date": "2026-10-18",

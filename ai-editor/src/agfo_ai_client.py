@@ -260,8 +260,11 @@ class ManagerBackend:
         return {'text': out, 'provider': str(d.get('provider') or ''), 'model': str(d.get('model') or ''),
                 'truncated': bool(d.get('truncated')), 'via': 'AI Manager'}
 
-    def chat(self, messages: list, document: str = '') -> dict:
-        d = self._call('/editor/chat', {'messages': messages[-40:], 'document': document[:core.MAX_CHARS]})
+    def chat(self, messages: list, document: str = '', max_tokens: int = 0) -> dict:
+        payload = {'messages': messages[-40:], 'document': document[:core.MAX_CHARS]}
+        if max_tokens:
+            payload['max_output_tokens'] = int(max(256, min(8000, max_tokens)))   # AI Manager 17.6+
+        d = self._call('/editor/chat', payload, timeout=240 if max_tokens > 3000 else TIMEOUT)
         text = d.get('text') if isinstance(d.get('text'), str) else ''
         if not text.strip():
             raise AIError('AI Manager boş yanıt döndürdü.')
@@ -419,8 +422,8 @@ class DirectBackend:
         res['text'] = core.clean_model_text(res['text'])
         return res
 
-    def chat(self, messages: list, document: str = '') -> dict:
-        res = self.complete(core.CHAT_SYSTEM, core.build_chat_user(messages, document), 4000)
+    def chat(self, messages: list, document: str = '', max_tokens: int = 0) -> dict:
+        res = self.complete(core.CHAT_SYSTEM, core.build_chat_user(messages, document), int(max_tokens or 4000))
         res['text'] = res['text'].strip()
         return res
 

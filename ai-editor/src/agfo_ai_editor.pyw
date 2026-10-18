@@ -42,6 +42,7 @@ import agfo_editor_core as core  # noqa: E402
 import agfo_ai_client as ai  # noqa: E402
 import agfo_secrets as secrets  # noqa: E402
 import agfo_editor_update as upd  # noqa: E402
+import agfo_sources as srcs  # noqa: E402
 
 
 def selftest(out_path: str) -> int:
@@ -59,6 +60,15 @@ def selftest(out_path: str) -> int:
                    providers=sorted(ai.PROVIDERS), actions=len(core.CONTENT_ACTIONS), docx=back)
         import tkinter  # noqa: F401
         res['tk'] = True
+        import pypdf
+        import agfo_sources as _s
+        tp = os.path.join(tempfile.gettempdir(), 'agfo-editor-selftest.txt')
+        with open(tp, 'w', encoding='utf-8') as fh:
+            fh.write('Madde 4.11.2 Temizlik doğrulaması')
+        ch, _mode = _s.select_context({'t': _s.extract(tp)}, 'temizlik')
+        os.unlink(tp)
+        res['pypdf'] = pypdf.__version__
+        res['ok'] = res['ok'] and bool(ch)
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
@@ -187,6 +197,7 @@ class App(tk.Tk):
         if not smoke:
             self.after(600, self._offer_recovery)
             self.after(900, self._refresh_connection_label)
+            self.after(1200, self._restore_sources)
             if self.settings.get('auto_update', True):
                 self.after(5000, lambda: self.check_update(silent=True))
             self.after(1500, self._offer_install)
@@ -206,7 +217,7 @@ class App(tk.Tk):
         s.configure('.', background=PANEL, foreground=FG, fieldbackground=PANEL2, font=('Segoe UI', 10), bordercolor='#2d4a6c',
                     lightcolor=PANEL2, darkcolor=PANEL2)
         s.configure('TNotebook', background=BG, borderwidth=0, tabmargins=(0, 4, 0, 0))
-        s.configure('TNotebook.Tab', background=PANEL2, foreground=MUTED, padding=(14, 7), font=('Segoe UI', 10), borderwidth=0)
+        s.configure('TNotebook.Tab', background=PANEL2, foreground=MUTED, padding=(11, 7), font=('Segoe UI', 10), borderwidth=0)
         s.map('TNotebook.Tab', background=[('selected', SEL_BG)], foreground=[('selected', '#ffffff')])
         s.configure('Panel.TNotebook', background=PANEL)
         s.configure('TFrame', background=PANEL)
@@ -231,6 +242,10 @@ class App(tk.Tk):
                     lightcolor=PANEL2, darkcolor=PANEL2, gripcount=0, relief='flat')
         s.map('Vertical.TScrollbar', background=[('active', SEL_BG), ('pressed', SEL_BG)])
         s.configure('Horizontal.TProgressbar', background=ACCENT, troughcolor=PANEL2, bordercolor=PANEL2)
+        s.configure('Treeview', background=EDIT_BG, fieldbackground=EDIT_BG, foreground=FG, rowheight=int(22 * self.scale), borderwidth=0)
+        s.configure('Treeview.Heading', background=PANEL2, foreground=FG, font=('Segoe UI', 9, 'bold'), relief='flat')
+        s.map('Treeview', background=[('selected', SEL_BG)], foreground=[('selected', '#ffffff')])
+        s.map('Treeview.Heading', background=[('active', SEL_BG)])
         s.configure('TPanedwindow', background=BG)
         s.configure('Sash', background=BG, sashthickness=6)
 
@@ -338,6 +353,7 @@ class App(tk.Tk):
         self._tab_translate(self._ai_tab('Çeviri'))
         self._tab_chat(self._ai_tab('Sohbet'))
         self._tab_audit(self._ai_tab('Denetim'))
+        self._tab_sources(self._ai_tab('Kaynaklar'))
 
     def _ai_tab(self, title):
         f = ttk.Frame(self.ai_nb, padding=(10, 10))
@@ -452,6 +468,276 @@ class App(tk.Tk):
         self.btn(f, 'Denetim diliyle düzenle', self.run_audit, 'primary', side=None, padx=14, pady=7).pack(anchor='w', pady=(10, 0))
         self.lbl(f, 'Kayıt numarası, tarih, ölçüm veya madde metni uydurulmaz; yalnız metninizdeki kanıt kullanılır.',
                  muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(10, 0))
+
+    # ------------------------------------------------------------------ kaynaklar (1.2)
+    def _tab_sources(self, f):
+        self.src_docs = {}            # doc_id -> belge (agfo_sources.extract)
+        self.src_answers = {}         # etiket haritalari (atif baglantilari)
+        top = tk.Frame(f, bg=PANEL)
+        top.pack(fill='x')
+        self.btn(top, '+ Belge ekle', self.add_sources, 'normal')
+        self.btn(top, 'Göster', self.show_selected_source, 'ghost')
+        self.btn(top, 'Kaldır', self.remove_sources, 'ghost')
+        self.src_tree = ttk.Treeview(f, columns=('loc', 'size'), height=3, selectmode='extended')
+        self.src_tree.heading('#0', text='Belge')
+        self.src_tree.heading('loc', text='Bölüm')
+        self.src_tree.heading('size', text='Metin')
+        self.src_tree.column('#0', width=int(220 * self.scale), stretch=True)
+        self.src_tree.column('loc', width=int(60 * self.scale), anchor='center', stretch=False)
+        self.src_tree.column('size', width=int(70 * self.scale), anchor='e', stretch=False)
+        self.src_tree.tag_configure('warn', foreground=WARN)
+        self.src_tree.pack(fill='x', pady=(4, 2))
+        self.src_tree.bind('<Double-1>', lambda e: self.show_selected_source())
+        self.src_info = self.lbl(f, 'PDF, Word, Excel, PowerPoint, metin ve e-posta dosyaları eklenebilir.', muted=True,
+                                 wraplength=int(390 * self.scale))
+        self.src_info.pack(fill='x')
+        self.mask_var = tk.BooleanVar(value=self.settings.get('mask_sources', True))
+        ttk.Checkbutton(f, text='Göndermeden önce e-posta, telefon, kimlik no ve IBAN maskele', variable=self.mask_var,
+                        command=self._save_mask).pack(anchor='w', pady=(2, 6))
+        self.lbl(f, 'Belgelere soru sorun', muted=True).pack(anchor='w')
+        self.src_q = self._textbox(f, height=2)
+        self.src_q.pack(fill='x', pady=(2, 4))
+        self.src_q.bind('<Control-Return>', lambda e: (self.ask_sources(), 'break')[1])
+        r = tk.Frame(f, bg=PANEL)
+        r.pack(fill='x')
+        self.btn(r, 'Sor  (Ctrl+Enter)', self.ask_sources, 'primary')
+        self.btn(r, 'Yanıtı imlece ekle', self.insert_source_answer, 'ghost')
+        bottom = tk.Frame(f, bg=PANEL)
+        bottom.pack(side='bottom', fill='x', pady=(6, 0))
+        g = tk.Frame(bottom, bg=PANEL)
+        g.pack(fill='x')
+        self.lbl(g, 'Belgelerden içerik üret', muted=True).grid(row=0, column=0, columnspan=2, sticky='w')
+        self.create_var = tk.StringVar(value=srcs.CREATE_TYPES[0][1])
+        self._combo(g, self.create_var, [c[1] for c in srcs.CREATE_TYPES], width=24).grid(row=1, column=0, sticky='we', padx=(0, 6))
+        self.btn(g, 'Üret (yeni sekme)', self.create_from_sources, 'primary', side=None).grid(row=1, column=1, sticky='e')
+        g.columnconfigure(0, weight=1)
+        self.create_topic = tk.StringVar()
+        e = ttk.Entry(bottom, textvariable=self.create_topic)
+        e.pack(fill='x', pady=(4, 0))
+        self._placeholder(e, self.create_topic, 'Konu / amaç (isteğe bağlı) — ör. "KOBİ\'ler için alerjen yönetimi"')
+        self.src_view = tk.Text(f, wrap='word', bg=EDIT_BG, fg=FG, relief='flat', bd=0, highlightthickness=0, font=('Segoe UI', 10),
+                                padx=8, pady=6, state='disabled', height=8, selectbackground=SEL_BG, cursor='arrow')
+        self.src_view.tag_configure('q', foreground=ACCENT, font=('Segoe UI', 9, 'bold'), spacing1=8)
+        self.src_view.tag_configure('body', foreground=FG, spacing3=4)
+        self.src_view.tag_configure('meta', foreground=MUTED, font=('Segoe UI', 8))
+        self.src_view.tag_configure('err', foreground=BAD_C)
+        self.src_view.tag_configure('cite', foreground=ACCENT, underline=True)
+        self.src_view.tag_bind('cite', '<Enter>', lambda e: self.src_view.configure(cursor='hand2'))
+        self.src_view.tag_bind('cite', '<Leave>', lambda e: self.src_view.configure(cursor='arrow'))
+        self.src_view.pack(fill='both', expand=True, pady=(6, 0))
+        self.src_last_answer = ''
+
+    def _placeholder(self, entry, var, text):
+        def on_in(_e):
+            if var.get() == text:
+                var.set('')
+                entry.configure(foreground=FG)
+        def on_out(_e):
+            if not var.get():
+                var.set(text)
+                entry.configure(foreground=MUTED)
+        entry.bind('<FocusIn>', on_in)
+        entry.bind('<FocusOut>', on_out)
+        on_out(None)
+        entry._placeholder = text
+
+    def _save_mask(self):
+        self.settings['mask_sources'] = bool(self.mask_var.get())
+        core.save_settings(self.settings)
+
+    def _src_view_append(self, text, tag='body'):
+        v = self.src_view
+        v.configure(state='normal')
+        v.insert('end', text, tag)
+        v.configure(state='disabled')
+        v.see('end')
+
+    def _restore_sources(self):
+        paths = [p for p in self.settings.get('sources', []) if isinstance(p, str) and os.path.isfile(p)]
+        if paths:
+            self._load_sources(paths, quiet=True)
+
+    def add_sources(self):
+        paths = filedialog.askopenfilenames(parent=self, title='Kaynak belge ekle', filetypes=srcs.FILETYPES)
+        if paths:
+            self._load_sources(list(paths))
+
+    def _load_sources(self, paths, quiet=False):
+        known = {os.path.normcase(d['path']) for d in self.src_docs.values()}
+        paths = [p for p in paths if os.path.normcase(os.path.abspath(p)) not in known]
+        if not paths:
+            return
+
+        def work():
+            out = []
+            for p in paths:
+                try:
+                    out.append((p, srcs.load(p), None))
+                except (srcs.SourceError, OSError) as e:
+                    out.append((p, None, str(e)))
+            return out
+
+        def done(ok, res):
+            if not ok:
+                messagebox.showerror('Kaynaklar', res, parent=self)
+                return
+            errs = []
+            for p, doc, err in res:
+                if err:
+                    errs.append('%s: %s' % (os.path.basename(p), err))
+                    continue
+                did = uuid.uuid4().hex[:10]
+                self.src_docs[did] = doc
+                n_units = len(doc['units'])
+                warn = bool(doc.get('empty_pages')) or doc['chars'] == 0
+                self.src_tree.insert('', 'end', iid=did, text=('⚠ ' if warn else '') + doc['name'], values=(n_units, '{:,}'.format(doc['chars']).replace(',', '.')),
+                                     tags=('warn',) if warn else ())
+            self._sync_source_settings()
+            self._source_summary()
+            if errs and not quiet:
+                messagebox.showwarning('Kaynaklar', 'Okunamayan belgeler:\n\n' + '\n'.join(errs), parent=self)
+        self._start_job('Belgeler okunuyor (%d)' % len(paths), work, done)
+
+    def _sync_source_settings(self):
+        self.settings['sources'] = [d['path'] for d in self.src_docs.values()][:50]
+        core.save_settings(self.settings)
+
+    def _source_summary(self):
+        docs = list(self.src_docs.values())
+        if not docs:
+            self.src_info.configure(text='PDF, Word, Excel, PowerPoint, metin ve e-posta dosyaları eklenebilir.', fg=MUTED)
+            return
+        total = sum(d['chars'] for d in docs)
+        empty = sum(len(d.get('empty_pages') or []) for d in docs)
+        txt = '%d belge · %s karakter metin' % (len(docs), '{:,}'.format(total).replace(',', '.'))
+        if empty:
+            txt += ' · ⚠ %d sayfada metin yok (taranmış olabilir; yazı tanıma 1.3 sürümünde)' % empty
+        self.src_info.configure(text=txt, fg=WARN if empty else MUTED)
+
+    def remove_sources(self):
+        for iid in self.src_tree.selection():
+            self.src_docs.pop(iid, None)
+            self.src_tree.delete(iid)
+        self._sync_source_settings()
+        self._source_summary()
+
+    def show_selected_source(self):
+        sel = self.src_tree.selection()
+        if sel and sel[0] in self.src_docs:
+            doc = self.src_docs[sel[0]]
+            body = '\n\n'.join('— %s —\n%s' % (u['loc'], u['text'] or '(bu bölümde metin yok)') for u in doc['units'])
+            self.new_doc(body, '📄 ' + doc['name'])
+
+    def open_citation(self, chunk):
+        doc = next((d for d in self.src_docs.values() if d['name'] == chunk['name']), None)
+        unit_text = chunk['text']
+        if doc:
+            unit = next((u for u in doc['units'] if u['loc'] == chunk['loc']), None)
+            if unit:
+                unit_text = unit['text']
+        d = self.new_doc(unit_text, '📄 %s — %s' % (chunk['name'], chunk['loc']))
+        t = d.text
+        pos = t.search(chunk['text'][:60], '1.0', stopindex='end')
+        if pos:
+            t.tag_add('ai_new', pos, '%s+%dc' % (pos, len(chunk['text'])))
+            t.see(pos)
+        d.saved_text = unit_text            # yalniz goruntuleme: kaydet sorusu cikmasin
+        self.nb.tab(d.frame, text=self._tab_title(d))
+
+    def _source_context(self, query):
+        if not self.src_docs:
+            messagebox.showinfo('Kaynaklar', 'Önce "+ Belge ekle" ile en az bir belge ekleyin.', parent=self)
+            return None
+        if not any(d['chars'] for d in self.src_docs.values()):
+            messagebox.showwarning('Kaynaklar', 'Eklenen belgelerde okunabilir metin yok (taranmış PDF olabilir). '
+                                   'Yazı tanıma (OCR) 1.3 sürümünde gelecek.', parent=self)
+            return None
+        chunks, mode = srcs.select_context(self.src_docs, query)
+        context, labels = srcs.build_context(chunks, mask=bool(self.mask_var.get()))
+        return context, labels, mode, chunks
+
+    def ask_sources(self):
+        q = self.src_q.get('1.0', 'end-1c').strip()
+        if not q:
+            return
+        prep = self._source_context(q)
+        if not prep:
+            return
+        context, labels, mode, chunks = prep
+        self.src_q.delete('1.0', 'end')
+        self._src_view_append('Soru: %s\n' % q, 'q')
+        msg = srcs.ask_message(q, self.lang_var.get() or 'Türkçe')
+
+        def done(ok, res):
+            if not ok:
+                self._src_view_append(res + '\n', 'err')
+                return
+            self._render_answer(res['text'], labels)
+            self._src_view_append('%s · %d parça (%s) · %s\n' % (res.get('via', ''), len(chunks),
+                                  'belgelerin tamamı' if mode == 'tam' else 'yerel arama', res.get('model', '')), 'meta')
+        self._start_job('Belgelere soruluyor', ai.run_with_fallback, done, self.backends(), 'chat',
+                        [{'role': 'user', 'content': msg}], context, 2500)
+
+    def _render_answer(self, text, labels):
+        key = uuid.uuid4().hex[:6]
+        self.src_answers[key] = labels
+        self.src_last_answer = re.sub(r'\s*\[K\d+(?:\s*[,;]\s*K\d+)*\]', '', text).strip()
+        v = self.src_view
+        v.configure(state='normal')
+        pos = 0
+        for m in re.finditer(r'\[(K\d+(?:\s*[,;]\s*K\d+)*)\]', text):
+            v.insert('end', text[pos:m.start()], 'body')
+            for i, lab in enumerate(re.split(r'\s*[,;]\s*', m.group(1))):
+                c = labels.get(lab)
+                if not c:
+                    continue
+                tag = 'cite_%s_%s' % (key, lab)
+                v.tag_configure(tag)
+                v.tag_bind(tag, '<Button-1>', lambda e, ch=c: self.open_citation(ch))
+                v.insert('end', ('' if i == 0 else ' ') + '[%s]' % srcs.cite_label(c), ('cite', tag))
+            pos = m.end()
+        v.insert('end', text[pos:].rstrip() + '\n', 'body')
+        v.configure(state='disabled')
+        v.see('end')
+
+    def insert_source_answer(self):
+        d = self.cur()
+        if d and self.src_last_answer:
+            d.text.edit_separator()
+            d.text.insert('insert', self.src_last_answer)
+            d.text.edit_separator()
+
+    def create_from_sources(self):
+        label = self.create_var.get()
+        ctype = next((c for c in srcs.CREATE_TYPES if c[1] == label), srcs.CREATE_TYPES[0])
+        topic = self.create_topic.get()
+        if topic.startswith('Konu / amaç'):
+            topic = ''
+        if ctype[0] == 'custom' and not topic.strip():
+            messagebox.showinfo('İçerik üret', 'Özel içerik için ne üretileceğini "Konu / amaç" kutusuna yazın.', parent=self)
+            return
+        prep = self._source_context(topic or label)
+        if not prep:
+            return
+        context, labels, mode, chunks = prep
+        msg = srcs.create_message(ctype[0], topic, self.lang_var.get() or 'Türkçe', self.aud_var.get(),
+                                  self.extra_txt.get('1.0', 'end-1c').strip())
+        self._src_view_append('Üretiliyor: %s%s\n' % (ctype[1], (' — ' + topic) if topic else ''), 'q')
+
+        def done(ok, res):
+            if not ok:
+                self._src_view_append(res + '\n', 'err')
+                return
+            text = srcs.append_source_list(core.clean_model_text(res['text']), labels)
+            title = (topic or ctype[1])[:40]
+            d = self.new_doc(text, '✨ ' + title)
+            self._highlight(d)
+            note = '%s · %s · %d parça → yeni sekme "%s"' % (res.get('via', ''), res.get('model', ''), len(chunks), title)
+            if res.get('truncated'):
+                note += ' · ⚠ çıktı sınırında kesildi (AI Manager 17.6+ daha uzun çıktıya izin verir)'
+            self._src_view_append(note + '\n', 'meta')
+        self._start_job('İçerik üretiliyor: %s' % ctype[1], ai.run_with_fallback, done, self.backends(), 'chat',
+                        [{'role': 'user', 'content': msg}], context, ctype[3])
 
     # ------------------------------------------------------------------ belgeler
     def _editor_font(self):
@@ -1638,6 +1924,29 @@ def smoke(out_png: str) -> int:
         except Exception as e:
             print('grab failed', e)
     grab('main')
+    # 1.2: Kaynaklar sekmesi (ornek belge + atifli yanit)
+    try:
+        import tempfile
+        sp = os.path.join(tempfile.gettempdir(), 'BRCGS-Food-9-ornek.txt')
+        pathlib.Path(sp).write_text('Madde 4.11.2 Temizlik prosedürleri doğrulanmalı ve sonuçları kayıt altına alınmalıdır.\n\n'
+                                    'Madde 5.3.1 Alerjen risk değerlendirmesi yapılmalıdır.', encoding='utf-8')
+        doc = srcs.extract(sp)
+        doc['name'] = 'BRCGS-Food-9.pdf'
+        app.src_docs['smoke'] = doc
+        app.src_tree.insert('', 'end', iid='smoke', text=doc['name'], values=(312, '1.048.220'))
+        app.src_tree.insert('', 'end', iid='smoke2', text='Denetim-raporu-2026.docx', values=(14, '86.410'))
+        app._source_summary()
+        app.src_info.configure(text='2 belge · 1.134.630 karakter metin')
+        app._src_view_append('Soru: Temizlik doğrulaması için ne isteniyor?\n', 'q')
+        _ctx, labs = srcs.build_context(srcs.chunk_units('smoke', doc))
+        app._render_answer('Temizlik prosedürlerinin etkinliği doğrulanmalı ve doğrulama sonuçları kayıt altına alınmalıdır [K1]. '
+                           'Raporda bu kayıtların eksik olduğu belirtilmiş.', labs)
+        app._src_view_append('AI Manager · 9 parça (yerel arama) · gpt-5.5\n', 'meta')
+        app.ai_nb.select(4)
+        grab('sources')
+        app.ai_nb.select(0)
+    except Exception as e:
+        print('sources shot failed', e)
     ms, me = 'ais_x', 'aie_x'
     d.text.mark_set(ms, '3.0')
     d.text.mark_set(me, '3.end')

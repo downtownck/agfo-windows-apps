@@ -2,10 +2,14 @@
 
 AGFO ekosisteminin merkezi AI sağlayıcı, model, yetenek, iş kuyruğu, medya ve maliyet yönetim katmanıdır.
 
-**Version:** 17.5.0  
+**Version:** 17.6.0  
 **Requires WordPress:** 6.0+  
 **Requires PHP:** 7.4+
 
+
+## 17.6.0 — Kaynaklardan uzun içerik üretimi
+
+AI Editor 1.2 'Kaynaklar' için: /editor/chat isteğe bağlı max_output_tokens (256–8000) kabul eder; uzun içerik üretiminde (makale, eğitim notu, kontrol listesi) çıktı 2400 belirteçte kesilmez, zaman aşımı 180 sn olur.
 
 ## 17.5.0 — AI Editor bağlantı anahtarı
 

@@ -390,7 +390,7 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
                 $headers,
                 wp_json_encode( $body ),
                 [
-                    'timeout'       => 90,
+                    'timeout'       => $max_output > 3000 ? 180 : 90, // CHANGED 17.6.0: long generation
                     'provider_code' => sanitize_key( (string) $config['code'] ),
                     'model'         => (string) $config['model'],
                     'capability'    => 'chat',

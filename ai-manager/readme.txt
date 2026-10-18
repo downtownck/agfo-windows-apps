@@ -3,7 +3,7 @@ Contributors: agfocert
 Tags: ai, image-generation, featured-image, music-generation, tts, gemini, wordpress
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 17.5.0
+Stable tag: 17.6.0
 License: GPL-2.0-or-later
 
 Central AI provider, capability, persistent job, private asset and budget management for the AGFO ecosystem.
@@ -43,6 +43,9 @@ Existing public agfo_* APIs, AJAX action names, option keys and data/data.json r
 * Added agfo_content_generate_structured() with JSON Schema Structured Outputs for trusted AGFO plugin integrations.
 * Academy Content Studio timeout is capped at 60 seconds; general content transformations at 45 seconds.
 * Added elapsed time, finish reason and reasoning-token diagnostics.
+
+= 17.6.0 =
+* AI Editor kaynaklardan içerik üretimi: /editor/chat max_output_tokens (256–8000).
 
 = 17.5.0 =
 * AI Editor bağlantı anahtarı (AI Manager › AI Editor bağlantısı); Uygulama Parolası gerekmez. /editor/ping tanı ucu.

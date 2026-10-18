@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
-VERSION = '1.1.1'
+VERSION = '1.2.0'
 APP_NAME = 'AGFO AI Editor'
 IS_WIN = sys.platform == 'win32'
 MAX_CHARS = 60000
@@ -65,6 +65,8 @@ DEFAULT_SETTINGS = {
     'auto_update': True,
     'recent': [],
     'last_action': 'content_strengthen',
+    'sources': [],                 # 1.2: Kaynaklar sekmesindeki belgelerin yollari
+    'mask_sources': True,          # 1.2: gondermeden once e-posta/telefon/kimlik no/IBAN maskele
 }
 
 

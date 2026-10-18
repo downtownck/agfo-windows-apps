@@ -251,6 +251,15 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                     'default'           => '',
                     'validate_callback' => [ __CLASS__, 'validate_source' ],
                 ],
+                // NEW 17.6.0: longer answers for "create content from sources" (AI Editor 1.2+). Bounded.
+                'max_output_tokens' => [
+                    'type'              => 'integer',
+                    'required'          => false,
+                    'default'           => 2400,
+                    'validate_callback' => function ( $v ) {
+                        return is_numeric( $v ) && (int) $v >= 256 && (int) $v <= 8000;
+                    },
+                ],
                 'instruction' => [
                     'type'              => 'string',
                     'required'          => false,
@@ -341,8 +350,10 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
         public static function rest_chat( $request ) {
             $messages = (array) $request->get_param( 'messages' );
             $document = (string) ( $request->get_param( 'document' ) ?? '' );
+            $max      = (int) ( $request->get_param( 'max_output_tokens' ) ?? 2400 );
             $result   = AGFO_AIM_Content_Transformer::chat( $messages, $document, [
-                'instruction' => (string) ( $request->get_param( 'instruction' ) ?? '' ),
+                'instruction'       => (string) ( $request->get_param( 'instruction' ) ?? '' ),
+                'max_output_tokens' => max( 256, min( 8000, $max ?: 2400 ) ),
             ] );
             if ( is_wp_error( $result ) ) {
                 return self::rest_error( $result );
