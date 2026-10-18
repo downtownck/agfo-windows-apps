@@ -712,6 +712,9 @@ class App(tk.Tk):
             self.action_desc.configure(text=self.actions[i][2])
 
     def _tab_translate(self, f):
+        self.tr_model_var = tk.StringVar(value='Çeviri modeli: bağlantı denetleniyor…')
+        tk.Label(f, textvariable=self.tr_model_var, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w', justify='left',
+                 wraplength=int(380 * self.scale)).pack(fill='x', pady=(0, 8))
         self.tr_lang = tk.StringVar(value='English')
         self.lbl(f, 'Hedef dil', muted=True).pack(anchor='w')
         self._combo(f, self.tr_lang, core.LANGUAGES, width=30, readonly=False).pack(anchor='w', pady=(2, 8))
@@ -1921,7 +1924,9 @@ class App(tk.Tk):
             pass
         prog = getattr(self, '_tr_progress', None)
         if prog and self.jobs:
-            self.ai_var.set('Belge çevriliyor… %d / %d parça grubu' % (min(prog[0] + 1, prog[1]), prog[1]))
+            model = getattr(self, '_tr_model', None)
+            self.ai_var.set('Belge çevriliyor… %d / %d parça grubu%s' % (min(prog[0] + 1, prog[1]), prog[1],
+                                                                       (' · ' + model) if model else ''))
         if self._timers:
             self._timers['poll'] = self.after(POLL_MS, self._poll)
 
@@ -2070,6 +2075,8 @@ class App(tk.Tk):
         options.update(language=lang, rich=True, from_scratch=False, preserve_facts=True, user_extra=extra)
 
         notes = []
+        models = []                 # gercekten yanit veren modeller (sirayla, tekrar etmeden)
+        self._tr_model = None
 
         def call(text, instruction):
             action = {'key': 'translate_doc', 'label': 'Belge çevirisi', 'template': 'translate_polish', 'extra': instruction,
@@ -2077,6 +2084,10 @@ class App(tk.Tk):
             r = ai.run_with_fallback(backends, 'transform', text, action, options)
             if r.get('note') and r['note'] not in notes:
                 notes.append(r['note'])
+            label = self.model_label(r)
+            if label not in models:
+                models.append(label)
+            self._tr_model = label
             return r['text']
 
         def progress(i, n):
@@ -2104,23 +2115,25 @@ class App(tk.Tk):
                 messagebox.showerror('Belge çevirisi', res, parent=self)
                 return
             src, new, stats = res
+            used = ', '.join(models) or 'bilinmeyen model'
+            self.last_translation_models = list(models)
             if out in ('newtab', 'both'):
                 self.new_doc(title='%s (%s)' % (title, lang), blocks=new)
             if out in ('compare', 'both'):
-                self.open_compare(src, new, title, 'Özgün', lang)
-            note = 'Çeviri tamam: %d parça, %d istek' % (stats['segments'], stats['batches'])
+                self.open_compare(src, new, title, 'Özgün', lang, model=used)
+            note = 'Çeviri tamam: %d parça, %d istek · Model: %s' % (stats['segments'], stats['batches'], used)
             if stats['missing']:
                 note += ' · ⚠ %d parça çevrilemedi, özgün haliyle bırakıldı' % stats['missing']
             if notes:
                 note += ' · ' + notes[0]
             self.flash(note, 10000)
-        self._start_job('Belge çevriliyor → %s' % lang, work, done)
+        self._start_job('Belge çevriliyor → %s · %s' % (lang, self.translation_model_text().replace('Çeviri modeli: ', '')), work, done)
 
-    def open_compare(self, orig, trans, title, left, right):
+    def open_compare(self, orig, trans, title, left, right, model=''):
         import agfo_compare
         if not hasattr(self, 'compare_views'):
             self.compare_views = {}
-        v = agfo_compare.CompareView(self, self.nb, orig, trans, title, left, right)
+        v = agfo_compare.CompareView(self, self.nb, orig, trans, title, left, right, model=model)
         self.compare_views[v] = v
         self.nb.add(v, text='↔ %s' % title[:40])
         self.nb.select(v)
@@ -2377,6 +2390,7 @@ class App(tk.Tk):
         if b.kind == 'direct':
             self.conn_var.set('● Doğrudan: %s · %s' % (ai.PROVIDERS[b.provider]['name'], b.model))
             self.conn_lbl.configure(fg=OK_C)
+            self._set_translation_model_label()
             return
         self.conn_var.set('● AI Manager denetleniyor…')
 
@@ -2388,10 +2402,36 @@ class App(tk.Tk):
                 self.conn_var.set('● AI Manager: %s%s' % (host, (' · ' + model) if model else ''))
                 self.conn_lbl.configure(fg=OK_C if res.get('text_ready', True) else WARN)
                 self._merge_manager_templates(res.get('templates'))
+                self._set_translation_model_label()
             else:
                 self.conn_var.set('● AI Manager bağlanamadı' + (' (doğrudan yedek hazır)' if len(backends) > 1 else ''))
                 self.conn_lbl.configure(fg=WARN if len(backends) > 1 else BAD_C)
         self._start_job('AI Manager bağlantısı', b.info, done)
+
+    def translation_model_text(self):
+        """Ceviride kullanilacak model: AI Manager'in Ceviri rotasi (yoksa varsayilan metin modeli) ya da dogrudan saglayici."""
+        backends = self.backends()
+        if not backends:
+            return 'Çeviri modeli: bağlantı yok'
+        b = backends[0]
+        if b.kind == 'direct':
+            return 'Çeviri modeli: %s · %s (doğrudan)' % (ai.PROVIDERS[b.provider]['name'], b.model or 'varsayılan')
+        info = self.manager_info or {}
+        if info.get('translation_ready') and info.get('translation_model'):
+            return 'Çeviri modeli: %s · %s (AI Manager › Çeviri rotası)' % (info.get('translation_provider') or '?', info['translation_model'])
+        if info.get('text_model'):
+            return 'Çeviri modeli: %s · %s (AI Manager varsayılan modeli)' % (info.get('text_provider') or '?', info['text_model'])
+        return 'Çeviri modeli: AI Manager (bilgi alınamadı)'
+
+    def _set_translation_model_label(self):
+        if hasattr(self, 'tr_model_var'):
+            self.tr_model_var.set(self.translation_model_text())
+
+    @staticmethod
+    def model_label(res):
+        prov = res.get('provider') or res.get('via') or ''
+        model = res.get('model') or ''
+        return ' · '.join(x for x in (prov, model) if x) or 'bilinmeyen model'
 
     def _merge_manager_templates(self, catalog):
         cur_key = self.actions[self.action_combo.current()][0] if self.action_combo.current() >= 0 else None

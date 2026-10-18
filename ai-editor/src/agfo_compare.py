@@ -17,12 +17,13 @@ import agfo_richtext as RT
 
 
 class CompareView(tk.Frame):
-    def __init__(self, app, parent, orig, trans, title, left_label='Özgün', right_label='Çeviri'):
+    def __init__(self, app, parent, orig, trans, title, left_label='Özgün', right_label='Çeviri', model=''):
         super().__init__(parent, bg=app.colors['BG'])
         self.app = app
         self.orig, self.trans = orig, trans
         self.title = title
         self.left_label, self.right_label = left_label, right_label
+        self.model = model
         self.sync = tk.BooleanVar(value=True)
         self._syncing = False
         c = app.colors
@@ -39,7 +40,8 @@ class CompareView(tk.Frame):
         body.columnconfigure(1, weight=1, uniform='c')
         body.rowconfigure(1, weight=1)
         self.panes = []
-        for col, (label, blocks) in enumerate(((left_label, orig), (right_label, trans))):
+        right_head = right_label + ('   ·   çeviren model: ' + model if model else '')
+        for col, (label, blocks) in enumerate(((left_label, orig), (right_head, trans))):
             tk.Label(body, text=label, fg=c['MUTED'], bg=c['BG'], font=('Segoe UI', 9, 'bold'), anchor='w').grid(
                 row=0, column=col, sticky='we', padx=(4 if col else 0, 0), pady=(4, 2))
             fr = tk.Frame(body, bg=c['EDIT_BG'])
@@ -125,7 +127,7 @@ class CompareView(tk.Frame):
         for a, b in zip(self.orig, self.trans):
             rows.append((self._cell(a), self._cell(b)))
         try:
-            data = R.bilingual_docx_bytes(rows, self.left_label, self.right_label)
+            data = R.bilingual_docx_bytes(rows, self.left_label, self.right_label + (' (%s)' % self.model if self.model else ''))
             tmp = p + '.agfo-tmp'
             with open(tmp, 'wb') as f:
                 f.write(data)

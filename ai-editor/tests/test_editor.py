@@ -658,6 +658,7 @@ class GuiTests(unittest.TestCase):
         self.assertTrue(self.pump(lambda: len(self.app.docs) > n and getattr(self.app, 'compare_views', None)))
         new = self.app.docs[-1]
         self.assertEqual(new.title, 'rapor (English)')
+        self.assertIn('Model: P · m', self.app.ai_var.get())
         b = new.text.get_blocks()
         self.assertEqual(b[0], R.para(text='KAPSAM', style='h1'))
         self.assertEqual(b[1]['runs'][0], R.run('TEMIZLIK', b=True))
@@ -675,8 +676,23 @@ class GuiTests(unittest.TestCase):
             v.save_bilingual()
         rows = R.read_docx_blocks(out)[0]['rows']
         self.assertEqual([R.runs_text(c) for c in rows[1]], ['Kapsam', 'KAPSAM'])
+        self.assertEqual(R.runs_text(rows[0][1]), 'English (P · m)')                  # ceviren model belgede de yazar
+        self.assertEqual(self.app.last_translation_models, ['P · m'])
         self.app.close_compare(v)
         self.assertFalse(self.app.compare_views)
+
+    def test_translation_model_label(self):
+        app = self.app
+        app.manager_info = {'translation_ready': True, 'translation_provider': 'Together AI',
+                            'translation_model': 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 'text_provider': 'OpenAI', 'text_model': 'gpt-5.6'}
+        with mock.patch.object(app, 'backends', return_value=[self.m.ai.ManagerBackend('https://agfo.app', token='x')]):
+            self.assertEqual(app.translation_model_text(),
+                             'Çeviri modeli: Together AI · deepseek-ai/DeepSeek-R1-Distill-Qwen-7B (AI Manager › Çeviri rotası)')
+            app.manager_info = {'translation_ready': False, 'text_provider': 'OpenAI', 'text_model': 'gpt-5.6'}
+            app._set_translation_model_label()
+            self.assertEqual(app.tr_model_var.get(), 'Çeviri modeli: OpenAI · gpt-5.6 (AI Manager varsayılan modeli)')
+        with mock.patch.object(app, 'backends', return_value=[self.m.ai.DirectBackend('anthropic', 'k', 'claude-x')]):
+            self.assertIn('claude-x (doğrudan)', app.translation_model_text())
 
     def test_pdf_edit_text_tool(self):
         import agfo_pdf
