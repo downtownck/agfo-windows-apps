@@ -2069,10 +2069,15 @@ class App(tk.Tk):
         options = self._ai_options()
         options.update(language=lang, rich=True, from_scratch=False, preserve_facts=True, user_extra=extra)
 
+        notes = []
+
         def call(text, instruction):
             action = {'key': 'translate_doc', 'label': 'Belge çevirisi', 'template': 'translate_polish', 'extra': instruction,
                       'mode': 'replace', 'description': ''}
-            return ai.run_with_fallback(backends, 'transform', text, action, options)['text']
+            r = ai.run_with_fallback(backends, 'transform', text, action, options)
+            if r.get('note') and r['note'] not in notes:
+                notes.append(r['note'])
+            return r['text']
 
         def progress(i, n):
             self._tr_progress = (i, n)
@@ -2106,6 +2111,8 @@ class App(tk.Tk):
             note = 'Çeviri tamam: %d parça, %d istek' % (stats['segments'], stats['batches'])
             if stats['missing']:
                 note += ' · ⚠ %d parça çevrilemedi, özgün haliyle bırakıldı' % stats['missing']
+            if notes:
+                note += ' · ' + notes[0]
             self.flash(note, 10000)
         self._start_job('Belge çevriliyor → %s' % lang, work, done)
 
@@ -2154,6 +2161,8 @@ class App(tk.Tk):
         if stats:
             info += '   ·   −%d kelime silindi, +%d kelime eklendi, %d kelime aynı' % (stats['deleted'], stats['inserted'], stats['kept'])
         tk.Label(head, text=info, fg=MUTED, bg=PANEL, font=('Segoe UI', 9)).pack(anchor='w')
+        if res.get('note'):
+            tk.Label(head, text='ℹ ' + res['note'], fg=WARN, bg=PANEL, font=('Segoe UI', 9), wraplength=900, justify='left').pack(anchor='w', pady=(4, 0))
         if res.get('truncated'):
             tk.Label(head, text='⚠ Yanıt çıktı sınırında kesilmiş olabilir; sonunu kontrol edin veya daha küçük bölümlerle çalışın.',
                      fg=WARN, bg=PANEL, font=('Segoe UI', 9, 'bold')).pack(anchor='w', pady=(4, 0))

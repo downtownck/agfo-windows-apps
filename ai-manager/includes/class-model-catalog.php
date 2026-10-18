@@ -399,6 +399,7 @@ if ( ! class_exists( 'AGFO_AIM_Model_Catalog' ) ) {
                 'eligible'    => count( $eligible ),
                 'picks'       => $picks,
                 'current'     => self::translation_route(),
+                'route_error' => self::translation_route_error(),
                 'assumptions' => [
                     'input_tokens'       => self::WORDS_INPUT_TOKENS,
                     'output_tokens'      => self::WORDS_OUTPUT_TOKENS,
@@ -418,6 +419,16 @@ if ( ! class_exists( 'AGFO_AIM_Model_Catalog' ) ) {
             }
             // Coding, search, guard and media-oriented variants are not translation models.
             return ! preg_match( '/codex|coder|search|guard|embed|vision|image|audio|tts|realtime|transcribe|ocr|math|moderation/i', $id );
+        }
+
+        /** NEW 17.7.0: last failure of the current Çeviri route (the editor then fell back to the default model). */
+        public static function translation_route_error(): ?array {
+            $err = get_option( 'agfo_aim_translation_route_error' );
+            $cur = self::translation_route();
+            if ( ! is_array( $err ) || ( $err['model'] ?? '' ) !== $cur['model'] ) {
+                return null;
+            }
+            return [ 'model' => (string) $err['model'], 'message' => (string) ( $err['message'] ?? '' ), 'time' => (int) ( $err['time'] ?? 0 ) ];
         }
 
         public static function translation_route(): array {
@@ -563,6 +574,7 @@ if ( ! class_exists( 'AGFO_AIM_Model_Catalog' ) ) {
             $routing                   = agfo_get_capability_routing();
             $routing['text_translate'] = [ 'provider' => $provider, 'model' => $model ];
             agfo_save_capability_routing( $routing );
+            delete_option( 'agfo_aim_translation_route_error' );
             wp_send_json_success( [ 'current' => self::translation_route() ] );
         }
 

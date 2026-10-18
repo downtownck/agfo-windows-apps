@@ -2,10 +2,14 @@
 
 AGFO ekosisteminin merkezi AI sağlayıcı, model, yetenek, iş kuyruğu, medya ve maliyet yönetim katmanıdır.
 
-**Version:** 17.6.0  
+**Version:** 17.7.0  
 **Requires WordPress:** 6.0+  
 **Requires PHP:** 7.4+
 
+
+## 17.7.0 — Çeviri düzeltmeleri
+
+Çeviri düzeltmeleri: AI Kontrol Merkezi › Çeviri rotası sağlayıcının sunmadığı bir modele (ör. Together AI 'non-serverless' DeepSeek-R1-Distill-Qwen-7B) ayarlıysa çeviriler artık 400 hatasıyla durmaz; bir kez varsayılan metin modeliyle yeniden denenir, yanıt route_fallback/route_error ile bildirilir ve Çeviri panelinde uyarı gösterilir. Reasoning modellerinin <think> blokları temizlenir. AI Editor için Markdown kipi (/editor/transform format=markdown): kaynak Markdown olarak gider, sonuç Markdown döner; tablolar, altı çizili, H1, satır yapısı ve ⟦n⟧ parça işaretleri artık HTML temizleyicide kaybolmaz.
 
 ## 17.6.0 — Kaynaklardan uzun içerik üretimi
 

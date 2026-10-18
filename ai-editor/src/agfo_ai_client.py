@@ -251,9 +251,13 @@ class ManagerBackend:
             'from_scratch': bool(options.get('from_scratch')),
             'preserve_facts': bool(options.get('preserve_facts', True)),
         }
+        if options.get('rich'):
+            payload['format'] = 'markdown'          # AI Manager 17.7+: Markdown gider, Markdown doner (eskisi yok sayar)
         d = self._call('/editor/transform', payload)
         out = d.get('plain_text') if isinstance(d.get('plain_text'), str) else ''
-        if isinstance(d.get('html'), str) and d['html'].strip():
+        if d.get('format') == 'markdown' and isinstance(d.get('text'), str) and d['text'].strip():
+            out = d['text']
+        elif isinstance(d.get('html'), str) and d['html'].strip():
             if options.get('rich'):                 # 1.4: kalin/italik/tablo da korunur
                 import agfo_richdoc
                 out = agfo_richdoc.html_to_markdown(d['html'])
@@ -261,8 +265,11 @@ class ManagerBackend:
                 out = core.html_to_text(d['html'])      # basliklar/listeler korunur
         if not out.strip():
             raise AIError('AI Manager boş sonuç döndürdü.')
-        return {'text': out, 'provider': str(d.get('provider') or ''), 'model': str(d.get('model') or ''),
-                'truncated': bool(d.get('truncated')), 'via': 'AI Manager'}
+        res = {'text': out, 'provider': str(d.get('provider') or ''), 'model': str(d.get('model') or ''),
+               'truncated': bool(d.get('truncated')), 'via': 'AI Manager'}
+        if d.get('route_fallback'):
+            res['note'] = 'Çeviri modeli kullanılamadı, varsayılan modelle çevrildi (%s)' % str(d.get('route_error') or '')[:160]
+        return res
 
     def chat(self, messages: list, document: str = '', max_tokens: int = 0) -> dict:
         payload = {'messages': messages[-40:], 'document': document[:core.MAX_CHARS]}
@@ -480,5 +487,7 @@ def run_with_fallback(backends: list, fn_name: str, *args) -> dict:
         try:
             return getattr(b, fn_name)(*args)
         except AIError as e:
-            errors.append('%s: %s' % ('AI Manager' if b.kind == 'manager' else PROVIDERS[b.provider]['name'], e))
+            name = 'AI Manager' if b.kind == 'manager' else PROVIDERS[b.provider]['name']
+            msg = str(e)
+            errors.append(msg if msg.startswith(name + ':') or msg.startswith(name + ' ') else '%s: %s' % (name, msg))
     raise AIError(' | '.join(errors))

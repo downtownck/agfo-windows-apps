@@ -101,6 +101,13 @@
             }
 
             var a = d.assumptions || {};
+            $('#ax-tr-route-error').remove();
+            if (d.route_error) {
+                $('<div id="ax-tr-route-error" class="ax-guard-empty" style="border-left:3px solid #e2b356;margin-bottom:10px"></div>')
+                    .text('Seçili çeviri modeli (' + d.route_error.model + ') son denemede çalışmadı: ' + d.route_error.message +
+                          ' Çeviriler şimdilik varsayılan metin modeliyle yapılıyor. Listeden çalışan bir model seçin.')
+                    .insertBefore('#ax-tr-picks');
+            }
             $('#ax-tr-note').text(
                 (d.eligible || 0) + ' model eşiği geçti, ' + (d.total || 0) + ' model incelendi. ' +
                 'Maliyet, 1.000 kelimelik bir metin için yaklaşık ' + (a.input_tokens || 1700) + ' girdi ve ' + (a.output_tokens || 1900) + ' çıktı tokenı varsayar; reasoning modellerinde çıktı ×' + (a.reasoning_overhead || 1.4) + ' alınır. ' +

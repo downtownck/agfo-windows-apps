@@ -1,0 +1,7 @@
+## AGFO AI Manager 17.7.0 — çeviri düzeltmeleri
+
+- **Kullanılamayan çeviri modeli artık çeviriyi durdurmuyor.** AI Kontrol Merkezi › Çeviri'de seçili model sağlayıcıda kullanılamıyorsa (ör. Together AI'da yalnız özel uç noktayla sunulan `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`: "Unable to access non-serverless model"), istek bir kez **varsayılan metin modeliyle** yineleniyor. Aynısı modeli kaldırılmış ya da anahtarı geçersiz rotalar için de geçerli. Kota (429) ve sunucu hataları (5xx) yinelenmiyor, olduğu gibi bildiriliyor.
+- **Uyarı:** Rota hatası kaydediliyor ve AI Kontrol Merkezi › Çeviri panelinde "Seçili çeviri modeli çalışmadı" uyarısı olarak görünüyor. Çalışan bir model seçildiğinde ya da rota yeniden çalıştığında uyarı kendiliğinden kalkıyor.
+- **Reasoning modelleri:** DeepSeek-R1, QwQ gibi modellerin yanıt başındaki `<think>…</think>` blokları temizleniyor.
+- **AI Editor için Markdown kipi** (`/editor/transform`, `format=markdown`): Kaynak Markdown olarak gidiyor, sonuç Markdown olarak dönüyor. Daha önce HTML temizleyicide kaybolan tablolar, altı çizili metin, Başlık 1, satır yapısı ve belge çevirisinin ⟦n⟧ parça işaretleri artık korunuyor. Parametre gönderilmezse davranış 17.6.0 ile aynı.
+- Testler: content-translate 26/26 (yeni: ölü rota, kota hatası, ikisi de başarısız, `<think>`, Markdown kipi), editor-api 43/43. AI Editor uçtan uca testi gerçek AI Manager koduyla ölü rotayı ve Markdown kipini doğruluyor.

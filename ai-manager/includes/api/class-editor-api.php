@@ -235,6 +235,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 ],
                 'from_scratch'   => [ 'type' => 'boolean', 'required' => false, 'default' => false ],
                 'preserve_facts' => [ 'type' => 'boolean', 'required' => false, 'default' => true ],
+                'format'         => [ 'type' => 'string', 'required' => false, 'default' => 'html', 'enum' => [ 'html', 'markdown' ] ],
             ];
         }
 
@@ -325,7 +326,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'translation_provider' => self::config_name( $trans ),
                 'translation_model' => self::config_model( $trans ),
                 'max_chars'         => self::MAX_CHARS,
-                'features'          => [ 'transform', 'chat', 'translate' ],
+                'features'          => [ 'transform', 'chat', 'translate', 'markdown', 'route_fallback' ],
             ];
             return self::response( $data, 200 );
         }
@@ -333,7 +334,10 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
         public static function rest_transform( $request ) {
             $html = (string) ( $request->get_param( 'source_html' ) ?? '' );
             $text = (string) ( $request->get_param( 'source_text' ) ?? '' );
-            if ( trim( $html ) === '' && trim( $text ) !== '' ) {
+            $markdown = ( 'markdown' === (string) ( $request->get_param( 'format' ) ?? '' ) );
+            if ( $markdown && trim( $text ) !== '' ) {
+                $html = $text;                      // NEW 17.7.0: Markdown is sent as-is (no <p>/<br> conversion)
+            } elseif ( trim( $html ) === '' && trim( $text ) !== '' ) {
                 $html = self::text_to_html( $text );
             }
             if ( trim( wp_strip_all_tags( $html ) ) === '' ) {
@@ -377,6 +381,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'extra'          => sanitize_textarea_field( (string) $get( 'extra', '' ) ),
                 'from_scratch'   => self::truthy( $request->get_param( 'from_scratch' ), false ),
                 'preserve_facts' => self::truthy( $request->get_param( 'preserve_facts' ), true ),
+                'format'         => 'markdown' === (string) ( $request->get_param( 'format' ) ?? '' ) ? 'markdown' : 'html',
                 'post_id'        => 0,
                 'current_title'  => '',
             ];

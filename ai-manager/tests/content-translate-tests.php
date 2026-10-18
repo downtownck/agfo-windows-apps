@@ -35,7 +35,7 @@ if ( ! function_exists( 'esc_html' ) ) { function esc_html( $s ) { return htmlsp
 if ( ! function_exists( 'esc_html__' ) ) { function esc_html__( $s, $d = '' ) { return esc_html( $s ); } }
 if ( ! function_exists( 'esc_attr__' ) ) { function esc_attr__( $s, $d = '' ) { return esc_attr( $s ); } }
 if ( ! function_exists( 'current_user_can' ) ) { function current_user_can( $c ) { return true; } }
-if ( ! class_exists( 'WP_Error', false ) ) { class WP_Error { public $c; public $m; function __construct( $c = '', $m = '' ) { $this->c = $c; $this->m = $m; } function get_error_message() { return $this->m; } function get_error_code() { return $this->c; } } }
+if ( ! class_exists( 'WP_Error', false ) ) { class WP_Error { public $c; public $m; public $d; function __construct( $c = '', $m = '', $d = null ) { $this->c = $c; $this->m = $m; $this->d = $d; } function get_error_message() { return $this->m; } function get_error_code() { return $this->c; } function get_error_data() { return $this->d; } } }
 if ( ! function_exists( 'is_wp_error' ) ) { function is_wp_error( $x ) { return $x instanceof WP_Error; } }
 
 if ( ! function_exists( 'agfo_get_priority_api_key' ) ) {
@@ -47,6 +47,11 @@ if ( ! function_exists( 'agfo_get_translation_config' ) ) {
 if ( ! function_exists( 'agfo_api_post' ) ) {
     function agfo_api_post( $url, $headers, $body, $args = [] ) {
         $GLOBALS['AGFO_T']['SENT'][] = [ 'url' => $url, 'body' => json_decode( $body, true ), 'args' => $args ];
+        $model = (string) ( $args['model'] ?? '' );
+        if ( isset( $GLOBALS['AGFO_T']['FAIL'][ $model ] ) ) {
+            [ $code, $msg ] = $GLOBALS['AGFO_T']['FAIL'][ $model ];
+            return [ 'http_code' => $code, 'body' => json_encode( [ 'error' => [ 'message' => $msg ] ] ) ];
+        }
         $reply = $GLOBALS['AGFO_T']['REPLY'] ?? [ 'choices' => [ [ 'message' => [ 'content' => '<p>Hello world</p>' ], 'finish_reason' => 'stop' ] ] ];
         return [ 'http_code' => 200, 'body' => json_encode( $reply ) ];
     }
@@ -152,6 +157,44 @@ agfo_aim_test_ct_check( 'T17 non-scalar filter values are ignored', AGFO_AIM_Con
 $GLOBALS['AGFO_T']['F']['agfo_ai_content_translation_templates'] = [ function () { return 'not-an-array'; } ];
 agfo_aim_test_ct_check( 'T18 non-array filter output falls back to the default', AGFO_AIM_Content_Transformer::is_translation_template( 'translate_polish' ) );
 unset( $GLOBALS['AGFO_T']['F']['agfo_ai_content_translation_templates'] );
+
+// T19-T24 (17.7.0): Ceviri rotasi kullanilamazsa varsayilan modele dusme, <think> temizligi, Markdown kipi.
+$together = agfo_aim_test_ct_config( 'together', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' );
+$GLOBALS['AGFO_T']['TRANSLATION'] = $together;
+$GLOBALS['AGFO_T']['FAIL'] = [ 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' => [ 400, 'Unable to access non-serverless model deepseek-ai/DeepSeek-R1-Distill-Qwen-7B.' ] ];
+$GLOBALS['AGFO_T']['SENT'] = [];
+$r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish', 'language' => 'English' ] );
+agfo_aim_test_ct_check( 'T19 failing translation route falls back to the default model',
+    is_array( $r ) && $r['model'] === 'gpt-5.6' && ! empty( $r['route_fallback'] ) && strpos( $r['route_error'], 'non-serverless' ) !== false
+    && count( $GLOBALS['AGFO_T']['SENT'] ) === 2 && $GLOBALS['AGFO_T']['SENT'][0]['args']['model'] === 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' );
+$err = $GLOBALS['AGFO_T']['O']['agfo_aim_translation_route_error'] ?? null;
+agfo_aim_test_ct_check( 'T19b dead route is recorded for the control center warning', is_array( $err ) && $err['model'] === 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' && strpos( $err['message'], 'non-serverless' ) !== false );
+$GLOBALS['AGFO_T']['FAIL'] = [];
+AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish' ] );
+agfo_aim_test_ct_check( 'T19c warning is cleared once the route works again', ! isset( $GLOBALS['AGFO_T']['O']['agfo_aim_translation_route_error'] ) );
+$GLOBALS['AGFO_T']['FAIL'] = [ 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' => [ 429, 'rate limited' ] ];
+$r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish' ] );
+agfo_aim_test_ct_check( 'T20 rate limit is reported, not silently rerouted', is_wp_error( $r ) && strpos( $r->get_error_message(), '429' ) !== false );
+$GLOBALS['AGFO_T']['FAIL'] = [ 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' => [ 400, 'bad' ], 'gpt-5.6' => [ 400, 'also bad' ] ];
+$r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish' ] );
+agfo_aim_test_ct_check( 'T21 when both fail the original route error is returned', is_wp_error( $r ) && strpos( $r->get_error_message(), 'bad' ) !== false );
+$GLOBALS['AGFO_T']['FAIL'] = [];
+$GLOBALS['AGFO_T']['TRANSLATION'] = null;
+$GLOBALS['AGFO_T']['REPLY'] = [ 'choices' => [ [ 'message' => [ 'content' => "<think>reasoning…</think>\n<p>Hello</p>" ], 'finish_reason' => 'stop' ] ] ];
+$r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish' ] );
+agfo_aim_test_ct_check( 'T22 reasoning <think> block is removed', is_array( $r ) && $r['plain_text'] === 'Hello' );
+$md_out = "```markdown\n⟦0⟧ # Scope\n\n⟦1⟧ **Cleaning** is verified\n\n| A | B |\n|---|---|\n| 1 | <u>2</u> |\n```";
+$GLOBALS['AGFO_T']['REPLY'] = [ 'choices' => [ [ 'message' => [ 'content' => $md_out ], 'finish_reason' => 'stop' ] ] ];
+$GLOBALS['AGFO_T']['SENT'] = [];
+$r = AGFO_AIM_Content_Transformer::transform( "⟦0⟧ # Kapsam\n\n⟦1⟧ **Temizlik** doğrulanır", [ 'template' => 'translate_polish', 'format' => 'markdown' ] );
+$sys = $GLOBALS['AGFO_T']['SENT'][0]['body']['messages'][0]['content'] ?? json_encode( $GLOBALS['AGFO_T']['SENT'][0]['body'] );
+agfo_aim_test_ct_check( 'T23 markdown mode keeps tables, underline, markers and line structure',
+    is_array( $r ) && $r['format'] === 'markdown' && strpos( $r['text'], "| 1 | <u>2</u> |" ) !== false
+    && strpos( $r['text'], "⟦1⟧ **Cleaning**" ) !== false && strpos( $r['text'], '```' ) === false && substr_count( $r['text'], "\n" ) >= 5 );
+agfo_aim_test_ct_check( 'T24 markdown mode sends source verbatim and the format override rule',
+    strpos( json_encode( $GLOBALS['AGFO_T']['SENT'][0]['body'], JSON_UNESCAPED_UNICODE ), '**Temizlik**' ) !== false
+    && strpos( json_encode( $GLOBALS['AGFO_T']['SENT'][0]['body'], JSON_UNESCAPED_UNICODE ), 'OUTPUT FORMAT OVERRIDE' ) !== false );
+$GLOBALS['AGFO_T']['REPLY'] = null;
 
 echo "\n{$agfo_aim_test_pass} pass, {$agfo_aim_test_fail} fail\n";
 exit( $agfo_aim_test_fail > 0 ? 1 : 0 );

@@ -1,4 +1,28 @@
 Tarih: 2026-10-18
+Eski Versiyon: 17.6.0
+Yeni Versiyon: 17.7.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/content/class-content-transformer.php; includes/api/class-editor-api.php; includes/class-model-catalog.php; assets/js/control-center-boards.js; tests/content-translate-tests.php; tests/editor-api-tests.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: AI Editor'de belge çevirisi "AI HTTP hata: 400 - Unable to access non-serverless model deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" ile duruyordu.
+Çeviri rotası Together AI'da yalnız özel uç noktayla sunulan bir modele ayarlıydı; her çeviri isteği bu modele gidip reddediliyordu.
+
+Yapılanlar:
+- Çeviri rotası 0/400/401/402/403/404/410/422 ya da boş yanıtla başarısız olursa istek bir kez varsayılan metin modeliyle yinelenir. 429 ve 5xx yinelenmez, hata olduğu gibi döner.
+- Yanıtta route_fallback ve route_error alanları var; AI Editor bunu kullanıcıya bildirir.
+- Son rota hatası agfo_aim_translation_route_error seçeneğinde tutulur, AI Kontrol Merkezi › Çeviri panelinde uyarı olarak görünür. Rota yeniden çalıştığında ya da model değiştirildiğinde silinir. Ayrıca agfo_ai_translation_route_failed eylemi tetiklenir.
+- Reasoning modellerinin <think>…</think> blokları yanıttan çıkarılır.
+- /editor/transform isteğe bağlı format=markdown alır: kaynak <p>/<br> dönüşümü olmadan gider, sistem istemine Markdown çıktı kuralı eklenir, sonuç HTML temizleyiciye girmeden text alanında döner. Tablolar, <u>, H1, satır yapısı ve ⟦n⟧ işaretleri korunur. Parametre yoksa davranış 17.6.0 ile aynıdır.
+
+Geriye Uyumluluk: Tam.
+
+Migration: Gerekmiyor.
+
+Doğrulama: content-translate 26/26 (T19–T24 yeni), editor-api 43/43 (E40–E41 yeni), diğer tüm test dosyaları geçti; AI Editor uçtan uca testi gerçek editor API koduyla ölü rota + Markdown kipini doğruladı; php -l temiz.
+
+====================================================================================================
+
+Tarih: 2026-10-18
 Eski Versiyon: 17.5.0
 Yeni Versiyon: 17.6.0
 Değişiklik Tipi: MINOR

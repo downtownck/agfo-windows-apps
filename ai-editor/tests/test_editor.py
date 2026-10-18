@@ -874,13 +874,13 @@ import urllib.request
 class EndToEndWithRealAIManagerCode(unittest.TestCase):
     """Gercek AI Manager editor API + anahtar sinifi, php -S ile; istemci gercek HTTP ile konusur."""
 
-    def _server(self, strip_auth=False):
+    def _server(self, strip_auth=False, route=''):
         sock = socket.socket()
         sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]
         sock.close()
         root = pathlib.Path(__file__).resolve().parents[2] / 'ai-manager'
-        env = dict(os.environ, AIM_ROOT=str(root), STRIP_AUTH='1' if strip_auth else '0',
+        env = dict(os.environ, AIM_ROOT=str(root), STRIP_AUTH='1' if strip_auth else '0', E2E_ROUTE=route,
                    E2E_STATE=os.path.join(tempfile.mkdtemp(prefix='agfo-e2e-'), 'meta.json'))
         router = pathlib.Path(__file__).resolve().parent / 'e2e' / 'router.php'
         proc = subprocess.Popen(['php', '-S', '127.0.0.1:%d' % port, str(router)], env=env,
@@ -908,6 +908,30 @@ class EndToEndWithRealAIManagerCode(unittest.TestCase):
         with self.assertRaises(ai.AIError) as cm:
             bad.info()
         self.assertIn('yeni bir anahtar', str(cm.exception))
+
+    def test_document_translation_dead_route_and_markdown(self):
+        # Gercek hata: Ceviri rotasi Together'da "non-serverless" bir modele ayarliydi -> her ceviri 400 veriyordu.
+        base = self._server(strip_auth=True, route='dead')
+        key = urllib.request.urlopen(base + '/__mkkey').read().decode()
+        b = ai.ManagerBackend(base, token=key)
+        import agfo_doctranslate as T
+        import agfo_richdoc as R
+        blocks = [R.para(text='Kapsam', style='h1'), R.para([R.run('Temizlik', b=True), R.run(' doğrulanır')]),
+                  {'t': 'table', 'rows': [[[R.run('a')], [R.run('b')]]]}]
+        notes = []
+
+        def call(text, instruction):
+            action = {'key': 'translate_doc', 'label': 'x', 'template': 'translate_polish', 'extra': instruction, 'mode': 'replace'}
+            r = ai.run_with_fallback([b], 'transform', text, action, {'language': 'English', 'rich': True})
+            notes.append(r.get('note', ''))
+            return r['text']
+        new, stats = T.translate_blocks(blocks, call, 'English')
+        self.assertEqual(stats['missing'], 0)
+        self.assertEqual(new[0], R.para(text='KAPSAM', style='h1'))
+        self.assertEqual(new[1]['runs'][0], R.run('TEMIZLIK', b=True))                  # Markdown kipi: kalin korunur
+        self.assertEqual([R.runs_text(c) for c in new[2]['rows'][0]], ['A', 'B'])
+        self.assertIn('varsayılan modelle', notes[0])                                   # olu rota -> varsayilan model
+        self.assertIn('non-serverless', notes[0])
 
     def test_app_password_flows(self):
         base = self._server()

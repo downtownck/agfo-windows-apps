@@ -1,6 +1,21 @@
 {
-  "current_version": "17.6.0",
+  "current_version": "17.7.0",
   "releases": [
+    {
+      "version": "17.7.0",
+      "date": "2026-10-18",
+      "type": "MINOR",
+      "summary": "Çeviri düzeltmeleri: AI Kontrol Merkezi › Çeviri rotası sağlayıcının sunmadığı bir modele (ör. Together AI 'non-serverless' DeepSeek-R1-Distill-Qwen-7B) ayarlıysa çeviriler artık 400 hatasıyla durmaz; bir kez varsayılan metin modeliyle yeniden denenir, yanıt route_fallback/route_error ile bildirilir ve Çeviri panelinde uyarı gösterilir. Reasoning modellerinin <think> blokları temizlenir. AI Editor için Markdown kipi (/editor/transform format=markdown): kaynak Markdown olarak gider, sonuç Markdown döner; tablolar, altı çizili, H1, satır yapısı ve ⟦n⟧ parça işaretleri artık HTML temizleyicide kaybolmaz.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/content/class-content-transformer.php",
+        "includes/api/class-editor-api.php",
+        "includes/class-model-catalog.php",
+        "assets/js/control-center-boards.js",
+        "tests/content-translate-tests.php",
+        "tests/editor-api-tests.php"
+      ]
+    },
     {
       "version": "17.6.0",
       "date": "2026-10-18",

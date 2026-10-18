@@ -212,5 +212,12 @@ ea_check( 'E39 credentials_received=true when a header reached PHP', ( $e->get_e
 unset( $_SERVER['HTTP_AUTHORIZATION'] );
 $GLOBALS['AGFO_E']['LOGGED'] = true;
 
+// E40-E41 (17.7.0): Markdown kipi istegi.
+$opt = AGFO_AIM_Editor_API::transform_options( new AGFO_E_Request( [ 'format' => 'markdown' ] ) );
+$opt2 = AGFO_AIM_Editor_API::transform_options( new AGFO_E_Request( [ 'format' => 'evil' ] ) );
+ea_check( 'E40 format=markdown is passed to the transformer, anything else is html', $opt['format'] === 'markdown' && $opt2['format'] === 'html' );
+$args = AGFO_AIM_Editor_API::transform_args();
+ea_check( 'E41 format arg is declared with an enum', ( $args['format']['enum'] ?? [] ) === [ 'html', 'markdown' ] );
+
 echo "\n{$pass} pass, {$fail} fail\n";
 exit( $fail > 0 ? 1 : 0 );

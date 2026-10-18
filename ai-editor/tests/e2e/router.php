@@ -36,7 +36,12 @@ function is_ssl() { return false; }
 function wp_is_application_passwords_available() { return true; }
 function register_rest_route( $ns, $r, $args ) { $GLOBALS['ROUTES'][ '/' . $ns . $r ] = $args; }
 function agfo_get_priority_api_key() { return [ 'code' => 'openai', 'provider_name' => 'OpenAI', 'model' => 'gpt-e2e', 'key' => 'sk-x', 'chat_url' => 'x' ]; }
-function agfo_get_translation_config() { return false; }
+function agfo_get_translation_config() {
+    // E2E_ROUTE=dead: AI Kontrol Merkezi'nde Ceviri rotasi Together'da sunulmayan bir modele ayarli (gercek hata)
+    return getenv( 'E2E_ROUTE' ) === 'dead'
+        ? [ 'code' => 'together', 'provider_name' => 'Together AI', 'model' => 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 'key' => 'tg-x', 'chat_url' => 'x' ]
+        : false;
+}
 function wp_authenticate_application_password( $in, $login, $pw ) {
     if ( $login !== 'agfoai' ) return new WP_Error( 'invalid_username', 'Unknown username.' );
     if ( preg_replace( '/\s+/', '', $pw ) !== 'abcdefghijklmnopqrstuvwx' ) return new WP_Error( 'incorrect_password', 'The provided password is an invalid application password.' );
@@ -48,9 +53,17 @@ class WP_REST_Response { public $data; public $status; function __construct( $d,
 class E2E_Request { private $p; function __construct( $p ) { $this->p = $p; } function get_param( $k ) { return $this->p[ $k ] ?? null; } function get_json_params() { return $this->p; } }
 // AI transport stand-in: echoes the source upper-cased (proves the real transform path ran).
 function agfo_api_post( $url, $headers, $body, $args = [] ) {
+    if ( ( $args['model'] ?? '' ) === 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' ) {
+        return [ 'http_code' => 400, 'body' => json_encode( [ 'error' => [ 'message' => 'Unable to access non-serverless model deepseek-ai/DeepSeek-R1-Distill-Qwen-7B. Please visit https://api.together.ai/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B to create and start a new dedicated endpoint for the model.' ] ] ) ];
+    }
     $b = json_decode( $body, true );
+    $sys = $b['messages'][0]['content'] ?? '';
     $u = $b['messages'][1]['content'] ?? '';
     preg_match_all( '#<agfo_source>\n(.*?)\n</agfo_source>#s', $u, $m );
+    if ( strpos( $sys, 'OUTPUT FORMAT OVERRIDE' ) !== false && ! empty( $m[1] ) ) {     // Markdown kipi: Markdown don
+        $md = mb_strtoupper( end( $m[1] ) );
+        return [ 'http_code' => 200, 'body' => json_encode( [ 'choices' => [ [ 'message' => [ 'content' => "<think>plan</think>\n" . $md ], 'finish_reason' => 'stop' ] ] ] ) ];
+    }
     $txt = ! empty( $m[1] ) ? mb_strtoupper( strip_tags( end( $m[1] ) ) ) : 'CHAT-OK';
     return [ 'http_code' => 200, 'body' => json_encode( [ 'choices' => [ [ 'message' => [ 'content' => '<p>' . $txt . '</p>' ], 'finish_reason' => 'stop' ] ] ] ) ];
 }
