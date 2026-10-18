@@ -479,7 +479,8 @@ class GuiTests(unittest.TestCase):
         btn = next(b for b in self.app.review_win.button_bar.winfo_children()
                    if isinstance(b, self.m.tk.Button) and 'altına' in b.cget('text'))
         btn.invoke()
-        self.assertTrue(d.text.get('1.0', 'end-1c').endswith('\n\n' + 'Giriş cümlesi. Devam cümlesi.'.upper()))
+        self.assertEqual(d.text.get('1.0', 'end-1c'), 'Giriş cümlesi. Devam cümlesi.\n' + 'Giriş cümlesi. Devam cümlesi.'.upper())
+        self.assertEqual(len(d.text.get_blocks()), 2)                             # ceviri ayri paragraf
         tr = [f for f in self.fake if f[1][1].get('template') == 'translate_polish'][0]
         self.assertEqual(tr[1][2]['language'], 'English')
 
@@ -554,8 +555,9 @@ class GuiTests(unittest.TestCase):
             self.app.create_var.set('Denetim kontrol listesi')
             self.app.create_from_sources()
             self.assertTrue(self.pump(lambda: self.app.cur().title.startswith('✨')))
-        body = self.app.cur().text.get('1.0', 'end-1c')
-        self.assertTrue(body.endswith('## Kaynaklar\n- [K1] kaynak.txt, bölüm 1'), body)
+        body = self.app.cur().text.markdown()[0]
+        self.assertTrue(body.endswith('## Kaynaklar\n\n- [K1] kaynak.txt, bölüm 1'), body)
+        self.assertEqual(self.app.cur().text.get_blocks()[-1]['list'], 'bullet')   # bicimli: madde listesi
         self.assertEqual(seen[-1][2], 6000)
         self.assertIn('audit checklist', seen[-1][0][-1]['content'])
         self.app.src_tree.selection_set(self.app.src_tree.get_children()[0])
@@ -571,8 +573,9 @@ class GuiTests(unittest.TestCase):
         self.app.open_as_text(pdf)
         self.assertTrue(self.pump(lambda: self.app.cur() is not None and self.app.cur().title == 'kitap.pdf (metin)'))
         d = self.app.cur()
-        body = d.text.get('1.0', 'end-1c')
+        body = d.text.markdown()[0]
         self.assertEqual(body, '## s. 1\n\nBirinci sayfa metni\n\n## s. 2\n\nIkinci sayfa metni')
+        self.assertEqual(d.text.get('1.0', 'end-1c'), 's. 1\nBirinci sayfa metni\ns. 2\nIkinci sayfa metni')
         self.assertFalse(d.dirty)
         self.assertIsNone(d.path)
         self.assertEqual(d.origin, os.path.abspath(pdf))
@@ -585,6 +588,122 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(asked['initialfile'], 'kitap.docx')
         self.assertNotIn('*.pdf', str(asked['filetypes']))
         self.assertEqual(pathlib.Path(pdf).read_bytes(), before)
+
+    def test_rich_docx_open_format_save(self):
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        from test_richdoc import sample_blocks, strip
+        R = self.m.rdoc
+        src = os.path.join(TMP, 'zengin.docx')
+        pathlib.Path(src).write_bytes(R.docx_bytes(sample_blocks()))
+        d = self.app.open_path(src)
+        self.assertTrue(d.rich)
+        self.assertFalse(d.dirty)
+        self.assertEqual(strip(d.text.get_blocks()), strip(sample_blocks()))
+        self.assertTrue(self.app.fmt_bar.winfo_manager())
+        t = d.text
+        t.tag_add('sel', '2.0', '2.5')
+        self.app._fmt('b')
+        self.assertTrue(t.get_blocks()[1]['runs'][0]['b'])
+        t.tag_remove('sel', '1.0', 'end')
+        t.mark_set('insert', '3.0')
+        self.app.style_var.set('Başlık 3')
+        self.app._fmt('style', 'h3')
+        self.assertEqual(t.get_blocks()[2]['style'], 'h3')
+        self.app._sync_fmt_bar()
+        self.assertEqual(self.app.style_var.get(), 'Başlık 3')
+        self.assertTrue(d.dirty)
+        self.assertTrue(self.app.nb.tab(d.frame, 'text').startswith('●'))
+        out = os.path.join(TMP, 'zengin-out.docx')
+        with mock.patch.object(self.m.filedialog, 'asksaveasfilename', return_value=out):
+            self.assertTrue(self.app.save_as(d))
+        self.assertFalse(d.dirty)
+        back = R.read_docx_blocks(out)
+        self.assertEqual(back[2]['style'], 'h3')
+        self.assertEqual([b['t'] for b in back], [b['t'] for b in sample_blocks()])
+        # duz metne kaydetme bicim kaybini bildirir ama icerik yazilir
+        txt = os.path.join(TMP, 'zengin.txt')
+        self.assertTrue(self.app._write(d, txt))
+        self.assertIn('1. Adım bir', pathlib.Path(txt).read_text(encoding='utf-8'))
+        self.assertIn('biçimler', self.app.ai_var.get())
+
+    def test_rich_ai_action_keeps_formatting(self):
+        d = self.app.cur()
+        R = self.m.rdoc
+        d.text.load_blocks([R.para(text='Başlık', style='h2'), R.para([R.run('kalın', b=True), R.run(' paragraf')])])
+        d.text.mark_set('insert', '2.3')
+        self.app.scope_var.set('selection')
+        self.app.run_action_key('proofread')
+        self.assertTrue(self.pump(lambda: getattr(self.app, 'review_win', None) is not None))
+        sent = self.fake[-1][1]
+        self.assertEqual(sent[0], '**kalın** paragraf')                          # Markdown olarak gider
+        self.assertTrue(sent[2]['rich'])
+        btn = next(b for b in self.app.review_win.button_bar.winfo_children()
+                   if isinstance(b, self.m.tk.Button) and b.cget('text').startswith('Uygula'))
+        btn.invoke()
+        self.assertEqual(d.text.get_blocks()[1]['runs'], [R.run('KALIN', b=True), R.run(' PARAGRAF')])
+        self.assertEqual(d.text.get_blocks()[0]['style'], 'h2')
+        d.text.edit_undo()
+        self.assertEqual(d.text.get_blocks()[1]['runs'][0], R.run('kalın', b=True))
+
+    def test_translate_document_newtab_and_compare(self):
+        R = self.m.rdoc
+        d = self.app.cur()
+        d.title = 'rapor.docx'
+        d.text.load_blocks([R.para(text='Kapsam', style='h1'), R.para([R.run('Temizlik ', b=True), R.run('doğrulanır')]),
+                            {'t': 'table', 'rows': [[[R.run('Madde')], [R.run('Durum')]]]}])
+        self.app.tr_lang.set('English')
+        self.app.doc_tr_out.set('both')
+        n = len(self.app.docs)
+        self.app.translate_document()
+        self.assertTrue(self.pump(lambda: len(self.app.docs) > n and getattr(self.app, 'compare_views', None)))
+        new = self.app.docs[-1]
+        self.assertEqual(new.title, 'rapor (English)')
+        b = new.text.get_blocks()
+        self.assertEqual(b[0], R.para(text='KAPSAM', style='h1'))
+        self.assertEqual(b[1]['runs'][0], R.run('TEMIZLIK', b=True))
+        self.assertEqual(R.runs_text(b[2]['rows'][0][1]), 'DURUM')
+        self.assertTrue(new.dirty)
+        tr = [f for f in self.fake if f[0] == 'transform'][-1]
+        self.assertEqual(tr[1][2]['language'], 'English')
+        self.assertIn('⟦0⟧', tr[1][0])
+        v = list(self.app.compare_views)[0]
+        self.assertIs(self.app.nametowidget(self.app.nb.select()), v)
+        self.assertFalse(self.app.fmt_bar.winfo_manager())                       # karsilastirma sekmesinde bicim cubugu yok
+        self.assertIn('KAPSAM', v.panes[1].get('1.0', 'end'))
+        out = os.path.join(TMP, 'iki-dilli.docx')
+        with mock.patch.object(sys.modules['agfo_compare'].filedialog, 'asksaveasfilename', return_value=out):
+            v.save_bilingual()
+        rows = R.read_docx_blocks(out)[0]['rows']
+        self.assertEqual([R.runs_text(c) for c in rows[1]], ['Kapsam', 'KAPSAM'])
+        self.app.close_compare(v)
+        self.assertFalse(self.app.compare_views)
+
+    def test_pdf_edit_text_tool(self):
+        import agfo_pdf
+        import agfo_pdf_edit
+        import pypdfium2
+        if not agfo_pdf_edit.pick_font():
+            self.skipTest('TrueType yazı tipi yok')
+        pdf = agfo_pdf.write_simple_pdf(os.path.join(TMP, 'yerinde.pdf'), [['Baslik', 'Eski satir metni']])
+        v = self.app.open_path(pdf)
+        self.app.update()
+        p = v.pr.pages[0]
+        x, y = agfo_pdf.user_to_display(100, 752, p['box'], 0)
+        self.app.dialog_hook = lambda title, text, size, bold: ('Yeni satır metni ğüş', size, bold)
+        v.tool.set('edit_text')
+        v._edit_text_at(0, x, y)
+        self.assertTrue(v.pr.dirty)
+        self.assertIn('✏', v.page_list.get(0))
+        out = os.path.join(TMP, 'yerinde-out.pdf')
+        with mock.patch.object(sys.modules['agfo_pdf_view'].filedialog, 'asksaveasfilename', return_value=out):
+            self.assertTrue(v.save())
+        tp = pypdfium2.PdfDocument(out)[0].get_textpage()
+        body = tp.get_text_range(0, tp.count_chars())
+        self.assertIn('Yeni satır metni ğüş', body)
+        self.assertNotIn('Eski satir', body)
+        v.undo()
+        self.assertEqual(v.pr.pages[0]['src'], v.pr.path)
+        self.app.close_pdf(v, ask=False)
 
     def test_restricted_encrypted_pdf_tab(self):
         import agfo_pdf

@@ -19,14 +19,19 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
 - **Otomatik:** önce AI Manager, ulaşılamazsa doğrudan anahtar.
 
 ## Özellikler
-- Sekmeli belgeler; `.txt`, `.md`, `.docx`, `.html` açma/kaydetme (kodlama ve satır sonu korunur; Türkçe ANSI
-  dosyalar tanınır). DOCX metin olarak açılır; tablo/resim içeren belgede üzerine yazmadan önce uyarır.
-- Bul/değiştir, sınırsız geri al, otomatik kurtarma (kapanırsa kaydedilmemiş metin geri gelir), son dosyalar.
+- **Word gibi biçimli editör (1.4):** sayfa görünümü (A4, kenar boşlukları), başlık 1-3, alıntı, kalın / italik /
+  altı çizili, yazı rengi, madde ve numaralı listeler (Tab ile alt düzey), hizalama, tablo (satır/sütun ekle-sil), resim
+  ekle / boyutlandır / değiştir / kaldır. `.docx` biçimleriyle açılır ve kaydedilir; `.md` ve `.html` de biçimli açılır.
+  Geri al / yinele biçimleri ve resimleri de geri getirir. `.txt` dosyaları düz metin olarak kalır.
+- Kodlama ve satır sonu korunur; Türkçe ANSI dosyalar tanınır. Bul/değiştir (biçimi korur), otomatik kurtarma, son dosyalar.
 - **İçerik:** İçeriği güçlendir, Akışı ve yapıyı düzelt, Argümanı netleştir, Düzelt ve cilala, Kısalt, Geliştir,
   Sadeleştir, Özetle, ton dönüşümleri, SEO/LinkedIn, Devamını yaz, Eleştirel okuma, Başlık önerileri, Özel talimat
   ve AI Manager'daki sitenize özel şablonlar. Seçim yoksa imlecin bulunduğu paragraf işlenir.
 - Sonuç **fark görünümünde** (silinen/eklenen kelimeler) gösterilir; düzenleyip onaylarsınız. Ctrl+Z ile geri alınır.
-- **Çeviri** (yerine koy / altına ekle / yeni sekme), **Sohbet** (belge bağlamlı), **Denetim** (BRCGS/IFS/FSSC/ISO:
+- **Belge çevirisi (1.4):** tüm belge (ya da açık PDF) biçim korunarak çevrilir; başlık, liste, tablo ve resimler yerinde
+  kalır. Sonuç biçimli yeni sekmede ve/veya **yan yana** (özgün | çeviri, eşzamanlı kaydırma) açılır; yan yana görünüm
+  iki sütunlu Word tablosu olarak kaydedilebilir.
+- **Çeviri** (seçim: yerine koy / altına ekle / yeni sekme), **Sohbet** (belge bağlamlı), **Denetim** (BRCGS/IFS/FSSC/ISO:
   uygunsuzluk bulgusu, uygunluk ifadesi, DÖF ve kök neden değerlendirmesi, yönetici özeti). Kayıt no, tarih, ölçüm
   veya madde metni uydurulmaz.
 
@@ -36,8 +41,12 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
 
 - **PDF düzenleyici (1.3):** PDF'ler sayfa görünümüyle açılır; vurgu, not, metin kutusu, "üstüne yaz" (beyaz kutu + metin),
   resim / imza, çerçeve; sayfa döndür / sil / taşı / birleştir / ayır; form doldurma. Kaydet her zaman yeni dosya önerir.
+  **1.4:** "Metni düzenle" ile bir satıra tıklayıp mevcut metni yerinde değiştirin (eski metin sayfadan çıkarılır, yenisi
+  benzer yazı tipiyle gerçek, aranabilir metin olarak yazılır); "Resmi sil" ile PDF'deki resimleri içerikten kaldırın.
+  Şifreli PDF'lerde belge sahibinin izinlerine uyulur.
 
-Kısayollar: Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+W, Ctrl+F, Ctrl+H, F3, Ctrl+E (AI ile düzenle), Ctrl+Enter (sohbet).
+Kısayollar: Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+W, Ctrl+F, Ctrl+H, F3, Ctrl+E (AI ile düzenle), Ctrl+Enter (sohbet),
+Ctrl+B / Ctrl+I / Ctrl+U (kalın / italik / altı çizili), Ctrl+Z / Ctrl+Y.
 
 Veriler: `%LOCALAPPDATA%\AGFO-AI-Editor` (ayarlar, kurtarma kayıtları, hata günlüğü). Metinleriniz yalnızca seçtiğiniz
 AI bağlantısına gönderilir.

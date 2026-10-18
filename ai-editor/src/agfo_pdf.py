@@ -45,7 +45,7 @@ ACTION_LABELS = {'annotate': 'vurgu ve not ekleme', 'modify': 'içerik değişti
                  'form': 'form doldurma', 'assemble': 'sayfa düzenleme (döndürme, silme, sıralama, ekleme, ayırma)',
                  'extract': 'metin çıkarma'}
 TOOL_ACTION = {'highlight': 'annotate', 'note': 'annotate', 'text': 'modify', 'whiteout': 'modify',
-               'image': 'modify', 'box': 'modify'}
+               'image': 'modify', 'box': 'modify', 'edit_text': 'modify', 'del_image': 'modify'}
 
 
 def perm_allows(perms, action):
@@ -258,6 +258,8 @@ class PdfProject:
         self.undo_stack, self.redo_stack = [], []
         self.dirty = False
         self.perms = {}            # yol -> sahip izinleri (sifresiz PDF icin None)
+        self.derived = {}          # 1.4: yerinde duzenlenmis tek sayfalik kaynak -> ozgun dosya
+        self._edit_seq = 0
         self._add_source_pages(self.path, None)
         self.fields = self._read_fields()
 
@@ -272,9 +274,14 @@ class PdfProject:
         return self.sources[path]
 
     def _reader(self, path):
-        r, perms = open_reader(self._load_bytes(path), os.path.basename(path))
+        r, perms = open_reader(self._load_bytes(path), os.path.basename(self.root(path)))
+        if path in self.derived:                       # duzenlenmis sayfa ozgun belgenin izinlerini tasir
+            perms = self.perms.get(self.derived[path])
         self.perms[path] = perms
         return r
+
+    def root(self, src):
+        return self.derived.get(src, src)
 
     # -- sahip izinleri
     @property
@@ -300,6 +307,69 @@ class PdfProject:
 
     def _page_sources(self, idx):
         return sorted({self.pages[i]['src'] for i in idx}) or [self.path]
+
+    # -- 1.4: yerinde metin duzenleme / resim silme (pdfium)
+    def _user_pt(self, i, x, y):
+        p = self.pages[i]
+        return display_to_user(x, y, p['box'], self.rotation(i))
+
+    def _disp_rect(self, i, rect):
+        p = self.pages[i]
+        a = user_to_display(rect[0], rect[1], p['box'], self.rotation(i))
+        b = user_to_display(rect[2], rect[3], p['box'], self.rotation(i))
+        return norm_rect((a[0], a[1], b[0], b[1]))
+
+    def find_text_line(self, i, x, y):
+        import agfo_pdf_edit as E
+        p = self.pages[i]
+        ux, uy = self._user_pt(i, x, y)
+        info = E.find_line(self._pdfium_doc(p['src']), p['index'], ux, uy)
+        if info:
+            info['drect'] = self._disp_rect(i, info['rect'])
+        return info
+
+    def find_image(self, i, x, y):
+        import agfo_pdf_edit as E
+        p = self.pages[i]
+        ux, uy = self._user_pt(i, x, y)
+        info = E.find_image(self._pdfium_doc(p['src']), p['index'], ux, uy)
+        if info:
+            info['drect'] = self._disp_rect(i, info['rect'])
+        return info
+
+    def _swap_source(self, i, data):
+        p = self.pages[i]
+        root = self.root(p['src'])
+        self._edit_seq += 1
+        key = '%s#duzenleme%d' % (root, self._edit_seq)
+        self.sources[key] = data
+        self.derived[key] = root
+        self.perms[key] = self.perms.get(root)
+        self.snapshot()
+        p['src'], p['index'] = key, 0
+        return key
+
+    def edit_text(self, i, info, new_text, size=None, bold=None, color=None):
+        import agfo_pdf_edit as E
+        p = self.pages[i]
+        self.require('modify', [p['src']])
+        try:
+            data = E.replace_text(self._load_bytes(p['src']), p['index'], info, new_text, size, bold, color)
+        except E.EditError as e:
+            raise PdfError(str(e)) from e
+        return self._swap_source(i, data)
+
+    def remove_image(self, i, info):
+        import agfo_pdf_edit as E
+        p = self.pages[i]
+        self.require('modify', [p['src']])
+        if not info.get('objects'):
+            raise PdfError('Bu resim bir şablon (form) nesnesinin parçası; yalnız resim silinemiyor. "Üstüne yaz" ile örtebilirsiniz.')
+        try:
+            data = E.remove_objects(self._load_bytes(p['src']), p['index'], info['objects'])
+        except E.EditError as e:
+            raise PdfError(str(e)) from e
+        return self._swap_source(i, data)
 
     def _add_source_pages(self, path, at, indices=None):
         path = os.path.abspath(path)
@@ -503,6 +573,11 @@ class PdfProject:
             return
         af = DictionaryObject()
         src = readers.get(self.path)
+        if src is None:
+            try:
+                src = self._reader(self.path)
+            except Exception:
+                src = None
         try:
             src_af = src.trailer['/Root'].get('/AcroForm') if src is not None else None
             src_af = src_af.get_object() if src_af is not None else None
@@ -575,6 +650,11 @@ class PdfProject:
             except Exception as e:
                 raise PdfError('Form alanları yazılamadı: %s' % e)
         writer.add_metadata({'/Producer': 'AGFO AI Editor'})
+        if any(src in self.derived for src in readers):
+            try:                                # duzenlenen sayfalara gomulen ayni yazi tipini tek kopyaya indir
+                writer.compress_identical_objects()
+            except Exception:
+                pass
         # sifreli kaynak varsa cikti da ayni (en kisitli) izinlerle AES-256 sifrelenir; acma parolasi yok
         enc = [self.perms[src] for src in readers if self.perms.get(src) is not None]
         if enc:

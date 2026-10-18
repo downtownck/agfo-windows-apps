@@ -17,8 +17,9 @@ import agfo_pdf as P
 
 GAP = 18          # sayfalar arasi bosluk (piksel)
 MARGIN = 24
-TOOLS = [('select', '↖ Seç'), ('highlight', '▮ Vurgula'), ('note', '✎ Not'), ('text', 'T Metin'),
-         ('whiteout', '⬜ Üstüne yaz'), ('image', '🖼 Resim / imza'), ('box', '▭ Çerçeve'), ('erase', '⌫ Sil')]
+TOOLS = [('select', '↖ Seç'), ('edit_text', '✏ Metni düzenle'), ('highlight', '▮ Vurgula'), ('note', '✎ Not'), ('text', 'T Metin'),
+         ('whiteout', '⬜ Üstüne yaz'), ('image', '🖼 Resim / imza'), ('del_image', '🗑 Resmi sil'), ('box', '▭ Çerçeve'),
+         ('erase', '⌫ Sil')]
 TOOL_HINT = {
     'select': 'Katmanı seçmek için tıklayın, taşımak için sürükleyin; Delete siler, çift tıklama metni düzenler.',
     'highlight': 'Vurgulanacak alanı sürükleyerek seçin (gerçek PDF vurgusu olarak kaydedilir).',
@@ -29,6 +30,9 @@ TOOL_HINT = {
     'image': 'Resim / imza alanını sürükleyerek çizin, ardından PNG/JPG seçin.',
     'box': 'Çerçeve alanını sürükleyerek çizin.',
     'erase': 'Silmek istediğiniz katmana tıklayın.',
+    'edit_text': 'Düzenlemek istediğiniz satıra tıklayın: eski metin sayfadan çıkarılır, yenisi aynı yere benzer yazı tipiyle '
+                 'gerçek (aranabilir) metin olarak yazılır. Geri al ile döner.',
+    'del_image': 'Silmek istediğiniz resme tıklayın: resim PDF içeriğinden kaldırılır (üstü örtülmez). Geri al ile döner.',
 }
 
 
@@ -83,6 +87,7 @@ class PdfView(tk.Frame):
         self.zoom_lbl.pack(side='left')
         a.btn(bar2, '+', lambda: self._manual_zoom(1.2), 'ghost', padx=8)
         a.btn(bar2, 'Sığdır', self.fit_width, 'ghost', padx=8)
+        a.btn(bar2, '🌐 Çevir', self.app.translate_document, 'ghost', side='right', padx=8)
         a.btn(bar2, 'Metin olarak aç', self.open_text, 'ghost', side='right', padx=8)
         a.btn(bar2, 'Sayfa metnini al', self.page_text_to_editor, 'ghost', side='right', padx=8)
         self.hint = tk.Label(self, text=TOOL_HINT['select'], fg=MUTED, bg=PANEL, font=('Segoe UI', 8), anchor='w', padx=10)
@@ -125,6 +130,7 @@ class PdfView(tk.Frame):
         c.bind('<ButtonPress-1>', self._press)
         c.bind('<B1-Motion>', self._motion)
         c.bind('<ButtonRelease-1>', self._release)
+        c.bind('<Motion>', self._hover)
         c.bind('<Double-Button-1>', self._double)
         c.bind('<MouseWheel>', self._wheel)
         c.bind('<Button-4>', lambda e: self._scroll(-3))
@@ -205,7 +211,9 @@ class PdfView(tk.Frame):
                 extra.append('↻%d' % p['rot'])
             if p['overlays']:
                 extra.append('✎%d' % len(p['overlays']))
-            src = '' if p['src'] == self.pr.path else ' +'
+            src = '' if self.pr.root(p['src']) == self.pr.path else ' +'
+            if p['src'] in self.pr.derived:
+                extra.insert(0, '✏')
             self.page_list.insert('end', '%3d%s  %s' % (i + 1, src, ' '.join(extra)))
         for i in sel:
             if i < len(self.pr.pages):
@@ -241,10 +249,11 @@ class PdfView(tk.Frame):
             try:
                 from PIL import ImageTk
                 img = self.pr.render(i, self.zoom * 1.0)
-                ph = ImageTk.PhotoImage(img)
+                ph = ImageTk.PhotoImage(img, master=self)
                 self.page_imgs[i] = ph
                 c = self.canvas
                 c.delete('ph%d' % i)
+                c.delete('img%d' % i)
                 c.create_image(self.page_x[i], self.page_y[i], image=ph, anchor='nw', tags=('img', 'img%d' % i))
                 c.tag_raise('ov%d' % i)
             except Exception as e:  # bozuk sayfa: yer tutucuda hata yaz
@@ -265,7 +274,7 @@ class PdfView(tk.Frame):
             t = ov['type']
             if t == 'highlight':
                 rgb = P.hex_rgb(ov.get('color', 'ffeb3b'))
-                ph = ImageTk.PhotoImage(Image.new('RGBA', (w, h), rgb + (110,)))
+                ph = ImageTk.PhotoImage(Image.new('RGBA', (w, h), rgb + (110,)), master=self)
                 self.ov_imgs.append(ph)
                 c.create_image(X1, Y1, image=ph, anchor='nw', tags=('ov', 'ov%d' % i))
             elif t == 'note':
@@ -274,12 +283,12 @@ class PdfView(tk.Frame):
             elif t in ('text', 'whiteout'):
                 img = P.render_text_image(ov.get('text', ''), cc - a, d - b, ov.get('size', 11), ov.get('color', '000000'),
                                           ov.get('whiteout', False), ov.get('bold', False), dpi=72 * z)
-                ph = ImageTk.PhotoImage(img.resize((w, h)))
+                ph = ImageTk.PhotoImage(img.resize((w, h)), master=self)
                 self.ov_imgs.append(ph)
                 c.create_image(X1, Y1, image=ph, anchor='nw', tags=('ov', 'ov%d' % i))
             elif t == 'image':
                 img = Image.open(io.BytesIO(ov['data'])).convert('RGBA').resize((w, h))
-                ph = ImageTk.PhotoImage(img)
+                ph = ImageTk.PhotoImage(img, master=self)
                 self.ov_imgs.append(ph)
                 c.create_image(X1, Y1, image=ph, anchor='nw', tags=('ov', 'ov%d' % i))
             elif t == 'box':
@@ -402,6 +411,12 @@ class PdfView(tk.Frame):
         if tool == 'note':
             self._add_note(i, px, py)
             return
+        if tool == 'edit_text':
+            self._edit_text_at(i, px, py)
+            return
+        if tool == 'del_image':
+            self._delete_image_at(i, px, py)
+            return
         self.drag = {'mode': 'rect', 'page': i, 'start': (px, py), 'cstart': (cx, cy)}
         self.canvas.delete('rubber')
         self.canvas.create_rectangle(cx, cy, cx, cy, outline='#49b3ef', dash=(3, 2), width=2, tags=('rubber',))
@@ -505,6 +520,96 @@ class PdfView(tk.Frame):
             return
         self.pr.add_overlay(i, {'type': 'note', 'rect': (px, py, px + 18, py + 18), 'text': res[0]})
         self._changed(i)
+
+    # ------------------------------------------------------------------ 1.4: yerinde duzenleme
+    def _hover(self, e):
+        tool = self.tool.get()
+        if tool not in ('edit_text', 'del_image'):
+            if self.canvas.find_withtag('hover'):
+                self.canvas.delete('hover')
+            return
+        if getattr(self, '_hover_job', None):
+            self.after_cancel(self._hover_job)
+        self._hover_job = self.after(70, lambda: self._do_hover(e.x, e.y, tool))
+
+    def _do_hover(self, x, y, tool):
+        self._hover_job = None
+        c = self.canvas
+        c.delete('hover')
+
+        class _E:
+            pass
+        ev = _E()
+        ev.x, ev.y = x, y
+        i, px, py, _cx, _cy = self._hit(ev)
+        if i is None:
+            return
+        try:
+            info = self.pr.find_text_line(i, px, py) if tool == 'edit_text' else self.pr.find_image(i, px, py)
+        except Exception:
+            info = None
+        if not info:
+            return
+        a, b, cc, d = info['drect']
+        z, x0, y0 = self.zoom, self.page_x[i], self.page_y[i]
+        color = '#e03131' if tool == 'del_image' else '#1f6fa3'
+        if info.get('nested') or info.get('rotated') or (tool == 'del_image' and not info.get('objects')):
+            color = '#e2b356'
+        c.create_rectangle(x0 + a * z - 2, y0 + b * z - 2, x0 + cc * z + 2, y0 + d * z + 2, outline=color, width=2, dash=(4, 2),
+                           tags=('hover',))
+
+    def _edit_text_at(self, i, px, py):
+        try:
+            info = self.pr.find_text_line(i, px, py)
+        except Exception as e:
+            messagebox.showerror('Metni düzenle', 'Metin okunamadı: %s' % e, parent=self)
+            return
+        if not info:
+            self.app.flash('Burada düzenlenebilir metin yok (taranmış sayfa olabilir). "Üstüne yaz" aracını kullanabilirsiniz.')
+            return
+        if info.get('nested') or info.get('rotated'):
+            messagebox.showinfo('Metni düzenle', 'Bu metin yerinde düzenlenemiyor (%s). "Üstüne yaz" aracıyla üzerine yazabilirsiniz.'
+                                % ('döndürülmüş metin' if info.get('rotated') else 'şablon/form nesnesinin içinde'), parent=self)
+            return
+        res = TextDialog.ask(self, 'Metni düzenle', info['text'], round(info.get('size') or 11, 1), info.get('bold'))
+        if res is None:
+            return
+        text, size, bold = res
+        if text == info['text'] and abs(float(size) - float(info.get('size') or 11)) < 0.05 and bool(bold) == bool(info.get('bold')):
+            return
+        try:
+            self.pr.edit_text(i, info, text, size, bold)
+        except P.PdfError as e:
+            messagebox.showwarning('Metni düzenle', str(e), parent=self)
+            return
+        self._rerender(i)
+        self.app.flash('Metin değiştirildi (gerçek PDF metni). Geri almak için ↶.')
+
+    def _delete_image_at(self, i, px, py):
+        try:
+            info = self.pr.find_image(i, px, py)
+        except Exception as e:
+            messagebox.showerror('Resmi sil', str(e), parent=self)
+            return
+        if not info:
+            self.app.flash('Burada resim yok.')
+            return
+        try:
+            self.pr.remove_image(i, info)
+        except P.PdfError as e:
+            messagebox.showwarning('Resmi sil', str(e), parent=self)
+            return
+        self._rerender(i)
+        self.app.flash('Resim PDF\'den kaldırıldı. Geri almak için ↶.')
+
+    def _rerender(self, i=None):
+        pages = range(len(self.pr.pages)) if i is None else [i]
+        for k in pages:
+            self.page_imgs.pop(k, None)
+            self.canvas.delete('img%d' % k)
+        self.canvas.delete('hover')
+        self._changed(i)
+        self._schedule_render()
 
     def _pick_text_color(self):
         c = colorchooser.askcolor(color='#' + self.text_color, parent=self, title='Yazı rengi')
@@ -617,11 +722,13 @@ class PdfView(tk.Frame):
     def undo(self):
         if self.pr.undo():
             self.selected = None
+            self.page_imgs.clear()
             self._changed()
 
     def redo(self):
         if self.pr.redo():
             self.selected = None
+            self.page_imgs.clear()
             self._changed()
 
     # ------------------------------------------------------------------ kaydet + metin

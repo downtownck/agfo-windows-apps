@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
-VERSION = '1.3.1'
+VERSION = '1.4.0'
 APP_NAME = 'AGFO AI Editor'
 IS_WIN = sys.platform == 'win32'
 MAX_CHARS = 60000
@@ -218,13 +218,17 @@ def html_to_text(fragment: str) -> str:
     return text.strip()
 
 
-def clean_model_text(raw: str) -> str:
-    """Dogrudan saglayici yanitindan kod citlerini / onsozu ayiklar; HTML geldiyse duz metne cevirir."""
+def clean_model_text(raw: str, rich: bool = False) -> str:
+    """Dogrudan saglayici yanitindan kod citlerini / onsozu ayiklar; HTML geldiyse duz metne (rich: Markdown'a) cevirir."""
     t = (raw or '').strip()
     t = re.sub(r'^```[a-zA-Z]*\s*\n?', '', t)
     t = re.sub(r'\n?```\s*$', '', t)
-    if re.search(r'</?(p|h[1-6]|ul|ol|li|br)\b', t, re.I):
-        t = html_to_text(t)
+    if re.search(r'</?(p|h[1-6]|ul|ol|li|br|table)\b', t, re.I):
+        if rich:
+            import agfo_richdoc
+            t = agfo_richdoc.html_to_markdown(t)
+        else:
+            t = html_to_text(t)
     return t.strip()
 
 
@@ -490,11 +494,13 @@ def write_document(path: str, text: str, doc: DocFile = None) -> DocFile:
 
 
 # --------------------------------------------------------------------------- kurtarma
-def save_recovery(doc_id: str, title: str, text: str, path=None) -> pathlib.Path:
+def save_recovery(doc_id: str, title: str, text: str, path=None, blocks=None) -> pathlib.Path:
     safe = re.sub(r'[^A-Za-z0-9_-]', '', doc_id)[:40] or 'doc'
     target = recovery_dir() / (safe + '.json')
-    payload = json.dumps({'id': safe, 'title': title, 'path': path, 'text': text,
-                          'saved': datetime.datetime.now().isoformat(timespec='seconds')}, ensure_ascii=False)
+    data = {'id': safe, 'title': title, 'path': path, 'text': text, 'saved': datetime.datetime.now().isoformat(timespec='seconds')}
+    if blocks is not None:
+        data['blocks'] = blocks
+    payload = json.dumps(data, ensure_ascii=False)
     _atomic_write(str(target), lambda f: f.write(payload.encode('utf-8')))
     return target
 
@@ -683,11 +689,21 @@ def build_direct_prompt(action: dict, options: dict) -> str:
         system += '\n- Source mode: use the source only as a brief and create a new version.'
     if options.get('user_extra'):
         system += '\n- Additional user instruction: ' + str(options['user_extra'])[:4000]
+    if options.get('rich'):
+        system += '\n\n' + RICH_RULE
     return system
+
+
+RICH_RULE = ('FORMATTING: the source is Markdown. Headings start with #, ## or ###; list items with "- " or "1. "; table rows '
+             'with "|". Keep this structure. Keep inline markers **bold**, *italic* and <u>underline</u> on the corresponding '
+             'words, keep image placeholders such as ![resim:2] exactly where they belong, and keep markers such as ⟦12⟧ unchanged. '
+             'Return Markdown in the same dialect, not HTML.')
 
 
 def build_manager_extra(action: dict, options: dict) -> str:
     parts = [p for p in (action.get('extra') or '', options.get('user_extra') or '') if p.strip()]
+    if options.get('rich'):
+        parts.append(RICH_RULE)
     if action.get('mode') == 'append':
         parts.append('Return only the continuation, not the source.')
     return '\n'.join(parts)[:4000]

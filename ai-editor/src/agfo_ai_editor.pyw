@@ -44,6 +44,8 @@ import agfo_secrets as secrets  # noqa: E402
 import agfo_editor_update as upd  # noqa: E402
 import agfo_sources as srcs  # noqa: E402
 import agfo_pdf  # noqa: E402
+import agfo_richdoc as rdoc  # noqa: E402
+import agfo_doctranslate as dtr  # noqa: E402
 
 
 def selftest(out_path: str) -> int:
@@ -104,6 +106,42 @@ def selftest(out_path: str) -> int:
         for f_ in (pp, ep, out):
             os.unlink(f_)
         res['ok'] = res['ok'] and eimg.size[0] > 0 and r2.is_encrypted and res['pdf_aes']['perms'] == (_p.P_PRINT | _p.P_ANNOTATE)
+        # 1.4: bicimli Word (resim, tablo, liste) gidis-donus + PDF metnini yerinde duzenleme + ceviri ayristirma
+        import io as _io
+        import agfo_richdoc as _r
+        import agfo_doctranslate as _t
+        from PIL import Image as _Image
+        _b = _io.BytesIO()
+        _Image.new('RGB', (40, 20), (200, 0, 0)).save(_b, 'PNG')
+        blocks = [_r.para(text='Başlık', style='h1'), _r.para([_r.run('kalın', b=True), _r.run(' ğüşİ')]),
+                  _r.para(text='madde', lst='number'), _r.image_block(_b.getvalue()),
+                  {'t': 'table', 'rows': [[[_r.run('A')], [_r.run('B')]]]}]
+        dp = os.path.join(tempfile.gettempdir(), 'agfo-editor-selftest.docx')
+        with open(dp, 'wb') as fh:
+            fh.write(_r.docx_bytes(blocks))
+        back = _r.read_docx_blocks(dp)
+        os.unlink(dp)
+        res['rich_docx'] = [b['t'] for b in back]
+        tr, _st = _t.translate_blocks(blocks, lambda text, ins: text.replace('Başlık', 'Title'), 'English')
+        import agfo_pdf_edit as _e
+        _p.write_simple_pdf(pp, [['Satir bir', 'Eski metin']])
+        pr = _p.PdfProject(pp)
+        x, y = _p.user_to_display(80, 752, pr.pages[0]['box'], 0)
+        info = pr.find_text_line(0, x, y)
+        pr.edit_text(0, info, 'Yeni metin ğüşİ')
+        pr.save(out)
+        pr.close()
+        import pypdfium2 as _pdfium
+        _doc = _pdfium.PdfDocument(out)
+        _tp = _doc[0].get_textpage()
+        edited = _tp.get_text_range(0, _tp.count_chars())
+        _tp.close()
+        _doc.close()
+        res['pdf_edit'] = {'font': os.path.basename(_e.pick_font('Helvetica') or ''), 'ok': 'Yeni metin ğüşİ' in edited and 'Eski' not in edited}
+        os.unlink(pp)
+        os.unlink(out)
+        res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
+                     and res['pdf_edit']['ok'])
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
@@ -173,7 +211,9 @@ if len(sys.argv) >= 3 and sys.argv[1] == '--apply-update':
 _dpi()
 import tkinter as tk  # noqa: E402
 import tkinter.font as tkfont  # noqa: E402
-from tkinter import filedialog, messagebox, ttk  # noqa: E402
+from tkinter import colorchooser, filedialog, messagebox, ttk  # noqa: E402
+
+import agfo_richtext as rtext  # noqa: E402
 
 BG, PANEL, PANEL2, FG, MUTED, ACCENT = '#0a1425', '#12243b', '#192e48', '#ecf3ff', '#a5b6ce', '#49b3ef'
 WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
@@ -183,7 +223,9 @@ AUTOSAVE_MS = 45000
 FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm *.pdf *.xlsx *.xlsm *.pptx *.eml *.csv'),
              ('Metin', '*.txt'), ('Markdown', '*.md *.markdown'), ('Word belgesi', '*.docx'), ('PDF (metin olarak)', '*.pdf'),
              ('Excel / PowerPoint (metin olarak)', '*.xlsx *.xlsm *.pptx'), ('HTML', '*.html *.htm'), ('Tüm dosyalar', '*.*')]
-SAVE_FILETYPES = [('Metin', '*.txt'), ('Markdown', '*.md'), ('Word belgesi', '*.docx'), ('HTML', '*.html')]
+SAVE_FILETYPES = [('Word belgesi', '*.docx'), ('Markdown', '*.md'), ('Metin', '*.txt'), ('HTML', '*.html')]
+TEXT_COLORS = (('Otomatik', None), ('Kırmızı', 'C00000'), ('Koyu mavi', '1F4E79'), ('Mavi', '2E75B6'), ('Yeşil', '2E7D32'),
+               ('Turuncu', 'C55A11'), ('Mor', '7030A0'), ('Gri', '595959'))
 READ_ONLY_KINDS = ('.xlsx', '.xlsm', '.pptx', '.eml')
 
 
@@ -193,12 +235,24 @@ class Doc:
         self.frame, self.text, self.title = frame, text, title
         self.path = path
         self.docfile = docfile or core.DocFile()
-        self.saved_text = ''
         self.docx_warned = False
 
     @property
+    def rich(self) -> bool:
+        return self.text.rich
+
+    @property
     def dirty(self) -> bool:
-        return self.text.get('1.0', 'end-1c') != self.saved_text
+        return self.text.undo.dirty()
+
+    @property
+    def saved_text(self):
+        return None
+
+    @saved_text.setter
+    def saved_text(self, _value):
+        """Eski arayuz: belgenin su anki hali 'kaydedilmis' sayilir."""
+        self.text.undo.mark_saved()
 
 
 class App(tk.Tk):
@@ -337,6 +391,10 @@ class App(tk.Tk):
         self.panel_btn = self.btn(bar, 'AI paneli ⇥', self.toggle_ai_panel, 'ghost', side='right')
         self.more_btn = self.btn(bar, 'Diğer ▾', self.show_more_menu, 'ghost', side='right')
 
+        self.fmt_bar = tk.Frame(self, bg=PANEL, padx=10, pady=4)
+        self._build_fmt_bar(self.fmt_bar)
+        self.fmt_bar.pack(fill='x', padx=18, pady=(2, 0))
+
         self.find_bar = tk.Frame(self, bg=PANEL2, padx=10, pady=6)
         self._build_find(self.find_bar)
 
@@ -353,13 +411,193 @@ class App(tk.Tk):
         self.paned = ttk.PanedWindow(self, orient='horizontal')
         self.paned.pack(fill='both', expand=True, padx=18, pady=8)
         self.nb = ttk.Notebook(self.paned)
-        self.nb.bind('<<NotebookTabChanged>>', lambda e: self._update_status())
+        self.nb.bind('<<NotebookTabChanged>>', lambda e: (self._update_status(), self._sync_fmt_bar()))
         self.nb.bind('<Button-2>', self._middle_close)
         self.paned.add(self.nb, weight=3)
         side = ttk.Frame(self.paned, padding=(10, 8))
         self.paned.add(side, weight=2)
         self.side_panel = side
         self._build_ai_panel(side)
+
+    # ------------------------------------------------------------------ bicim cubugu (1.4)
+    def _build_fmt_bar(self, f):
+        self.style_var = tk.StringVar(value=rdoc.STYLE_LABELS['normal'])
+        self._style_keys = {v: k for k, v in rdoc.STYLE_LABELS.items()}
+        cb = ttk.Combobox(f, textvariable=self.style_var, values=list(rdoc.STYLE_LABELS.values()), width=13, state='readonly')
+        cb.pack(side='left', padx=(0, 8))
+        cb.bind('<<ComboboxSelected>>', lambda e: self._fmt('style', self._style_keys.get(self.style_var.get(), 'normal')))
+        self.fmt_btns = {}
+
+        def fb(key, text, cmd, font=('Segoe UI', 9, 'bold'), tip=None):
+            b = self.btn(f, text, cmd, 'ghost', padx=7, pady=3, font=font)
+            self.fmt_btns[key] = b
+            return b
+        fb('b', 'K', lambda: self._fmt('b'), ('Segoe UI', 10, 'bold'))
+        fb('i', 'İ', lambda: self._fmt('i'), ('Segoe UI', 10, 'italic'))
+        fb('u', 'A', lambda: self._fmt('u'), ('Segoe UI', 10, 'underline'))
+        fb('color', 'Renk ▾', self._color_menu)
+        tk.Frame(f, bg='#2d4a6c', width=1, height=22).pack(side='left', padx=5)
+        fb('bullet', '• Liste', lambda: self._fmt('list', 'bullet'))
+        fb('number', '1. Liste', lambda: self._fmt('list', 'number'))
+        fb('outdent', '⇤', lambda: self._fmt('level', -1))
+        fb('indent', '⇥', lambda: self._fmt('level', 1))
+        tk.Frame(f, bg='#2d4a6c', width=1, height=22).pack(side='left', padx=5)
+        fb('left', 'Sola', lambda: self._fmt('align', 'left'), ('Segoe UI', 8, 'bold'))
+        fb('center', 'Ortala', lambda: self._fmt('align', 'center'), ('Segoe UI', 8, 'bold'))
+        fb('right', 'Sağa', lambda: self._fmt('align', 'right'), ('Segoe UI', 8, 'bold'))
+        tk.Frame(f, bg='#2d4a6c', width=1, height=22).pack(side='left', padx=5)
+        fb('image', '🖼 Resim', self.insert_image)
+        fb('table', '▦ Tablo', self.insert_table)
+        self.page_btn = self.btn(f, '📄 Sayfa görünümü', self.toggle_page_view, 'ghost', side='right', padx=8, pady=3)
+        self.btn(f, '🌐 Belgeyi çevir', self.translate_document, 'ghost', side='right', padx=8, pady=3)
+        self.fmt_hint = tk.Label(f, text='', fg=MUTED, bg=PANEL, font=('Segoe UI', 8))
+        self.fmt_hint.pack(side='left', padx=8)
+
+    def _fmt(self, what, value=None):
+        d = self.cur()
+        if not d:
+            return
+        t = d.text
+        if not t.rich:
+            if not messagebox.askyesno('Biçimlendirme', 'Bu belge düz metin (.txt). Biçimlendirme için belge Word gibi düzenlenecek; '
+                                       'kaydederken .docx seçerseniz biçimler korunur.\n\nDevam edilsin mi?', parent=self):
+                return
+            t.enable_rich()
+            self._place_text(d)
+        if what in ('b', 'i', 'u'):
+            t.toggle_char(what)
+        elif what == 'color':
+            t.toggle_char('color', value)
+        elif what == 'style':
+            t.set_style(value)
+        elif what == 'list':
+            t.toggle_list(value)
+        elif what == 'level':
+            t.change_level(value)
+        elif what == 'align':
+            t.set_align(value)
+        t.focus_set()
+        self._sync_fmt_bar()
+
+    def _color_menu(self):
+        m = tk.Menu(self, tearoff=0)
+        for label, val in TEXT_COLORS:
+            m.add_command(label=label, command=lambda v=val: self._fmt('color', v))
+        m.add_separator()
+
+        def other():
+            c = colorchooser.askcolor(parent=self, title='Yazı rengi')
+            if c and c[1]:
+                self._fmt('color', c[1].lstrip('#').upper())
+        m.add_command(label='Diğer renk…', command=other)
+        b = self.fmt_btns['color']
+        m.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
+
+    def _sync_fmt_bar(self):
+        d = self.cur()
+        bar = getattr(self, 'fmt_bar', None)
+        if bar is None:
+            return
+        if not d:
+            if bar.winfo_manager():
+                bar.pack_forget()
+            return
+        if not bar.winfo_manager():
+            bar.pack(fill='x', padx=18, pady=(2, 0), before=self.paned)
+        t = d.text
+        try:
+            fmt = t.current_format()
+        except tk.TclError:
+            return
+        self.style_var.set(rdoc.STYLE_LABELS.get(fmt.get('style', 'normal'), rdoc.STYLE_LABELS['normal']))
+        on = {'b': fmt.get('b'), 'i': fmt.get('i'), 'u': fmt.get('u'), 'bullet': fmt.get('list') == 'bullet',
+              'number': fmt.get('list') == 'number', 'left': not fmt.get('align'), 'center': fmt.get('align') == 'center',
+              'right': fmt.get('align') == 'right'}
+        for k, b in self.fmt_btns.items():
+            if k in on:
+                b.configure(bg=SEL_BG if on[k] and t.rich else PANEL2)
+        self.page_btn.configure(bg=SEL_BG if t.page_mode else PANEL2)
+        self.fmt_hint.configure(text='' if t.rich else 'Düz metin (.txt)')
+
+    def toggle_page_view(self):
+        on = not self.settings.get('page_view', True)
+        self.settings['page_view'] = on
+        core.save_settings(self.settings)
+        for d in self.docs:
+            if d.text.rich:
+                d.text.set_page_mode(on)
+                self._place_text(d)
+        self._sync_fmt_bar()
+        self.flash('Sayfa görünümü açık: A4 sayfa genişliği ve kenar boşlukları.' if on else 'Sayfa görünümü kapalı (koyu tema).')
+
+    def _place_text(self, d):
+        t, desk = d.text, d.desk
+        try:
+            avail = desk.winfo_width()
+        except tk.TclError:
+            return
+        if t.page_mode:
+            w = int(t.px(rdoc.PAGE_W_PT))
+            full = int(t.px(rdoc.MARGIN_PT * 0.9))
+            if avail > w + 24:
+                if int(t.cget('padx')) != full:
+                    t.configure(padx=full)
+                t.place_forget()
+                t.place(relx=0.5, y=10, anchor='n', width=w, relheight=1, height=-10)
+                return
+            narrow = int(min(full, max(14, avail * 0.05)))
+            if int(t.cget('padx')) != narrow:
+                t.configure(padx=narrow)
+        t.place_forget()
+        t.place(x=0, y=0, relwidth=1, relheight=1)
+
+    def insert_image(self):
+        d = self.cur()
+        if not d:
+            return
+        path = filedialog.askopenfilename(parent=self, title='Resim ekle', filetypes=[('Resim', '*.png *.jpg *.jpeg *.gif *.bmp')])
+        if not path:
+            return
+        try:
+            with open(path, 'rb') as fh:
+                data = fh.read()
+            blk = rdoc.image_block(data)
+        except (OSError, ValueError) as e:
+            messagebox.showerror('Resim', 'Resim eklenemedi: %s' % e, parent=self)
+            return
+        if not d.text.rich:
+            d.text.enable_rich()
+        d.text.insert_image('insert', blk)
+        d.text.focus_set()
+
+    def insert_table(self):
+        d = self.cur()
+        if not d:
+            return
+        win = tk.Toplevel(self)
+        win.title('Tablo ekle')
+        win.configure(bg=PANEL, padx=14, pady=12)
+        win.transient(self)
+        rows, cols = tk.IntVar(value=3), tk.IntVar(value=3)
+        for r, (lab, var) in enumerate((('Satır', rows), ('Sütun', cols))):
+            self.lbl(win, lab).grid(row=r, column=0, sticky='w', pady=3)
+            ttk.Spinbox(win, from_=1, to=40, textvariable=var, width=6).grid(row=r, column=1, padx=8, pady=3)
+
+        def ok():
+            try:
+                rr, cc = max(1, min(40, rows.get())), max(1, min(12, cols.get()))
+            except tk.TclError:
+                return
+            win.destroy()
+            if not d.text.rich:
+                d.text.enable_rich()
+            d.text.insert_table(rr, cc)
+            d.text.focus_set()
+        self.btn(win, 'Ekle', ok, 'primary', side=None).grid(row=2, column=0, columnspan=2, pady=(10, 0))
+        win.bind('<Return>', lambda e: ok())
+        win.bind('<Escape>', lambda e: win.destroy())
+        self.table_dialog = win
+        return win
 
     def toggle_ai_panel(self):
         """AI panelini gizle / goster (PDF sayfa gorunumu ve okuma icin genis alan)."""
@@ -484,7 +722,17 @@ class App(tk.Tk):
         self.lbl(f, 'Terminoloji / ek not (isteğe bağlı)', muted=True).pack(anchor='w')
         self.tr_extra = self._textbox(f, height=3)
         self.tr_extra.pack(fill='x', pady=(2, 8))
-        self.btn(f, 'Çevir', self.run_translate, 'primary', side=None, padx=14, pady=7).pack(anchor='w')
+        self.btn(f, 'Seçimi / paragrafı çevir', self.run_translate, 'primary', side=None, padx=14, pady=7).pack(anchor='w')
+        box = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
+        box.pack(fill='x', pady=(14, 0))
+        tk.Label(box, text='Tüm belgeyi çevir (biçim korunur)', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        self.lbl(box, 'Başlıklar, listeler, tablolar ve resimler yerinde kalır; açık PDF de çevrilebilir.', muted=True, bg=PANEL2,
+                 wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 4))
+        self.doc_tr_out = tk.StringVar(value=self.settings.get('doc_translate_output', 'both'))
+        for val, lab in (('newtab', 'Biçimli yeni belge'), ('compare', 'Yan yana (özgün | çeviri)'), ('both', 'İkisi de')):
+            tk.Radiobutton(box, text=lab, value=val, variable=self.doc_tr_out, bg=PANEL2, fg=FG, selectcolor=EDIT_BG,
+                           activebackground=PANEL2, activeforeground=FG, font=('Segoe UI', 9), anchor='w').pack(anchor='w')
+        self.btn(box, '🌐 Belgeyi çevir', self.translate_document, 'primary', side=None, padx=14, pady=6).pack(anchor='w', pady=(6, 0))
         self.lbl(f, 'AI Manager bağlıysa sitedeki "Çeviri" yönlendirmesi (en iyi fiyat/kalite modeli) kullanılır.',
                  muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(10, 0))
 
@@ -829,9 +1077,7 @@ class App(tk.Tk):
     def insert_source_answer(self):
         d = self.cur()
         if d and self.src_last_answer:
-            d.text.edit_separator()
-            d.text.insert('insert', self.src_last_answer)
-            d.text.edit_separator()
+            self._insert_text(d, self.src_last_answer)
 
     def create_from_sources(self):
         label = self.create_var.get()
@@ -871,40 +1117,78 @@ class App(tk.Tk):
     def _editor_font(self):
         return (self.settings.get('font_family') or 'Segoe UI', int(self.settings.get('font_size', 12)))
 
-    def new_doc(self, text='', title=None, path=None, docfile=None):
+    def _rich_font(self):
+        fam = self.settings.get('rich_font')
+        if not fam:
+            fams = {f.lower() for f in tkfont.families(self)}
+            fam = next((f for f in ('Calibri', 'Segoe UI', 'Carlito', 'DejaVu Sans') if f.lower() in fams), 'Segoe UI')
+        return fam, int(self.settings.get('rich_size', 11))
+
+    def new_doc(self, text='', title=None, path=None, docfile=None, blocks=None, rich=None):
+        """rich=None: .txt disindaki her belge bicimli (Word gibi). text bicimli belgede Markdown olarak okunur."""
+        if rich is None:
+            rich = not (docfile is not None and docfile.kind == 'txt')
         frame = tk.Frame(self.nb, bg=EDIT_BG)
-        t = tk.Text(frame, wrap='word' if self.settings.get('wrap', True) else 'none', undo=True, autoseparators=True, maxundo=-1,
-                    bg=EDIT_BG, fg=FG, insertbackground=ACCENT, insertwidth=2, relief='flat', bd=0, highlightthickness=0,
-                    font=self._editor_font(), padx=int(28 * self.scale), pady=int(18 * self.scale), spacing1=2, spacing3=6,
-                    selectbackground=SEL_BG, selectforeground='#ffffff', inactiveselectbackground='#1d3b57')
-        ys = ttk.Scrollbar(frame, orient='vertical', command=t.yview)
-        t.configure(yscrollcommand=ys.set)
+        ys = ttk.Scrollbar(frame, orient='vertical')
         ys.pack(side='right', fill='y')
-        t.pack(side='left', fill='both', expand=True)
+        desk = tk.Frame(frame, bg=rtext.PAGE_COLORS['desk'], highlightthickness=0, bd=0, width=int(820 * self.scale),
+                        height=int(500 * self.scale))
+        desk.pack(side='left', fill='both', expand=True)
+        fam, size = self._rich_font() if rich else self._editor_font()
+        t = rtext.RichText(desk, self.colors, family=fam, size=size, rich=rich,
+                           wrap='word' if self.settings.get('wrap', True) or rich else 'none', bg=EDIT_BG, fg=FG,
+                           insertbackground=ACCENT, insertwidth=2, relief='flat', bd=0, highlightthickness=0,
+                           font=(fam, size), padx=int(28 * self.scale), pady=int(18 * self.scale), spacing1=2, spacing3=6,
+                           selectbackground=SEL_BG, selectforeground='#ffffff', inactiveselectbackground='#1d3b57')
+        t.configure(yscrollcommand=ys.set)
+        ys.configure(command=t.yview)
         base = tkfont.Font(family=self._editor_font()[0], size=self._editor_font()[1])
         t.tag_configure('md_h', foreground='#ffffff', font=(base.actual('family'), int(self._editor_font()[1] * 1.25), 'bold'))
         t.tag_configure('md_mark', foreground=MUTED)
         t.tag_configure('md_li', foreground=FG, lmargin2=int(18 * self.scale))
         t.tag_configure('found', background='#5a4a1c')
         t.tag_configure('ai_new', background='#173a2a')
-        t.insert('1.0', text)
-        t.edit_reset()
+        if rich:
+            t.set_font(zoom=float(self.settings.get('page_zoom', 1.0)))
+            t.set_page_mode(bool(self.settings.get('page_view', True)))
+        if blocks:
+            t.load_blocks(blocks)
+        elif text and rich:
+            t.load_blocks(rdoc.markdown_to_blocks(text))
+        elif text:
+            t.undo.recording = False
+            t.insert('1.0', text)
+            t.undo.recording = True
+            t.undo.reset()
+        t.mark_set('insert', '1.0')
         t.edit_modified(False)
         title = title or 'Adsız %d' % (len(self.docs) + 1)
         doc = Doc(frame, t, title, path, docfile)
-        doc.saved_text = text if path else ''
+        doc.desk = desk
+        if not path and (text or blocks):
+            t.undo.saved = -1                       # yeni icerik: kaydedilmemis say
         self.docs.append(doc)
         self.nb.add(frame, text=self._tab_title(doc))
         self.nb.select(frame)
+        desk.bind('<Configure>', lambda e, dd=doc: self._place_text(dd))
+        self._place_text(doc)
         for ev in ('<KeyRelease>', '<ButtonRelease-1>'):
-            t.bind(ev, lambda e: self._update_status(), add='+')
+            t.bind(ev, lambda e: (self._update_status(), self._sync_fmt_bar()), add='+')
         t.bind('<KeyRelease>', lambda e, dd=doc: self._schedule_highlight(dd), add='+')
         self._highlight(doc)
         t.bind('<<Modified>>', lambda e, d=doc: self._on_modified(d))
+        t.on_change = lambda d=doc: self._doc_changed(d)
         t.bind('<Button-3>', self._context_menu)
         t.focus_set()
         self._update_status()
+        self._sync_fmt_bar()
         return doc
+
+    def _doc_changed(self, d):
+        try:
+            self.nb.tab(d.frame, text=self._tab_title(d))
+        except tk.TclError:
+            pass
 
     def _schedule_highlight(self, doc):
         if getattr(doc, '_hl', None):
@@ -917,7 +1201,7 @@ class App(tk.Tk):
     def _highlight(self, doc):
         """Hafif Markdown vurgusu: '#' basliklari kalin, liste satirlari girintili. Metni degistirmez."""
         doc._hl = None
-        if doc not in self.docs:
+        if doc not in self.docs or doc.text.rich:
             return
         t = doc.text
         if int(t.index('end-1c').split('.')[0]) > 20000:
@@ -974,19 +1258,35 @@ class App(tk.Tk):
             return self.open_pdf(path)
         if os.path.splitext(path)[1].lower() in READ_ONLY_KINDS:
             return self.open_as_text(path)
+        blocks = None
         try:
-            text, docfile = core.read_document(path)
+            kind = core.detect_kind(path)
+            if kind == 'docx':
+                blocks = rdoc.read_docx_blocks(path)
+                text, docfile = '', core.DocFile(path, 'docx')
+            elif kind == 'html':
+                with open(path, 'rb') as fh:
+                    raw = core.decode_bytes(fh.read())
+                blocks = rdoc.html_to_blocks(raw[0])
+                text, docfile = '', core.DocFile(path, 'html')
+            else:
+                text, docfile = core.read_document(path)
+                if kind == 'md':
+                    blocks = rdoc.markdown_to_blocks(text, base_dir=os.path.dirname(path)) or [rdoc.para()]
         except Exception as e:
             messagebox.showerror('Açılamadı', '%s\n\n%s' % (path, e), parent=self)
             return None
         cur = self.cur()
         if cur and not cur.path and not cur.dirty and not cur.text.get('1.0', 'end-1c').strip():
             self.close_doc(cur, ask=False)
-        d = self.new_doc(text, os.path.basename(path), path, docfile)
+        d = self.new_doc(text, os.path.basename(path), path, docfile, blocks=blocks)
         core.add_recent(self.settings, path)
         core.save_settings(self.settings)
         if docfile.kind == 'docx':
-            self.flash('DOCX metin olarak açıldı: başlıklar ve listeler korunur; tablo, resim ve karakter biçimleri düzenlenmez.')
+            n_img = sum(1 for b in blocks or [] if b['t'] == 'img')
+            n_tbl = sum(1 for b in blocks or [] if b['t'] == 'table')
+            self.flash('Word belgesi biçimleriyle açıldı (%d resim, %d tablo). Üst/alt bilgi, dipnot ve yorumlar bu editörde gösterilmez.'
+                       % (n_img, n_tbl), 9000)
         return d
 
     # ------------------------------------------------------------------ PDF duzenleyici (1.3)
@@ -1104,7 +1404,8 @@ class App(tk.Tk):
         if d.docfile.kind == 'docx' and not d.docx_warned:
             ans = messagebox.askyesnocancel(
                 'Word belgesi',
-                'Bu belge Word dosyasından metin olarak açıldı. Üzerine kaydederseniz tablo, resim ve karakter biçimleri kaybolur.\n\n'
+                'Başlıklar, kalın/italik, renkler, listeler, tablolar ve resimler korunur. Özgün dosyadaki üst/alt bilgi, dipnot, '
+                'yorum, metin kutusu ve özel sayfa düzeni ayarları korunmaz.\n\n'
                 'Evet: yeni bir dosyaya kaydet (önerilir)\nHayır: yine de üzerine yaz', parent=self)
             if ans is None:
                 return False
@@ -1118,10 +1419,13 @@ class App(tk.Tk):
         if not d:
             return False
         origin = getattr(d, 'origin', None)
-        init = suggest or d.path or (os.path.splitext(origin)[0] + '.docx' if origin else d.title + '.txt')
+        ext = '.docx' if d.rich else '.txt'
+        clean = re.sub(r'[\\/:*?"<>|]+', ' ', d.title).strip(' .') or 'Belge'
+        init = suggest or d.path or (os.path.splitext(origin)[0] + '.docx' if origin else clean + ext)
         p = filedialog.asksaveasfilename(parent=self, title='Farklı kaydet', initialfile=os.path.basename(init),
                                          initialdir=os.path.dirname(init) if os.path.dirname(init) else None,
-                                         defaultextension='.txt', filetypes=SAVE_FILETYPES)
+                                         defaultextension=ext, filetypes=SAVE_FILETYPES if d.rich else
+                                         [SAVE_FILETYPES[2], SAVE_FILETYPES[1], SAVE_FILETYPES[0], SAVE_FILETYPES[3]])
         if not p:
             return False
         if self._write(d, p):
@@ -1130,20 +1434,44 @@ class App(tk.Tk):
         return False
 
     def _write(self, d, path):
-        text = d.text.get('1.0', 'end-1c')
+        prev = d.docfile if d.path and os.path.normcase(d.path) == os.path.normcase(path) else None
+        kind = core.detect_kind(path)
+        lost = False
         try:
-            d.docfile = core.write_document(path, text, d.docfile if d.path and os.path.normcase(d.path) == os.path.normcase(path) else None)
+            if d.rich or kind == 'docx':
+                blocks = d.text.get_blocks() if d.rich else rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
+                if kind == 'docx':
+                    data = rdoc.docx_bytes(blocks)
+                    core._atomic_write(path, lambda f: f.write(data))
+                    d.docfile = core.DocFile(path, 'docx')
+                elif kind == 'html':
+                    data = rdoc.html_document(blocks, os.path.splitext(os.path.basename(path))[0]).encode('utf-8')
+                    core._atomic_write(path, lambda f: f.write(data))
+                    d.docfile = core.DocFile(path, 'html')
+                elif kind == 'md':
+                    md, files = rdoc.markdown_file_text(blocks, path)
+                    for fp, data in files.items():
+                        os.makedirs(os.path.dirname(fp), exist_ok=True)
+                        with open(fp, 'wb') as fh:
+                            fh.write(data)
+                    d.docfile = core.write_document(path, md, prev)
+                else:
+                    lost = rdoc.has_formatting(blocks)
+                    d.docfile = core.write_document(path, rdoc.plain_text(blocks), prev)
+            else:
+                d.docfile = core.write_document(path, d.text.get('1.0', 'end-1c'), prev)
         except Exception as e:
             messagebox.showerror('Kaydedilemedi', '%s\n\n%s' % (path, e), parent=self)
             return False
         d.path = path
         d.title = os.path.basename(path)
-        d.saved_text = text
+        d.saved_text = None
         core.drop_recovery(d.id)
         core.add_recent(self.settings, path)
         core.save_settings(self.settings)
         self.nb.tab(d.frame, text=self._tab_title(d))
-        self.flash('Kaydedildi: %s' % path)
+        self.flash('Kaydedildi: %s%s' % (path, ' · ⚠ düz metin: biçimler, tablolar ve resimler dosyaya yazılmadı (Word için .docx seçin)'
+                                          if lost else ''), 9000 if lost else 6000)
         self._update_status()
         return True
 
@@ -1176,6 +1504,9 @@ class App(tk.Tk):
         if frame in self.pdf_views:
             self.close_pdf(frame)
             return
+        if frame in getattr(self, 'compare_views', {}):
+            self.close_compare(frame)
+            return
         d = next((x for x in self.docs if x.frame is frame), None)
         if d:
             self.close_doc(d)
@@ -1196,17 +1527,31 @@ class App(tk.Tk):
 
     def zoom(self, delta):
         self.settings['font_size'] = max(8, min(36, int(self.settings.get('font_size', 12)) + delta))
+        z = float(self.settings.get('page_zoom', 1.0))
+        z = max(0.6, min(2.2, round(z * (1.1 if delta > 0 else 1 / 1.1), 2)))
+        self.settings['page_zoom'] = z
         for d in self.docs:
-            d.text.configure(font=self._editor_font())
-            d.text.tag_configure('md_h', font=(self._editor_font()[0], int(self._editor_font()[1] * 1.25), 'bold'))
+            if d.text.rich:
+                d.text.set_font(zoom=z)
+                self._place_text(d)
+            else:
+                d.text.configure(font=self._editor_font())
+                d.text.set_font(self._editor_font()[0], self._editor_font()[1])
+                d.text.tag_configure('md_h', font=(self._editor_font()[0], int(self._editor_font()[1] * 1.25), 'bold'))
         core.save_settings(self.settings)
+        self.flash('Yakınlaştırma: %%%d' % round(z * 100))
 
     def _autosave(self):
         for d in self.docs:
             if d.dirty:
                 try:
-                    core.save_recovery(d.id, d.title, d.text.get('1.0', 'end-1c'), d.path)
-                except OSError:
+                    if d.rich:
+                        blocks = d.text.get_blocks()
+                        core.save_recovery(d.id, d.title, rdoc.blocks_to_markdown(blocks) or ' ', d.path,
+                                           blocks=rdoc.blocks_to_json(blocks))
+                    else:
+                        core.save_recovery(d.id, d.title, d.text.get('1.0', 'end-1c'), d.path)
+                except (OSError, tk.TclError):
                     pass
         self._timers['autosave'] = self.after(AUTOSAVE_MS, self._autosave)
 
@@ -1231,7 +1576,14 @@ class App(tk.Tk):
         if messagebox.askyesno('Kurtarılan belgeler', 'Kaydedilmeden kapanan belgeler bulundu:\n\n%s\n\nAçılsın mı? '
                                '(Hayır: kurtarma kayıtları silinir)' % names, parent=self):
             for i in items:
-                d = self.new_doc(i['text'], (i.get('title') or 'Kurtarılan') + ' (kurtarıldı)')
+                blocks = None
+                if isinstance(i.get('blocks'), list):
+                    try:
+                        blocks = rdoc.blocks_from_json(i['blocks'])
+                    except Exception:
+                        blocks = None
+                d = self.new_doc(i['text'] if blocks is None else '', (i.get('title') or 'Kurtarılan') + ' (kurtarıldı)',
+                                 blocks=blocks, rich=True if blocks is not None else None)
                 if i.get('path'):
                     d.path = None
                 core.drop_recovery(i.get('id', ''))
@@ -1311,8 +1663,13 @@ class App(tk.Tk):
         if sel and (sel == pat or (not self.case_var.get() and sel.lower() == pat.lower())):
             t.edit_separator()
             start = t.index('sel.first')
-            t.delete('sel.first', 'sel.last')
-            t.insert(start, self.repl_var.get())
+            keep = tuple(str(x) for x in t.tag_names(start) if rtext.recorded(str(x)))
+            t.undo.begin()
+            try:
+                t.delete('sel.first', 'sel.last')
+                t.insert(start, self.repl_var.get(), keep)
+            finally:
+                t.undo.end()
             t.mark_set('insert', '%s+%dc' % (start, len(self.repl_var.get())))
             t.edit_separator()
         self.find_next()
@@ -1324,19 +1681,24 @@ class App(tk.Tk):
             return
         t = d.text
         rep = self.repl_var.get()
-        t.configure(autoseparators=False)
         t.edit_separator()
+        t.undo.begin()
         n, idx = 0, '1.0'
-        while True:
-            idx = t.search(pat, idx, stopindex='end', nocase=not self.case_var.get())
-            if not idx:
-                break
-            t.delete(idx, '%s+%dc' % (idx, len(pat)))
-            t.insert(idx, rep)
-            idx = '%s+%dc' % (idx, len(rep))
-            n += 1
+        try:
+            while True:
+                idx = t.search(pat, idx, stopindex='end', nocase=not self.case_var.get())
+                if not idx:
+                    break
+                keep = tuple(str(x) for x in t.tag_names(idx) if rtext.recorded(str(x)))
+                t.delete(idx, '%s+%dc' % (idx, len(pat)))
+                t.insert(idx, rep, keep)
+                idx = '%s+%dc' % (idx, len(rep))
+                n += 1
+        finally:
+            t.undo.end()
         t.edit_separator()
-        t.configure(autoseparators=True)
+        if n:
+            self._doc_changed(d)
         self.find_info.configure(text='%d değişiklik' % n)
 
     # ------------------------------------------------------------------ durum / menuler
@@ -1360,8 +1722,15 @@ class App(tk.Tk):
             sel_info = ' · seçim %d kelime' % core.text_stats(sel)['words'] if sel else ''
         except tk.TclError:
             sel_info = ''
-        kind = (d.docfile.kind or 'txt').upper()
-        enc = d.docfile.encoding.upper() if d.docfile.kind in ('txt', 'md') else ''
+        kind = (d.docfile.kind or ('docx' if d.rich else 'txt')).upper() if d.path else ('Biçimli' if d.rich else 'TXT')
+        enc = d.docfile.encoding.upper() if d.docfile.kind in ('txt', 'md') and d.path else ''
+        pages = ''
+        if d.rich and d.text.page_mode:
+            pages = ' · ≈%d sayfa' % d.text.page_count()
+        if d.rich:
+            self.status_var.set('Paragraf %s · %d kelime · %d karakter%s%s · %s%s' % (
+                line, st['words'], st['chars'], sel_info, pages, kind, (' · ' + enc) if enc else ''))
+            return
         self.status_var.set('Satır %s, Sütun %d · %d kelime · %d karakter%s · %s%s' % (
             line, int(col) + 1, st['words'], st['chars'], sel_info, kind, (' · ' + enc) if enc else ''))
 
@@ -1398,15 +1767,86 @@ class App(tk.Tk):
         if not d:
             return
         m = tk.Menu(self, tearoff=0)
+        t = d.text
+        here = t.index('@%d,%d' % (e.x, e.y))
+        img = t.image_at(here) if t.rich else None
+        if img:
+            self._image_menu(m, t, img)
+            m.tk_popup(e.x_root, e.y_root)
+            return
         m.add_command(label='Kes', command=lambda: d.text.event_generate('<<Cut>>'))
         m.add_command(label='Kopyala', command=lambda: d.text.event_generate('<<Copy>>'))
         m.add_command(label='Yapıştır', command=lambda: d.text.event_generate('<<Paste>>'))
+        m.add_separator()
+        line = int(here.split('.')[0])
+        if t.rich and t.para_props(line)['table']:
+            t.mark_set('insert', here)
+            tm = tk.Menu(m, tearoff=0)
+            tm.add_command(label='Alta satır ekle', command=lambda: t.table_add_row(line, True))
+            tm.add_command(label='Üste satır ekle', command=lambda: t.table_add_row(line, False))
+            tm.add_command(label='Sağa sütun ekle', command=lambda: t.table_add_col(line, here))
+            tm.add_separator()
+            tm.add_command(label='Satırı sil', command=lambda: t.table_delete_row(line))
+            tm.add_command(label='Sütunu sil', command=lambda: t.table_delete_col(line, here))
+            tm.add_command(label='Tabloyu sil', command=lambda: t.table_delete(line))
+            m.add_cascade(label='Tablo', menu=tm)
+        m.add_command(label='Resim ekle…', command=self.insert_image)
+        m.add_command(label='Tablo ekle…', command=self.insert_table)
         m.add_separator()
         for key in ('content_strengthen', 'content_flow', 'proofread', 'shorten', 'expand', 'critique'):
             a = core.action_by_key(key)
             m.add_command(label='AI: ' + a['label'], command=lambda k=key: self.run_action_key(k))
         m.add_command(label='AI: Çevir (%s)' % self.tr_lang.get(), command=self.run_translate)
         m.tk_popup(e.x_root, e.y_root)
+
+    def _image_menu(self, m, t, name):
+        blk = t.images.get(name) or {}
+        sz = tk.Menu(m, tearoff=0)
+        for label, w in (('%25', rdoc.CONTENT_W_PT * 0.25), ('%50', rdoc.CONTENT_W_PT * 0.5), ('%75', rdoc.CONTENT_W_PT * 0.75),
+                         ('Sayfa genişliği', rdoc.CONTENT_W_PT)):
+            sz.add_command(label=label, command=lambda ww=w: t.resize_image(name, ww))
+        if blk:
+            sz.add_command(label='Özgün boyut', command=lambda: t.resize_image(name, min(rdoc.CONTENT_W_PT, rdoc.image_block(blk['data'])['w'])))
+        m.add_cascade(label='Resim boyutu', menu=sz)
+        al = tk.Menu(m, tearoff=0)
+        line = int(t.index(name).split('.')[0])
+        for label, a in (('Sola', 'left'), ('Ortala', 'center'), ('Sağa', 'right')):
+            al.add_command(label=label, command=lambda aa=a: (t.mark_set('insert', '%d.0' % line), t.set_align(aa)))
+        m.add_cascade(label='Hizala', menu=al)
+        m.add_command(label='Resmi değiştir…', command=lambda: self._replace_image(t, name))
+        m.add_command(label='Resmi farklı kaydet…', command=lambda: self._save_image(blk))
+        m.add_separator()
+        m.add_command(label='Resmi kaldır', command=lambda: t.remove_image(name))
+
+    def _replace_image(self, t, name):
+        path = filedialog.askopenfilename(parent=self, title='Yeni resim', filetypes=[('Resim', '*.png *.jpg *.jpeg *.gif *.bmp')])
+        if not path:
+            return
+        try:
+            with open(path, 'rb') as fh:
+                blk = rdoc.image_block(fh.read())
+        except (OSError, ValueError) as e:
+            messagebox.showerror('Resim', str(e), parent=self)
+            return
+        idx = t.index(name)
+        t.undo.separator()
+        t.undo.begin()
+        try:
+            t.delete(idx)
+            t._create_image(idx, blk)
+        finally:
+            t.undo.end()
+        t.changed()
+
+    def _save_image(self, blk):
+        if not blk:
+            return
+        ext = 'jpg' if blk['ext'] == 'jpeg' else blk['ext']
+        p = filedialog.asksaveasfilename(parent=self, title='Resmi kaydet', initialfile='resim.' + ext, defaultextension='.' + ext,
+                                         filetypes=[('Resim', '*.' + ext)])
+        if p:
+            with open(p, 'wb') as fh:
+                fh.write(blk['data'])
 
     def about(self):
         messagebox.showinfo('AGFO AI Editor', 'AGFO AI Editor %s\n\nYazdıklarınızın içeriğini yapay zekâyla düzenleyen metin editörü.\n'
@@ -1479,10 +1919,15 @@ class App(tk.Tk):
                         self._log_error(traceback.format_exc())
         except queue.Empty:
             pass
+        prog = getattr(self, '_tr_progress', None)
+        if prog and self.jobs:
+            self.ai_var.set('Belge çevriliyor… %d / %d parça grubu' % (min(prog[0] + 1, prog[1]), prog[1]))
         if self._timers:
             self._timers['poll'] = self.after(POLL_MS, self._poll)
 
     def cancel_jobs(self):
+        if getattr(self, '_tr_cancel', None):
+            self._tr_cancel.set()
         self.jobs.clear()
         self.busy.stop()
         self.busy.pack_forget()
@@ -1499,6 +1944,15 @@ class App(tk.Tk):
             try:
                 return t.index('sel.first'), t.index('sel.last'), 'seçim'
             except tk.TclError:
+                if t.rich:                       # bicimli belgede paragraf = imlecin satiri
+                    line = int(t.index('insert').split('.')[0])
+                    tag, lines = t.table_lines(line)
+                    if tag:
+                        return '%d.0' % lines[0], '%d.end' % lines[-1], 'tablo'
+                    start, end = t._content_start(line), '%d.end' % line
+                    if t.get(start, end).strip():
+                        return start, end, 'paragraf'
+                    return '1.0', t.index('end-1c'), 'belge'
                 # secim yoksa imlecin bulundugu paragraf
                 ins = t.index('insert')
                 start = t.search(r'\n\s*\n', ins, backwards=True, regexp=True, stopindex='1.0')
@@ -1543,7 +1997,12 @@ class App(tk.Tk):
             self.send_chat(prompt=prompt, label=action['label'])
             return
         start, end, where = self._scope_range(d)
-        source = d.text.get(start, end)
+        images = {}
+        if d.rich:
+            options = dict(options, rich=True)
+            source, images = d.text.markdown(start, end)
+        else:
+            source = d.text.get(start, end)
         if not source.strip():
             messagebox.showinfo('Metin yok', 'Düzenlenecek metin bulunamadı. Bir bölüm seçin ya da "Tüm belge"yi işaretleyin.', parent=self)
             return
@@ -1565,7 +2024,7 @@ class App(tk.Tk):
                 messagebox.showerror('Yapay zekâ', res, parent=self)
                 return
             self.ai_var.set('Son işlem: %s · %s %s' % (action['label'], res.get('via', ''), ('· ' + res.get('model', '')) if res.get('model') else ''))
-            self.review(d, ms, me, source, res, action, translate_mode)
+            self.review(d, ms, me, source, res, action, translate_mode, images=images)
         self._start_job('%s (%s)' % (action['label'], where), ai.run_with_fallback, done, backends, 'transform', source, action, options)
 
     def _clear_marks(self, d, *marks):
@@ -1584,6 +2043,89 @@ class App(tk.Tk):
                   'extra': 'Translate into %s.' % opts['language'], 'mode': 'replace', 'description': ''}
         self.run_action(action, opts, translate_mode=self.tr_mode.get())
 
+    # ------------------------------------------------------------------ belge cevirisi (1.4)
+    def translate_document(self):
+        lang = (self.tr_lang.get() or 'English').strip()
+        out = self.doc_tr_out.get() if hasattr(self, 'doc_tr_out') else 'both'
+        self.settings['doc_translate_output'] = out
+        v, d = self.cur_pdf(), self.cur()
+        if not v and not d:
+            return
+        extra = self.tr_extra.get('1.0', 'end-1c').strip()
+        backends = self.backends()
+        if v:
+            path, title = v.pr.path, os.path.splitext(os.path.basename(v.pr.path))[0]
+            blocks = None
+        else:
+            title = os.path.splitext(d.title)[0]
+            blocks = d.text.get_blocks() if d.rich else rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
+            path = None
+            if not any(b['t'] == 'p' and rdoc.runs_text(b['runs']).strip() or b['t'] == 'table' for b in blocks):
+                messagebox.showinfo('Belge çevirisi', 'Çevrilecek metin yok.', parent=self)
+                return
+        cancel = threading.Event()
+        self._tr_cancel = cancel
+        self._tr_progress = None
+        options = self._ai_options()
+        options.update(language=lang, rich=True, from_scratch=False, preserve_facts=True, user_extra=extra)
+
+        def call(text, instruction):
+            action = {'key': 'translate_doc', 'label': 'Belge çevirisi', 'template': 'translate_polish', 'extra': instruction,
+                      'mode': 'replace', 'description': ''}
+            return ai.run_with_fallback(backends, 'transform', text, action, options)['text']
+
+        def progress(i, n):
+            self._tr_progress = (i, n)
+
+        def work():
+            src = blocks
+            if src is None:
+                try:
+                    doc = srcs.load(path)
+                except srcs.SourceError as e:
+                    raise ai.AIError(str(e))
+                if not doc['chars']:
+                    raise ai.AIError('PDF\'de okunabilir metin yok (taranmış belge olabilir).')
+                src = dtr.pdf_units_to_blocks(doc['units'], title)
+            try:
+                new, stats = dtr.translate_blocks(src, call, lang, progress, cancel.is_set)
+            except InterruptedError as e:
+                raise ai.AIError(str(e))
+            return src, new, stats
+
+        def done(ok, res):
+            self._tr_progress = None
+            if not ok:
+                messagebox.showerror('Belge çevirisi', res, parent=self)
+                return
+            src, new, stats = res
+            if out in ('newtab', 'both'):
+                self.new_doc(title='%s (%s)' % (title, lang), blocks=new)
+            if out in ('compare', 'both'):
+                self.open_compare(src, new, title, 'Özgün', lang)
+            note = 'Çeviri tamam: %d parça, %d istek' % (stats['segments'], stats['batches'])
+            if stats['missing']:
+                note += ' · ⚠ %d parça çevrilemedi, özgün haliyle bırakıldı' % stats['missing']
+            self.flash(note, 10000)
+        self._start_job('Belge çevriliyor → %s' % lang, work, done)
+
+    def open_compare(self, orig, trans, title, left, right):
+        import agfo_compare
+        if not hasattr(self, 'compare_views'):
+            self.compare_views = {}
+        v = agfo_compare.CompareView(self, self.nb, orig, trans, title, left, right)
+        self.compare_views[v] = v
+        self.nb.add(v, text='↔ %s' % title[:40])
+        self.nb.select(v)
+        return v
+
+    def close_compare(self, v):
+        self.nb.forget(v)
+        getattr(self, 'compare_views', {}).pop(v, None)
+        v.destroy()
+        if not self.docs and not self.pdf_views and not getattr(self, 'compare_views', None):
+            self.new_doc()
+
     def run_audit(self):
         a = core.audit_action(self.audit_var.get(), self.std_var.get(), self.clause_var.get())
         if a:
@@ -1594,8 +2136,9 @@ class App(tk.Tk):
             self.run_action(a, opts)
 
     # ------------------------------------------------------------------ inceleme (fark) penceresi
-    def review(self, d, ms, me, source, res, action, translate_mode=None):
+    def review(self, d, ms, me, source, res, action, translate_mode=None, images=None):
         new = res['text']
+        images = images or {}
         win = tk.Toplevel(self)
         win.title('AI önerisi · %s' % action['label'])
         win.configure(bg=PANEL)
@@ -1661,10 +2204,42 @@ class App(tk.Tk):
                 messagebox.showwarning('Belge kapalı', 'Belge kapatılmış; "Yeni sekmede aç" kullanın.', parent=win)
                 return
             t = d.text
-            cur_src = t.get(ms, me)
+            cur_src = t.markdown(ms, me)[0] if t.rich else t.get(ms, me)
             if cur_src != source and not messagebox.askyesno('Metin değişmiş', 'Siz beklerken bu bölüm değiştirildi. Yine de uygulansın mı?', parent=win):
                 return
             txt = final_text()
+            if t.rich:
+                lost = [k for k in images if '![resim:%s]' % k not in txt]
+                if lost and mode == 'replace':      # yapay zeka resim yer tutucusunu dusurduyse resmi kaybetme
+                    txt = txt.rstrip() + '\n\n' + '\n\n'.join('![resim:%s]' % k for k in lost)
+                one = rdoc.markdown_to_blocks(txt, images)
+                if mode == 'replace':
+                    start, end = t.replace_with_markdown(ms, me, txt, images)
+                elif mode == 'append' and len(one) == 1 and one[0]['t'] == 'p' and len(txt) <= 240 and \
+                        not one[0].get('list') and one[0].get('style') == 'normal':
+                    start = t.index(me)                 # kisa devam: ayni paragrafa ekle
+                    t.undo.separator()
+                    t.undo.begin()
+                    try:
+                        end = t.insert_runs(me, [rdoc.run(' ')] + one[0]['runs'])
+                        t.refresh_fonts(start, end)
+                    finally:
+                        t.undo.end()
+                else:
+                    r = t.insert_markdown_after(me, txt, images)
+                    if not r:
+                        close()
+                        return
+                    start, end = r
+                t.tag_remove('sel', '1.0', 'end')
+                t.tag_add('ai_new', start, end)
+                t.see(start)
+                self.after(2500, lambda: t.tag_remove('ai_new', '1.0', 'end') if d in self.docs else None)
+                self._doc_changed(d)
+                close()
+                self.flash('Uygulandı. Geri almak için Ctrl+Z.' + (' Yanıtta eksik %d resim belgenin sonuna korundu.' % len(lost) if lost and mode == 'replace' else ''))
+                return
+            t.undo.begin()
             t.configure(autoseparators=False)
             t.edit_separator()
             if mode == 'replace':
@@ -1682,6 +2257,7 @@ class App(tk.Tk):
                 end = t.index('%s+%dc' % (start, len(txt)))
             t.edit_separator()
             t.configure(autoseparators=True)
+            t.undo.end()
             t.tag_remove('sel', '1.0', 'end')
             t.tag_add('ai_new', start, end)
             self._highlight(d)
@@ -1691,7 +2267,11 @@ class App(tk.Tk):
             self.flash('Uygulandı. Geri almak için Ctrl+Z.')
 
         def newtab():
-            self.new_doc(final_text(), '%s · %s' % (d.title, action['label'])[:60])
+            title = '%s · %s' % (d.title, action['label'])
+            if d.rich:
+                self.new_doc(title=title[:60], blocks=rdoc.markdown_to_blocks(final_text(), images) or [rdoc.para()])
+            else:
+                self.new_doc(final_text(), title[:60])
             close()
 
         def copy():
@@ -1737,9 +2317,10 @@ class App(tk.Tk):
         d = self.cur()
         if d and (self.chat_ctx.get() or prompt):
             try:
-                document = d.text.get('sel.first', 'sel.last')
+                s0, e0 = d.text.index('sel.first'), d.text.index('sel.last')
             except tk.TclError:
-                document = d.text.get('1.0', 'end-1c')
+                s0, e0 = '1.0', d.text.index('end-1c')
+            document = d.text.markdown(s0, e0)[0] if d.rich else d.text.get(s0, e0)
         self.chat_messages.append({'role': 'user', 'content': text})
         self._chat_append('Siz' + (' · ' + label if label else ''), text if not prompt else '(%s)' % (label or 'istek'), 'u')
         msgs = list(self.chat_messages)
@@ -1757,9 +2338,18 @@ class App(tk.Tk):
         last = next((m['content'] for m in reversed(self.chat_messages) if m['role'] == 'assistant'), '')
         d = self.cur()
         if last and d:
-            d.text.edit_separator()
-            d.text.insert('insert', last)
-            d.text.edit_separator()
+            self._insert_text(d, last)
+
+    def _insert_text(self, d, text):
+        """Yapay zeka yanitini imlece ekler; bicimli belgede Markdown bicimiyle."""
+        t = d.text
+        if t.rich:
+            t.insert_markdown('insert', text)
+        else:
+            t.edit_separator()
+            t.insert('insert', text)
+            t.edit_separator()
+        self._doc_changed(d)
 
     def clear_chat(self):
         self.chat_messages = []
@@ -2154,11 +2744,28 @@ def smoke(out_png: str) -> int:
     sw, sh = app.winfo_screenwidth(), app.winfo_screenheight()
     app.geometry('%dx%d+0+0' % (min(1280, sw), min(800, sh - 40)))
     d = app.cur()
-    d.text.insert('1.0', SAMPLE)
-    app._highlight(d)
-    d.title = 'gida-guvenligi-kulturu.md'
+    blocks = rdoc.markdown_to_blocks(SAMPLE)
+    try:
+        from PIL import Image, ImageDraw
+        import io as _io
+        im = Image.new('RGB', (640, 220), (234, 242, 250))
+        dr = ImageDraw.Draw(im)
+        for k, (hgt, col) in enumerate(((120, (31, 111, 163)), (170, (73, 179, 239)), (90, (226, 179, 86)), (150, (111, 211, 155)))):
+            dr.rectangle((60 + k * 140, 200 - hgt, 150 + k * 140, 200), fill=col)
+        buf = _io.BytesIO()
+        im.save(buf, 'PNG')
+        blocks.insert(3, rdoc.image_block(buf.getvalue(), 300, 103, align='center'))
+    except Exception as e:
+        print('image failed', e)
+    blocks.append({'t': 'table', 'rows': [[[rdoc.run('Gösterge', b=True)], [rdoc.run('2025', b=True)], [rdoc.run('2026', b=True)]],
+                                          [[rdoc.run('Eğitim saati / kişi')], [rdoc.run('6')], [rdoc.run('9')]],
+                                          [[rdoc.run('Ramak kala bildirimi')], [rdoc.run('14')], [rdoc.run('41')]]]})
+    d.text.load_blocks(blocks)
+    d.title = 'gida-guvenligi-kulturu.docx'
     app.nb.tab(d.frame, text=app._tab_title(d))
-    d.text.tag_add('sel', '3.0', '3.end')
+    d.text.tag_add('sel', '2.0', '2.end')
+    d.text.mark_set('insert', '2.5')
+    app._sync_fmt_bar()
     app.conn_var.set('● AI Manager: agfocert.com · gpt-5.5')
     app.conn_lbl.configure(fg=OK_C)
     app.chat_messages = [{'role': 'user', 'content': 'Bu yazının en zayıf yeri neresi?'}]
@@ -2220,16 +2827,66 @@ def smoke(out_png: str) -> int:
         v.pr.add_overlay(0, {'type': 'text', 'rect': (58, 176, 420, 194), 'text': 'Sonuç: Uygun (denetçi onaylı)',
                              'size': 11, 'color': '1f6a4a', 'whiteout': True, 'bold': True})
         v.pr.add_overlay(0, {'type': 'box', 'rect': (52, 108, 500, 130), 'color': 'e03131', 'width': 1.5})
+        try:                                       # 1.4: yerinde metin duzenleme (gercek PDF metni)
+            bx = v.pr.pages[0]['box']
+            hit = None
+            for yy in range(int(bx[3]) - 40, 0, -4):
+                info = v.pr.find_text_line(0, *agfo_pdf.user_to_display(80, yy, bx, 0))
+                if info and info['text'].startswith('Bulgu'):
+                    hit = info
+                    break
+            if hit:
+                v.pr.edit_text(0, hit, 'Bulgu: Soğuk oda temizlik doğrulama kayıtları son 3 ayda eksik (2 kayıt bulundu).')
+        except Exception as e:
+            print('pdf edit failed', e)
         app.toggle_ai_panel()
         v.relayout()
         v.page_list.selection_set(0)
         for _ in range(30):
             app.update()
+        try:
+            v.tool.set('edit_text')
+            v._tool_changed()
+            info = v.pr.find_text_line(0, *agfo_pdf.user_to_display(80, 750, v.pr.pages[0]['box'], 0))
+            if info:
+                a_, b_, c_, d_ = info['drect']
+                v._do_hover(v.page_x[0] + (a_ + 30) * v.zoom - v.canvas.canvasx(0),
+                            v.page_y[0] + (b_ + d_) / 2 * v.zoom - v.canvas.canvasy(0), 'edit_text')
+        except Exception as e:
+            print('hover failed', e)
         app.after(400)
         app.update()
         grab('pdf')
     except Exception as e:
         print('pdf shot failed', e)
+    # 1.4: yan yana ceviri
+    try:
+        orig = d.text.get_blocks()
+        en = {'Gıda güvenliği kültürü neden önemlidir?': 'Why does food safety culture matter?',
+              'Çalışan anketleri': 'Employee surveys', 'Eğitim kayıtları': 'Training records',
+              'Yönetim gözden geçirmesi': 'Management review', 'Gösterge': '**Indicator**',
+              'Eğitim saati / kişi': 'Training hours / person', 'Ramak kala bildirimi': 'Near-miss reports'}
+        segs = dtr.segments(orig)
+        done = {}
+        for n, (_key, md) in enumerate(segs):
+            plain = md.replace('**', '')
+            if plain in en:
+                done[n] = en[plain]
+            elif plain.startswith('Gıda güvenliği kültürü bir'):
+                done[n] = ('Food safety culture means that everyone in a company cares about food safety. This is very important '
+                           'because food safety is important and customers want safe products.')
+            elif plain.startswith('BRCGS'):
+                done[n] = ('BRCGS Issue 9 clause 1.1.2 requires senior management to have a food safety and quality culture plan. '
+                           'The plan must include measurable objectives, actions and a timeline.')
+        trans = dtr.apply(orig, segs, done)
+        app.open_compare(orig, trans, 'gida-guvenligi-kulturu', 'Özgün', 'English')
+        for _ in range(10):
+            app.update()
+        grab('compare')
+        app.close_compare(app.nametowidget(app.nb.select()))
+    except Exception as e:
+        print('compare shot failed', e)
+    app.nb.select(d.frame)
     ms, me = 'ais_x', 'aie_x'
     d.text.mark_set(ms, '3.0')
     d.text.mark_set(me, '3.end')
