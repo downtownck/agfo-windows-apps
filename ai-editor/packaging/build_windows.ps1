@@ -9,22 +9,19 @@ Write-Host ('Python: ' + $python)
 if ($LASTEXITCODE) { throw 'pip install failed' }
 function Write-Annotation([string]$title, [string]$text) {
     # GitHub annotations are readable through the REST API even when raw logs are not.
-    $chunks = [regex]::Split($text, '(?<=\G[\s\S]{1,3500})')
     $n = 0
-    foreach ($c in $chunks) {
-        if (-not $c) { continue }
+    for ($k = 0; $k -lt $text.Length -and $n -lt 8; $k += 3500) {
         $n++
-        if ($n -gt 8) { break }
+        $c = $text.Substring($k, [Math]::Min(3500, $text.Length - $k))
         $msg = $c.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
         Write-Host ('::error title=' + $title + ' ' + $n + '::' + $msg)
     }
 }
 $testLog = Join-Path $env:TEMP 'agfo-editor-tests.txt'
-$prevEap = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
-& $python -m unittest discover -s (Join-Path $root 'tests') -v *> $testLog
-$testExit = $LASTEXITCODE
-$ErrorActionPreference = $prevEap
+$env:PYTHONIOENCODING = 'utf-8'
+$tp = Start-Process -FilePath $python -ArgumentList @('-m', 'unittest', 'discover', '-s', ('"' + (Join-Path $root 'tests') + '"'), '-v') `
+    -RedirectStandardError $testLog -RedirectStandardOutput ($testLog + '.out') -NoNewWindow -PassThru -Wait
+$testExit = $tp.ExitCode
 Get-Content -LiteralPath $testLog -Encoding UTF8 | Write-Host
 if ($testExit) {
     $all = Get-Content -LiteralPath $testLog -Raw -Encoding UTF8
