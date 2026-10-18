@@ -49,7 +49,8 @@ def designed_pdf(path):
                b'BT /F1 20 Tf 1 1 1 rg 55 778 Td (Baslik beyaz) Tj ET\n'
                b'q /GS0 gs 1 0.5 0 rg 40 600 300 120 re f Q\n'
                b'BT /F1 11 Tf 0 0 0 rg 55 700 Td (Satir bir) Tj 0 -18 Td (Duzenlenecek satir) Tj 0 -18 Td [(Kern)-250(li)] TJ ET\n'
-               b'q 420 590 100 100 re W n /CS0 cs 0.6 scn 400 580 140 120 re f Q\n')
+               b'q 420 590 100 100 re W n /CS0 cs 0.6 scn 400 580 140 120 re f Q\n'
+               b'q 0.5 0 0 0.5 30 280 cm BT 0.08 Tc 48 0 0 48 50 560 Tm /F1 1 Tf (BUYUK BASLIK) Tj ET Q\n')
     objs = ['<< /Type /Catalog /Pages 2 0 R >>',
             '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
             '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> '
@@ -222,6 +223,23 @@ class PdfEditTests(unittest.TestCase):
         with um.patch.object(E, 'strip_ops', side_effect=E.EditError('uyumsuz')):
             self.assertEqual(pr3.edit_text(0, info3, 'Yedek yol'), 'overlay')
         self.assertEqual(pr3.pages[0]['overlays'][-1]['text'], 'Yedek yol')
+
+    def test_matrix_scaled_text_keeps_size_and_tracking(self):
+        # tasarim programlari '1 Tf' + olcekli matris kullanir; 1.4.2 yeni metni 1 pt yaziyordu (Skill Leap PDF'i)
+        src = designed_pdf(os.path.join(TMP, 'olcekli.pdf'))
+        pr = P.PdfProject(src)
+        info = pr.find_text_line(0, *self.disp(pr, 0, 70, 563))
+        self.assertEqual(info['text'], 'BUYUK BASLIK')
+        self.assertAlmostEqual(info['size'], 24.0, places=1)                              # 1 x 48 x 0.5
+        pr.edit_text(0, info, 'BUYUK BASLIK')
+        out = pr.save(os.path.join(TMP, 'olcekli-out.pdf'))
+        pr2 = P.PdfProject(out)
+        info2 = pr2.find_text_line(0, *self.disp(pr2, 0, 70, 563))
+        self.assertEqual(info2['text'], 'BUYUK BASLIK')
+        self.assertAlmostEqual(info2['size'], 24.0, places=1)
+        w1 = info['rect'][2] - info['rect'][0]
+        w2 = info2['rect'][2] - info2['rect'][0]
+        self.assertLess(abs(w1 - w2) / w1, 0.04, (w1, w2))                                # harf araligi da korundu
 
     def test_font_picker(self):
         self.assertTrue(os.path.isfile(E.pick_font('ABCDEF+Helvetica-Bold', True)))

@@ -354,24 +354,49 @@ class PdfProject:
         p['src'], p['index'] = key, 0
         return key
 
-    def text_color(self, i, info):
-        """Satirdaki metnin GORUNEN rengi (sayfa cizilerek): pdfium'un bildirdigi dolgu rengi ozel renk alanlarinda
-        (Separation/ICC/desen) yaniltici olabiliyor (or. beyaz zemine beyaz yazi)."""
+    def _ring_and_inner(self, i, info, k=2.0):
+        """(zemin pikselleri: kutunun hemen disindaki halka, ic pikseller). Iri yazilarda kutunun ici cogunlukla
+        yazinin kendisidir; zemin bu yuzden disaridan okunur."""
+        img = self.render(i, k).convert('RGB')
+        a, b, c, d = info['drect']
+        A, B = max(0, int(a * k)), max(0, int(b * k))
+        C, D = min(img.width, int(c * k) + 1), min(img.height, int(d * k) + 1)
+        g = max(2, int(3 * k))
+        outer = img.crop((max(0, A - g), max(0, B - g), min(img.width, C + g), min(img.height, D + g)))
+        ow, oh = outer.size
+        ring = []
+        px = _pixels(outer)
+        ia, ib = A - max(0, A - g), B - max(0, B - g)
+        for yy in range(oh):
+            for xx in range(ow):
+                if not (ia <= xx < ia + (C - A) and ib <= yy < ib + (D - B)):
+                    ring.append(px[yy * ow + xx])
+        inner = _pixels(img.crop((A, B, C, D))) if C > A and D > B else []
+        return ring, inner
+
+    def _bg_color(self, i, info):
         try:
-            k = 2.0
-            img = self.render(i, k).convert('RGB')
-            a, b, c, d = info['drect']
-            box = (max(0, int(a * k)), max(0, int(b * k)), min(img.width, int(c * k) + 1), min(img.height, int(d * k) + 1))
-            if box[2] - box[0] < 2 or box[3] - box[1] < 2:
-                return None
-            px = _pixels(img.crop(box))
             from collections import Counter
-            bg = Counter(px).most_common(1)[0][0]
-            far = [q for q in px if sum(abs(q[n] - bg[n]) for n in range(3)) > 120]
+            ring, inner = self._ring_and_inner(i, info)
+            pool = ring or inner
+            return '%02x%02x%02x' % Counter(pool).most_common(1)[0][0]
+        except Exception:
+            return 'ffffff'
+
+    def text_color(self, i, info):
+        """Satirdaki metnin GORUNEN rengi: zeminden en belirgin ayrilan ic pikseller (ozel renk alaninda pdfium'un
+        bildirdigi dolgu rengi yaniltici olabilir)."""
+        try:
+            from collections import Counter
+            ring, inner = self._ring_and_inner(i, info)
+            if not inner:
+                return None
+            bg = Counter(ring or inner).most_common(1)[0][0]
+            far = [q for q in inner if sum(abs(q[n] - bg[n]) for n in range(3)) > 120]
             if len(far) < 3:
                 return None
             far.sort(key=lambda q: -sum(abs(q[n] - bg[n]) for n in range(3)))
-            top = far[:max(3, len(far) // 4)]          # kenar yumusatmasi olmayan en belirgin pikseller
+            top = far[:max(3, len(far) // 4)]
             return '%02x%02x%02x' % tuple(sum(q[n] for q in top) // len(top) for n in range(3))
         except Exception:
             return None
@@ -411,16 +436,6 @@ class PdfProject:
         self.add_overlay(i, {'type': 'text', 'rect': rect, 'text': new_text, 'size': sz, 'bold': bool(bold if bold is not None else info.get('bold')),
                              'color': (color or '000000').lstrip('#'), 'whiteout': True, 'bg': self._bg_color(i, info)})
 
-    def _bg_color(self, i, info):
-        try:
-            k = 2.0
-            img = self.render(i, k).convert('RGB')
-            a, b, c, d = info['drect']
-            from collections import Counter
-            px = _pixels(img.crop((max(0, int(a * k)), max(0, int(b * k)), int(c * k) + 1, int(d * k) + 1)))
-            return '%02x%02x%02x' % Counter(px).most_common(1)[0][0]
-        except Exception:
-            return 'ffffff'
 
     def remove_image(self, i, info):
         import agfo_pdf_edit as E

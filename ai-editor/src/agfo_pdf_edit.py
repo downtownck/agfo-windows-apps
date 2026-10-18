@@ -140,6 +140,12 @@ def pick_font(name='', bold=False, italic=False, serif=False):
     if same and same.lower().endswith('.ttf'):
         _FONT_CACHE[key] = same
         return same
+    low = name.lower()
+    if any(k in low for k in ('black', 'heavy', 'extrabold', 'ultrabold')) and not serif:
+        for p in (_file_index().get('ariblk'), _file_index().get('arialblack')):
+            if p:
+                _FONT_CACHE[key] = p
+                return p
     n = name.lower().split('+')[-1]
     slot = (1 if bold else 0) + (2 if italic else 0)
     dirs = _font_dirs()
@@ -191,6 +197,21 @@ def _char_info(raw, tp, ci):
     return {'origin': (x.value, y.value), 'size': float(raw.FPDFText_GetFontSize(tp.raw, ci)) or 11.0, 'font': name,
             'bold': bold, 'italic': italic, 'serif': serif, 'color': '%02x%02x%02x' % color,
             'angle': float(raw.FPDFText_GetCharAngle(tp.raw, ci))}
+
+
+def _effective_size(raw, obj, fallback=None):
+    """Gorunen yazi boyutu (pt): 'Tf' boyutu x metin/CTM matrisi olcegi. Tasarim programlari cogu zaman
+    '1 Tf' yazip boyutu matrisle verir (or. 225 0 0 225 Tm + 0.24 cm = 54 pt); pdfium bu durumda 1 bildirir."""
+    try:
+        fs = ctypes.c_float()
+        if not raw.FPDFTextObj_GetFontSize(obj.raw, fs):
+            return fallback
+        m = obj.get_matrix()
+        scale = abs(m.a * m.d - m.b * m.c) ** 0.5
+        size = fs.value * (scale or 1.0)
+        return round(size, 2) if size > 0.5 else fallback
+    except Exception:
+        return fallback
 
 
 def find_line(pdf, index, x, y):
@@ -245,6 +266,7 @@ def find_line(pdf, index, x, y):
         if chars:
             text = tp.get_text_range(chars[0], chars[-1] - chars[0] + 1)
         first = _char_info(raw, tp, chars[0]) if chars else info
+        first['size'] = _effective_size(raw, tops[k0], first.get('size'))
         out = dict(info)
         out.update(first)
         out.update({'nested': False, 'rect': tuple(rect), 'text': text.replace('\r\n', '\n').strip(),
@@ -471,7 +493,7 @@ def text_width(text, font_path, size):
         return 0.0
 
 
-def text_layer(width, height, origin, lines, size, color, font_path, lead, hscale=1.0):
+def text_layer(width, height, origin, lines, size, color, font_path, lead, hscale=1.0, tc=0.0):
     """Yalniz yeni metni iceren tek sayfalik PDF (pdfium ile; ozgun sayfaya dokunmaz). (baytlar, yazi_tipi_adi)."""
     pdfium, raw = _lib()
     doc = pdfium.PdfDocument.new()
@@ -505,9 +527,31 @@ def text_layer(width, height, origin, lines, size, color, font_path, lead, hscal
         page.close()
         out = _save(doc)
         raw.FPDFFont_Close(font)
+        if abs(tc) > 0.01:
+            out = _add_char_spacing(out, tc)
         return _fix_space_mapping(out, base_name), base_name
     finally:
         doc.close()
+
+
+def _add_char_spacing(data, tc):
+    """Katman sayfasindaki her yazi tipi secimine (Tf) harf araligi (Tc) ekler."""
+    try:
+        import pypdf
+        from pypdf.generic import FloatObject
+        w = pypdf.PdfWriter(clone_from=pypdf.PdfReader(io.BytesIO(data)))
+        page = w.pages[0]
+        cs = _page_ops(page, w)
+        ops = []
+        for operands, op in cs.operations:
+            ops.append((operands, op))
+            if op == b'Tf':
+                ops.append(([FloatObject(round(tc, 4))], b'Tc'))
+        cs.operations = ops
+        page.replace_contents(cs)
+        return _writer_bytes(w)
+    except Exception:
+        return data
 
 
 def remove_objects(reader, index, pdf_bytes, ordinals, kind=OBJ_IMAGE):
@@ -540,15 +584,25 @@ def replace_text(reader, index, pdf_bytes, info, new_text, size=None, bold=None,
         lead = max(size * 1.2, info.get('line_height') or 0)
         # yedek aile kullaniliyorsa: eski metnin ozgun genisligiyle yedek yazi tipindeki genisligini oranla, yeni metni
         # ayni oranda yatay olcekle (satir uzunlugu ve gorunum ozgune yakin kalir)
-        hscale = 1.0
+        # eski metnin sayfadaki genisligi ile secilen yazi tipindeki genisligi farkini harf araligi (Tc) olarak uygula:
+        # tasarim belgelerindeki genis harf araligi (tracking) ve yedek yazi tipi farki boylece korunur, glif bozulmaz
+        # Ayni aile / ayni olculu yazi tipinde fark harf araligidir (tracking) -> Tc. Farkli aileye dusulduyse (ozgun
+        # yazi tipi kurulu degil) fark glif genisligidir -> yatay olcek; boylece satir ozgun genislige ve gorunume yakin kalir.
+        tc, hscale = 0.0, 1.0
         old = (info.get('text') or '').split('\n')[0]
         w_old = (info.get('rect') or (0, 0, 0, 0))[2] - (info.get('rect') or (0, 0, 0, 0))[0]
         w_sub = text_width(old, font_path, size)
-        if old.strip() and w_old > 4 and w_sub > 4 and not _metric_compatible(info.get('font', ''), font_path):
-            hscale = max(0.9, min(1.12, w_old / w_sub))
-            if abs(hscale - 1.0) < 0.03:
-                hscale = 1.0
-        layer, _name = text_layer(max(width, 1), max(height, 1), info['origin'], lines, size, color, font_path, lead, hscale)
+        if len(old.strip()) > 2 and w_old > 4 and w_sub > 4 and '\t' not in old:
+            if _metric_compatible(info.get('font', ''), font_path):
+                tc = (w_old - w_sub) / max(1, len(old) - 1)
+                tc = max(-0.06 * size, min(0.3 * size, tc))
+                if abs(tc) < 0.015 * size:
+                    tc = 0.0
+            else:
+                hscale = max(0.85, min(1.35, w_old / w_sub))
+                if abs(hscale - 1.0) < 0.03:
+                    hscale = 1.0
+        layer, _name = text_layer(max(width, 1), max(height, 1), info['origin'], lines, size, color, font_path, lead, hscale, tc)
         lp = pypdf.PdfReader(io.BytesIO(layer)).pages[0]
         _ = (x0, y0)
         page.merge_page(lp, over=True)         # kullanici uzayinda birlesir; /Rotate'li sayfada da dogru konum
