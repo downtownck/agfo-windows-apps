@@ -7,8 +7,32 @@ $python = (Get-Command python.exe -ErrorAction Stop).Source
 Write-Host ('Python: ' + $python)
 & $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'Pillow>=11,<13' 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'cryptography>=42,<47'
 if ($LASTEXITCODE) { throw 'pip install failed' }
-& $python -m unittest discover -s (Join-Path $root 'tests') -v
-if ($LASTEXITCODE) { throw 'unit tests failed' }
+function Write-Annotation([string]$title, [string]$text) {
+    # GitHub annotations are readable through the REST API even when raw logs are not.
+    $chunks = [regex]::Split($text, '(?<=\G[\s\S]{1,3500})')
+    $n = 0
+    foreach ($c in $chunks) {
+        if (-not $c) { continue }
+        $n++
+        if ($n -gt 8) { break }
+        $msg = $c.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
+        Write-Host ('::error title=' + $title + ' ' + $n + '::' + $msg)
+    }
+}
+$testLog = Join-Path $env:TEMP 'agfo-editor-tests.txt'
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+& $python -m unittest discover -s (Join-Path $root 'tests') -v *> $testLog
+$testExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
+Get-Content -LiteralPath $testLog -Encoding UTF8 | Write-Host
+if ($testExit) {
+    $all = Get-Content -LiteralPath $testLog -Raw -Encoding UTF8
+    $k = $all.IndexOf('======')
+    if ($k -lt 0) { $k = [Math]::Max(0, $all.Length - 6000) }
+    Write-Annotation 'unit tests' $all.Substring($k)
+    throw 'unit tests failed'
+}
 $work = Join-Path $env:RUNNER_TEMP 'agfo-editor-build'
 if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-editor-build' }
 & $python -m PyInstaller --noconfirm --clean --onefile --windowed --name AGFO-AI-Editor `
@@ -30,5 +54,5 @@ if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'self-test timeout' }
 if (-not (Test-Path -LiteralPath $out)) { throw ('self-test wrote no result, exit ' + $p.ExitCode) }
 $r = Get-Content -LiteralPath $out -Raw -Encoding UTF8 | ConvertFrom-Json
 Write-Host ('Self-test: ' + ($r | ConvertTo-Json -Compress))
-if (-not $r.ok) { throw 'self-test failed' }
+if (-not $r.ok) { Write-Annotation 'self-test' ($r | ConvertTo-Json -Compress -Depth 6); throw 'self-test failed' }
 Write-Host ('BUILT: ' + $exe) -ForegroundColor Green
