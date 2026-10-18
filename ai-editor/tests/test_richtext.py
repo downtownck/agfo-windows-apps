@@ -233,6 +233,23 @@ class RichTextTests(unittest.TestCase):
         t._on_paste()
         self.assertEqual(R.runs_text(t.get_blocks()[2]['runs']), 'metin')
 
+    def test_tk_bindings_probing_selection_do_not_crash_mainloop(self):
+        # 1.4.0'da Tk'nin kendi baglari (catch {index sel.first}) Python hatasi birakip mainloop'u durduruyordu
+        t = self.t
+        t.load_blocks([R.para(text='abc def')])
+        self.assertEqual(t.tk.eval('catch {%s index sel.first}' % t._w), '1')
+        with self.assertRaises(tk.TclError):
+            t.index('sel.first')
+        t.focus_force()
+        _root.update()
+        for ev in ('<Shift-Left>', '<Delete>', '<BackSpace>', '<Left>', '<Control-x>', '<Control-c>', '<Control-v>',
+                   '<Button-1>', '<B1-Motion>', '<ButtonRelease-1>', '<Control-a>'):
+            t.event_generate(ev, x=5, y=5)
+            _root.update()
+        _root.after(150, _root.quit)
+        _root.mainloop()                                                    # hata birakilmissa burada firlardi
+        self.assertTrue(t.get('1.0', 'end-1c'))
+
     def test_plain_mode(self):
         t = RT.RichText(_root, COLORS, rich=False)
         t.insert('1.0', '# düz metin')

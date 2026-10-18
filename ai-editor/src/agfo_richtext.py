@@ -31,6 +31,8 @@ ALIGN_TAGS = ('al_center', 'al_right', 'al_justify')
 PARA_FIXED = set(STYLE_TAGS + LIST_TAGS + LEVEL_TAGS + ALIGN_TAGS + ('tbl', 'pb'))
 CHAR_FIXED = {'b', 'i', 'u'}
 TRANSIENT = {'sel', 'found', 'ai_new', 'hover', 'md_h', 'md_mark', 'md_li', 'fmt_flash', 'pairhl'}
+ERR_MARK = '\x01AGFOERR\x01'
+ERR_MARK_TCL = '\\x01AGFOERR\\x01'
 BULLETS = ('• ', '◦ ', '▪ ', '▫ ')
 STYLE_SCALE = {'normal': 1.0, 'h1': 1.6, 'h2': 1.35, 'h3': 1.15, 'quote': 1.0}
 PAGE_COLORS = {'bg': '#ffffff', 'fg': '#1b1b1b', 'sel': '#b9d7f7', 'insert': '#1b1b1b', 'h1': '#1f3864', 'h2': '#2f5496',
@@ -70,7 +72,15 @@ class RichText(tk.Text):
         self.undo = UndoManager(self)
         self._orig = self._w + '_agfo'
         self.tk.call('rename', self._w, self._orig)
-        self.tk.createcommand(self._w, self._dispatch)
+        # Python komutu hata FIRLATMAZ (Tkinter firlatilan hatayi saklayip mainloop'u durdurur); hatayi isaretli metin
+        # olarak doner, Tcl sarmalayici bunu gercek Tcl hatasina cevirir. Boylece Tk'nin 'catch' kullanan baglari ve
+        # Python'daki try/except TclError dogru calisir, uygulama cokmez.
+        self._py = self._w + '_agfo_py'
+        self.tk.createcommand(self._py, self._dispatch_safe)
+        self.tk.call('proc', self._w, 'args',
+                     'set r [%s {*}$args]\n'
+                     'if {[string first "%s" $r] == 0} {return -code error [string range $r %d end]}\n'
+                     'return $r' % (self._py, ERR_MARK_TCL, len(ERR_MARK)))
         self.configure_tags()
         self.rich = False
         if rich:
@@ -101,6 +111,16 @@ class RichText(tk.Text):
     def _call(self, *args):
         r = self.tk.call((self._orig,) + args)
         return r if isinstance(r, (str, tuple, int, float)) else str(r)
+
+    def _dispatch_safe(self, *args):
+        try:
+            return self._dispatch(*args)
+        except tk.TclError as e:
+            return ERR_MARK + str(e)
+        except Exception as e:  # beklenmeyen hata: editor calismaya devam etsin
+            import traceback
+            self._last_error = traceback.format_exc()
+            return ERR_MARK + 'AGFO editor: %r' % (e,)
 
     def _dispatch(self, op, *args):
         if op == 'insert' and self.undo.recording:
@@ -256,10 +276,11 @@ class RichText(tk.Text):
         try:
             super().destroy()
         finally:
-            try:
-                self.tk.deletecommand(self._w)
-            except tk.TclError:
-                pass
+            for cmd in (lambda: self.tk.call('rename', self._w, ''), lambda: self.tk.deletecommand(self._py)):
+                try:
+                    cmd()
+                except tk.TclError:
+                    pass
 
     def changed(self):
         if self.on_change:
@@ -1382,8 +1403,8 @@ class RichText(tk.Text):
 
     def page_count(self):
         try:
-            h = self.count('1.0', 'end', 'ypixels')
-            h = h[0] if isinstance(h, tuple) else h
+            h = self._call('count', '-ypixels', '1.0', 'end')
+            h = int(h[0] if isinstance(h, tuple) else h)
         except (tk.TclError, TypeError):
             return 1
         usable = self.px(841.9 - 2 * R.MARGIN_PT)
