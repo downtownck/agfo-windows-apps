@@ -562,6 +562,73 @@ class GuiTests(unittest.TestCase):
         self.app.remove_sources()
         self.assertEqual((self.app.src_docs, self.app.settings['sources']), ({}, []))
 
+    def test_pdf_opens_as_text_and_never_overwrites_original(self):
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        from test_sources import make_pdf
+        pdf = os.path.join(TMP, 'kitap.pdf')
+        make_pdf(pdf, [['Birinci sayfa metni'], ['Ikinci sayfa metni']])
+        before = pathlib.Path(pdf).read_bytes()
+        self.app.open_path(pdf)
+        self.assertTrue(self.pump(lambda: self.app.cur().title == 'kitap.pdf (metin)'))
+        d = self.app.cur()
+        body = d.text.get('1.0', 'end-1c')
+        self.assertEqual(body, '## s. 1\n\nBirinci sayfa metni\n\n## s. 2\n\nIkinci sayfa metni')
+        self.assertFalse(d.dirty)
+        self.assertIsNone(d.path)
+        self.assertEqual(d.origin, os.path.abspath(pdf))
+        self.assertEqual(len(self.app.src_docs), 1)                              # Kaynaklar'a da eklendi
+        self.assertIs(self.app.open_path(pdf), d)                               # ikinci kez acilmaz, sekmesi secilir
+        self.assertEqual(sum(1 for x in self.app.docs if getattr(x, 'origin', None)), 1)
+        asked = {}
+        with mock.patch.object(self.m.filedialog, 'asksaveasfilename', lambda **k: asked.update(k) or ''):
+            self.app.save(d)
+        self.assertEqual(asked['initialfile'], 'kitap.docx')
+        self.assertNotIn('*.pdf', str(asked['filetypes']))
+        self.assertEqual(pathlib.Path(pdf).read_bytes(), before)
+
+    def test_source_threads_are_separate(self):
+        a = os.path.join(TMP, 'a-kaynak.txt')
+        b = os.path.join(TMP, 'b-kaynak.txt')
+        pathlib.Path(a).write_text('Elma hasadı eylülde yapılır.', encoding='utf-8')
+        pathlib.Path(b).write_text('Fındık hasadı ağustosta yapılır.', encoding='utf-8')
+        self.app._load_sources([a, b])
+        self.assertTrue(self.pump(lambda: len(self.app.src_docs) == 2))
+        ids = {d['name']: i for i, d in self.app.src_docs.items()}
+        seen = []
+
+        def fake(backends, fn, messages, document, max_tokens):
+            seen.append((messages, document))
+            return {'text': 'Yanıt %d [K1].' % len(seen), 'via': 'Test', 'model': 'm'}
+        with mock.patch.object(self.m.ai, 'run_with_fallback', fake):
+            self.app.src_tree.selection_set(ids['a-kaynak.txt'])
+            self.app.update()
+            self.assertIn('a-kaynak.txt', self.app.scope_lbl.cget('text'))
+            self.app.src_q.insert('1.0', 'Ne zaman?')
+            self.app.ask_sources()
+            self.assertTrue(self.pump(lambda: 'Yanıt 1' in self.app.src_view.get('1.0', 'end')))
+            self.assertIn('Elma', seen[0][1])
+            self.assertNotIn('Fındık', seen[0][1])                               # yalniz secili belge gonderilir
+            self.app.src_tree.selection_set(ids['b-kaynak.txt'])
+            self.app.update()
+            self.assertNotIn('Yanıt 1', self.app.src_view.get('1.0', 'end'))     # baska belgenin sohbeti gorunmez
+            self.app.src_q.insert('1.0', 'Ne zaman?')
+            self.app.ask_sources()
+            self.assertTrue(self.pump(lambda: 'Yanıt 2' in self.app.src_view.get('1.0', 'end')))
+            self.assertEqual(len(seen[1][0]), 1)                                  # b'nin gecmisi bos
+            self.assertIn('Fındık', seen[1][1])
+            self.app.src_tree.selection_set(ids['a-kaynak.txt'])
+            self.app.update()
+            v = self.app.src_view.get('1.0', 'end')
+            self.assertIn('Yanıt 1', v)
+            self.assertNotIn('Yanıt 2', v)
+            self.app.src_q.insert('1.0', 'Peki neden?')
+            self.app.ask_sources()
+            self.assertTrue(self.pump(lambda: len(seen) == 3))
+            self.assertEqual([m['content'] for m in seen[2][0][:2]], ['Ne zaman?', 'Yanıt 1.'])   # ayni belgenin gecmisi
+            self.app.src_tree.selection_remove(*self.app.src_tree.selection())
+            self.app.update()
+            self.assertIn('tüm belgeler (2)', self.app.scope_lbl.cget('text'))
+
     def test_settings_token_validation(self):
         dlg = self.m.SettingsDialog(self.app)
         dlg.url.set('agfo.app')

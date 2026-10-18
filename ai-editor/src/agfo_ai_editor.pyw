@@ -145,8 +145,11 @@ WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
 EDIT_BG, SEL_BG, PRIMARY = '#0e1b2e', '#285475', '#1f6fa3'
 POLL_MS = 80
 AUTOSAVE_MS = 45000
-FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm'), ('Metin', '*.txt'), ('Markdown', '*.md *.markdown'),
-             ('Word belgesi', '*.docx'), ('HTML', '*.html *.htm'), ('Tüm dosyalar', '*.*')]
+FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm *.pdf *.xlsx *.xlsm *.pptx *.eml *.csv'),
+             ('Metin', '*.txt'), ('Markdown', '*.md *.markdown'), ('Word belgesi', '*.docx'), ('PDF (metin olarak)', '*.pdf'),
+             ('Excel / PowerPoint (metin olarak)', '*.xlsx *.xlsm *.pptx'), ('HTML', '*.html *.htm'), ('Tüm dosyalar', '*.*')]
+SAVE_FILETYPES = [('Metin', '*.txt'), ('Markdown', '*.md'), ('Word belgesi', '*.docx'), ('HTML', '*.html')]
+READ_ONLY_KINDS = ('.pdf', '.xlsx', '.xlsm', '.pptx', '.eml')
 
 
 class Doc:
@@ -473,6 +476,8 @@ class App(tk.Tk):
     def _tab_sources(self, f):
         self.src_docs = {}            # doc_id -> belge (agfo_sources.extract)
         self.src_answers = {}         # etiket haritalari (atif baglantilari)
+        self.src_threads = {}         # 1.2.1: kapsam (secili belgeler) -> ayri sohbet {'messages', 'log'}
+        self.src_scope = 'all'
         top = tk.Frame(f, bg=PANEL)
         top.pack(fill='x')
         self.btn(top, '+ Belge ekle', self.add_sources, 'normal')
@@ -488,13 +493,18 @@ class App(tk.Tk):
         self.src_tree.tag_configure('warn', foreground=WARN)
         self.src_tree.pack(fill='x', pady=(4, 2))
         self.src_tree.bind('<Double-1>', lambda e: self.show_selected_source())
+        self.src_tree.bind('<<TreeviewSelect>>', lambda e: self._switch_scope())
         self.src_info = self.lbl(f, 'PDF, Word, Excel, PowerPoint, metin ve e-posta dosyaları eklenebilir.', muted=True,
                                  wraplength=int(390 * self.scale))
         self.src_info.pack(fill='x')
         self.mask_var = tk.BooleanVar(value=self.settings.get('mask_sources', True))
         ttk.Checkbutton(f, text='Göndermeden önce e-posta, telefon, kimlik no ve IBAN maskele', variable=self.mask_var,
                         command=self._save_mask).pack(anchor='w', pady=(2, 6))
-        self.lbl(f, 'Belgelere soru sorun', muted=True).pack(anchor='w')
+        self.scope_lbl = tk.Label(f, text='', fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w', justify='left',
+                                  wraplength=int(390 * self.scale))
+        self.scope_lbl.pack(fill='x')
+        self.lbl(f, 'Soru (listeden belge seçerseniz yalnız o belgeyle, seçmezseniz tümüyle sohbet edilir)', muted=True,
+                 wraplength=int(390 * self.scale)).pack(anchor='w')
         self.src_q = self._textbox(f, height=2)
         self.src_q.pack(fill='x', pady=(2, 4))
         self.src_q.bind('<Control-Return>', lambda e: (self.ask_sources(), 'break')[1])
@@ -502,6 +512,7 @@ class App(tk.Tk):
         r.pack(fill='x')
         self.btn(r, 'Sor  (Ctrl+Enter)', self.ask_sources, 'primary')
         self.btn(r, 'Yanıtı imlece ekle', self.insert_source_answer, 'ghost')
+        self.btn(r, 'Sohbeti temizle', self.clear_source_thread, 'ghost')
         bottom = tk.Frame(f, bg=PANEL)
         bottom.pack(side='bottom', fill='x', pady=(6, 0))
         g = tk.Frame(bottom, bg=PANEL)
@@ -594,6 +605,7 @@ class App(tk.Tk):
                                      tags=('warn',) if warn else ())
             self._sync_source_settings()
             self._source_summary()
+            self._switch_scope()
             if errs and not quiet:
                 messagebox.showwarning('Kaynaklar', 'Okunamayan belgeler:\n\n' + '\n'.join(errs), parent=self)
         self._start_job('Belgeler okunuyor (%d)' % len(paths), work, done)
@@ -618,8 +630,11 @@ class App(tk.Tk):
         for iid in self.src_tree.selection():
             self.src_docs.pop(iid, None)
             self.src_tree.delete(iid)
+            for k in [k for k in self.src_threads if iid in k.split('|')]:
+                self.src_threads.pop(k, None)
         self._sync_source_settings()
         self._source_summary()
+        self._switch_scope()
 
     def show_selected_source(self):
         sel = self.src_tree.selection()
@@ -644,15 +659,70 @@ class App(tk.Tk):
         d.saved_text = unit_text            # yalniz goruntuleme: kaydet sorusu cikmasin
         self.nb.tab(d.frame, text=self._tab_title(d))
 
-    def _source_context(self, query):
+    # --- kapsam: secili belgeler ya da tumu; her kapsamin kendi sohbeti var
+    def _scope_ids(self):
+        sel = [i for i in self.src_tree.selection() if i in self.src_docs]
+        return sel or list(self.src_docs)
+
+    def _scope_key(self, ids=None):
+        ids = self._scope_ids() if ids is None else ids
+        return 'all' if set(ids) == set(self.src_docs) and len(ids) != 1 else '|'.join(sorted(ids))
+
+    def _scope_title(self, ids):
+        if not ids:
+            return 'Sohbet: belge yok'
+        if len(ids) == 1:
+            return 'Sohbet: %s' % self.src_docs[ids[0]]['name']
+        if set(ids) == set(self.src_docs):
+            return 'Sohbet: tüm belgeler (%d)' % len(ids)
+        return 'Sohbet: %d seçili belge — %s' % (len(ids), ', '.join(self.src_docs[i]['name'] for i in ids)[:120])
+
+    def _thread(self, key=None):
+        key = key or self._scope_key()
+        return self.src_threads.setdefault(key, {'messages': [], 'log': []})
+
+    def _switch_scope(self):
+        ids = self._scope_ids()
+        key = self._scope_key(ids)
+        self.src_scope = key
+        self.scope_lbl.configure(text=self._scope_title(ids))
+        self._render_thread(key)
+
+    def _render_thread(self, key):
+        v = self.src_view
+        v.configure(state='normal')
+        v.delete('1.0', 'end')
+        v.configure(state='disabled')
+        for entry in self._thread(key)['log']:
+            kind = entry[0]
+            if kind == 'a':
+                self._render_answer(entry[1], entry[2], record=False)
+            else:
+                self._src_view_append(entry[1], {'q': 'q', 'meta': 'meta', 'err': 'err'}[kind])
+
+    def _log(self, key, kind, text, labels=None):
+        th = self._thread(key)
+        th['log'].append((kind, text, labels) if kind == 'a' else (kind, text))
+        if key == self.src_scope:
+            if kind == 'a':
+                self._render_answer(text, labels, record=False)
+            else:
+                self._src_view_append(text, {'q': 'q', 'meta': 'meta', 'err': 'err'}[kind])
+
+    def clear_source_thread(self):
+        self.src_threads.pop(self._scope_key(), None)
+        self._render_thread(self._scope_key())
+
+    def _source_context(self, query, ids):
         if not self.src_docs:
             messagebox.showinfo('Kaynaklar', 'Önce "+ Belge ekle" ile en az bir belge ekleyin.', parent=self)
             return None
-        if not any(d['chars'] for d in self.src_docs.values()):
-            messagebox.showwarning('Kaynaklar', 'Eklenen belgelerde okunabilir metin yok (taranmış PDF olabilir). '
-                                   'Yazı tanıma (OCR) 1.3 sürümünde gelecek.', parent=self)
+        docs = {i: self.src_docs[i] for i in ids}
+        if not any(d['chars'] for d in docs.values()):
+            messagebox.showwarning('Kaynaklar', 'Seçili belgelerde okunabilir metin yok (taranmış PDF olabilir). '
+                                   'Yazı tanıma (OCR) sonraki sürümde gelecek.', parent=self)
             return None
-        chunks, mode = srcs.select_context(self.src_docs, query)
+        chunks, mode = srcs.select_context(docs, query)
         context, labels = srcs.build_context(chunks, mask=bool(self.mask_var.get()))
         return context, labels, mode, chunks
 
@@ -660,35 +730,42 @@ class App(tk.Tk):
         q = self.src_q.get('1.0', 'end-1c').strip()
         if not q:
             return
-        prep = self._source_context(q)
+        ids = self._scope_ids()
+        key = self._scope_key(ids)
+        th = self._thread(key)
+        # onceki soruyu da aramaya kat: "peki ya 5. bolumde?" gibi devam sorulari icin
+        prev_q = next((m['content'] for m in reversed(th['messages']) if m['role'] == 'user'), '')
+        prep = self._source_context(q + ' ' + prev_q[:200], ids)
         if not prep:
             return
         context, labels, mode, chunks = prep
         self.src_q.delete('1.0', 'end')
-        self._src_view_append('Soru: %s\n' % q, 'q')
-        msg = srcs.ask_message(q, self.lang_var.get() or 'Türkçe')
+        self._log(key, 'q', 'Soru: %s\n' % q)
+        history = th['messages'][-8:]
+        msgs = history + [{'role': 'user', 'content': srcs.ask_message(q, self.lang_var.get() or 'Türkçe')}]
 
         def done(ok, res):
             if not ok:
-                self._src_view_append(res + '\n', 'err')
+                self._log(key, 'err', res + '\n')
                 return
-            self._render_answer(res['text'], labels)
-            self._src_view_append('%s · %d parça (%s) · %s\n' % (res.get('via', ''), len(chunks),
-                                  'belgelerin tamamı' if mode == 'tam' else 'yerel arama', res.get('model', '')), 'meta')
-        self._start_job('Belgelere soruluyor', ai.run_with_fallback, done, self.backends(), 'chat',
-                        [{'role': 'user', 'content': msg}], context, 2500)
+            th['messages'].append({'role': 'user', 'content': q})
+            th['messages'].append({'role': 'assistant', 'content': srcs.strip_citations(res['text'])})
+            self._log(key, 'a', res['text'], labels)
+            self._log(key, 'meta', '%s · %d parça (%s) · %s\n' % (res.get('via', ''), len(chunks),
+                      'belgenin tamamı' if mode == 'tam' else 'yerel arama', res.get('model', '')))
+        self._start_job('Belgelere soruluyor', ai.run_with_fallback, done, self.backends(), 'chat', msgs, context, 2500)
 
-    def _render_answer(self, text, labels):
+    def _render_answer(self, text, labels, record=True):
         key = uuid.uuid4().hex[:6]
         self.src_answers[key] = labels
-        self.src_last_answer = re.sub(r'\s*\[K\d+(?:\s*[,;]\s*K\d+)*\]', '', text).strip()
+        self.src_last_answer = srcs.strip_citations(text)
         v = self.src_view
         v.configure(state='normal')
         pos = 0
         for m in re.finditer(r'\[(K\d+(?:\s*[,;]\s*K\d+)*)\]', text):
             v.insert('end', text[pos:m.start()], 'body')
             for i, lab in enumerate(re.split(r'\s*[,;]\s*', m.group(1))):
-                c = labels.get(lab)
+                c = (labels or {}).get(lab)
                 if not c:
                     continue
                 tag = 'cite_%s_%s' % (key, lab)
@@ -716,17 +793,19 @@ class App(tk.Tk):
         if ctype[0] == 'custom' and not topic.strip():
             messagebox.showinfo('İçerik üret', 'Özel içerik için ne üretileceğini "Konu / amaç" kutusuna yazın.', parent=self)
             return
-        prep = self._source_context(topic or label)
+        ids = self._scope_ids()
+        key = self._scope_key(ids)
+        prep = self._source_context(topic or label, ids)
         if not prep:
             return
         context, labels, mode, chunks = prep
         msg = srcs.create_message(ctype[0], topic, self.lang_var.get() or 'Türkçe', self.aud_var.get(),
                                   self.extra_txt.get('1.0', 'end-1c').strip())
-        self._src_view_append('Üretiliyor: %s%s\n' % (ctype[1], (' — ' + topic) if topic else ''), 'q')
+        self._log(key, 'q', 'Üretiliyor: %s%s\n' % (ctype[1], (' — ' + topic) if topic else ''))
 
         def done(ok, res):
             if not ok:
-                self._src_view_append(res + '\n', 'err')
+                self._log(key, 'err', res + '\n')
                 return
             text = srcs.append_source_list(core.clean_model_text(res['text']), labels)
             title = (topic or ctype[1])[:40]
@@ -735,7 +814,7 @@ class App(tk.Tk):
             note = '%s · %s · %d parça → yeni sekme "%s"' % (res.get('via', ''), res.get('model', ''), len(chunks), title)
             if res.get('truncated'):
                 note += ' · ⚠ çıktı sınırında kesildi (AI Manager 17.6+ daha uzun çıktıya izin verir)'
-            self._src_view_append(note + '\n', 'meta')
+            self._log(key, 'meta', note + '\n')
         self._start_job('İçerik üretiliyor: %s' % ctype[1], ai.run_with_fallback, done, self.backends(), 'chat',
                         [{'role': 'user', 'content': msg}], context, ctype[3])
 
@@ -842,6 +921,8 @@ class App(tk.Tk):
             if d.path and os.path.normcase(d.path) == os.path.normcase(path):
                 self.nb.select(d.frame)
                 return d
+        if os.path.splitext(path)[1].lower() in READ_ONLY_KINDS:
+            return self.open_as_text(path)
         try:
             text, docfile = core.read_document(path)
         except Exception as e:
@@ -856,6 +937,52 @@ class App(tk.Tk):
         if docfile.kind == 'docx':
             self.flash('DOCX metin olarak açıldı: başlıklar ve listeler korunur; tablo, resim ve karakter biçimleri düzenlenmez.')
         return d
+
+    def open_as_text(self, path):
+        """1.2.1: PDF / Excel / PowerPoint / e-posta metin olarak acilir (sayfa/slayt basliklariyla).
+        Ozgun dosyanin uzerine asla yazilmaz: Kaydet, .docx/.md/.txt olarak 'Farkli kaydet' sorar."""
+        for d in self.docs:
+            if getattr(d, 'origin', None) and os.path.normcase(d.origin) == os.path.normcase(path):
+                self.nb.select(d.frame)
+                return d
+
+        def work():
+            return srcs.load(path)
+
+        def done(ok, doc):
+            if not ok:
+                messagebox.showerror('Açılamadı', '%s\n\n%s' % (path, doc), parent=self)
+                return
+            if not doc['chars']:
+                messagebox.showwarning('Metin yok', '%s içinde okunabilir metin bulunamadı (taranmış belge olabilir). '
+                                       'Yazı tanıma (OCR) sonraki sürümde gelecek.' % doc['name'], parent=self)
+                return
+            parts = []
+            for u in doc['units']:
+                body = u['text'].strip() or '(bu bölümde metin yok — taranmış sayfa olabilir)'
+                parts.append('## %s\n\n%s' % (u['loc'], body))
+            cur = self.cur()
+            if cur and not cur.path and not cur.dirty and not cur.text.get('1.0', 'end-1c').strip():
+                self.close_doc(cur, ask=False)
+            text = '\n\n'.join(parts)
+            d = self.new_doc(text, doc['name'] + ' (metin)')
+            d.origin = path
+            d.saved_text = text                     # degisiklik yapilana kadar 'kaydedilmedi' sayilmaz
+            self.nb.tab(d.frame, text=self._tab_title(d))
+            core.add_recent(self.settings, path)
+            if os.path.normcase(path) not in {os.path.normcase(x['path']) for x in self.src_docs.values()}:
+                did = uuid.uuid4().hex[:10]
+                self.src_docs[did] = doc
+                self.src_tree.insert('', 'end', iid=did, text=doc['name'], values=(len(doc['units']),
+                                     '{:,}'.format(doc['chars']).replace(',', '.')))
+                self._sync_source_settings()
+                self._source_summary()
+            core.save_settings(self.settings)
+            empty = len(doc.get('empty_pages') or [])
+            self.flash('%s metin olarak açıldı (%d bölüm%s). Kaynaklar sekmesine de eklendi; özgün dosya değiştirilmez.'
+                       % (doc['name'], len(doc['units']), ', %d sayfa metinsiz' % empty if empty else ''), 9000)
+        self._start_job('Açılıyor: %s' % os.path.basename(path), work, done)
+        return None
 
     def save(self, doc=None):
         d = doc or self.cur()
@@ -879,10 +1006,11 @@ class App(tk.Tk):
         d = doc or self.cur()
         if not d:
             return False
-        init = suggest or d.path or (d.title + '.txt')
+        origin = getattr(d, 'origin', None)
+        init = suggest or d.path or (os.path.splitext(origin)[0] + '.docx' if origin else d.title + '.txt')
         p = filedialog.asksaveasfilename(parent=self, title='Farklı kaydet', initialfile=os.path.basename(init),
                                          initialdir=os.path.dirname(init) if os.path.dirname(init) else None,
-                                         defaultextension='.txt', filetypes=FILETYPES[1:])
+                                         defaultextension='.txt', filetypes=SAVE_FILETYPES)
         if not p:
             return False
         if self._write(d, p):
@@ -970,6 +1098,10 @@ class App(tk.Tk):
             except (tk.TclError, ValueError):
                 pass
         self._timers = {}
+        try:
+            self.busy.stop()
+        except (tk.TclError, AttributeError):
+            pass
         super().destroy()
 
     def _offer_recovery(self):
@@ -1937,6 +2069,8 @@ def smoke(out_png: str) -> int:
         app.src_tree.insert('', 'end', iid='smoke2', text='Denetim-raporu-2026.docx', values=(14, '86.410'))
         app._source_summary()
         app.src_info.configure(text='2 belge · 1.134.630 karakter metin')
+        app.src_tree.selection_set('smoke')
+        app._switch_scope()
         app._src_view_append('Soru: Temizlik doğrulaması için ne isteniyor?\n', 'q')
         _ctx, labs = srcs.build_context(srcs.chunk_units('smoke', doc))
         app._render_answer('Temizlik prosedürlerinin etkinliği doğrulanmalı ve doğrulama sonuçları kayıt altına alınmalıdır [K1]. '

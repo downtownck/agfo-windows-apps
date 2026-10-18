@@ -420,6 +420,10 @@ def citations(answer: str, labels: dict) -> list:
     return out
 
 
+def strip_citations(text: str) -> str:
+    return re.sub(r'\s*\[K\d+(?:\s*[,;]\s*K\d+)*\]', '', text or '').strip()
+
+
 def cite_label(c: dict) -> str:
     return '%s, %s' % (c['name'], c['loc'])
 
