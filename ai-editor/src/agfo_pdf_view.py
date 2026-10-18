@@ -711,7 +711,7 @@ class PdfView(tk.Frame):
         name = '%s (sayfa %s).pdf' % (os.path.splitext(os.path.basename(self.pr.path))[0],
                                       ('%d' % (idx[0] + 1)) if len(idx) == 1 else '%d-%d' % (idx[0] + 1, idx[-1] + 1))
         out = filedialog.asksaveasfilename(parent=self, title='Seçili sayfaları ayrı PDF olarak kaydet', initialfile=name,
-                                           initialdir=os.path.dirname(self.pr.path), defaultextension='.pdf', filetypes=[('PDF', '*.pdf')])
+                                           initialdir=getattr(self.pr, 'save_dir', None) or os.path.dirname(self.pr.path), defaultextension='.pdf', filetypes=[('PDF', '*.pdf')])
         if not out:
             return
         if os.path.normcase(os.path.abspath(out)) == os.path.normcase(self.pr.path):
@@ -739,7 +739,7 @@ class PdfView(tk.Frame):
     # ------------------------------------------------------------------ kaydet + metin
     def save(self):
         out = filedialog.asksaveasfilename(parent=self, title='PDF\'yi kaydet', initialfile=os.path.basename(P.suggest_name(self.pr.path)),
-                                           initialdir=os.path.dirname(self.pr.path), defaultextension='.pdf', filetypes=[('PDF', '*.pdf')])
+                                           initialdir=getattr(self.pr, 'save_dir', None) or os.path.dirname(self.pr.path), defaultextension='.pdf', filetypes=[('PDF', '*.pdf')])
         if not out:
             return False
         if os.path.normcase(os.path.abspath(out)) == os.path.normcase(self.pr.path):

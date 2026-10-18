@@ -131,17 +131,28 @@ def selftest(out_path: str) -> int:
         pr.edit_text(0, info, 'Yeni metin ğüşİ')
         pr.save(out)
         pr.close()
+        import agfo_pdf_layout  # noqa: F401  (1.4.6: duzeni koruyan PDF cevirisi)
+        pr2 = _p.PdfProject(pp)
+        lays = pr2.layouts()
+        tdata, _tst = pr2.translated_pdf(lays, ['Line one', 'Old text'][:sum(len(x['paras']) for x in lays)] or ['Line one'])
+        pr2.close()
         import pypdfium2 as _pdfium
         _doc = _pdfium.PdfDocument(out)
         _tp = _doc[0].get_textpage()
         edited = _tp.get_text_range(0, _tp.count_chars())
         _tp.close()
         _doc.close()
-        res['pdf_edit'] = {'font': os.path.basename(_e.pick_font('Helvetica') or ''), 'ok': 'Yeni metin ğüşİ' in edited and 'Eski' not in edited}
+        _doc = _pdfium.PdfDocument(tdata)
+        _tp = _doc[0].get_textpage()
+        translated = _tp.get_text_range(0, _tp.count_chars())
+        _tp.close()
+        _doc.close()
+        res['pdf_edit'] = {'font': os.path.basename(_e.pick_font('Helvetica') or ''), 'ok': 'Yeni metin ğüşİ' in edited and 'Eski' not in edited,
+                           'layout_translate': 'Line one' in translated and 'Satir bir' not in translated}
         os.unlink(pp)
         os.unlink(out)
         res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
-                     and res['pdf_edit']['ok'])
+                     and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'])
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
@@ -732,7 +743,8 @@ class App(tk.Tk):
         self.lbl(box, 'Başlıklar, listeler, tablolar ve resimler yerinde kalır; açık PDF de çevrilebilir.', muted=True, bg=PANEL2,
                  wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 4))
         self.doc_tr_out = tk.StringVar(value=self.settings.get('doc_translate_output', 'both'))
-        for val, lab in (('newtab', 'Biçimli yeni belge'), ('compare', 'Yan yana (özgün | çeviri)'), ('both', 'İkisi de')):
+        for val, lab in (('pdf', 'PDF: sayfa düzeni korunur (yalnız PDF)'), ('newtab', 'Biçimli yeni belge'),
+                         ('compare', 'Yan yana (özgün | çeviri)'), ('both', 'İkisi de (PDF\'de: çevrilmiş PDF + yan yana)')):
             tk.Radiobutton(box, text=lab, value=val, variable=self.doc_tr_out, bg=PANEL2, fg=FG, selectcolor=EDIT_BG,
                            activebackground=PANEL2, activeforeground=FG, font=('Segoe UI', 9), anchor='w').pack(anchor='w')
         self.btn(box, '🌐 Belgeyi çevir', self.translate_document, 'primary', side=None, padx=14, pady=6).pack(anchor='w', pady=(6, 0))
@@ -2058,9 +2070,19 @@ class App(tk.Tk):
             return
         extra = self.tr_extra.get('1.0', 'end-1c').strip()
         backends = self.backends()
+        layouts = None
         if v:
-            path, title = v.pr.path, os.path.splitext(os.path.basename(v.pr.path))[0]
+            path, title = v.pr.path, os.path.splitext(os.path.basename(getattr(v.pr, 'display_name', None) or v.pr.path))[0]
             blocks = None
+            try:
+                layouts = v.pr.layouts()          # sayfa duzeni ana is parcaciginda (pdfium is parcacigi guvenli degil)
+            except Exception as e:
+                messagebox.showerror('Belge çevirisi', str(e), parent=self)
+                return
+            if not any(lay['paras'] for lay in layouts):
+                messagebox.showinfo('Belge çevirisi', 'PDF\'de okunabilir metin yok (taranmış belge olabilir).', parent=self)
+                return
+            blocks = [rdoc.para(text=P['text']) for lay in layouts for P in lay['paras']]
         else:
             title = os.path.splitext(d.title)[0]
             blocks = d.text.get_blocks() if d.rich else rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
@@ -2095,14 +2117,6 @@ class App(tk.Tk):
 
         def work():
             src = blocks
-            if src is None:
-                try:
-                    doc = srcs.load(path)
-                except srcs.SourceError as e:
-                    raise ai.AIError(str(e))
-                if not doc['chars']:
-                    raise ai.AIError('PDF\'de okunabilir metin yok (taranmış belge olabilir).')
-                src = dtr.pdf_units_to_blocks(doc['units'], title)
             try:
                 new, stats = dtr.translate_blocks(src, call, lang, progress, cancel.is_set)
             except InterruptedError as e:
@@ -2117,17 +2131,69 @@ class App(tk.Tk):
             src, new, stats = res
             used = ', '.join(models) or 'bilinmeyen model'
             self.last_translation_models = list(models)
-            if out in ('newtab', 'both'):
-                self.new_doc(title='%s (%s)' % (title, lang), blocks=new)
-            if out in ('compare', 'both'):
-                self.open_compare(src, new, title, 'Özgün', lang, model=used)
-            note = 'Çeviri tamam: %d parça, %d istek · Model: %s' % (stats['segments'], stats['batches'], used)
+            extra_note = ''
+            if layouts is not None:
+                src, new, extra_note = self._pdf_translation_outputs(v, layouts, new, title, lang, out, used)
+            else:
+                if out in ('newtab', 'both', 'pdf'):
+                    self.new_doc(title='%s (%s)' % (title, lang), blocks=new)
+                if out in ('compare', 'both'):
+                    self.open_compare(src, new, title, 'Özgün', lang, model=used)
+            note = 'Çeviri tamam: %d parça, %d istek · Model: %s' % (stats['segments'], stats['batches'], used) + extra_note
             if stats['missing']:
                 note += ' · ⚠ %d parça çevrilemedi, özgün haliyle bırakıldı' % stats['missing']
             if notes:
                 note += ' · ' + notes[0]
             self.flash(note, 10000)
         self._start_job('Belge çevriliyor → %s · %s' % (lang, self.translation_model_text().replace('Çeviri modeli: ', '')), work, done)
+
+    def _pdf_translation_outputs(self, v, layouts, new, title, lang, out, used):
+        """PDF cevirisinin ciktilari. pdf: sayfa duzeni korunmus cevrilmis PDF (PDF duzenleyicide acilir);
+        newtab: basliklari, kalinlari ve resimleriyle bicimli belge; compare: yan yana; both: PDF + yan yana."""
+        import tempfile
+        import agfo_pdf_layout as playout
+        texts = [rdoc.runs_text(b['runs']) if b.get('t') == 'p' else '' for b in new]
+        pages = v.pr.layout_pages()
+        note = ''
+        orig_blocks = trans_blocks = None
+        if out in ('newtab', 'compare', 'both'):
+            orig_blocks = playout.layout_blocks(pages, title, layouts, images=out == 'newtab')
+            trans_blocks = playout.layout_blocks(pages, '%s (%s)' % (title, lang), layouts, texts, images=out == 'newtab')
+        if out in ('pdf', 'both'):
+            self.flash('Çevrilmiş PDF hazırlanıyor (sayfa düzeni korunuyor)…', 4000)
+            self.update_idletasks()
+            try:
+                data, st = v.pr.translated_pdf(layouts, texts)
+                folder = os.path.join(tempfile.gettempdir(), 'AGFO AI Editor', 'ceviri')
+                os.makedirs(folder, exist_ok=True)
+                safe = re.sub(r'[\\/:*?"<>|]+', '_', '%s (%s).pdf' % (title, lang))
+                target = os.path.join(folder, safe)
+                k = 1
+                while os.path.exists(target):
+                    try:
+                        os.remove(target)
+                        break
+                    except OSError:
+                        k += 1
+                        target = os.path.join(folder, safe[:-4] + ' %d.pdf' % k)
+                with open(target, 'wb') as f:
+                    f.write(data)
+                pv = self.open_pdf(target)
+                if pv is not None:
+                    pv.pr.save_dir = os.path.dirname(v.pr.path)
+                note = ' · Çevrilmiş PDF düzenleyicide açıldı (%d sayfa yerinde%s)' % (
+                    st['inplace'], ', %d sayfa örtülerek' % st['overlay'] if st['overlay'] else '')
+            except Exception as e:                      # PDF kurulamadi: bicimli belgeye dus
+                messagebox.showwarning('Çevrilmiş PDF', 'Sayfa düzeni korunarak PDF oluşturulamadı:\n%s\n\nÇeviri biçimli belge olarak açılıyor.' % e,
+                                       parent=self)
+                if trans_blocks is None:
+                    trans_blocks = playout.layout_blocks(pages, '%s (%s)' % (title, lang), layouts, texts)
+                self.new_doc(title='%s (%s)' % (title, lang), blocks=trans_blocks)
+        if out == 'newtab':
+            self.new_doc(title='%s (%s)' % (title, lang), blocks=trans_blocks)
+        if out in ('compare', 'both'):
+            self.open_compare(orig_blocks, trans_blocks, title, 'Özgün', lang, model=used)
+        return orig_blocks, trans_blocks, note
 
     def open_compare(self, orig, trans, title, left, right, model=''):
         import agfo_compare

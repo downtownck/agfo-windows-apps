@@ -681,6 +681,45 @@ class GuiTests(unittest.TestCase):
         self.app.close_compare(v)
         self.assertFalse(self.app.compare_views)
 
+    def test_translate_pdf_keeps_layout(self):
+        # 1.4.5: PDF cevirisi "s. 1" baslikli duz belgeye donusuyordu; artik duzen korunmus PDF + bicimli belge
+        import agfo_pdf
+        import agfo_pdf_edit
+        import pypdfium2
+        if not agfo_pdf_edit.pick_font():
+            self.skipTest('TrueType yazı tipi yok')
+        src = agfo_pdf.write_simple_pdf(os.path.join(TMP, 'sertifika.pdf'), [['Denetim Sertifikasi', 'Firma adi burada', 'Kapsam metni']])
+        v = self.app.open_path(src)
+        self.app.update()
+        self.app.tr_lang.set('English')
+        self.app.doc_tr_out.set('pdf')
+        n = len(self.app.pdf_views)
+        self.app.translate_document()
+        self.assertTrue(self.pump(lambda: len(self.app.pdf_views) > n))
+        pv = self.app.cur_pdf()
+        self.assertIsNot(pv, v)
+        self.assertEqual(pv.pr.save_dir, os.path.dirname(v.pr.path))
+        self.assertTrue(os.path.basename(pv.pr.path).startswith('sertifika (English)'))
+        tp = pypdfium2.PdfDocument(pv.pr.path)[0].get_textpage()
+        body = tp.get_text_range(0, tp.count_chars())
+        self.assertIn('DENETIM SERTIFIKASI', body)
+        self.assertIn('FIRMA ADI BURADA', body)
+        self.assertNotIn('Firma adi', body)
+        self.assertIn('Model: P · m', self.app.ai_var.get())
+        self.app.close_pdf(pv, ask=False)
+        self.app.nb.select(v)
+        self.app.doc_tr_out.set('newtab')
+        k = len(self.app.docs)
+        self.app.translate_document()
+        self.assertTrue(self.pump(lambda: len(self.app.docs) > k))
+        b = self.app.docs[-1].text.get_blocks()
+        self.assertEqual(b[0]['style'], 'h1')                                      # belge basligi
+        texts = [(x.get('style'), self.m.rdoc.runs_text(x['runs'])) for x in b if x['t'] == 'p']
+        self.assertIn(('h2', 'DENETIM SERTIFIKASI'), texts)                         # buyuk yazi baslik olarak
+        self.assertIn(('normal', 'FIRMA ADI BURADA'), texts)
+        self.assertFalse(any(t.startswith('s. ') for _s, t in texts))               # "s. 1" sayfa basliklari yok
+        self.app.close_pdf(v, ask=False)
+
     def test_translation_model_label(self):
         app = self.app
         app.manager_info = {'translation_ready': True, 'translation_provider': 'Together AI',

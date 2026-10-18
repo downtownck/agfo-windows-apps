@@ -449,6 +449,53 @@ class PdfProject:
             raise PdfError('Resim bu sayfada içerikten çıkarılamadı: %s "Üstüne yaz" ile örtebilirsiniz.' % e) from e
         return self._swap_source(i, data)
 
+    # -- 1.4.6: sayfa duzeni (ceviri / bicimli belge)
+    def layouts(self):
+        """Her sayfanin paragraf duzeni (agfo_pdf_layout.extract_layout); sayfa listesindeki sirayla."""
+        import agfo_pdf_layout as L
+        self.require('extract', self._page_sources(range(len(self.pages))))
+        return [L.extract_layout(self._pdfium_doc(p['src']), p['index']) for p in self.pages]
+
+    def layout_pages(self):
+        return [(self._pdfium_doc(p['src']), p['index']) for p in self.pages]
+
+    def translated_pdf(self, layouts, translations, progress=None):
+        """Duzeni koruyan ceviri: her sayfada paragraflar ceviriyle degistirilir, gerisi aynen kalir.
+        translations: sayfa sayfa paragraf cevirileri (duz liste). Donus: (pdf baytlari, {'inplace': n, 'overlay': n})."""
+        import agfo_pdf_edit as E
+        import agfo_pdf_layout as L
+        pypdf = _pypdf()
+        out = pypdf.PdfWriter()
+        it = iter(translations)
+        stats = {'inplace': 0, 'overlay': 0, 'same': 0}
+        for n, (p, lay) in enumerate(zip(self.pages, layouts)):
+            if progress:
+                progress(n, len(self.pages))
+            trs = [next(it, None) for _ in lay['paras']]
+            data, mode = None, None
+            try:
+                data, mode = L.translate_page(self._reader(p['src']), p['index'], self._load_bytes(p['src']),
+                                              self._pdfium_doc(p['src']), lay, trs)
+            except E.EditError:
+                data = None
+            if data is None:
+                w = E._one_page_writer(self._reader(p['src']), p['index'])
+                data = E._writer_bytes(w)
+                stats['same'] += 1
+            else:
+                stats[mode] += 1
+            page = pypdf.PdfReader(io.BytesIO(data)).pages[0]
+            out.add_page(page)
+            if p['rot'] % 360:
+                out.pages[-1].rotate(p['rot'] % 360)
+        try:
+            out.compress_identical_objects()
+        except Exception:
+            pass
+        buf = io.BytesIO()
+        out.write(buf)
+        return buf.getvalue(), stats
+
     def _add_source_pages(self, path, at, indices=None):
         path = os.path.abspath(path)
         r = self._reader(path)
