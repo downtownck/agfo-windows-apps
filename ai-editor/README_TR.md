@@ -34,6 +34,9 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
   sayfa atıflarıyla) ya da onlardan makale, eğitim notu, SSS, quiz, denetim kontrol listesi, karşılaştırma, sunum taslağı
   üretin. Büyük belgelerde yerel arama yalnız ilgili bölümleri gönderir; kişisel bilgiler gönderimden önce maskelenebilir.
 
+- **PDF düzenleyici (1.3):** PDF'ler sayfa görünümüyle açılır; vurgu, not, metin kutusu, "üstüne yaz" (beyaz kutu + metin),
+  resim / imza, çerçeve; sayfa döndür / sil / taşı / birleştir / ayır; form doldurma. Kaydet her zaman yeni dosya önerir.
+
 Kısayollar: Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+W, Ctrl+F, Ctrl+H, F3, Ctrl+E (AI ile düzenle), Ctrl+Enter (sohbet).
 
 Veriler: `%LOCALAPPDATA%\AGFO-AI-Editor` (ayarlar, kurtarma kayıtları, hata günlüğü). Metinleriniz yalnızca seçtiğiniz

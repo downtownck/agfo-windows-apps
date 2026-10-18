@@ -568,8 +568,8 @@ class GuiTests(unittest.TestCase):
         pdf = os.path.join(TMP, 'kitap.pdf')
         make_pdf(pdf, [['Birinci sayfa metni'], ['Ikinci sayfa metni']])
         before = pathlib.Path(pdf).read_bytes()
-        self.app.open_path(pdf)
-        self.assertTrue(self.pump(lambda: self.app.cur().title == 'kitap.pdf (metin)'))
+        self.app.open_as_text(pdf)
+        self.assertTrue(self.pump(lambda: self.app.cur() is not None and self.app.cur().title == 'kitap.pdf (metin)'))
         d = self.app.cur()
         body = d.text.get('1.0', 'end-1c')
         self.assertEqual(body, '## s. 1\n\nBirinci sayfa metni\n\n## s. 2\n\nIkinci sayfa metni')
@@ -577,7 +577,7 @@ class GuiTests(unittest.TestCase):
         self.assertIsNone(d.path)
         self.assertEqual(d.origin, os.path.abspath(pdf))
         self.assertEqual(len(self.app.src_docs), 1)                              # Kaynaklar'a da eklendi
-        self.assertIs(self.app.open_path(pdf), d)                               # ikinci kez acilmaz, sekmesi secilir
+        self.assertIs(self.app.open_as_text(pdf), d)                            # ikinci kez acilmaz, sekmesi secilir
         self.assertEqual(sum(1 for x in self.app.docs if getattr(x, 'origin', None)), 1)
         asked = {}
         with mock.patch.object(self.m.filedialog, 'asksaveasfilename', lambda **k: asked.update(k) or ''):
@@ -585,6 +585,54 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(asked['initialfile'], 'kitap.docx')
         self.assertNotIn('*.pdf', str(asked['filetypes']))
         self.assertEqual(pathlib.Path(pdf).read_bytes(), before)
+
+    def test_pdf_editor_tab(self):
+        import agfo_pdf
+        import pypdf
+        pdf = agfo_pdf.write_simple_pdf(os.path.join(TMP, 'duzenle.pdf'), [['Baslik bir', 'metin'], ['Iki'], ['Uc']])
+        orig = pathlib.Path(pdf).read_bytes()
+        v = self.app.open_path(pdf)
+        self.assertIs(self.app.cur_pdf(), v)
+        self.assertIsNone(self.app.cur())
+        self.app.update()
+        self.assertTrue(self.pump(lambda: len(v.page_imgs) >= 1))                 # sayfa gercekten cizildi
+        self.assertIn('sayfa 1 / 3', self.app.status_var.get())
+        self.app.dialog_hook = lambda title, text, size, bold: ('Yeni metin ğüşİ', 12, True)
+        v.tool.set('highlight')
+        v._create_overlay(0, (55, 50, 200, 70))
+        v.tool.set('whiteout')
+        v._create_overlay(1, (50, 40, 300, 80))
+        v._add_note(0, 300, 300)
+        self.assertTrue(v.pr.dirty)
+        self.assertTrue(self.app.nb.tab(v, 'text').startswith('●'))
+        self.assertEqual(len(v.pr.pages[0]['overlays']), 2)
+        v.page_list.selection_set(2)
+        with mock.patch.object(self.m.messagebox, 'askyesno', return_value=True):
+            v.delete_pages()
+        self.assertEqual(len(v.pr.pages), 2)
+        v.undo()
+        self.assertEqual(len(v.pr.pages), 3)
+        v.page_list.selection_clear(0, 'end')
+        v.page_list.selection_set(0)
+        v.rotate(90)
+        out = os.path.join(TMP, 'duzenle-out.pdf')
+        import agfo_pdf_view
+        with mock.patch.object(agfo_pdf_view.filedialog, 'asksaveasfilename', return_value=out) as dlg:
+            self.assertTrue(self.app.save())                                      # Ctrl+S yolu PDF'yi kaydeder
+            self.assertEqual(dlg.call_args.kwargs['initialfile'], 'duzenle (düzenlendi).pdf')
+        r = pypdf.PdfReader(out)
+        self.assertEqual(len(r.pages), 3)
+        self.assertEqual(int(r.pages[0].get('/Rotate', 0)), 90)
+        self.assertEqual(sorted(a.get_object()['/Subtype'] for a in r.pages[0]['/Annots']), ['/Highlight', '/Text'])
+        self.assertFalse(v.pr.dirty)
+        self.assertEqual(pathlib.Path(pdf).read_bytes(), orig)
+        self.assertIs(self.app.open_path(pdf), v)                                 # ayni PDF ikinci sekme acmaz
+        v.tool.set('text')
+        v._create_overlay(0, (10, 10, 100, 40))
+        with mock.patch.object(self.m.messagebox, 'askyesnocancel', return_value=False):
+            self.assertTrue(self.app.close_doc())                                 # kaydetmeden kapat
+        self.assertNotIn(v, self.app.pdf_views)
+        self.app.dialog_hook = None
 
     def test_source_threads_are_separate(self):
         a = os.path.join(TMP, 'a-kaynak.txt')

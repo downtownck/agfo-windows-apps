@@ -43,6 +43,7 @@ import agfo_ai_client as ai  # noqa: E402
 import agfo_secrets as secrets  # noqa: E402
 import agfo_editor_update as upd  # noqa: E402
 import agfo_sources as srcs  # noqa: E402
+import agfo_pdf  # noqa: E402
 
 
 def selftest(out_path: str) -> int:
@@ -69,6 +70,22 @@ def selftest(out_path: str) -> int:
         os.unlink(tp)
         res['pypdf'] = pypdf.__version__
         res['ok'] = res['ok'] and bool(ch)
+        # 1.3: PDF duzenleyici - pdfium ile cizim + katmanli kaydetme (derlenmis EXE'de DLL'lerin varligini dogrular)
+        import agfo_pdf as _p
+        pp = os.path.join(tempfile.gettempdir(), 'agfo-editor-selftest.pdf')
+        _p.write_simple_pdf(pp, [['Selftest'], ['Two']])
+        pr = _p.PdfProject(pp)
+        pr.rotate([0], 90)
+        pr.add_overlay(0, {'type': 'text', 'rect': (20, 20, 300, 60), 'text': 'Türkçe ğüşİ', 'size': 12, 'whiteout': True})
+        img = pr.render(0, 0.5)
+        out = pp + '.out.pdf'
+        pr.save(out)
+        pr.close()
+        res['pdf_render'] = list(img.size)
+        res['pdf_saved'] = os.path.getsize(out)
+        os.unlink(pp)
+        os.unlink(out)
+        res['ok'] = res['ok'] and img.size[0] > img.size[1] and res['pdf_saved'] > 0
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
@@ -149,7 +166,7 @@ FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm
              ('Metin', '*.txt'), ('Markdown', '*.md *.markdown'), ('Word belgesi', '*.docx'), ('PDF (metin olarak)', '*.pdf'),
              ('Excel / PowerPoint (metin olarak)', '*.xlsx *.xlsm *.pptx'), ('HTML', '*.html *.htm'), ('Tüm dosyalar', '*.*')]
 SAVE_FILETYPES = [('Metin', '*.txt'), ('Markdown', '*.md'), ('Word belgesi', '*.docx'), ('HTML', '*.html')]
-READ_ONLY_KINDS = ('.pdf', '.xlsx', '.xlsm', '.pptx', '.eml')
+READ_ONLY_KINDS = ('.xlsx', '.xlsm', '.pptx', '.eml')
 
 
 class Doc:
@@ -174,6 +191,9 @@ class App(tk.Tk):
         self.q = queue.Queue()
         self.jobs = {}
         self.docs = []
+        self.pdf_views = {}           # 1.3: PDF duzenleyici sekmeleri (cerceve -> PdfView)
+        self.colors = {'BG': BG, 'PANEL': PANEL, 'PANEL2': PANEL2, 'FG': FG, 'MUTED': MUTED, 'ACCENT': ACCENT,
+                       'EDIT_BG': EDIT_BG, 'SEL_BG': SEL_BG}
         self.chat_messages = []
         self.manager_info = None
         self.update_result = None
@@ -296,6 +316,7 @@ class App(tk.Tk):
         self.btn(bar, 'A−', lambda: self.zoom(-1), 'ghost')
         self.btn(bar, 'A+', lambda: self.zoom(1), 'ghost')
         self.btn(bar, 'Ayarlar', self.open_settings, 'normal', side='right')
+        self.panel_btn = self.btn(bar, 'AI paneli ⇥', self.toggle_ai_panel, 'ghost', side='right')
         self.more_btn = self.btn(bar, 'Diğer ▾', self.show_more_menu, 'ghost', side='right')
 
         self.find_bar = tk.Frame(self, bg=PANEL2, padx=10, pady=6)
@@ -319,7 +340,17 @@ class App(tk.Tk):
         self.paned.add(self.nb, weight=3)
         side = ttk.Frame(self.paned, padding=(10, 8))
         self.paned.add(side, weight=2)
+        self.side_panel = side
         self._build_ai_panel(side)
+
+    def toggle_ai_panel(self):
+        """AI panelini gizle / goster (PDF sayfa gorunumu ve okuma icin genis alan)."""
+        if str(self.side_panel) in self.paned.panes():
+            self.paned.forget(self.side_panel)
+            self.panel_btn.configure(text='AI paneli ⇤')
+        else:
+            self.paned.add(self.side_panel, weight=2)
+            self.panel_btn.configure(text='AI paneli ⇥')
 
     def _build_find(self, f):
         self.find_var, self.repl_var = tk.StringVar(), tk.StringVar()
@@ -921,6 +952,8 @@ class App(tk.Tk):
             if d.path and os.path.normcase(d.path) == os.path.normcase(path):
                 self.nb.select(d.frame)
                 return d
+        if os.path.splitext(path)[1].lower() == '.pdf':
+            return self.open_pdf(path)
         if os.path.splitext(path)[1].lower() in READ_ONLY_KINDS:
             return self.open_as_text(path)
         try:
@@ -937,6 +970,64 @@ class App(tk.Tk):
         if docfile.kind == 'docx':
             self.flash('DOCX metin olarak açıldı: başlıklar ve listeler korunur; tablo, resim ve karakter biçimleri düzenlenmez.')
         return d
+
+    # ------------------------------------------------------------------ PDF duzenleyici (1.3)
+    def open_pdf(self, path):
+        import agfo_pdf_view
+        path = os.path.abspath(path)
+        for v in self.pdf_views.values():
+            if os.path.normcase(v.pr.path) == os.path.normcase(path):
+                self.nb.select(v)
+                return v
+        try:
+            pr = agfo_pdf.PdfProject(path)
+        except Exception as e:
+            messagebox.showerror('PDF açılamadı', '%s\n\n%s' % (path, e), parent=self)
+            return None
+        cur = self.cur()
+        if cur and not cur.path and not cur.dirty and not cur.text.get('1.0', 'end-1c').strip():
+            self.close_doc(cur, ask=False)
+        v = agfo_pdf_view.PdfView(self, self.nb, pr)
+        self.pdf_views[v] = v
+        self.nb.add(v, text='📄 ' + os.path.basename(path))
+        self.nb.select(v)
+        core.add_recent(self.settings, path)
+        core.save_settings(self.settings)
+        if os.path.normcase(path) not in {os.path.normcase(x['path']) for x in self.src_docs.values()}:
+            self._load_sources([path], quiet=True)          # sohbet ve icerik uretimi icin Kaynaklar'a da ekle
+        self.flash('PDF düzenleyicide açıldı. Kaydet her zaman yeni dosya önerir; özgün dosya korunur.', 8000)
+        return v
+
+    def cur_pdf(self):
+        try:
+            w = self.nametowidget(self.nb.select())
+        except (KeyError, tk.TclError):
+            return None
+        return self.pdf_views.get(w)
+
+    def _pdf_changed(self, v):
+        try:
+            self.nb.tab(v, text=('● ' if v.pr.dirty else '') + '📄 ' + os.path.basename(v.pr.path))
+        except tk.TclError:
+            pass
+        self._update_status()
+
+    def close_pdf(self, v, ask=True):
+        if ask and v.pr.dirty:
+            self.nb.select(v)
+            ans = messagebox.askyesnocancel('Kaydedilmemiş PDF değişikliği', '"%s" üzerindeki değişiklikler kaydedilsin mi?'
+                                            % os.path.basename(v.pr.path), parent=self)
+            if ans is None:
+                return False
+            if ans and not v.save():
+                return False
+        v.pr.close()
+        self.nb.forget(v)
+        self.pdf_views.pop(v, None)
+        v.destroy()
+        if not self.docs and not self.pdf_views and ask:
+            self.new_doc()
+        return True
 
     def open_as_text(self, path):
         """1.2.1: PDF / Excel / PowerPoint / e-posta metin olarak acilir (sayfa/slayt basliklariyla).
@@ -985,6 +1076,8 @@ class App(tk.Tk):
         return None
 
     def save(self, doc=None):
+        if doc is None and self.cur_pdf():
+            return self.cur_pdf().save()
         d = doc or self.cur()
         if not d:
             return False
@@ -1037,6 +1130,8 @@ class App(tk.Tk):
         return True
 
     def close_doc(self, doc=None, ask=True):
+        if doc is None and self.cur_pdf():
+            return self.close_pdf(self.cur_pdf(), ask)
         d = doc or self.cur()
         if not d:
             return True
@@ -1060,11 +1155,17 @@ class App(tk.Tk):
         except tk.TclError:
             return
         frame = self.nametowidget(self.nb.tabs()[idx])
+        if frame in self.pdf_views:
+            self.close_pdf(frame)
+            return
         d = next((x for x in self.docs if x.frame is frame), None)
         if d:
             self.close_doc(d)
 
     def on_close(self):
+        for v in list(self.pdf_views.values()):
+            if not self.close_pdf(v):
+                return
         for d in list(self.docs):
             if d.dirty:
                 self.nb.select(d.frame)
@@ -1222,6 +1323,10 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------------ durum / menuler
     def _update_status(self):
+        v = self.cur_pdf() if hasattr(self, 'pdf_views') else None
+        if v:
+            self.status_var.set(v.status_text())
+            return
         d = self.cur()
         if not d:
             self.status_var.set('')
@@ -2081,6 +2186,32 @@ def smoke(out_png: str) -> int:
         app.ai_nb.select(0)
     except Exception as e:
         print('sources shot failed', e)
+    # 1.3: PDF duzenleyici (layout gorunumu)
+    try:
+        import tempfile
+        pp = agfo_pdf.write_simple_pdf(os.path.join(tempfile.gettempdir(), 'BRCGS-denetim-raporu.pdf'), [
+            ['Denetim Raporu - Ozet', 'Firma: Ornek Gida A.S.   Standart: BRCGS Food Safety Issue 9', '',
+             'Madde 4.11.2 Temizlik prosedurleri dogrulanmali ve kayit altina alinmalidir.',
+             'Bulgu: Soguk oda temizlik dogrulama kayitlari son 3 ayda eksik.', '',
+             'Madde 5.3.1 Alerjen risk degerlendirmesi yapilmistir.', 'Sonuc: Uygun.'],
+            ['Ek 1 - Kanit listesi', 'Temizlik plani rev. 4', 'ATP test sonuclari'], ['Ek 2 - Fotograflar']])
+        v = app.open_pdf(pp)
+        app.update()
+        v.pr.add_overlay(0, {'type': 'highlight', 'rect': (58, 112, 470, 128), 'color': 'ffeb3b'})
+        v.pr.add_overlay(0, {'type': 'note', 'rect': (480, 110, 498, 128), 'text': 'Kanit iste'})
+        v.pr.add_overlay(0, {'type': 'text', 'rect': (58, 176, 420, 194), 'text': 'Sonuç: Uygun (denetçi onaylı)',
+                             'size': 11, 'color': '1f6a4a', 'whiteout': True, 'bold': True})
+        v.pr.add_overlay(0, {'type': 'box', 'rect': (52, 108, 500, 130), 'color': 'e03131', 'width': 1.5})
+        app.toggle_ai_panel()
+        v.relayout()
+        v.page_list.selection_set(0)
+        for _ in range(30):
+            app.update()
+        app.after(400)
+        app.update()
+        grab('pdf')
+    except Exception as e:
+        print('pdf shot failed', e)
     ms, me = 'ais_x', 'aie_x'
     d.text.mark_set(ms, '3.0')
     d.text.mark_set(me, '3.end')
