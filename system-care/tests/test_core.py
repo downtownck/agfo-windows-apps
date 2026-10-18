@@ -535,4 +535,98 @@ def phantom_view():
     g2, _ = c.build_phantom_view([{'id': 'USB\\F', 'cls': 'USB', 'regwrite': '2099-01-01 00:00'}], today)
     assert g2['USB'][0]['age'] == 0                                                      # gelecek tarih negatif olmaz
 
+@test
+def controller_detection():
+    cases = [({'id': 'USB\\VID_045E&PID_0B12\\3039', 'name': 'Xbox Controller', 'cls': 'XnaComposite'}, True, 'usb'),
+             ({'id': 'HID\\VID_045E&PID_0B12&IG_00\\7&1', 'name': 'HID-compliant game controller', 'cls': 'HIDClass'}, True, 'usb'),
+             ({'id': 'BTHLEDEVICE\\{00001812-0000-1000-8000-00805F9B34FB}_DEV_VID&02045E_PID&0B13_REV&0509_F4F2\\8&1', 'name': 'Bluetooth LE', 'cls': 'HIDClass'}, True, 'bluetooth'),
+             ({'id': 'HID\\{00001812-0000-1000-8000-00805F9B34FB}_DEV_VID&02045E_PID&0B13\\9&1', 'name': 'XINPUT device', 'cls': 'HIDClass'}, True, 'bluetooth'),
+             ({'id': 'USB\\VID_045E&PID_02FE\\X1', 'name': 'Wireless Adapter', 'cls': 'Net'}, True, 'adapter'),
+             ({'id': 'XBOXGIP\\7EED8A1B', 'name': 'Controller', 'cls': 'XboxComposite'}, True, 'adapter'),
+             ({'id': 'HID\\VID_045E&PID_07A5&MI_00\\8&2', 'name': 'Microsoft Wireless Mouse', 'cls': 'Mouse'}, False, 'usb'),     # Microsoft fare: asla
+             ({'id': 'USB\\VID_045E&PID_0745\\5&3', 'name': 'Microsoft Keyboard', 'cls': 'Keyboard'}, False, 'usb'),
+             ({'id': 'USB\\VID_046D&PID_C52B\\6&4', 'name': 'Logitech Receiver', 'cls': 'USB'}, False, 'other'),
+             ({'id': 'ROOT\\X\\0', 'name': 'Xbox Game Bar helper', 'cls': 'System'}, True, 'other')]                         # adinda Xbox
+    for d, xb, bus in cases:
+        assert c.controller_is_xbox(d) is xb, d
+        assert c.controller_bus(d['id']) == bus, (d, c.controller_bus(d['id']))
+
+
+@test
+def controller_view_and_advice():
+    devs = [{'id': 'USB\\VID_045E&PID_0B12\\1', 'name': 'Xbox Controller', 'cls': 'XnaComposite', 'status': 'OK', 'problem': 0},
+            {'id': 'USB\\VID_045E&PID_0B12\\1', 'name': 'Xbox Controller', 'cls': 'XnaComposite', 'status': 'OK', 'problem': 0},       # yinelenen
+            {'id': 'HID\\{00001812-0000-1000-8000-00805F9B34FB}_DEV_VID&02045E_PID&0B13\\2', 'name': 'BT input', 'cls': 'HIDClass', 'status': 'Error', 'problem': 10},
+            {'id': 'HID\\VID_045E&PID_07A5\\3', 'name': 'Microsoft Mouse', 'cls': 'Mouse', 'status': 'OK', 'problem': 0}]
+    rows, st = c.build_controller_view(devs)
+    assert [r['name'] for r in rows] == ['BT input', 'Xbox Controller'], rows                     # sorunlu once
+    assert st == {'total': 2, 'usb': 1, 'bluetooth': 1, 'adapter': 0, 'problem': 1}, st
+    assert rows[0]['problem_dev'] and rows[0]['bus_text'] == 'Bluetooth' and not rows[1]['problem_dev']
+    lv = lambda adv: [l for l, _ in adv]
+    a = c.controller_advice({'total': 0}, True, [])
+    assert lv(a)[0] == 'bad' and 'görünmüyor' in a[0][1] and a[-1][0] == 'info'
+    a = c.controller_advice({'total': 1, 'bluetooth': 1, 'usb': 0}, True, [0], {'service': 'Stopped'})
+    txt = ' '.join(x for _, x in a)
+    assert 'Steam Input' in txt and 'bthserv' in txt and 'yuvası: 1' in txt, a
+    a = c.controller_advice({'total': 2, 'usb': 1, 'bluetooth': 1, 'problem': 1}, True, [])
+    txt = ' '.join(x for _, x in a)
+    assert 'sürücüsünde sorun' in txt and 'USB kablo' in txt and 'Steam Input' not in txt and 'hiçbir XInput yuvasında' in txt, a
+    a = c.controller_advice({'total': 1, 'adapter': 1}, False, [], fc_found=False)
+    txt = ' '.join(x for _, x in a)
+    assert 'Wireless Adapter' in txt and 'yalnızca Windows' in txt and 'FC ayar klasörü bulunamadı' in txt, a
+
+
+@test
+def xinput_helpers():
+    assert c.xinput_pressed(0x1000 | 0x0100 | 0x0001) == ['DPAD_UP', 'LB', 'A']
+    assert c.xinput_pressed(0) == []
+    assert c.xinput_battery_text(1, 0) == 'Kablolu (USB)'
+    assert c.xinput_battery_text(2, 1) == 'Alkalin pil · düşük'
+    assert c.xinput_battery_text(0, 0) == 'Bağlı değil' and c.xinput_battery_text(7, 0) == 'Bilinmiyor'
+    assert not c.stick_drift(3000, -3000) and c.stick_drift(9000, 0) and c.stick_drift(-6000, 6000)
+    xr = c.XInputReader()
+    if not c.IS_WIN:
+        assert not xr.available() and xr.state(0) is None and xr.battery(0) is None and xr.connected_slots() == []
+
+
+@test
+def fc_settings_reset():
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        for name in ('EA SPORTS FC 9', 'EA SPORTS FC 27', 'EA SPORTS FC 26', 'Other'):
+            (base / name).mkdir()
+        (base / 'EA SPORTS FC 27' / 'settings').mkdir()
+        assert [p.name for p in c.fc_settings_dirs(base)] == ['EA SPORTS FC 9', 'EA SPORTS FC 26', 'EA SPORTS FC 27']
+        assert c.fc_settings_dirs(base / 'yok') == []
+        fc = base / 'EA SPORTS FC 27'
+        assert c.fc_reset_settings(fc) == (None, [])
+        (fc / 'settings' / 'Settings_A').write_text('a1')
+        (fc / 'settings' / 'settingsB').write_text('b22')
+        (fc / 'settings' / 'buttonDataSetupV2.ini').write_text('keep')
+        assert [f.name for f in c.fc_settings_files(fc)] == ['Settings_A', 'settingsB']
+        bdir, names = c.fc_reset_settings(fc, stamp='20261018-2200')
+        assert names == ['Settings_A', 'settingsB'] and bdir.name == 'settings_backup_20261018-2200'
+        assert (bdir / 'Settings_A').read_text() == 'a1' and (bdir / 'settingsB').read_text() == 'b22'
+        assert sorted(p.name for p in (fc / 'settings').iterdir()) == ['buttonDataSetupV2.ini']
+        (fc / 'settings' / 'Settings_A').write_text('a2')
+        bdir2, _ = c.fc_reset_settings(fc, stamp='20261018-2200')                                     # ayni saniye: ezmez
+        assert bdir2.name == 'settings_backup_20261018-2200-2' and (bdir / 'Settings_A').read_text() == 'a1'
+
+
+@test
+def controller_contract():
+    """PowerShell ValidateSet, uygulama eylem listeleri ve iki taraftaki Xbox olcutu (urun kimlikleri) uyumlu."""
+    ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
+    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    for act in ('controller-list', 'controller-reset', 'bt-restart'):
+        assert "'%s'" % act in ps.split('[string]$Action')[0] and (" '%s' {" % act) in ps, act
+        assert "'%s'" % act in app.split('INTERNAL_PS_ACTIONS = ')[1].split('\n')[0], act
+    adm = app.split('ADMIN_ACTIONS = ')[1].split('\n')[0]
+    assert "'controller-reset'" in adm and "'bt-restart'" in adm and "'controller-list'" not in adm
+    import re
+    pids = set(re.search(r"\$pids='([0-9A-F|]+)'", ps).group(1).split('|'))
+    assert pids == c.XBOX_PIDS | c.XBOX_ADAPTER_PIDS, pids ^ (c.XBOX_PIDS | c.XBOX_ADAPTER_PIDS)
+    assert 'IsXboxDevice $dev' in ps.split(" 'controller-reset' {")[1].split(" 'bt-restart' {")[0]       # sifirlama Xbox olmayanı reddeder
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

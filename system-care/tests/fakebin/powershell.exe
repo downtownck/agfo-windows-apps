@@ -10,6 +10,15 @@ case "$act" in
   printf '%s\n' '@@{"type":"phantom","id":"USB\\VID_04E8&PID_6860\\R58M","name":"Galaxy S10","cls":"WPD","status":"Unknown","problem":45,"arrival":"","removal":"","regwrite":"2099-01-01 00:00"}'
   printf '%s\n' '@@{"type":"phantom","id":"FTDIBUS\\VID_0403+PID_6001\\0000","name":"USB Serial Port (COM7)","cls":"Ports","status":"Unknown","problem":45,"arrival":"2023-05-05 08:00","removal":"","regwrite":""}'
   printf '%s\n' '@@{"type":"phantom","id":"SWD\\PRINTENUM\\{ABC}","name":"HP LaserJet (eski)","cls":"PrintQueue","status":"Unknown","problem":45,"arrival":"2022-02-02 00:00","removal":"","regwrite":""}' ;;
+ controller-list) echo "Xbox kol bileseni: 4"
+  printf '%s\n' '@@{"type":"controller","id":"BTHLEDEVICE\\{00001812-0000-1000-8000-00805F9B34FB}_DEV_VID&02045E_PID&0B13_REV&0509_F4F2\\8&1","name":"Xbox Wireless Controller","cls":"Bluetooth","status":"OK","problem":0}'
+  printf '%s\n' '@@{"type":"controller","id":"HID\\{00001812-0000-1000-8000-00805F9B34FB}_DEV_VID&02045E_PID&0B13_REV&0509\\9&1","name":"Bluetooth XINPUT compatible input device","cls":"HIDClass","status":"Error","problem":10}'
+  printf '%s\n' '@@{"type":"controller","id":"USB\\VID_045E&PID_0B12\\3039","name":"Xbox Controller","cls":"XnaComposite","status":"OK","problem":0}'
+  printf '%s\n' '@@{"type":"controller","id":"HID\\VID_045E&PID_07A5&MI_00\\8&2","name":"Microsoft Wireless Mouse","cls":"Mouse","status":"OK","problem":0}'
+  echo "Bluetooth radyosu: 1 | bthserv: Running"
+  printf '%s\n' '@@{"type":"bt-radio","count":1,"ok":1,"service":"Running"}' ;;
+ controller-reset) ids=""; prev=""; for a in "$@"; do [ "$prev" = "-InstanceIds" ] && ids="$a"; prev="$a"; done; printf "RESETIDS=%s\n" "$ids" ;;
+ bt-restart) echo "bthserv: Running. Eslestirmeler korunur."; echo '@@{"type":"bt-service","status":"Running"}' ;;
  phantom-remove) ids=""; prev=""; for a in "$@"; do [ "$prev" = "-InstanceIds" ] && ids="$a"; prev="$a"; done; printf "INSTANCEIDS=%s\n" "$ids" ;;
  restore-point) fr=""; prev=""; for a in "$@"; do [ "$prev" = "-ForceRestorePoint" ] && fr="$a"; prev="$a"; done; echo "Sistem geri yukleme noktasi olusturuldu. FORCE=$fr" ;;
  appx-list) echo "Store / on yuklu uygulama: 6"

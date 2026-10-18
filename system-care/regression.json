@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -11,7 +11,8 @@
       "Sürücüler",
       "Aygıt temizliği",
       "Uygulama güncellemeleri",
-      "Bakım ve sağlık"
+      "Bakım ve sağlık",
+      "Kol / Gamepad"
     ],
     "powershell_actions": [
       "driver-scan",
@@ -34,7 +35,10 @@
       "appx-list",
       "appx-remove",
       "phantom-list",
-      "phantom-remove"
+      "phantom-remove",
+      "controller-list",
+      "controller-reset",
+      "bt-restart"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -47,7 +51,7 @@
       "-InstanceIds <pipe list>",
       "-ForceRestorePoint yes|no"
     ],
-    "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle)",
+    "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle | controller | bt-radio | controller-reset | bt-service)",
     "engines_winget": {
       "bleachbit": "BleachBit.BleachBit",
       "bcu": "Klocman.BulkCrapUninstaller",
@@ -74,7 +78,9 @@
       ]
     },
     "update_backups": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\update-backups (en son 3)",
-    "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})"
+    "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})",
+    "controller_scope": "Yalnizca Xbox kol/adaptor: Microsoft VID 045E + XBOX_PIDS/XBOX_ADAPTER_PIDS, adinda \"Xbox\", XboxComposite/XnaComposite sinifi veya XBOXGIP\\ (care_core.controller_is_xbox == care_tasks.ps1 IsXboxDevice)",
+    "fc_settings_reset": "%LOCALAPPDATA%\\EA SPORTS FC <en yeni>\\settings\\Settings* -> ayni klasorde settings_backup_<zaman>[-n]/ (kopya boyutu dogrulanmadan silinmez)"
   },
   "removed_surfaces": [
     {
@@ -309,6 +315,34 @@
       "required_for_package": true
     },
     {
+      "id": "SC-037",
+      "purpose": "Kol algilama: USB/Bluetooth(VID&02045E)/Xbox Wireless Adapter/XBOXGIP kimlikleri dogru yola ayrilir; Microsoft fare/klavye ve baska ureticiler asla kol sayilmaz; listede tekrar elenir, sorunlu bilesen once; istatistik",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-038",
+      "purpose": "Kol tanisi: kol yok / surucu sorunu / yalniz Bluetooth (FC 27 + Steam Input uyarisi, bthserv durmus) / USB / adaptor / XInput yok / yuvasiz / FC klasoru yok dallari; XInput tus/pil/kayma yardimcilari; Windows disinda XInputReader guvenli",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-039",
+      "purpose": "FC ayar sifirlama: en yeni 'EA SPORTS FC nn' klasoru surum sirasiyla secilir; yalnizca Settings* dosyalari yedeklenip silinir, digerleri korunur; ayni saniyede ikinci yedek oncekini ezmez. Sozlesme: ValidateSet/uygulama eylem listeleri/yonetici eylemleri ve iki taraftaki urun kimligi listesi birebir; controller-reset Xbox olmayani reddeder",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-040",
+      "purpose": "GUI Kol / Gamepad: sekme var; XInput yokken canli test mesaji; tarama yalnizca Xbox satirlari (fare elenir), sayaclar, Baglanti sutunu, sorunlu satir once ve isaretli, tani metni; surucu sifirlama yalnizca isaretli InstanceId'ler (isaretsizse tum Xbox satirlari, fare asla) ve ardindan yeniden tarama; Bluetooth hizmeti yeniden baslatma + tarama; FC ayarlari en yeni klasorde yedeklenip sifirlanir, ikinci denemede bilgi verilir; Windows disinda kisayollar guvenli",
+      "type": "gui_runtime",
+      "script": "tests/gui_smoke.py",
+      "required_for_package": true
+    },
+    {
       "id": "SC-W01",
       "purpose": "Windows: BleachBit tasinabilir 6.0.4 indirilir, motor klasorune acilir, --list-cleaners calisir",
       "type": "windows_runtime",
@@ -359,6 +393,12 @@
     {
       "id": "SC-W09",
       "purpose": "Windows: phantom-list gercek bagli olmayan aygitlari getirir; pnputil /remove-device ile bir USB bellek kaydi kaldirilir; bagli aygit reddedilir; zorlanmis geri yukleme noktasi olusur ve frekans degeri geri yuklenir",
+      "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W10",
+      "purpose": "Windows: gercek Xbox kolu USB ve Bluetooth ile controller-list dogru yolu ve durumu gosterir; canli testte tuslar/analoglar/tetikler/pil; controller-reset (yonetici) sonrasi kol yeniden taninir; bt-restart eslestirmeyi korur; Xbox Accessories ve Steam kumanda ayarlari acilir",
       "type": "windows_runtime",
       "required_for_package": false
     }

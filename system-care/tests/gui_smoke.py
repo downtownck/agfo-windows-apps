@@ -401,6 +401,54 @@ app.run_ps('temp-preview', False); wait_idle(60)
 check('maint.temp_preview_real_ps', '7 gunden eski' in logtext(), logtext()[-300:])
 shot(7, '6-bakim')
 
+# 6b Kol / Gamepad (3.6.0)
+check('pad.tab_present', app.tabs.tab(8, 'text').strip() == 'Kol / Gamepad', app.tabs.tab(8, 'text'))
+app.tabs.select(8)
+for _ in range(30):
+    app.update(); time.sleep(0.02)
+check('pad.live_test_no_xinput_msg', 'yalnızca Windows' in app.pad_canvas.itemcget(app.pad_canvas.it['msg'], 'text') and app.pad_info['conn'].get() == 'XInput yok',
+      app.pad_canvas.itemcget(app.pad_canvas.it['msg'], 'text'))
+app.pad_scan(); wait_idle(30)
+pt = app.pad_tree
+pad_rows = {pt.payload[i]['name']: i for i in pt.labels if pt.payload.get(i)}
+check('pad.rows_xbox_only', set(pad_rows) == {'Xbox Wireless Controller', 'Bluetooth XINPUT compatible input device', 'Xbox Controller'}, list(pad_rows))
+check('pad.chips', [app.pad_chips[k][0].get() for k in ('total', 'usb', 'bluetooth', 'problem')] == ['3 kol bileşeni', '1 USB', '2 Bluetooth', '1 sorunlu'],
+      [v.get() for v, _ in app.pad_chips.values()])
+check('pad.bus_column', pt.tree.set(pad_rows['Xbox Controller'], 'bus') == 'USB kablo' and pt.tree.set(pad_rows['Xbox Wireless Controller'], 'bus') == 'Bluetooth')
+check('pad.problem_first_and_checked', list(pt.labels)[0] == pad_rows['Bluetooth XINPUT compatible input device'] and pt.checked == {pad_rows['Bluetooth XINPUT compatible input device']}
+      and 'risky' in pt.tree.item(pad_rows['Bluetooth XINPUT compatible input device'], 'tags'), (list(pt.labels), pt.checked))
+diag = app.pad_diag.get('1.0', 'end')
+check('pad.diag', 'sürücüsünde sorun var' in diag and 'USB kablo ile bağlı' in diag and 'XInput gerekir' in diag, diag)
+app.pad_reset(); wait_idle(30)
+lt = logtext()
+rid = lt.split('RESETIDS=')[-1].split('\n')[0].split('|')
+check('pad.reset_only_checked', rid == ['HID\\{00001812-0000-1000-8000-00805F9B34FB}_DEV_VID&02045E_PID&0B13_REV&0509\\9&1'], rid)
+check('pad.rescan_after_reset', lt.rfind('Xbox kolları başlatıldı') > lt.rfind('Kol sürücüsünü sıfırla'))
+pt.set_all(False)
+app.pad_reset(); wait_idle(30)
+rid = logtext().split('RESETIDS=')[-1].split('\n')[0].split('|')
+check('pad.reset_all_when_none_checked', len(rid) == 3 and not any('PID_07A5' in r for r in rid), rid)
+app.pad_bt_restart(); wait_idle(30)
+check('pad.bt_restart', 'bthserv: Running' in logtext() and logtext().rfind('Xbox kolları başlatıldı') > logtext().rfind('Bluetooth hizmetini yeniden başlat'))
+lad = TMP / 'lad'
+for name in ('EA SPORTS FC 26', 'EA SPORTS FC 27'):
+    (lad / name / 'settings').mkdir(parents=True, exist_ok=True)
+(lad / 'EA SPORTS FC 27' / 'settings' / 'Settings_abc').write_text('controls=1')
+(lad / 'EA SPORTS FC 27' / 'settings' / 'profile.ini').write_text('keep')
+core.LOCALAPPDATA = str(lad)
+app.pad_fc_reset(); wait_idle(30)
+backs = list((lad / 'EA SPORTS FC 27').glob('settings_backup_*'))
+check('pad.fc_reset_newest_backed_up', len(backs) == 1 and (backs[0] / 'Settings_abc').read_text() == 'controls=1'
+      and not (lad / 'EA SPORTS FC 27' / 'settings' / 'Settings_abc').exists() and (lad / 'EA SPORTS FC 27' / 'settings' / 'profile.ini').exists()
+      and not list((lad / 'EA SPORTS FC 26').glob('settings_backup_*')), (backs, logtext()[-400:]))
+check('pad.fc_reset_logged', 'Yedeklendi ve sıfırlandı (1 dosya): Settings_abc' in logtext(), logtext()[-400:])
+n_info = len([a for a in ASKED if isinstance(a, tuple) and a[0] == 'info'])
+app.pad_fc_reset(); wait_idle(10)
+check('pad.fc_reset_nothing_left', len([a for a in ASKED if isinstance(a, tuple) and a[0] == 'info']) == n_info + 1)
+app.pad_open('joy.cpl', 'Oyun kumandaları')
+check('pad.open_non_windows_safe', 'yalnızca Windows' in logtext().strip().splitlines()[-1], logtext()[-200:])
+shot(8, '7-kol-gamepad')
+
 # 7 Guncelleme (paket yukleme) - gercek paketten turetilmis 3.3.1 paketi bir kurulum kopyasina uygulanir
 import shutil, zipfile  # noqa: E402
 inst = TMP / 'install'

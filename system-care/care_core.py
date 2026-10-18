@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '3.5.0'
+VERSION = '3.6.0'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -1621,3 +1621,232 @@ def build_phantom_view(devs, today=None):
     for g in groups.values():
         g.sort(key=lambda x: (x['seen'] or '0000', (x.get('name') or '').lower()))
     return dict(sorted(groups.items(), key=lambda kv: kv[0].lower())), stats
+
+
+# =========================================================================== KOL / GAMEPAD (3.6.0)
+# Xbox kollari: XInput ile canli durum, PnP ile baglanti yolu ve surucu durumu, EA SPORTS FC ayar sifirlama.
+# Kurallar: yalnizca Microsoft (VID 045E) Xbox kol/adaptor urun kimlikleri "kol" sayilir; Microsoft fare/klavye asla.
+XBOX_PIDS = {'02D1', '02DD', '02E0', '02E3', '02EA', '02FD', '02FF', '0B00', '0B05', '0B12', '0B13', '0B20', '0B22'}
+XBOX_ADAPTER_PIDS = {'02E6', '02FE', '0719', '091E', '02A9'}
+_XB_USB = re.compile(r'VID_045E&PID_([0-9A-F]{4})', re.I)
+_XB_BT = re.compile(r'VID&02045E_PID&([0-9A-F]{4})', re.I)
+BT_HID_SERVICES = ('{00001812-', '{00001124-')      # HID over GATT (BLE) / klasik HID
+
+
+def _xbox_pid(instance_id):
+    iid = instance_id or ''
+    m = _XB_USB.search(iid) or _XB_BT.search(iid)
+    return m.group(1).upper() if m else ''
+
+
+def controller_is_xbox(dev):
+    """PnP kaydi bir Xbox kolu / Xbox kablosuz adaptoru mu? (PowerShell IsXboxDevice ile ayni olcut)"""
+    iid = (dev.get('id') or '').upper()
+    name = dev.get('name') or ''
+    if 'xbox' in name.lower():
+        return True
+    if (dev.get('cls') or '') in ('XboxComposite', 'XnaComposite'):
+        return True
+    if iid.startswith('XBOXGIP\\'):
+        return True
+    pid = _xbox_pid(iid)
+    return bool(pid) and (pid in XBOX_PIDS or pid in XBOX_ADAPTER_PIDS)
+
+
+def controller_bus(instance_id):
+    """-> 'usb' | 'bluetooth' | 'adapter' | 'other' (aygit ornek kimliginden)."""
+    iid = (instance_id or '').upper()
+    if iid.startswith(('BTHLEDEVICE\\', 'BTHLE\\', 'BTHENUM\\', 'BTH\\')) or _XB_BT.search(iid):
+        return 'bluetooth'
+    if iid.startswith('HID\\') and any(sv in iid for sv in BT_HID_SERVICES):
+        return 'bluetooth'
+    if iid.startswith('XBOXGIP\\') or _xbox_pid(iid) in XBOX_ADAPTER_PIDS:
+        return 'adapter'
+    if iid.startswith(('USB\\', 'HID\\')) and _XB_USB.search(iid):
+        return 'usb'
+    return 'other'
+
+
+CONTROLLER_BUS_TEXT = {'usb': 'USB kablo', 'bluetooth': 'Bluetooth', 'adapter': 'Xbox Wireless Adapter', 'other': 'Diğer'}
+
+
+def build_controller_view(devs):
+    """-> (satirlar, istatistik). Satira 'bus', 'bus_text', 'problem_dev' eklenir; Xbox olmayanlar elenir."""
+    rows, seen = [], set()
+    stats = {'total': 0, 'usb': 0, 'bluetooth': 0, 'adapter': 0, 'problem': 0}
+    for d in devs:
+        if not controller_is_xbox(d) or d.get('id') in seen:
+            continue
+        seen.add(d.get('id'))
+        d = dict(d)
+        d['bus'] = controller_bus(d.get('id'))
+        d['bus_text'] = CONTROLLER_BUS_TEXT[d['bus']]
+        st = (d.get('status') or '').upper()
+        d['problem_dev'] = bool(int(d.get('problem') or 0)) or (st not in ('', 'OK'))
+        rows.append(d)
+        stats['total'] += 1
+        if d['bus'] in stats:
+            stats[d['bus']] += 1
+        stats['problem'] += 1 if d['problem_dev'] else 0
+    rows.sort(key=lambda r: (not r['problem_dev'], r['bus'], (r.get('name') or '').lower()))
+    return rows, stats
+
+
+def controller_advice(stats, xinput_available, connected_slots, bt=None, fc_found=True):
+    """Tani satirlari: [(duzey, metin)] duzey: 'bad' | 'warn' | 'ok' | 'info'."""
+    out = []
+    bt = bt or {}
+    if not stats.get('total'):
+        out.append(('bad', 'Xbox kolu görünmüyor. Kolu USB kabloyla takın ya da Xbox düğmesi yanıp sönene kadar eşleştirme düğmesine basılı tutup Bluetooth ile eşleştirin, sonra "Tara".'))
+    if stats.get('problem'):
+        out.append(('bad', '%d kol bileşeninin sürücüsünde sorun var. Kolu USB ile takıp "Kol sürücüsünü sıfırla" çalıştırın.' % stats['problem']))
+    if stats.get('bluetooth') and not stats.get('usb'):
+        out.append(('warn', 'Kol Bluetooth ile bağlı. EA SPORTS FC 27 bu modda rastgele giriş üretebiliyor: oyunu Steam\'den açıyorsanız oyunun '
+                            'Özellikler > Kumanda ayarında "Steam Input" açık olsun, ya da USB kablo kullanın.'))
+        if bt.get('service') and bt.get('service') != 'Running':
+            out.append(('bad', 'Bluetooth destek hizmeti (bthserv) çalışmıyor: "Bluetooth hizmetini yeniden başlat".'))
+    if stats.get('usb'):
+        out.append(('ok', 'USB kablo ile bağlı; en kararlı mod. Firmware güncellemesi için iyi zaman: "Xbox Accessories".'))
+    if stats.get('adapter'):
+        out.append(('ok', 'Xbox Wireless Adapter üzerinden bağlı; Bluetooth\'tan daha kararlıdır.'))
+    if not xinput_available:
+        out.append(('info', 'Canlı test için XInput gerekir (yalnızca Windows).'))
+    elif stats.get('total') and not connected_slots:
+        out.append(('warn', 'Aygıt listede var ama hiçbir XInput yuvasında kol yok. Kolu kapatıp açın ya da kabloyu çıkarıp takın.'))
+    elif connected_slots:
+        out.append(('ok', 'XInput yuvası: %s.' % ', '.join(str(i + 1) for i in connected_slots)))
+    if not fc_found:
+        out.append(('info', 'EA SPORTS FC ayar klasörü bulunamadı (oyun bu kullanıcıyla hiç açılmamış olabilir).'))
+    out.append(('info', 'Oyunu açmadan önce kolu bağlayın; oyun açıkken klavye ve fareye dokunmayın.'))
+    return out
+
+
+XINPUT_BUTTONS = [('DPAD_UP', 0x0001), ('DPAD_DOWN', 0x0002), ('DPAD_LEFT', 0x0004), ('DPAD_RIGHT', 0x0008), ('START', 0x0010), ('BACK', 0x0020),
+                  ('LS', 0x0040), ('RS', 0x0080), ('LB', 0x0100), ('RB', 0x0200), ('A', 0x1000), ('B', 0x2000), ('X', 0x4000), ('Y', 0x8000)]
+XINPUT_BATTERY_TYPE = {0: 'Bağlı değil', 1: 'Kablolu', 2: 'Alkalin pil', 3: 'Şarjlı pil (NiMH)', 0xFF: 'Bilinmiyor'}
+XINPUT_BATTERY_LEVEL = {0: 'boş', 1: 'düşük', 2: 'orta', 3: 'dolu'}
+XINPUT_STICK_DEADZONE = 7849          # XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE
+
+
+def xinput_pressed(buttons):
+    return [n for n, bit in XINPUT_BUTTONS if buttons & bit]
+
+
+def xinput_battery_text(btype, level):
+    if btype == 1:
+        return 'Kablolu (USB)'
+    if btype in (2, 3):
+        return '%s · %s' % (XINPUT_BATTERY_TYPE[btype], XINPUT_BATTERY_LEVEL.get(level, '?'))
+    return XINPUT_BATTERY_TYPE.get(btype, 'Bilinmiyor')
+
+
+def stick_drift(x, y, deadzone=XINPUT_STICK_DEADZONE):
+    """Analog birakildiginda (tus basilmiyorken) olu bolge disinda kalmasi = surukleme (drift) belirtisi."""
+    return (x * x + y * y) ** 0.5 > deadzone
+
+
+class XInputReader:
+    """xinput1_4 / 1_3 / 9_1_0 uzerinden kol durumu. Windows disinda available() False doner."""
+
+    def __init__(self):
+        self.dll, self.name, self.has_battery = None, '', False
+        if not IS_WIN:
+            return
+        import ctypes
+        import ctypes.wintypes as wt
+
+        class GAMEPAD(ctypes.Structure):
+            _fields_ = [('wButtons', wt.WORD), ('bLeftTrigger', ctypes.c_ubyte), ('bRightTrigger', ctypes.c_ubyte),
+                        ('sThumbLX', ctypes.c_short), ('sThumbLY', ctypes.c_short), ('sThumbRX', ctypes.c_short), ('sThumbRY', ctypes.c_short)]
+
+        class STATE(ctypes.Structure):
+            _fields_ = [('dwPacketNumber', wt.DWORD), ('Gamepad', GAMEPAD)]
+
+        class BATTERY(ctypes.Structure):
+            _fields_ = [('BatteryType', ctypes.c_ubyte), ('BatteryLevel', ctypes.c_ubyte)]
+
+        self._ct, self._STATE, self._BATTERY = ctypes, STATE, BATTERY
+        for name in ('xinput1_4.dll', 'xinput1_3.dll', 'xinput9_1_0.dll'):
+            try:
+                self.dll = ctypes.windll.LoadLibrary(name)
+                self.name = name
+                break
+            except OSError:
+                continue
+        if not self.dll:
+            return
+        self.dll.XInputGetState.argtypes = [wt.DWORD, ctypes.POINTER(STATE)]
+        self.dll.XInputGetState.restype = wt.DWORD
+        try:
+            self.dll.XInputGetBatteryInformation.argtypes = [wt.DWORD, ctypes.c_ubyte, ctypes.POINTER(BATTERY)]
+            self.dll.XInputGetBatteryInformation.restype = wt.DWORD
+            self.has_battery = True
+        except AttributeError:
+            pass
+
+    def available(self):
+        return self.dll is not None
+
+    def state(self, slot):
+        """-> dict(packet, buttons, lt, rt, lx, ly, rx, ry) ya da None (yuva bos)."""
+        if not self.dll:
+            return None
+        st = self._STATE()
+        if self.dll.XInputGetState(slot, self._ct.byref(st)) != 0:
+            return None
+        g = st.Gamepad
+        return {'packet': st.dwPacketNumber, 'buttons': g.wButtons, 'lt': g.bLeftTrigger, 'rt': g.bRightTrigger,
+                'lx': g.sThumbLX, 'ly': g.sThumbLY, 'rx': g.sThumbRX, 'ry': g.sThumbRY}
+
+    def battery(self, slot):
+        if not (self.dll and self.has_battery):
+            return None
+        b = self._BATTERY()
+        if self.dll.XInputGetBatteryInformation(slot, 0, self._ct.byref(b)) != 0:
+            return None
+        return b.BatteryType, b.BatteryLevel
+
+    def connected_slots(self):
+        return [i for i in range(4) if self.state(i)]
+
+
+def fc_settings_dirs(base=None):
+    """%LOCALAPPDATA% altindaki 'EA SPORTS FC*' klasorleri (eskiden yeniye)."""
+    root = pathlib.Path(base or LOCALAPPDATA)
+    try:
+        found = [p for p in root.iterdir() if p.is_dir() and p.name.upper().startswith('EA SPORTS FC')]
+    except OSError:
+        return []
+    return sorted(found, key=lambda p: (_vkey(p.name), p.name))
+
+
+def fc_settings_files(folder):
+    sdir = pathlib.Path(folder) / 'settings'
+    if not sdir.is_dir():
+        return []
+    return sorted(p for p in sdir.iterdir() if p.is_file() and p.name.lower().startswith('settings'))
+
+
+def fc_reset_settings(folder, stamp=None):
+    """Settings* dosyalarini settings_backup_<zaman>/ altina kopyalar, sonra siler (oyun yeniden olusturur).
+    -> (yedek klasoru, [dosya adlari]). Kopya dogrulanmadan silme yapilmaz."""
+    import datetime as _dt
+    import shutil
+    files = fc_settings_files(folder)
+    if not files:
+        return None, []
+    stamp = stamp or _dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+    bdir = pathlib.Path(folder) / ('settings_backup_' + stamp)
+    n = 1
+    while bdir.exists():
+        n += 1
+        bdir = pathlib.Path(folder) / ('settings_backup_%s-%d' % (stamp, n))
+    bdir.mkdir(parents=True)
+    for f in files:
+        dst = bdir / f.name
+        shutil.copy2(str(f), str(dst))
+        if dst.stat().st_size != f.stat().st_size:
+            raise OSError('Yedek doğrulanamadı: ' + f.name)
+    for f in files:
+        f.unlink()
+    return bdir, [f.name for f in files]

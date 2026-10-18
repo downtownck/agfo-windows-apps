@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -9,7 +9,7 @@ param(
  [string]$InstanceIds = '',
  [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no'
 )
-# AGFO System Care 3.5.0 gorev motoru.
+# AGFO System Care 3.6.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -76,6 +76,18 @@ public static class AgfoNative {
 }
 '@
  }
+}
+function IsXboxDevice($d) {
+ # Yalnizca Xbox kol / Xbox kablosuz adaptoru (Microsoft VID 045E + bilinen urun kimlikleri). Microsoft fare/klavye eslesmez.
+ # care_core.controller_is_xbox ile ayni olcut.
+ $id=[string]$d.InstanceId; $n=[string]$d.FriendlyName; $c=[string]$d.Class
+ if($n -match 'Xbox') { return $true }
+ if($c -eq 'XboxComposite' -or $c -eq 'XnaComposite') { return $true }
+ if($id -match '^(?i)XBOXGIP\\') { return $true }
+ $pids='02D1|02DD|02E0|02E3|02EA|02FD|02FF|0B00|0B05|0B12|0B13|0B20|0B22|02E6|02FE|0719|091E|02A9'
+ if($id -match ('(?i)VID_045E&PID_('+$pids+')')) { return $true }
+ if($id -match ('(?i)VID&02045E_PID&('+$pids+')')) { return $true }
+ return $false
 }
 function FileTimeDate([long]$ft) { if($ft -gt 0) { try { return [DateTime]::FromFileTimeUtc($ft).ToLocalTime().ToString('yyyy-MM-dd HH:mm') } catch {} } ; return '' }
 function SafeDateTime($d) { try { if($d) { return ([datetime]$d).ToString('yyyy-MM-dd HH:mm') } } catch {} ; return '' }
@@ -249,6 +261,58 @@ switch($Action) {
   }
   Write-Output ('Kaldirilan: {0}, basarisiz/atlanan: {1}. Aygit yeniden takilirsa Windows onu yeni aygit olarak tanir.' -f $ok,$fail)
   if($fail -gt 0) { exit 2 }
+ }
+ 'controller-list' {
+  # Xbox kollari ve bilesenleri (su an bagli olanlar) + Bluetooth radyo/hizmet durumu.
+  $all=@(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { IsXboxDevice $_ })
+  Write-Output ('Xbox kol bileseni: '+$all.Count)
+  foreach($d in $all) {
+   $prob=0; try { $prob=[int]$d.Problem } catch {}
+   Write-Output ('- {0} | {1} | {2}' -f $d.FriendlyName,$d.Status,$d.InstanceId)
+   Emit ([ordered]@{type='controller';id=[string]$d.InstanceId;name=[string]$d.FriendlyName;cls=[string]$d.Class;status=[string]$d.Status;problem=$prob})
+  }
+  $radios=@(Get-PnpDevice -Class Bluetooth -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match '^(USB|PCI)\\' })
+  $svc=Get-Service bthserv -ErrorAction SilentlyContinue
+  $sv=''; if($svc) { $sv=[string]$svc.Status }
+  Write-Output ('Bluetooth radyosu: {0} | bthserv: {1}' -f $radios.Count,$sv)
+  Emit ([ordered]@{type='bt-radio';count=$radios.Count;ok=@($radios | Where-Object { $_.Status -eq 'OK' }).Count;service=$sv})
+ }
+ 'controller-reset' {
+  # Kol surucusunu sifirla: aygit kaydini kaldir ve donanimi yeniden tara. Yalnizca Xbox aygitlari kabul edilir.
+  RequireAdmin
+  $list=@($InstanceIds -split '\|' | Where-Object { $_ -and $_.Trim() })
+  if($list.Count -eq 0) { Write-Output 'Sifirlanacak aygit yok.'; break }
+  $build=[int][Environment]::OSVersion.Version.Build
+  $usePnputil=$build -ge 19041
+  if(-not $usePnputil) { AgfoNative }
+  $ok=0; $fail=0
+  foreach($id in $list) {
+   $id=$id.Trim()
+   $dev=Get-PnpDevice -InstanceId $id -ErrorAction SilentlyContinue
+   if(-not $dev) { Write-Output ('Bulunamadi: '+$id); $fail++; Emit ([ordered]@{type='controller-reset';id=$id;ok=$false;reason='missing'}); continue }
+   if(-not (IsXboxDevice $dev)) { Write-Output ('XBOX AYGITI DEGIL, atlandi: '+$id); $fail++; Emit ([ordered]@{type='controller-reset';id=$id;ok=$false;reason='not-xbox'}); continue }
+   if($usePnputil) { $out=& pnputil.exe /remove-device "$id" 2>&1 | Out-String; $code=$LASTEXITCODE }
+   else { $code=[AgfoNative]::Remove($id); $out='' }
+   if($code -eq 0 -or $code -eq 3010) { Write-Output ('Kaldirildi: '+$dev.FriendlyName+' ['+$id+']'); $ok++; Emit ([ordered]@{type='controller-reset';id=$id;ok=$true;reason=''}) }
+   else { Write-Output ('Kaldirilamadi ('+$code+'): '+$id+' '+$out.Trim()); $fail++; Emit ([ordered]@{type='controller-reset';id=$id;ok=$false;reason=('kod '+$code)}) }
+  }
+  Write-Output 'Donanim yeniden taraniyor...'
+  if($usePnputil) { & pnputil.exe /scan-devices 2>&1 | Out-String | Write-Output }
+  else { try { $null=(Get-CimInstance -Namespace root\cimv2 -ClassName Win32_PnPEntity -ErrorAction SilentlyContinue | Select-Object -First 1) } catch {} }
+  Write-Output ('Sifirlanan: {0}, basarisiz/atlanan: {1}. USB ise kabloyu cikarip takin; Bluetooth ise gerekirse yeniden eslestirin.' -f $ok,$fail)
+  if($fail -gt 0) { exit 2 }
+ }
+ 'bt-restart' {
+  # Bluetooth destek hizmetini yeniden baslatir; eslestirmeler silinmez.
+  RequireAdmin
+  $svc=Get-Service bthserv -ErrorAction SilentlyContinue
+  if(-not $svc) { Write-Output 'Bluetooth destek hizmeti (bthserv) bu bilgisayarda yok.'; exit 2 }
+  Restart-Service bthserv -Force
+  Start-Sleep -Seconds 2
+  $st=[string](Get-Service bthserv).Status
+  Write-Output ('bthserv: '+$st+'. Eslestirmeler korunur; kol birkac saniye icinde yeniden baglanir.')
+  Emit ([ordered]@{type='bt-service';status=$st})
+  if($st -ne 'Running') { exit 2 }
  }
  'devices' {
   $bad=@(Get-CimInstance Win32_PnPEntity -Filter 'ConfigManagerErrorCode <> 0' -ErrorAction SilentlyContinue)

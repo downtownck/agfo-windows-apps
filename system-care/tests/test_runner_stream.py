@@ -2,7 +2,7 @@
 python -I tests/test_runner_stream.py <agfo-care klasoru>"""
 import importlib.machinery, importlib.util, pathlib, queue, sys, tempfile, types
 ROOT = pathlib.Path(sys.argv[1])
-tk = types.ModuleType('tkinter'); tk.Tk = object; tk.Frame = object
+tk = types.ModuleType('tkinter'); tk.Tk = object; tk.Frame = object; tk.Canvas = object
 for m in ('ttk', 'filedialog', 'messagebox'):
     mod = types.ModuleType('tkinter.' + m); setattr(tk, m, mod); sys.modules['tkinter.' + m] = mod
 sys.modules['tkinter.ttk'].Frame = object

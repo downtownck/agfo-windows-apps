@@ -1,7 +1,17 @@
-# AGFO System Care 3.5.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.6.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.6.0'da ne değişti — Kol / Gamepad
+Yeni **Kol / Gamepad** sekmesi Xbox kollarının teşhis ve onarımını tek yerde toplar. EA SPORTS FC 27'de Bluetooth ile bağlı kolun rastgele giriş üretmesi gibi sorunlar için hazırlandı.
+- **Liste** (`controller-list`): şu an bağlı Xbox kol bileşenleri, bağlantı yolu (USB kablo / Bluetooth / Xbox Wireless Adapter), sürücü durumu; Bluetooth radyosu ve `bthserv` hizmeti. Yalnızca Xbox kol/adaptör aygıtları sayılır (Microsoft VID 045E + bilinen ürün kimlikleri, adında "Xbox" ya da XboxComposite/XnaComposite sınıfı); Microsoft fare ve klavye listeye girmez. Sorunlu bileşen en üstte ve işaretli gelir.
+- **Canlı test** (XInput): 4 yuva; tuşlar, analoglar, tetikler, pil düzeyi; bırakılmış analog ölü bölge dışında kalırsa "olası kayma (drift)" uyarısı. Sekme açık değilken okuma yavaşlar.
+- **Tanı**: bağlantı yoluna göre öneriler — yalnız Bluetooth ise FC 27 / Steam Input uyarısı, USB ise firmware önerisi, sürücü sorunu, hizmet durmuş, yuvası boş kol.
+- **Kol sürücüsünü sıfırla** (yönetici, `controller-reset`): işaretli (işaret yoksa listedeki tüm) Xbox bileşenlerinin aygıt kaydı `pnputil /remove-device` ile kaldırılır ve donanım yeniden taranır. PowerShell tarafı Xbox olmayan kimliği ayrıca reddeder.
+- **Bluetooth hizmetini yeniden başlat** (yönetici, `bt-restart`): eşleştirmeler silinmez.
+- **FC ayarlarını yedekle ve sıfırla**: en yeni `%LOCALAPPDATA%\EA SPORTS FC nn\settings\Settings*` dosyaları aynı klasörde `settings_backup_<zaman>` altına kopyalanır, kopya doğrulandıktan sonra silinir; oyun açılışta yenilerini oluşturur. Geri almak için yedekteki dosyaları geri kopyalayın.
+- Kısayollar: Xbox Accessories (firmware; kurulu değilse Store sayfası), Steam kumanda ayarları, Oyun kumandaları (joy.cpl), Bluetooth ayarları, FC ayar klasörü.
 
 ## 3.5.0'da ne değişti — Aygıt temizliği
 Yeni **Aygıt temizliği** sekmesi, bu bilgisayara bir zamanlar bağlanmış ama şu an bağlı olmayan aygıtları (eski USB bellekler, telefonlar, yazıcılar, USB-seri/COM portları, kaldırılmış donanım) listeler ve seçilenleri kaldırır. Uwe Sieber'in DeviceCleanup aracıyla aynı ölçütleri kullanır, fakat üçüncü taraf araç indirmez: işlem System Care'in kendi koduyla yapılır.
@@ -74,4 +84,4 @@ Bu paket BleachBit (GPL-3.0), BCU (Apache-2.0) ve SDIO (GPL-3.0) kodunu veya iki
 Kurulum yolu, Başlat menüsü kısayolu, günlük klasörü (`%LOCALAPPDATA%\AGFO\DriverCare\logs`) ve `care_tasks.ps1 -Action` adları 2.x ile uyumludur; 3.0.0 yeni eylemler ekler (`drivers-list`, `recycle-paths`) ve `-UpdateIds`, `-Paths` parametrelerini getirir. Ayarlar: `%LOCALAPPDATA%\AGFO\SystemCare\settings.json`.
 
 ## Test durumu
-Bu ortamda yapılanlar: Python 3.11/3.12/3.13 derleme; çekirdek birim testleri (22: sürücü eşleştirme ve durum, sürüm karşılaştırma, WinGet kodları, indirme kaynakları ve alan adı denetimi, SHA-256/boyut/yarım dosya, zip-slip, taşınabilir kurulum); çalıştırıcı akış testi; sanal ekranda gerçek Tk penceresiyle 83 adımlık uçtan uca arayüz testi (sahte motorlar ve sahte HTTPS yanıtıyla gerçek indirme/açma kodu; Temp ve geri dönüşüm eylemleri gerçek PowerShell 7 ile); PowerShell sözdizimi denetimi. **Windows üzerinde gerçek motorlarla ve gerçek Windows Update kataloğuyla çalıştırma yapılmamıştır** (bkz. `regression.json` SC-W*). Testler: `tests/` klasörü.
+Bu ortamda yapılanlar: Python 3.11/3.12/3.13 derleme; çekirdek birim testleri (28: sürücü eşleştirme ve durum, sürüm karşılaştırma, WinGet kodları, indirme kaynakları ve alan adı denetimi, SHA-256/boyut/yarım dosya, zip-slip, taşınabilir kurulum); çalıştırıcı akış testi; sanal ekranda gerçek Tk penceresiyle 114 adımlık uçtan uca arayüz testi (sahte motorlar ve sahte HTTPS yanıtıyla gerçek indirme/açma kodu; Temp ve geri dönüşüm eylemleri gerçek PowerShell 7 ile); PowerShell sözdizimi denetimi. **Windows üzerinde gerçek motorlarla ve gerçek Windows Update kataloğuyla çalıştırma yapılmamıştır** (bkz. `regression.json` SC-W*). Testler: `tests/` klasörü.

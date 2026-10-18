@@ -1,7 +1,7 @@
 {
-  "version": "3.5.0",
-  "generated": "2026-10-17",
-  "environment": "Linux kapsayici: Python 3.11/3.12/3.13, Tk 8.6 + Xvfb (gercek pencere), PowerShell 7.4.6; motorlar ve HTTPS sahte; Windows calistirma testi YAPILMADI (bagli bilgisayar erisilemedi).",
+  "version": "3.6.0",
+  "generated": "2026-10-18",
+  "environment": "Linux kapsayici: Python 3.12/3.13, Tk 8.6 + Xvfb (gercek pencere, 1220x860), PowerShell 7.4.6 (ayristirma + IsXboxDevice capraz denetimi); motorlar, PnP ve HTTPS sahte; Windows calistirma testi YAPILMADI.",
   "results": {
     "SC-001": "pass",
     "SC-002": "pass",
@@ -34,6 +34,10 @@
     "SC-034": "pass",
     "SC-035": "pass",
     "SC-036": "pass",
+    "SC-037": "pass",
+    "SC-038": "pass",
+    "SC-039": "pass",
+    "SC-040": "pass",
     "SC-W01": "skip",
     "SC-W02": "skip",
     "SC-W03": "skip",
@@ -42,9 +46,13 @@
     "SC-W06": "skip",
     "SC-W07": "skip",
     "SC-W08": "skip",
-    "SC-W09": "skip"
+    "SC-W09": "skip",
+    "SC-W10": "skip"
   },
   "fixed_during_verification": [
+    "Kol algilama: Bluetooth kimligi VID&0002045E diye aranip gercek bicim VID&02045E kaciriliyordu -> iki tarafta duzeltildi, capraz test eklendi",
+    "Kol sekmesi 1220x860'ta sag panelde kirpiliyordu -> kisa aciklama, kucuk gorsel, iki sutunlu bilgi alani",
+    "GUI testi: SDIO calisma klasoru ProgramData tanimsizken depo icinde 'C:\\ProgramData' olusturuyordu -> test ortaminda ProgramData gecici klasore ayarlanmali (kod degismedi)",
     "Aygit temizligi: gelecek tarihli kayit negatif gun gosteriyordu -> 0",
     "GitHub denetimi: ilk denetim yanlislikla 'cok sik' sayilip atlaniyordu",
     "Arka plan is parcacigindan Tk cagrisi (after) yerine kuyruk",
@@ -66,13 +74,13 @@
     "Arayuz: Surucu listesi SDIO paneli yuzunden kisa kaliyordu -> katlanir SDIO secenekleri, sikistirilmis sutunlar"
   ],
   "counts": {
-    "passed": 31,
+    "passed": 35,
     "failed": 0,
     "warned": 0,
-    "skipped": 9
+    "skipped": 10
   },
   "package_gate": {
     "status": "PASS",
-    "note": "core 23, GUI 99/99. Windows testleri skip."
+    "note": "core 28, runner-stream OK, GUI 114/114 (Kol / Gamepad 16 adim). Windows testleri skip."
   }
 }
