@@ -14,6 +14,7 @@ from __future__ import annotations
 import ctypes
 import io
 import os
+import re
 import sys
 
 OBJ_TEXT, OBJ_PATH, OBJ_IMAGE, OBJ_SHADING, OBJ_FORM = 1, 2, 3, 4, 5
@@ -308,6 +309,9 @@ def replace_text(src_bytes, index, info, new_text, size=None, bold=None, color=N
             if not font:
                 raise EditError('Yazı tipi yüklenemedi: %s' % os.path.basename(font_path))
             keep.append(font)
+            nbuf = ctypes.create_string_buffer(256)
+            raw.FPDFFont_GetBaseFontName(font, nbuf, 256)
+            base_name = nbuf.value.decode('latin-1', 'replace')
             x0, y0 = info['origin']
             r, g, b = (int(color[k:k + 2], 16) for k in (0, 2, 4))
             lead = max(size * 1.2, info.get('line_height') or 0)
@@ -327,7 +331,54 @@ def replace_text(src_bytes, index, info, new_text, size=None, bold=None, color=N
         out = _save(new)
         if font_path:
             raw.FPDFFont_Close(keep[1])
+            out = _fix_space_mapping(out, base_name)
         return out
     finally:
         new.close()
         src.close()
+
+
+def _cmap_nbsp_to_space(cmap):
+    """ToUnicode CMap'te bosluk glifini U+00A0 yerine U+0020'ye esler.
+    pdfium ayni glifi once bfchar ile 0020'ye, sonra dizi bicimli bfrange ile 00A0'a esleyebiliyor; bu durumda dizideki
+    o glife denk gelen 00A0 duzeltilir. Tekil "<g> <00A0>" eslemeleri de duzeltilir."""
+    space = {int(g, 16) for g in re.findall(rb'(?m)^\s*<([0-9A-Fa-f]+)>\s+<0020>\s*$', cmap)}
+
+    def arr(m):
+        start = int(m.group(1), 16)
+        items = re.findall(rb'<[0-9A-Fa-f]+>', m.group(3))
+        out = [b'<0020>' if it.upper() == b'<00A0>' and (start + k in space or not space) else it for k, it in enumerate(items)]
+        return m.group(0)[:m.start(3) - m.start(0)] + b' '.join(out) + m.group(0)[m.end(3) - m.start(0):]
+    cmap = re.sub(rb'<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*\[([^\]]*)\]', arr, cmap)
+    return re.sub(rb'(?m)^(\s*<([0-9A-Fa-f]+)>\s+(?:<\2>\s+)?)<00[aA]0>(\s*)$', rb'\1<0020>\3', cmap)
+
+
+def _fix_space_mapping(data, base_name):
+    """Arial gibi yazi tiplerinde bosluk ve bolunmez bosluk ayni glifi kullanir; pdfium ToUnicode'da glifi U+00A0'a
+    esler ve kopyalanan / aranan metinde bosluklar NBSP olur. Yalniz eklenen yazi tipinin eslemesini U+0020 yapar."""
+    try:
+        import pypdf
+        from pypdf.generic import NameObject
+        w = pypdf.PdfWriter(clone_from=pypdf.PdfReader(io.BytesIO(data)))
+        changed = False
+        for page in w.pages:
+            fonts = (page.get('/Resources') or {}).get('/Font') or {}
+            fonts = fonts.get_object() if hasattr(fonts, 'get_object') else fonts
+            for _k, ref in fonts.items():
+                f = ref.get_object()
+                if str(f.get('/BaseFont', '')).lstrip('/').split('+')[-1] != base_name.split('+')[-1] or '/ToUnicode' not in f:
+                    continue
+                cmap = f['/ToUnicode'].get_object()
+                raw_cmap = cmap.get_data()
+                fixed = _cmap_nbsp_to_space(raw_cmap)
+                if fixed != raw_cmap:
+                    cmap.set_data(fixed)
+                    changed = True
+        if not changed:
+            return data
+        _ = NameObject
+        buf = io.BytesIO()
+        w.write(buf)
+        return buf.getvalue()
+    except Exception:
+        return data

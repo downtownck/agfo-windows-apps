@@ -137,6 +137,15 @@ class PdfEditTests(unittest.TestCase):
         self.assertEqual(int(r.user_access_permissions) & P.ALL_PERMS, flags)  # duzenlenen sayfa izinleri tasir
         self.assertIn('Değişti', r.pages[0].extract_text())
 
+    def test_space_not_mapped_to_nbsp(self):
+        # Arial'de bosluk ve bolunmez bosluk ayni glif: pdfium ToUnicode'u 00A0 yapiyordu (Windows CI'da yakalandi)
+        cmap = (b'1 beginbfchar\n<0003> <0020>\nendbfchar\n2 beginbfrange\n<0003> <0005> [<00A0> <0021> <00A0>]\n'
+                b'<00A0> <00FF> <0100>\nendbfrange\n<0009> <00A0>\n')
+        out = E._cmap_nbsp_to_space(cmap)
+        self.assertIn(b'<0003> <0005> [<0020> <0021> <00A0>]', out)     # yalniz bosluk glifi duzelir
+        self.assertIn(b'<00A0> <00FF> <0100>', out)                      # aralik kaynaklari dokunulmaz
+        self.assertIn(b'<0009> <0020>', out)
+
     def test_font_picker(self):
         self.assertTrue(os.path.isfile(E.pick_font('ABCDEF+Helvetica-Bold', True)))
         self.assertTrue(os.path.isfile(E.pick_font('Times-Roman', serif=True)))
