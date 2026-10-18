@@ -86,6 +86,24 @@ def selftest(out_path: str) -> int:
         os.unlink(pp)
         os.unlink(out)
         res['ok'] = res['ok'] and img.size[0] > img.size[1] and res['pdf_saved'] > 0
+        # 1.3.1: AES sifreli, kisitli PDF (BRCGS gibi) - cryptography paketinin EXE'de oldugunu dogrular
+        ep = os.path.join(tempfile.gettempdir(), 'agfo-editor-selftest-aes.pdf')
+        _p.write_simple_pdf(pp, [['AES selftest']])
+        w = pypdf.PdfWriter(clone_from=pp)
+        w.encrypt(user_password='', owner_password='o', algorithm='AES-256', permissions_flag=_p.P_PRINT | _p.P_ANNOTATE)
+        with open(ep, 'wb') as fh:
+            w.write(fh)
+        pr = _p.PdfProject(ep)
+        eimg = pr.render(0, 0.5)
+        pr.add_overlay(0, {'type': 'highlight', 'rect': (20, 20, 200, 40)})
+        pr.save(out)
+        pr.close()
+        r2 = pypdf.PdfReader(out)
+        r2.decrypt('')
+        res['pdf_aes'] = {'restrictions': len(pr.restrictions()), 'perms': int(r2.user_access_permissions) & _p.ALL_PERMS}
+        for f_ in (pp, ep, out):
+            os.unlink(f_)
+        res['ok'] = res['ok'] and eimg.size[0] > 0 and r2.is_encrypted and res['pdf_aes']['perms'] == (_p.P_PRINT | _p.P_ANNOTATE)
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')

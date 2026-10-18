@@ -188,5 +188,99 @@ class PdfCoreTests(unittest.TestCase):
         self.assertEqual(P.suggest_name(r'C:\a\rapor.pdf'), r'C:\a\rapor (düzenlendi).pdf')
 
 
+def encrypt_copy(src, dst, flags, algorithm='AES-128'):
+    """BRCGS benzeri: acma parolasi yok, sahip parolali, AES, kisitli izinler."""
+    w = pypdf.PdfWriter(clone_from=src)
+    w.encrypt(user_password='', owner_password='sahip', algorithm=algorithm, permissions_flag=flags)
+    with open(dst, 'wb') as f:
+        w.write(f)
+    return dst
+
+
+@unittest.skipUnless(HAVE, 'pypdf/pypdfium2/Pillow yok')
+class EncryptedPdfTests(unittest.TestCase):
+    """1.3.1: AES sifreli, sahip izinleri kisitli PDF'ler (or. BRCGS yayinlari)."""
+
+    def setUp(self):
+        self.src = P.write_simple_pdf(os.path.join(TMP, 'acik.pdf'), [['Clause 1', 'text'], ['Clause 2']])
+
+    def test_restricted_aes_opens_renders_and_blocks_edits(self):
+        enc = encrypt_copy(self.src, os.path.join(TMP, 'brcgs.pdf'), P.P_PRINT | P.P_EXTRACT_ACCESS)
+        pr = P.PdfProject(enc)
+        self.assertTrue(pr.encrypted)
+        self.assertEqual(len(pr.pages), 2)
+        img = pr.render(0, 0.5)
+        self.assertGreater(img.size[0], 100)
+        self.assertIn('Clause 1', pr.page_text(0))         # erisilebilirlik icin metin cikarma izni var
+        self.assertFalse(pr.can('annotate'))
+        self.assertFalse(pr.can('modify'))
+        self.assertFalse(pr.can('assemble'))
+        self.assertEqual(len(pr.restrictions()), 4)
+        for fn in (lambda: pr.rotate([0], 90), lambda: pr.delete([0]), lambda: pr.move([1], -1),
+                   lambda: pr.add_overlay(0, {'type': 'highlight', 'rect': (10, 10, 50, 30)}),
+                   lambda: pr.add_overlay(0, {'type': 'text', 'rect': (10, 10, 50, 30), 'text': 'x'}),
+                   lambda: pr.insert_pdf(self.src), lambda: pr.save(os.path.join(TMP, 'x.pdf'), pages=[0]),
+                   lambda: pr.set_field('Ad', 'y')):
+            with self.assertRaises(P.PdfError) as cm:
+                fn()
+            self.assertIn('izni vermemiş', str(cm.exception))
+        self.assertFalse(pr.dirty)
+        self.assertEqual(len(pr.pages), 2)
+        self.assertEqual(pr.undo_stack, [])
+
+    def test_annotation_only_permission_and_reencrypted_output(self):
+        flags = P.P_PRINT | P.P_ANNOTATE | P.P_EXTRACT
+        enc = encrypt_copy(self.src, os.path.join(TMP, 'not-izinli.pdf'), flags, 'AES-256')
+        pr = P.PdfProject(enc)
+        pr.add_overlay(0, {'type': 'highlight', 'rect': (40, 40, 200, 60)})
+        pr.add_overlay(0, {'type': 'note', 'rect': (40, 80, 58, 98), 'text': 'Denetim notu'})
+        with self.assertRaises(P.PdfError):
+            pr.add_overlay(0, {'type': 'box', 'rect': (10, 10, 50, 30)})
+        out = pr.save(os.path.join(TMP, 'not-izinli (düzenlendi).pdf'))
+        r = pypdf.PdfReader(out)
+        self.assertTrue(r.is_encrypted)
+        self.assertTrue(r.decrypt(''))                      # acma parolasi yok
+        self.assertEqual(int(r.user_access_permissions) & P.ALL_PERMS, flags)   # izinler korunur
+        self.assertNotEqual(r.decrypt('sahip'), 2)          # ozgun sahip parolasi kopyalanmaz
+        subs = [a.get_object()['/Subtype'] for a in r.pages[0]['/Annots']]
+        self.assertEqual(sorted(subs), ['/Highlight', '/Text'])
+        self.assertEqual(len(P.PdfProject(out).pages), 2)   # tekrar acilabilir
+
+    def test_mixed_sources_use_most_restrictive_flags(self):
+        enc = encrypt_copy(self.src, os.path.join(TMP, 'birlestir.pdf'), P.P_PRINT | P.P_ASSEMBLE | P.P_EXTRACT)
+        pr = P.PdfProject(self.src)                         # sifresiz ana belge: her sey serbest
+        self.assertFalse(pr.encrypted)
+        self.assertEqual(pr.restrictions(), [])
+        pr.insert_pdf(enc)
+        self.assertEqual(len(pr.pages), 4)
+        with self.assertRaises(P.PdfError):                 # eklenen kisitli sayfaya icerik eklenemez
+            pr.add_overlay(3, {'type': 'image', 'rect': (10, 10, 50, 30), 'data': red_png()})
+        pr.add_overlay(0, {'type': 'image', 'rect': (10, 10, 50, 30), 'data': red_png()})
+        out = pr.save(os.path.join(TMP, 'birlesik.pdf'))
+        r = pypdf.PdfReader(out)
+        self.assertTrue(r.is_encrypted)
+        r.decrypt('')
+        self.assertEqual(int(r.user_access_permissions) & P.ALL_PERMS, P.P_PRINT | P.P_ASSEMBLE | P.P_EXTRACT)
+        plain = pr.save(os.path.join(TMP, 'yalniz-acik.pdf'), pages=[0, 1])
+        self.assertFalse(pypdf.PdfReader(plain).is_encrypted)
+
+    def test_no_text_extraction_permission(self):
+        enc = encrypt_copy(self.src, os.path.join(TMP, 'kopyalanamaz.pdf'), P.P_PRINT)
+        pr = P.PdfProject(enc)
+        with self.assertRaises(P.PdfError):
+            pr.page_text(0)
+        self.assertIn('metin çıkarma', ', '.join(pr.restrictions()))
+
+    def test_missing_crypto_message(self):
+        enc = encrypt_copy(self.src, os.path.join(TMP, 'aes-eksik.pdf'), P.P_PRINT)
+        from unittest import mock
+        from pypdf.errors import DependencyError
+        err = DependencyError('cryptography>=3.1 is required for AES algorithm')
+        with mock.patch.object(pypdf.PdfReader, 'decrypt', side_effect=err):
+            with self.assertRaises(P.PdfError) as cm:
+                P.PdfProject(enc)
+        self.assertIn('cryptography', str(cm.exception))
+        self.assertIn('güncelleyin', str(cm.exception))
+
 if __name__ == '__main__':
     unittest.main()

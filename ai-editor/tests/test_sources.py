@@ -74,6 +74,24 @@ class ExtractTests(unittest.TestCase):
         self.assertIn('4.11.2', d['units'][0]['text'])
         self.assertEqual(d['empty_pages'], [2])
 
+    def test_encrypted_pdf_permissions(self):
+        import pypdf
+        from pypdf.constants import UserAccessPermissions as U
+        src = os.path.join(TMP, 'aes-src.pdf')
+        make_pdf(src, [['Hazard analysis', 'CCP']])
+        for flags, ok in ((U.PRINT | U.EXTRACT_TEXT_AND_GRAPHICS, True), (U.PRINT, False)):
+            w = pypdf.PdfWriter(clone_from=src)
+            w.encrypt(user_password='', owner_password='o', algorithm='AES-128', permissions_flag=flags)
+            dst = os.path.join(TMP, 'aes-%d.pdf' % int(flags))
+            with open(dst, 'wb') as f:
+                w.write(f)
+            if ok:
+                self.assertIn('Hazard analysis', srcs.read_pdf(dst)[0]['text'])
+            else:
+                with self.assertRaises(srcs.SourceError) as cm:
+                    srcs.read_pdf(dst)
+                self.assertIn('izin vermiyor', str(cm.exception))
+
     def test_office_and_text_formats(self):
         x = os.path.join(TMP, 'b.xlsx')
         make_xlsx(x)

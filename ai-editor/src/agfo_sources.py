@@ -55,12 +55,16 @@ def read_pdf(path: str) -> list:
     except ImportError as e:  # pragma: no cover
         raise SourceError('PDF okuyucu (pypdf) yüklü değil.') from e
     try:
-        reader = pypdf.PdfReader(path, strict=False)
-        if reader.is_encrypted:
-            try:
-                reader.decrypt('')
-            except Exception:
-                raise SourceError('PDF parola korumalı; açılamadı.')
+        import agfo_pdf
+        with open(path, 'rb') as f:
+            data = f.read()
+        try:
+            reader, perms = agfo_pdf.open_reader(data, os.path.basename(path))
+        except agfo_pdf.PdfError as e:
+            raise SourceError(str(e))
+        if not agfo_pdf.perm_allows(perms, 'extract'):
+            raise SourceError('Bu PDF\'nin sahibi metin çıkarmaya izin vermiyor (şifreli, kısıtlı belge). '
+                              'PDF düzenleyicide okunabilir ama metni AI\'a aktarılamaz.')
         units = []
         for i, page in enumerate(reader.pages, start=1):
             try:

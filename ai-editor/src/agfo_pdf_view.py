@@ -87,6 +87,17 @@ class PdfView(tk.Frame):
         a.btn(bar2, 'Sayfa metnini al', self.page_text_to_editor, 'ghost', side='right', padx=8)
         self.hint = tk.Label(self, text=TOOL_HINT['select'], fg=MUTED, bg=PANEL, font=('Segoe UI', 8), anchor='w', padx=10)
         self.hint.pack(fill='x')
+        self.lock_lbl = None
+        limits = self.pr.restrictions()
+        if limits:
+            self.lock_lbl = tk.Label(self, text='🔒 Şifreli ve kısıtlı PDF. Belgenin sahibi şunlara izin vermiyor: %s. '
+                                     'Okuma, yakınlaştırma ve izin verilen işlemler kullanılabilir.' % ', '.join(limits),
+                                     fg='#ffd8a8', bg='#3b2a12', font=('Segoe UI', 8, 'bold'), anchor='w', padx=10, pady=3,
+                                     wraplength=900, justify='left')
+            self.lock_lbl.pack(fill='x')
+            for key, b in self.tool_btns.items():
+                if key in P.TOOL_ACTION and not self.pr.can(P.TOOL_ACTION[key]):
+                    b.configure(state='disabled', disabledforeground='#5d7088')
 
         body = tk.Frame(self, bg=EDIT_BG)
         body.pack(fill='both', expand=True)
@@ -128,7 +139,8 @@ class PdfView(tk.Frame):
         f.pack(side='right', fill='y')
         f.pack_propagate(False)
         tk.Label(f, text='Form alanları', fg=a.colors['FG'], bg=a.colors['PANEL'], font=('Segoe UI', 10, 'bold')).pack(anchor='w')
-        tk.Label(f, text='Değerler kaydedilen PDF\'ye yazılır.', fg=a.colors['MUTED'], bg=a.colors['PANEL'],
+        can_fill = self.pr.can('form')
+        tk.Label(f, text='Değerler kaydedilen PDF\'ye yazılır.' if can_fill else 'Belgenin sahibi form doldurmaya izin vermiyor.', fg=a.colors['MUTED'], bg=a.colors['PANEL'],
                  font=('Segoe UI', 8), wraplength=240, justify='left').pack(anchor='w', pady=(0, 6))
         inner = tk.Frame(f, bg=a.colors['PANEL'])
         inner.pack(fill='both', expand=True)
@@ -137,12 +149,17 @@ class PdfView(tk.Frame):
             tk.Label(inner, text=name[:40], fg=a.colors['MUTED'], bg=a.colors['PANEL'], font=('Segoe UI', 8)).pack(anchor='w')
             if info['type'] == 'check':
                 var = tk.BooleanVar(value=info['value'] not in ('', '/Off', 'Off'))
-                ttk.Checkbutton(inner, variable=var, command=lambda n=name, v=var: self.pr.set_field(n, '/Yes' if v.get() else '/Off')).pack(anchor='w')
+                cb = ttk.Checkbutton(inner, variable=var, command=lambda n=name, v=var: self._field_changed(n, '/Yes' if v.get() else '/Off'))
+                cb.pack(anchor='w')
+                if not can_fill:
+                    cb.state(['disabled'])
             else:
                 var = tk.StringVar(value=info['value'])
                 w = ttk.Combobox(inner, textvariable=var, values=info['options']) if info['type'] == 'choice' and info['options'] \
                     else ttk.Entry(inner, textvariable=var)
                 w.pack(fill='x', pady=(0, 4))
+                if not can_fill:
+                    w.state(['disabled'])
                 w.bind('<FocusOut>', lambda e, n=name, v=var: self._field_changed(n, v.get()))
                 w.bind('<Return>', lambda e, n=name, v=var: self._field_changed(n, v.get()))
             self.form_vars[name] = var
@@ -150,8 +167,8 @@ class PdfView(tk.Frame):
 
     def _field_changed(self, name, value):
         if self.pr.form_values.get(name, self.pr.fields.get(name, {}).get('value')) != value:
-            self.pr.set_field(name, value)
-            self._changed()
+            if self._guard('Form', self.pr.set_field, name, value) is not False:
+                self._changed()
 
     # ------------------------------------------------------------------ yerlesim + cizim
     def relayout(self):
@@ -378,6 +395,10 @@ class PdfView(tk.Frame):
                              'was_dirty': was_dirty}
                 self._draw_overlays(i)
             return
+        act = P.TOOL_ACTION.get(tool)
+        if act and not self.pr.can(act, self.pr.pages[i]['src']):
+            messagebox.showwarning('Kısıtlı PDF', 'Bu sayfanın PDF sahibi %s izni vermemiş.' % P.ACTION_LABELS[act], parent=self)
+            return
         if tool == 'note':
             self._add_note(i, px, py)
             return
@@ -490,7 +511,20 @@ class PdfView(tk.Frame):
         if c and c[1]:
             self.text_color = c[1].lstrip('#')
 
+    def _guard(self, title, fn, *args):
+        """Islemi calistirir; sahip izni yoksa (veya baska PdfError) uyarir ve False dondurur."""
+        try:
+            r = fn(*args)
+            return True if r is None else r
+        except P.PdfError as e:
+            messagebox.showwarning(title, str(e), parent=self)
+            return False
+
     def _tool_changed(self):
+        act = P.TOOL_ACTION.get(self.tool.get())
+        if act and not self.pr.can(act):
+            messagebox.showwarning('Kısıtlı PDF', 'Bu PDF\'nin sahibi %s izni vermemiş.' % P.ACTION_LABELS[act], parent=self)
+            self.tool.set('select')
         self.hint.configure(text=TOOL_HINT.get(self.tool.get(), ''))
         self.canvas.configure(cursor='arrow' if self.tool.get() == 'select' else 'crosshair')
 
@@ -512,12 +546,15 @@ class PdfView(tk.Frame):
 
     # ------------------------------------------------------------------ sayfa islemleri
     def rotate(self, deg):
-        self.pr.rotate(self.selected_pages(), deg)
+        if self._guard('Döndür', self.pr.rotate, self.selected_pages(), deg) is False:
+            return
         self.selected = None
         self._changed()
 
     def delete_pages(self):
         idx = self.selected_pages()
+        if not all(self.pr.can('assemble', self.pr.pages[i]['src']) for i in idx):
+            return self._guard('Sayfa sil', self.pr.require, 'assemble', self.pr._page_sources(idx))
         if not messagebox.askyesno('Sayfa sil', '%d sayfa silinsin mi? (Geri al ile dönebilirsiniz.)' % len(idx), parent=self):
             return
         try:
@@ -530,7 +567,9 @@ class PdfView(tk.Frame):
         self._changed()
 
     def move(self, delta):
-        new = self.pr.move(self.selected_pages(), delta)
+        new = self._guard('Taşı', self.pr.move, self.selected_pages(), delta)
+        if new is False:
+            return
         self.selected = None
         self._changed()
         self.page_list.selection_clear(0, 'end')
@@ -540,6 +579,8 @@ class PdfView(tk.Frame):
             self.goto(new[0])
 
     def insert_pdf(self):
+        if self._guard('PDF ekle', self.pr.require, 'assemble') is False:
+            return
         path = filedialog.askopenfilename(parent=self, title='Eklenecek PDF', filetypes=[('PDF', '*.pdf')])
         if not path:
             return
@@ -555,6 +596,8 @@ class PdfView(tk.Frame):
 
     def extract_pages(self):
         idx = sorted(self.selected_pages())
+        if self._guard('Sayfa ayır', self.pr.require, 'assemble', self.pr._page_sources(idx)) is False:
+            return
         name = '%s (sayfa %s).pdf' % (os.path.splitext(os.path.basename(self.pr.path))[0],
                                       ('%d' % (idx[0] + 1)) if len(idx) == 1 else '%d-%d' % (idx[0] + 1, idx[-1] + 1))
         out = filedialog.asksaveasfilename(parent=self, title='Seçili sayfaları ayrı PDF olarak kaydet', initialfile=name,
@@ -596,7 +639,7 @@ class PdfView(tk.Frame):
             messagebox.showerror('Kaydedilemedi', str(e), parent=self)
             return False
         self.app._pdf_changed(self)
-        self.app.flash('PDF kaydedildi: %s' % out, 9000)
+        self.app.flash('PDF kaydedildi: %s%s' % (out, ' (özgün izinlerle şifreli)' if self.pr.encrypted else ''), 9000)
         return True
 
     def open_text(self):
@@ -604,7 +647,10 @@ class PdfView(tk.Frame):
 
     def page_text_to_editor(self):
         i = self.current_page() if not self.page_list.curselection() else self.page_list.curselection()[0]
-        text = self.pr.page_text(i).strip()
+        text = self._guard('Sayfa metni', self.pr.page_text, i)
+        if text is False:
+            return
+        text = (text if isinstance(text, str) else '').strip()
         if not text:
             messagebox.showinfo('Sayfa metni', 'Bu sayfada metin katmanı yok (taranmış olabilir).', parent=self)
             return
@@ -613,7 +659,8 @@ class PdfView(tk.Frame):
 
     def status_text(self):
         return 'PDF · sayfa %d / %d · %%%d · %s%s' % (self.current_page() + 1, len(self.pr.pages), round(self.zoom * 100),
-                                                     os.path.basename(self.pr.path), ' · kaydedilmedi' if self.pr.dirty else '')
+                                                     os.path.basename(self.pr.path), (' · 🔒 kısıtlı' if self.pr.restrictions() else '')
+                                                     + (' · kaydedilmedi' if self.pr.dirty else ''))
 
 
 class TextDialog(tk.Toplevel):

@@ -5,7 +5,7 @@ $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $root
 $python = (Get-Command python.exe -ErrorAction Stop).Source
 Write-Host ('Python: ' + $python)
-& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'Pillow>=11,<13' 'pypdf>=5,<7' 'pypdfium2>=4.30,<6'
+& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'Pillow>=11,<13' 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'cryptography>=42,<47'
 if ($LASTEXITCODE) { throw 'pip install failed' }
 & $python -m unittest discover -s (Join-Path $root 'tests') -v
 if ($LASTEXITCODE) { throw 'unit tests failed' }
@@ -17,7 +17,7 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-editor-build' }
     --add-data ((Join-Path $root 'assets\agfo-ai-editor.ico') + ';assets') `
     --hidden-import agfo_editor_core --hidden-import agfo_ai_client --hidden-import agfo_secrets `
     --hidden-import agfo_editor_update --hidden-import agfo_github_update --hidden-import agfo_sources --hidden-import agfo_pdf --hidden-import agfo_pdf_view `
-    --collect-submodules pypdf --collect-all pypdfium2 --collect-all pypdfium2_raw --hidden-import PIL.ImageTk `
+    --collect-submodules pypdf --collect-submodules cryptography --hidden-import pypdf._crypt_providers._cryptography --collect-all pypdfium2 --collect-all pypdfium2_raw --hidden-import PIL.ImageTk `
     (Join-Path $root 'src\agfo_ai_editor.pyw')
 if ($LASTEXITCODE) { throw 'PyInstaller failed' }
 $exe = Join-Path $root 'dist\AGFO-AI-Editor.exe'

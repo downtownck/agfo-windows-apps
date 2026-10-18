@@ -586,6 +586,41 @@ class GuiTests(unittest.TestCase):
         self.assertNotIn('*.pdf', str(asked['filetypes']))
         self.assertEqual(pathlib.Path(pdf).read_bytes(), before)
 
+    def test_restricted_encrypted_pdf_tab(self):
+        import agfo_pdf
+        import agfo_pdf_view
+        import pypdf
+        src = agfo_pdf.write_simple_pdf(os.path.join(TMP, 'brc-acik.pdf'), [['Clause 1.1'], ['Clause 1.2']])
+        w = pypdf.PdfWriter(clone_from=src)
+        w.encrypt(user_password='', owner_password='sahip', algorithm='AES-128',
+                  permissions_flag=agfo_pdf.P_PRINT | agfo_pdf.P_EXTRACT_ACCESS)
+        enc = os.path.join(TMP, 'CPi5-IG-26 Eng.pdf')
+        with open(enc, 'wb') as f:
+            w.write(f)
+        v = self.app.open_path(enc)
+        self.assertIs(self.app.cur_pdf(), v)
+        self.app.update()
+        self.assertTrue(self.pump(lambda: len(v.page_imgs) >= 1))                 # sifreli sayfa cizildi
+        self.assertIn('izin vermiyor', v.lock_lbl.cget('text'))
+        self.assertIn('kısıtlı', self.app.status_var.get())
+        self.assertEqual(str(v.tool_btns['highlight'].cget('state')), 'disabled')
+        with mock.patch.object(agfo_pdf_view.messagebox, 'showwarning') as warn:
+            v.tool.set('text')
+            v._tool_changed()
+            self.assertEqual(v.tool.get(), 'select')
+            v.page_list.selection_set(0)
+            v.rotate(90)
+            v.move(1)
+            v.insert_pdf()
+            v.extract_pages()
+            self.assertEqual(warn.call_count, 5)
+        self.assertEqual(v.pr.rotation(0), 0)
+        self.assertFalse(v.pr.dirty)
+        v.page_text_to_editor()                                                   # erisilebilirlik metni izinli
+        self.assertIn('Clause 1.1', self.app.cur().text.get('1.0', 'end'))
+        self.app.close_doc(self.app.cur(), ask=False)
+        self.app.close_pdf(v, ask=False)
+
     def test_pdf_editor_tab(self):
         import agfo_pdf
         import pypdf

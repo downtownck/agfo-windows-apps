@@ -29,6 +29,56 @@ class PdfError(Exception):
     pass
 
 
+# PDF sahibinin (owner) izin bitleri - ISO 32000 Tablo 22 (1 tabanli bit numarasi -> deger)
+P_PRINT, P_MODIFY, P_EXTRACT, P_ANNOTATE = 1 << 2, 1 << 3, 1 << 4, 1 << 5
+P_FORM, P_EXTRACT_ACCESS, P_ASSEMBLE, P_PRINT_HQ = 1 << 8, 1 << 9, 1 << 10, 1 << 11
+ALL_PERMS = P_PRINT | P_MODIFY | P_EXTRACT | P_ANNOTATE | P_FORM | P_EXTRACT_ACCESS | P_ASSEMBLE | P_PRINT_HQ
+# islem -> izin veren bitlerden herhangi biri
+ACTION_BITS = {
+    'annotate': (P_ANNOTATE,),               # vurgu, yapiskan not
+    'modify': (P_MODIFY,),                   # metin kutusu, beyazlatma, resim, cerceve
+    'form': (P_FORM, P_ANNOTATE),            # form doldurma
+    'assemble': (P_ASSEMBLE, P_MODIFY),      # dondurme, silme, siralama, PDF ekleme, sayfa ayirma
+    'extract': (P_EXTRACT, P_EXTRACT_ACCESS),  # metni alma, AI kaynagi, metin olarak acma
+}
+ACTION_LABELS = {'annotate': 'vurgu ve not ekleme', 'modify': 'içerik değiştirme (metin, beyazlatma, resim, çerçeve)',
+                 'form': 'form doldurma', 'assemble': 'sayfa düzenleme (döndürme, silme, sıralama, ekleme, ayırma)',
+                 'extract': 'metin çıkarma'}
+TOOL_ACTION = {'highlight': 'annotate', 'note': 'annotate', 'text': 'modify', 'whiteout': 'modify',
+               'image': 'modify', 'box': 'modify'}
+
+
+def perm_allows(perms, action):
+    """perms None ise (sifresiz PDF) her sey serbest."""
+    if perms is None:
+        return True
+    return any(perms & b for b in ACTION_BITS[action])
+
+
+def open_reader(data, name='PDF'):
+    """Sifreli PDF'leri bos kullanici parolasiyla acar. (reader, izinler|None) dondurur."""
+    pypdf = _pypdf()
+    try:
+        r = pypdf.PdfReader(io.BytesIO(data), strict=False)
+        if not r.is_encrypted:
+            return r, None
+        ok = r.decrypt('')
+    except PdfError:
+        raise
+    except Exception as e:
+        if 'cryptography' in str(e) or type(e).__name__ == 'DependencyError':
+            raise PdfError('Bu PDF AES ile şifrelenmiş; şifre çözme bileşeni (cryptography) eksik. '
+                           'AI Editör\'ü güncelleyin: %s' % name) from e
+        raise PdfError('PDF parola korumalı veya şifresi çözülemiyor: %s' % name) from e
+    if not ok:
+        raise PdfError('PDF açma parolası gerektiriyor; parolalı PDF\'ler henüz desteklenmiyor: %s' % name)
+    try:
+        perms = int(r.user_access_permissions) & ALL_PERMS
+    except Exception:
+        perms = 0
+    return r, perms
+
+
 def _pdfium():
     try:
         import pypdfium2
@@ -207,6 +257,7 @@ class PdfProject:
         self.form_values = {}
         self.undo_stack, self.redo_stack = [], []
         self.dirty = False
+        self.perms = {}            # yol -> sahip izinleri (sifresiz PDF icin None)
         self._add_source_pages(self.path, None)
         self.fields = self._read_fields()
 
@@ -221,17 +272,34 @@ class PdfProject:
         return self.sources[path]
 
     def _reader(self, path):
-        pypdf = _pypdf()
-        r = pypdf.PdfReader(io.BytesIO(self._load_bytes(path)), strict=False)
-        if r.is_encrypted:
-            try:
-                if not r.decrypt(''):
-                    raise PdfError('PDF parola korumalı: %s' % os.path.basename(path))
-            except PdfError:
-                raise
-            except Exception:
-                raise PdfError('PDF parola korumalı veya şifresi çözülemiyor: %s' % os.path.basename(path))
+        r, perms = open_reader(self._load_bytes(path), os.path.basename(path))
+        self.perms[path] = perms
         return r
+
+    # -- sahip izinleri
+    @property
+    def encrypted(self):
+        return self.perms.get(self.path) is not None
+
+    def can(self, action, path=None):
+        return perm_allows(self.perms.get(path or self.path), action)
+
+    def require(self, action, paths=None):
+        for path in (paths or [self.path]):
+            if not self.can(action, path):
+                raise PdfError('Bu PDF\'nin sahibi %s izni vermemiş (%s). Belge şifreli ve kısıtlı; '
+                               'yalnızca okuma ve izin verilen işlemler yapılabilir.'
+                               % (ACTION_LABELS[action], os.path.basename(path)))
+
+    def restrictions(self):
+        """Ana belgede izin verilmeyen islemlerin Turkce adlari."""
+        return [ACTION_LABELS[a] for a in ACTION_BITS if not self.can(a)]
+
+    def overlay_action(self, ov):
+        return 'modify' if ov.get('type') in ('text', 'image', 'box') else 'annotate'
+
+    def _page_sources(self, idx):
+        return sorted({self.pages[i]['src'] for i in idx}) or [self.path]
 
     def _add_source_pages(self, path, at, indices=None):
         path = os.path.abspath(path)
@@ -299,6 +367,7 @@ class PdfProject:
         return display_size(p['box'][2], p['box'][3], self.rotation(i))
 
     def rotate(self, idx, deg):
+        self.require('assemble', self._page_sources(idx))
         self.snapshot()
         for i in idx:
             p = self.pages[i]
@@ -320,6 +389,7 @@ class PdfProject:
     def delete(self, idx):
         if len(idx) >= len(self.pages):
             raise PdfError('Tüm sayfalar silinemez; en az bir sayfa kalmalı.')
+        self.require('assemble', self._page_sources(idx))
         self.snapshot()
         for i in sorted(idx, reverse=True):
             del self.pages[i]
@@ -328,6 +398,7 @@ class PdfProject:
         idx = sorted(idx, reverse=delta > 0)
         if not idx or (delta < 0 and idx[0] == 0) or (delta > 0 and idx[0] == len(self.pages) - 1):
             return [*idx]
+        self.require('assemble', self._page_sources(range(len(self.pages))))
         self.snapshot()
         new = []
         for i in idx:
@@ -337,9 +408,12 @@ class PdfProject:
         return sorted(new)
 
     def insert_pdf(self, path, at=None):
+        self.require('assemble')
         self.snapshot()
         try:
-            return self._add_source_pages(path, at)
+            n = self._add_source_pages(path, at)
+            self.require('assemble', [os.path.abspath(path)])
+            return n
         except Exception:
             self.undo()
             self.redo_stack.clear()
@@ -347,6 +421,7 @@ class PdfProject:
 
     # -- katmanlar
     def add_overlay(self, i, ov):
+        self.require(self.overlay_action(ov), [self.pages[i]['src']])
         self.snapshot()
         ov = dict(ov)
         ov['rect'] = norm_rect(ov['rect'])
@@ -365,12 +440,14 @@ class PdfProject:
         return None
 
     def set_field(self, name, value):
+        self.require('form')
         self.snapshot()
         self.form_values[name] = value
 
     # -- metin
     def page_text(self, i):
         p = self.pages[i]
+        self.require('extract', [p['src']])
         try:
             return self._reader(p['src']).pages[p['index']].extract_text() or ''
         except Exception:
@@ -446,6 +523,8 @@ class PdfProject:
         writer = pypdf.PdfWriter()
         readers = {}
         sel = list(range(len(self.pages))) if pages is None else list(pages)
+        if pages is not None:
+            self.require('assemble', self._page_sources(sel))
         for out_i, i in enumerate(sel):
             p = self.pages[i]
             if p['src'] not in readers:
@@ -496,6 +575,18 @@ class PdfProject:
             except Exception as e:
                 raise PdfError('Form alanları yazılamadı: %s' % e)
         writer.add_metadata({'/Producer': 'AGFO AI Editor'})
+        # sifreli kaynak varsa cikti da ayni (en kisitli) izinlerle AES-256 sifrelenir; acma parolasi yok
+        enc = [self.perms[src] for src in readers if self.perms.get(src) is not None]
+        if enc:
+            import secrets
+            flags = ALL_PERMS
+            for f in enc:
+                flags &= f
+            try:
+                writer.encrypt(user_password='', owner_password=secrets.token_urlsafe(24),
+                               algorithm='AES-256', permissions_flag=flags)
+            except Exception as e:
+                raise PdfError('Kısıtlı PDF yeniden şifrelenemedi: %s' % e) from e
         out_path = os.path.abspath(out_path)
         tmp = out_path + '.agfo-tmp'
         with open(tmp, 'wb') as f:
