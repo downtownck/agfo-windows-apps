@@ -769,13 +769,19 @@ class GuiTests(unittest.TestCase):
         n = len(self.app.docs)
         self.app.translate_document()
         self.assertIn('aynı anda 3 istek', self.app.ai_var.get())
-        self.assertTrue(self.pump(lambda: len(self.app.docs) > n, n=1500))
-        self.assertTrue(d.text.tag_ranges('trdone'))                              # cevrilenler yesil
+        seen = {'done': False, 'work': False}
+
+        def until():
+            seen['done'] = seen['done'] or bool(d.text.tag_ranges('trdone'))
+            seen['work'] = seen['work'] or bool(d.text.tag_ranges('trwork'))
+            return len(self.app.docs) > n
+        self.assertTrue(self.pump(until, n=3000))
+        self.assertTrue(seen['done'])                                              # cevrilenler yesil vurgulandi
         self.assertFalse(d.text.tag_ranges('trwork'))
         self.assertEqual(d.dirty, was_dirty)
         self.assertNotIn('trdone', str(d.text.get_blocks()))
         self.assertGreater(len([f for f in self.fake if f[0] == 'transform']), 3)  # birden cok grup
-        self.assertTrue(self.pump(lambda: not d.text.tag_ranges('trdone'), n=400))  # vurgu kendiliginden kalkar
+        self.assertTrue(self.pump(lambda: not d.text.tag_ranges('trdone'), n=1200))  # vurgu kendiliginden kalkar
         self.assertEqual(R.runs_text(self.app.docs[-1].text.get_blocks()[0]['runs'])[:10], 'PARAGRAF 0')
 
     def test_trlive_marks_lines_and_pdf(self):

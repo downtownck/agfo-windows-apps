@@ -153,6 +153,10 @@ def _make_line(raw, tp, live, info, grp, ink, blank):
     bullet = False
     marker = len(ink) > 1 and re.fullmatch(r'\(?([a-zA-Z]|\d{1,2}|[ivxIVX]{1,4})[.)]', live[ink[0]]['text'].strip()) \
         and live[ink[1]]['box'][0] - live[ink[0]]['box'][2] > 0.45 * max(3.0, live[ink[1]]['size'])
+    # numarali isaret (sema etiketi: mavi daire icinde beyaz "1") - rengi metinden farkli kisa nesne yerinde kalir
+    if not marker and len(ink) > 1 and len(live[ink[0]]['text'].strip()) <= 3 and info.get(ink[0]) and info.get(ink[1]) \
+            and info[ink[0]]['color'] != info[ink[1]]['color'] and re.fullmatch(r'[\w.)]{1,3}', live[ink[0]]['text'].strip()):
+        marker = True
     if len(ink) > 1 and (marker or _is_bullet(live[ink[0]], info.get(ink[0], {}).get('font'))) \
             and live[ink[1]]['box'][0] - live[ink[0]]['box'][2] > 0.15 * max(3.0, live[ink[1]]['size']):
         grp.discard(ink[0])
@@ -168,15 +172,18 @@ def _make_line(raw, tp, live, info, grp, ink, blank):
             weight[k] += len(live[k]['text'].strip())
     dom = weight.most_common(1)[0][0] if weight else first
     fi = info.get(dom) or E._char_info(raw, tp, live[first]['chars'][0])
-    lead_k = next((k for k in ink if info.get(k) and not SYMBOL_FONT_RX.search(info[k]['font'] or '')), first)
-    fl = info.get(lead_k) or fi             # satirin rengi/kalinligi ilk sozcukten (sondaki baglanti rengi degil)
+    # renk: harf iceren ilk sozcukten (sondaki mavi baglanti ya da numara dairesindeki beyaz rakam degil)
+    lead_k = next((k for k in ink if info.get(k) and not SYMBOL_FONT_RX.search(info[k]['font'] or '')
+                   and len(re.findall(r'[^\W\d_]', live[k]['text'])) >= 3), None) \
+        or next((k for k in ink if info.get(k) and not SYMBOL_FONT_RX.search(info[k]['font'] or '')), first)
+    fl = info.get(lead_k) or fi
     text = E.line_text(live, grp, blank)
     if not text:
         return None
     return {'objects': sorted(grp), 'text': text,
             'rect': (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)),
-            'origin': live[first]['origin'], 'size': live[dom]['size'], 'font': fi['font'], 'bold': fl['bold'],
-            'italic': fl['italic'], 'serif': fi['serif'], 'color': fl['color'], 'bullet': bullet,
+            'origin': live[first]['origin'], 'size': live[dom]['size'], 'font': fi['font'], 'bold': fi['bold'],
+            'italic': fi['italic'], 'serif': fi['serif'], 'color': fl['color'], 'bullet': bullet,
             'listmark': bool(LIST_MARK_RX.match(text)),
             'toc': bool(TOC_RX.search(text)),
             'angle': fi['angle'],
@@ -283,6 +290,13 @@ def extract_layout(pdf, index):
         for L in lines:   # ayni taban cizgisinde baska satir var: tablo satiri (hiza tahmini yapilmaz)
             L['sib'] = any(M is not L and abs(M['origin'][1] - L['origin'][1]) < 0.3 * L['size'] for M in lines)
             L['row'] = L['sib'] and (L['rect'][2] - L['rect'][0]) < 0.3 * width
+        for L in lines:   # satirin sutununun sag kenari: ayni soldan baslayan satirlarin en sagi (cok sutunlu sayfa)
+            s_ = max(3.0, L['size'])
+            same_col = [M for M in lines if not M['rotated'] and abs(M['rect'][0] - L['rect'][0]) < 2 * s_
+                        and abs(M['size'] - L['size']) < 0.3 * s_]
+            cr = max([M['rect'][2] for M in same_col] + [L['rect'][2]])
+            # yalniz gercekten dolu bir sutunsa (en az 3 satir ayni sag kenarda biter: iki yana yasli/sarilmis metin)
+            L['col_r'] = cr if sum(1 for M in same_col if abs(M['rect'][2] - cr) < 3) >= 3 else None
         for L in lines:   # satirin yatayda ne kadar genisleyebilecegi: komsu metin, cizgi/kutu ve sayfa kenar boslugu
             same = [M for M in lines if M is not L and abs(M['origin'][1] - L['origin'][1]) < 0.6 * L['size']]
             lo = max([M['rect'][2] + 6 for M in same if M['rect'][2] <= L['rect'][0] + 1] + [8.0, min(margin_l, L['rect'][0]) - 2])
@@ -343,15 +357,15 @@ def _paragraphs(lines, page_w, margin_r=None, horiz=()):
     paras = []
     for L in lines:
         target = None
-        for P in reversed(paras[-6:]):
+        for P in reversed(paras[-60:]):          # cok sutunlu sayfada araya diger sutunlarin satirlari girer
             last = P['lines'][-1]
             s = max(3.0, P['size'])
             if L['rotated'] or last['rotated'] or L.get('bullet') or L.get('listmark') or L.get('toc') or last.get('toc'):
                 continue
             if re.fullmatch(r'[\d.,:/()-]{1,8}', L['text'].strip()) or re.fullmatch(r'[\d.,:/()-]{1,8}', last['text'].strip()):
                 continue                                     # numara/sayfa no sutunu
-            if L.get('row') and not same_cell(last, L):     # tablo: yalniz ayni hucrede sarilmis metin birlesir
-                continue
+            if L.get('row') and not same_cell(last, L) and not (last.get('col_r') and abs(last['rect'][2] - last['col_r']) < 3):
+                continue                                     # tablo: yalniz ayni hucrede ya da dolu sutun satirinda birlesir
             if separated(last, L):
                 continue
             if last['text'].rstrip().endswith(':'):          # liste girisi: ardindan yeni oge gelir
@@ -377,7 +391,7 @@ def _paragraphs(lines, page_w, margin_r=None, horiz=()):
             last_w = last['rect'][2] - last['rect'][0]
             widest = max(M['rect'][2] - M['rect'][0] for M in P['lines'])
             # onceki satir dolu mu: L'nin ilk sozcugu onceki satira sigardiysa satir sonu bilincli (liste, adres, A1/A2...)
-            col_r = min(last.get('lim', (0, margin_r))[1] + 3, margin_r + 2)
+            col_r = min(last.get('lim', (0, margin_r))[1] + 3, margin_r + 2, (last.get('col_r') or margin_r) + 1)
             word = (L['text'].split() or [''])[0]
             fits = last['rect'][2] + (len(word) + 1) * 0.5 * s <= col_r
             full = not fits and last_w >= 0.5 * widest
