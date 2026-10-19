@@ -20,6 +20,154 @@ import agfo_richdoc as R
 
 
 # ----------------------------------------------------------------------------- cikarma
+BULLET_CHARS = set('•●▪■◦○‣∙·–—-*►▶➢✓✔') | {chr(c) for c in range(0xF000, 0xF100)}
+SYMBOL_FONT_RX = re.compile(r'symbol|wingding|webding|dingbat|marlett|mtextra|zapf', re.I)
+TOC_LINE_RX = re.compile(r'^(.*?)\s*(?:\.{3,}|…+|(?:\.\s){3,}|_{3,})[\s.…]*(\d+)\s*$')
+TOC_RX = re.compile(r'(\.{4,}|…{2,}|(\.\s){4,}|_{4,})\s*\d+\s*$')
+
+
+def _is_bullet(o, font=''):
+    t = o['text'].strip()
+    return len(t) == 1 and (t in BULLET_CHARS or SYMBOL_FONT_RX.search(font or '') is not None)
+
+
+def _path_segments(raw, h, ctm, add):
+    """Yol nesnesinin duz kenarlari tek tek (bir tablo izgarasinin tamami tek yol olabilir; kutusu tum tablo olur).
+    Yalniz duz cizgilerden olusan yollar islenir; egri iceren yolda False (sinir kutusu kullanilir)."""
+    n = raw.FPDFPath_CountSegments(h)
+    if n <= 1 or n > 4000:
+        return False
+    m = E._compose(E._matrix(raw, h), ctm)
+    pts, start, prev = [], None, None
+    segs = []
+    for i in range(n):
+        seg = raw.FPDFPath_GetPathSegment(h, i)
+        typ = raw.FPDFPathSegment_GetType(seg)
+        if typ == 3:                       # Bezier: duz kenar degil
+            return False
+        x, y = ctypes.c_float(), ctypes.c_float()
+        raw.FPDFPathSegment_GetPoint(seg, x, y)
+        p = E._apply(m, x.value, y.value)
+        if typ == 2 or prev is None:       # moveto
+            start = p
+        else:
+            segs.append((prev, p))
+        if raw.FPDFPathSegment_GetClose(seg) and start is not None and p != start:
+            segs.append((p, start))
+        prev = p
+    for (x0, y0), (x1, y1) in segs:
+        add(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1), edge=True)
+    _ = pts
+    return True
+
+
+def _walls(page, width, height):
+    """Sayfadaki cizgiler ve kutular (formlar dahil): (dikey [(x, y0, y1)], yatay [(y, x0, x1)]). Ceviri bu sinirlari
+    asmasin diye kullanilir: tablo hucresi, akis semasi kutusu, cerceve."""
+    _pdfium, raw = E._lib()
+    _paths, kids = E.page_tree(page)
+    vert, horiz = [], []
+
+    def add(l, b, r, t, edge=False):
+        w, h = r - l, t - b
+        if edge:                                       # tek kenar: yalniz dikey ya da yatay olanlar
+            if w < 2.5 and h > 6:
+                vert.append(((l + r) / 2, b, t))
+            elif h < 2.5 and w > 6:
+                horiz.append(((b + t) / 2, l, r))
+            return
+        if w * h > 0.6 * width * height:              # zemin / sayfa cercevesi
+            return
+        if w < 2.5 and h > 6:
+            vert.append(((l + r) / 2, b, t))
+        elif h < 2.5 and w > 6:
+            horiz.append(((b + t) / 2, l, r))
+        elif w > 6 and h > 6:
+            vert.extend([(l, b, t), (r, b, t)])
+            horiz.extend([(b, l, r), (t, l, r)])
+
+    def visit(prefix, ctm):
+        for k, typ, h in kids.get(prefix, []):
+            if typ == E.OBJ_FORM:
+                visit(prefix + (k,), E._compose(E._matrix(raw, h), ctm))
+            elif typ == E.OBJ_PATH:
+                if _path_segments(raw, h, ctm, add):
+                    continue
+                l, b, r, t = (ctypes.c_float() for _ in range(4))
+                if raw.FPDFPageObj_GetBounds(h, l, b, r, t):
+                    pts = [E._apply(ctm, px, py) for px, py in ((l.value, b.value), (r.value, t.value), (l.value, t.value), (r.value, b.value))]
+                    add(min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
+    visit((), (1, 0, 0, 1, 0, 0))
+    return vert, horiz
+
+
+def _clip_hidden(raw, kids, objs):
+    """Kirpma yolunun disinda kalan (gorunmeyen) metin nesneleri. Akis semalarinda kutunun disina tasan metin
+    kirpilir; ceviri katmani kirpilmadigi icin bu metin cevrilince birden gorunur oluyordu."""
+    handles = {pre + (k,): (t, h) for pre, lst in kids.items() for k, t, h in lst}
+    hidden = set()
+    for path, o in objs.items():
+        th = handles.get(path)
+        if not th or not o.get('box'):
+            continue
+        cp = raw.FPDFPageObj_GetClipPath(th[1])
+        if not cp:
+            continue
+        ctm = (1, 0, 0, 1, 0, 0)
+        for d in range(len(path) - 1, 0, -1):                 # form icindeyse form matrisleri
+            ft = handles.get(path[:d])
+            if ft:
+                ctm = E._compose(ctm, E._matrix(raw, ft[1]))
+        xs, ys = [], []
+        for i in range(max(0, raw.FPDFClipPath_CountPaths(cp))):
+            for j in range(max(0, raw.FPDFClipPath_CountPathSegments(cp, i))):
+                seg = raw.FPDFClipPath_GetPathSegment(cp, i, j)
+                x, y = ctypes.c_float(), ctypes.c_float()
+                if seg and raw.FPDFPathSegment_GetPoint(seg, x, y):
+                    px, py = E._apply(ctm, x.value, y.value)
+                    xs.append(px)
+                    ys.append(py)
+        if not xs:
+            continue
+        l, b, r, t = o['box']
+        ix = max(0.0, min(r, max(xs)) - max(l, min(xs)))
+        iy = max(0.0, min(t, max(ys)) - max(b, min(ys)))
+        area = max(1e-6, (r - l) * (t - b))
+        if ix * iy < 0.3 * area:
+            hidden.add(path)
+    return hidden
+
+
+def _make_line(raw, tp, live, info, grp, ink, blank):
+    grp = set(grp)
+    # 1.4.9: madde imi (•, Symbol yazi tipindeki ozel karakter) ayri nesneyse yerinde kalir, cevrilmez
+    bullet = False
+    if len(ink) > 1 and _is_bullet(live[ink[0]], info.get(ink[0], {}).get('font')) \
+            and live[ink[1]]['box'][0] - live[ink[0]]['box'][2] > 0.15 * max(3.0, live[ink[1]]['size']):
+        grp.discard(ink[0])
+        ink = ink[1:]
+        bullet = True
+    boxes = [live[k]['box'] for k in ink]
+    first = ink[0]
+    # baskin yazi tipi (karakter sayisina gore): Symbol gibi madde imi yazi tipleri paragrafin yazi tipi olmaz
+    weight = Counter()
+    for k in ink:
+        fi_k = info.get(k)
+        if fi_k and not SYMBOL_FONT_RX.search(fi_k['font'] or ''):
+            weight[k] += len(live[k]['text'].strip())
+    dom = weight.most_common(1)[0][0] if weight else first
+    fi = info.get(dom) or E._char_info(raw, tp, live[first]['chars'][0])
+    text = E.line_text(live, grp, blank)
+    if not text:
+        return None
+    return {'objects': sorted(grp), 'text': text,
+            'rect': (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)),
+            'origin': live[first]['origin'], 'size': live[dom]['size'], 'font': fi['font'], 'bold': fi['bold'],
+            'italic': fi['italic'], 'serif': fi['serif'], 'color': fi['color'], 'bullet': bullet,
+            'toc': bool(TOC_RX.search(text)),
+            'rotated': abs(fi['angle']) > 0.02 and abs(fi['angle'] - 6.2832) > 0.02}
+
+
 def extract_layout(pdf, index):
     _pdfium, raw = E._lib()
     page = pdf[index]
@@ -28,8 +176,17 @@ def extract_layout(pdf, index):
         tp = page.get_textpage()
         objs, kids = E.text_objects(page, tp)
         blank = E.blank_paths(objs, kids)
+        try:
+            vert, horiz = _walls(page, width, height)
+        except Exception:
+            vert, horiz = [], []
         # bosluk nesneleri de tutulur: tarayici ciktilarinda sozcuk araliklari ayri nesnelerdir
-        live = {k: o for k, o in objs.items() if o['mode'] not in (3, 7) and o['text']}
+        try:
+            hidden = _clip_hidden(raw, kids, objs)
+        except Exception:
+            hidden = set()
+        live = {k: o for k, o in objs.items() if o['mode'] not in (3, 7) and o['text'] and k not in hidden}
+        info = {k: E._char_info(raw, tp, o['chars'][0]) for k, o in live.items() if o['chars']}
         lines = []
         remaining = {k for k in live if live[k]['text'].strip()}
         while remaining:
@@ -37,32 +194,66 @@ def extract_layout(pdf, index):
             pool = {k: live[k] for k in live if k in remaining or not live[k]['text'].strip()}
             grp = E.group_line(pool, seed)
             remaining -= grp
-            grp = {k for k in grp if live[k]['text'].strip()} | {k for k in grp if not live[k]['text'].strip()}
-            ink = [k for k in grp if live[k]['text'].strip()]
+            ink = sorted((k for k in grp if live[k]['text'].strip()), key=lambda k: live[k]['box'][0])
             if not ink:
                 continue
             for k in grp:
                 if not live[k]['text'].strip():
                     live[k] = dict(live[k], mode=7)    # bir kez kullanilsin
-            boxes = [live[k]['box'] for k in ink]
-            first = min(ink, key=lambda k: live[k]['box'][0])
-            fi = E._char_info(raw, tp, live[first]['chars'][0])
-            text = E.line_text(live, grp, blank)
-            if not text:
-                continue
-            lines.append({'objects': sorted(grp), 'text': text,
-                          'rect': (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)),
-                          'origin': live[first]['origin'], 'size': live[first]['size'], 'font': fi['font'], 'bold': fi['bold'],
-                          'italic': fi['italic'], 'serif': fi['serif'], 'color': fi['color'],
-                          'rotated': abs(fi['angle']) > 0.02 and abs(fi['angle'] - 6.2832) > 0.02})
+            # 1.4.9: sekmeyle ayrilmis sutunlar (icindekiler numarasi | baslik, etiket | deger) ayri satir parcalaridir
+            parts, cur = [], [ink[0]]
+            for a, b in zip(ink, ink[1:]):
+                if live[b]['box'][0] - live[a]['box'][2] > 1.2 * max(3.0, live[a]['size']) \
+                        and not re.match(r'^[\s.…_]{3,}', live[b]['text']):       # icindekiler nokta dizisi baslikla kalir
+                    parts.append(cur)
+                    cur = []
+                cur.append(b)
+            parts.append(cur)
+            blanks = [k for k in grp if not live[k]['text'].strip()]
+            pending_bullet = False
+            for n, part in enumerate(parts):
+                if len(part) == 1 and n + 1 < len(parts) and _is_bullet(live[part[0]], info.get(part[0], {}).get('font')):
+                    pending_bullet = True                   # sekmeyle ayrilmis madde imi: yerinde kalir
+                    continue
+                l0, r0 = live[part[0]]['box'][0], live[part[-1]]['box'][2]
+                sub = set(part) | {k for k in blanks if l0 - 1 <= (live[k]['box'][0] + live[k]['box'][2]) / 2 <= r0 + 1}
+                line = _make_line(raw, tp, live, info, sub, part, blank)
+                if line:
+                    line['bullet'] = line['bullet'] or pending_bullet
+                    lines.append(line)
+                pending_bullet = False
+        # tek basina madde imi olan satir (im ile metin ayri satira dusmus): im yerinde kalir, sagindaki satir madde olur
+        for L in [x for x in lines if len(x['text']) == 1 and x['text'] in BULLET_CHARS or
+                  (len(x['text']) == 1 and SYMBOL_FONT_RX.search(x['font'] or ''))]:
+            right = [M for M in lines if M is not L and abs(M['origin'][1] - L['origin'][1]) < 0.5 * max(3.0, M['size'])
+                     and M['rect'][0] >= L['rect'][2] and M['rect'][0] - L['rect'][2] < 6 * max(3.0, M['size'])]
+            if right:
+                min(right, key=lambda M: M['rect'][0])['bullet'] = True
+                lines.remove(L)
+        flat = [L for L in lines if not L['rotated']]
+        margin_r = max([L['rect'][2] for L in flat] + [0.0])
+        margin_l = min([L['rect'][0] for L in flat] + [width])
         for L in lines:   # ayni taban cizgisinde baska satir var: tablo satiri (hiza tahmini yapilmaz)
             L['sib'] = any(M is not L and abs(M['origin'][1] - L['origin'][1]) < 0.3 * L['size'] for M in lines)
             L['row'] = L['sib'] and (L['rect'][2] - L['rect'][0]) < 0.3 * width
-        for L in lines:   # satirin yatayda ne kadar genisleyebilecegi (ayni hizadaki komsulara kadar)
+        for L in lines:   # satirin yatayda ne kadar genisleyebilecegi: komsu metin, cizgi/kutu ve sayfa kenar boslugu
             same = [M for M in lines if M is not L and abs(M['origin'][1] - L['origin'][1]) < 0.6 * L['size']]
-            L['lim'] = (max([M['rect'][2] + 6 for M in same if M['rect'][2] <= L['rect'][0] + 1] + [8.0]),
-                        min([M['rect'][0] - 6 for M in same if M['rect'][0] >= L['rect'][2] - 1] + [width - 8.0]))
-        paras = _paragraphs(lines, width)
+            lo = max([M['rect'][2] + 6 for M in same if M['rect'][2] <= L['rect'][0] + 1] + [8.0, min(margin_l, L['rect'][0]) - 2])
+            hi = min([M['rect'][0] - 6 for M in same if M['rect'][0] >= L['rect'][2] - 1] + [width - 8.0, max(margin_r, L['rect'][2]) + 2])
+            y0, y1 = L['rect'][1], L['rect'][3]
+            for x, b, t in vert:
+                if b <= y1 - 0.5 and t >= y0 + 0.5:       # cizgi satirla ayni yukseklikte
+                    if x <= L['rect'][0] + 1:
+                        lo = max(lo, x + 3)
+                    elif x >= L['rect'][2] - 1:
+                        hi = min(hi, x - 3)
+            L['lim'] = (lo, hi)
+        paras = _paragraphs(lines, width, margin_r)
+        for P in paras:   # paragrafin altindaki ilk cizgi/kutu kenari: ceviri asagi tasarken bunu gecmez
+            l, b, r, _t = P['rect']
+            floors = [y for y, x0, x1 in horiz if y <= b + 1 and min(r, x1) - max(l, x0) > 2]
+            if floors:
+                P['below'] = max(0.0, min(P['below'], b - max(floors) - 1.5))
         return {'width': width, 'height': height, 'paras': paras}
     finally:
         page.close()
@@ -73,7 +264,8 @@ def t_low(text):
     return c.isalpha() and c.islower()
 
 
-def _paragraphs(lines, page_w):
+def _paragraphs(lines, page_w, margin_r=None):
+    margin_r = margin_r or page_w
     lines = sorted(lines, key=lambda L: (-L['origin'][1], L['rect'][0]))
     paras = []
     for L in lines:
@@ -81,12 +273,20 @@ def _paragraphs(lines, page_w):
         for P in reversed(paras[-6:]):
             last = P['lines'][-1]
             s = max(3.0, P['size'])
-            if L['rotated'] or last['rotated'] or L.get('row'):
+            if L['rotated'] or last['rotated'] or L.get('row') or L.get('bullet') or L.get('toc') or last.get('toc'):
+                continue
+            if last['text'].rstrip().endswith(':'):          # liste girisi: ardindan yeni oge gelir
                 continue
             if abs(L['size'] - P['size']) > 0.12 * s or L['bold'] != P['bold'] or L['color'] != P['color']:
                 continue
             gap = last['origin'][1] - L['origin'][1]
             if not (0.75 * s <= gap <= 1.9 * s):
+                continue
+            if len(P['lines']) > 1:                          # paragraf ici satir araligi sabit; fazlasi yeni paragraf
+                lead = P['lines'][-2]['origin'][1] - last['origin'][1]
+                if abs(gap - lead) > 0.22 * s:
+                    continue
+            elif gap > 1.95 * s:
                 continue
             l1, r1 = P['rect'][0], P['rect'][2]
             l2, r2 = L['rect'][0], L['rect'][2]
@@ -95,8 +295,17 @@ def _paragraphs(lines, page_w):
             same_center = abs((l2 + r2) / 2 - (l1 + r1) / 2) < 1.5 * s
             # tablo/etiket sutunlari: kisa, buyuk harfle baslayan alt alta satirlar ayri paragraftir; yalniz
             # sarilmis metin (uzun satirlar ya da devam eden cumle) birlestirilir
-            wrapped = min(last['rect'][2] - last['rect'][0], r2 - l2) >= 0.3 * page_w or (t_low(L['text']) and not L.get('sib')) \
-                or (last['rect'][2] - last['rect'][0] >= 0.22 * page_w and last['text'].rstrip()[-1:] in ',;-–(&')
+            last_w = last['rect'][2] - last['rect'][0]
+            widest = max(M['rect'][2] - M['rect'][0] for M in P['lines'])
+            # onceki satir dolu mu: L'nin ilk sozcugu onceki satira sigardiysa satir sonu bilincli (liste, adres, A1/A2...)
+            col_r = min(last.get('lim', (0, margin_r))[1] + 3, margin_r + 2)
+            word = (L['text'].split() or [''])[0]
+            fits = last['rect'][2] + (len(word) + 1) * 0.5 * s <= col_r
+            full = not fits and last_w >= 0.5 * widest
+            if len(P['lines']) == 1 and gap > 1.5 * s and not full:
+                continue                                     # genis aralik + bilincli satir sonu: yeni paragraf
+            wrapped = full or (t_low(L['text']) and not L.get('sib')) \
+                or (last_w >= 0.22 * page_w and last['text'].rstrip()[-1:] in ',;-–(&')
             if overlap > 0 and (same_left or same_center) and wrapped:
                 target = P
                 break
@@ -164,6 +373,11 @@ def _paragraphs(lines, page_w):
                 votes['center'] += 1
         if votes:
             P['align'] = votes.most_common(1)[0][0]
+    # tesaduf eseri sayfa ortasina dusen tek satir: sola hizali paragraflarla ayni soldan basliyorsa sola hizalidir
+    left_edges = [Q['lines'][0]['rect'][0] for Q in paras if len(Q['lines']) > 1 and Q.get('align') == 'left']
+    for P in paras:
+        if len(P['lines']) == 1 and P['align'] == 'center' and any(abs(P['rect'][0] - x) < 1.5 for x in left_edges):
+            P['align'] = 'left'
     return paras
 
 
@@ -184,7 +398,9 @@ def _wrap(text, font_path, size, width):
 
 
 def fit_paragraph(P, text, font_path, page_w):
-    """(boyut, satirlar) - ceviri paragrafin kutusuna sigacak sekilde sarilir, gerekirse %60'a kadar kucultulur."""
+    """(boyut, satirlar, satir_araligi_carpani) - ceviri paragrafin kutusuna sigacak sekilde sarilir. Sira: ayni boyut;
+    biraz sikistirilmis satir araligi; paragrafin altindaki bos alana (cizgi/kutu kenarina kadar) tasma; en son
+    kucultme (en fazla %60'a)."""
     size = P['size']
     lines_n = len(P['lines'])
     width = max(P['rect'][2] - P['rect'][0], 1.0)
@@ -197,26 +413,70 @@ def fit_paragraph(P, text, font_path, page_w):
     else:
         room = hi - P['rect'][0]
     room = max(room, width)
+    below = max(0.0, P.get('below', 0.0))
+    tw = lambda t, k: E.text_width(t, font_path, size * k)  # noqa: E731
+    m = TOC_LINE_RX.match(text) if P['lines'][0].get('toc') else None
+    if m and lines_n == 1:
+        # icindekiler satiri: nokta dizisi, ceviri ozgun satir genisligine sigacak kadar kisaltilir/uzatilir
+        title, num = m.group(1).rstrip(), m.group(2)
+        target = max(width, min(room, width * 1.02))
+        for k in (1.0, 0.94, 0.88, 0.82, 0.76, 0.7):
+            base = tw(title + ' ' + num, k)
+            dot = max(0.1, tw('.', k))
+            if base + 3 * dot <= target:
+                n = int((target - base) // dot)
+                return size * k, ['%s%s%s' % (title, '.' * n, num)], 1.0
+        return size * 0.7, [title + '...' + num], 1.0
     if lines_n == 1:
         width_cap = min(width * 1.12 + 4 * size, room)
-        for k in (1.0, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64, 0.6):
-            if E.text_width(text, font_path, size * k) <= width_cap:
-                return size * k, [text]
-        # cok uzun tek satir: en kucuk boyutta iki satira bol
-        return size * 0.6, _wrap(text, font_path, size * 0.6, width_cap)
-    extra = int(max(0.0, P.get('below', 0.0) - 0.6 * P['lead']) // max(1.0, P['lead']))
-    avail = (lines_n + min(extra, max(1, lines_n // 2))) * P['lead'] * 1.06
+        for k in (1.0, 0.94, 0.88):
+            if tw(text, k) <= width_cap:
+                return size * k, [text], 1.0
+        # 1.4.9: kucultmeden once alttaki bos alana sar (tek satirlik paragraf cok kuculup okunmaz oluyordu)
+        for k in (1.0, 0.94, 0.88, 0.82, 0.76):
+            lead = size * k * 1.18
+            max_lines = 1 + int(max(0.0, below - 0.2 * size) // lead)
+            if max_lines < 2:
+                break
+            wrapped = _wrap(text, font_path, size * k, room)
+            if len(wrapped) <= max_lines and all(tw(x, k) <= room + 0.5 for x in wrapped):
+                return size * k, wrapped, 1.0
+        for k in (0.82, 0.76, 0.7, 0.64, 0.6):
+            if tw(text, k) <= width_cap:
+                return size * k, [text], 1.0
+        return size * 0.6, _wrap(text, font_path, size * 0.6, room), 1.0
+    lead = P['lead']
+    extra = int(max(0.0, below - 0.6 * lead) // max(1.0, lead))
+    # son satirin taban cizgisi, ozgun son satirdan (ve alttaki bos alandan) asagi inmesin
+    span = (lines_n - 1 + min(extra, max(1, lines_n // 2))) * lead + 0.12 * lead
+    if not extra:                    # paragraf araliginin bir kismi kullanilabilir; gozle gorulur bosluk kalir
+        span += max(0.0, min(below - 0.5 * lead, 0.25 * lead))
+    wrap_w = min(width * 1.02, room)
     for k in (1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6):
-        wrapped = _wrap(text, font_path, size * k, min(width * 1.02, room))
-        if len(wrapped) * P['lead'] * k <= avail:
-            return size * k, wrapped
-    return size * 0.6, _wrap(text, font_path, size * 0.6, width * 1.02)
+        wrapped = _wrap(text, font_path, size * k, wrap_w)
+        for lf in (1.0, 0.94):
+            if (len(wrapped) - 1) * lead * k * lf <= span:
+                return size * k, wrapped, lf
+    return size * 0.6, _wrap(text, font_path, size * 0.6, wrap_w), 0.93
+
+
+_PUA_BULLET = {'\uf0b7': '•', '\uf0a7': '▪', '\uf0d8': '►', '\uf076': '❖', '\uf0fc': '✓', '\uf0a8': '•'}
+
+
+def clean_text(text):
+    """Model ciktisindaki gorunmez/kontrol karakterleri ve sekmeler yazi tipinde kutu (□) olarak cikiyordu."""
+    text = ''.join(_PUA_BULLET.get(c, c) for c in (text or ''))
+    text = re.sub(r'[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u00ad\u200b-\u200f\u2060\ufeff]', '', text)
+    text = re.sub(r'[\s\u00a0\u2000-\u200a\u2028\u2029\u202f\u3000]+', ' ', text)
+    text = re.sub(r'[\ue000-\uf8ff]', '', text)
+    return text.strip()
 
 
 def place(P, text, font_path, page_w):
-    size, lines = fit_paragraph(P, text, font_path, page_w)
+    text = clean_text(text)
+    size, lines, lf = fit_paragraph(P, text, font_path, page_w)
     k = size / max(0.1, P['size'])
-    lead = P['lead'] * k if len(P['lines']) > 1 else size * 1.2
+    lead = (P['lead'] * k if len(P['lines']) > 1 else size * 1.18) * lf
     x0, y0 = P['origin']
     items = []
     for n, line in enumerate(lines):

@@ -112,20 +112,68 @@ def _translate_group(group, call, instruction, cancelled):
     return got
 
 
+_NUM_RX = re.compile(r'(?<![\d.,])\d+(?:[.,]\d+)*(?![\d])')
+
+
+def plan_reuse(segs):
+    """1.4.9: ayni metin bir kez cevrilir (sayfa ustbilgi/altbilgileri, tekrar eden hucreler); yalniz sayilari farkli
+    kisa metinler ("Page 3 of 20") tek ornekten sayilar yerlestirilerek uretilir. Donus: (gonderilecek parca
+    numaralari, {parca: (ornek_parca, [(ornek_sayi, sayi), ...] | None)})."""
+    reuse, by_text, tmpl = {}, {}, {}
+    for n, (_key, md) in enumerate(segs):
+        norm = re.sub(r'\s+', ' ', md).strip()
+        if norm in by_text:
+            reuse[n] = (by_text[norm], None)
+            continue
+        by_text[norm] = n
+        if len(norm) <= 80 and _NUM_RX.search(norm):
+            tmpl.setdefault(_NUM_RX.sub('#', norm), []).append(n)
+    for ns in tmpl.values():
+        if len(ns) < 2:
+            continue
+        nums = {n: _NUM_RX.findall(segs[n][1]) for n in ns}
+        rep = next((n for n in ns if len(set(nums[n])) == len(nums[n])), None)
+        if rep is None:
+            continue
+        for m in ns:
+            if m != rep and len(nums[m]) == len(nums[rep]):
+                reuse[m] = (rep, list(zip(nums[rep], nums[m])))
+    return [n for n in range(len(segs)) if n not in reuse], reuse
+
+
+def _derive(text, mapping):
+    """Ornek ceviriye bu parcanin sayilarini yerlestirir; her ornek sayi ceviride tam bir kez gecmiyorsa None."""
+    if not mapping:
+        return text
+    found = _NUM_RX.findall(text)
+    sub = dict(mapping)
+    if any(found.count(a) != 1 for a, _b in mapping):
+        return None
+    if any(re.search(r'(?<![\d.,])%s(?![\d])\s*[\'’]' % re.escape(a), text) for a, b in mapping if a != b):
+        return None                     # Turkce ek sayiya bagli (1'de / 3'te): ayrica cevrilir
+    return _NUM_RX.sub(lambda m: sub.get(m.group(0), m.group(0)), text)
+
+
 def translate_blocks(blocks, call, lang, progress=None, cancelled=None, limit=BATCH_CHARS, workers=1, on_event=None):
     """call(metin, talimat) -> ceviri metni. (yeni_bloklar, istatistik) dondurur.
 
     1.4.8: workers > 1 ise gruplar ayni anda gonderilir (sira korunur). on_event(tur, parcalar) her grup basladiginda
     ('start') ve bittiginde ('done', ceviriler {anahtar: md} ile) cagrilir - canli vurgulama icin; is parcaciginda
-    calisir, arayuze kendisi aktarmalidir."""
+    calisir, arayuze kendisi aktarmalidir.
+    1.4.9: tekrar eden metinler bir kez cevrilir (tutarli ve daha hizli); bkz. plan_reuse."""
     import concurrent.futures as cf
     segs = segments(blocks)
+    send, reuse = plan_reuse(segs)
+    followers = {}
+    for m, (rep, _mp) in reuse.items():
+        followers.setdefault(rep, []).append(m)
     workers = max(1, min(int(workers or 1), 8))
+    items = [(n, segs[n][0], segs[n][1]) for n in send]
     if workers > 1:
         # kucuk belgede bile isler paylasilsin: her istek icin ~3 grup, grup en az 800 karakter
-        total = sum(len(md) for _k, md in segs)
+        total = sum(len(md) for _n, _k, md in items)
         limit = max(800, min(limit, -(-total // (workers * 3))))
-    groups = batches(segs, limit)
+    groups = _batches_items(items, limit)
     done = {}
     instruction = INSTRUCTION.format(lang=lang)
     finished = [0]
@@ -133,43 +181,81 @@ def translate_blocks(blocks, call, lang, progress=None, cancelled=None, limit=BA
     def run(group):
         if cancelled and cancelled():
             raise InterruptedError('Çeviri durduruldu.')
-        keys = [key for _n, key, _m in group]
+        keys = [key for n, key, _m in group] + [segs[m][0] for n, _k, _m in group for m in followers.get(n, [])]
         if on_event:
             on_event('start', keys, None)
         got = _translate_group(group, call, instruction, cancelled)
         if on_event:
-            on_event('done', keys, {key: got[n] for n, key, _m in group if n in got})
+            res = {key: got[n] for n, key, _m in group if n in got}
+            for n, _k, _m in group:
+                for m in followers.get(n, []):
+                    if n in got:
+                        res[segs[m][0]] = got[n]
+            on_event('done', keys, res)
         return got
 
-    if progress:
-        progress(0, len(groups))
-    workers = max(1, min(workers, len(groups) or 1))
-    if workers == 1:
-        results = []
-        for g in groups:
-            results.append(run(g))
-            finished[0] += 1
-            if progress:
-                progress(finished[0], len(groups))
-    else:
-        results = [None] * len(groups)
-        with cf.ThreadPoolExecutor(max_workers=workers, thread_name_prefix='agfo-tr') as ex:
+    def run_all(groups):
+        if workers == 1 or len(groups) < 2:
+            out = []
+            for g in groups:
+                out.append(run(g))
+                finished[0] += 1
+                if progress:
+                    progress(finished[0], total_groups[0])
+            return out
+        out = [None] * len(groups)
+        with cf.ThreadPoolExecutor(max_workers=min(workers, len(groups)), thread_name_prefix='agfo-tr') as ex:
             futs = {ex.submit(run, g): k for k, g in enumerate(groups)}
             try:
                 for f in cf.as_completed(futs):
-                    results[futs[f]] = f.result()
+                    out[futs[f]] = f.result()
                     finished[0] += 1
                     if progress:
-                        progress(finished[0], len(groups))
+                        progress(finished[0], total_groups[0])
             except BaseException:
                 for f in futs:
                     f.cancel()
                 raise
-    missing_total = 0
-    for g, got in zip(groups, results):
-        missing_total += len([x for x in g if x[0] not in got])
+        return out
+
+    total_groups = [len(groups)]
+    if progress:
+        progress(0, len(groups))
+    results = run_all(groups)
+    for got in results:
         done.update(got)
-    return apply(blocks, segs, done), {'segments': len(segs), 'batches': len(groups), 'missing': missing_total}
+    # tekrar eden parcalar: ornek ceviriden; sayilar yerlestirilemezse ayrica cevrilir
+    again = []
+    for m, (rep, mapping) in sorted(reuse.items()):
+        if rep in done:
+            t = _derive(done[rep], mapping)
+            if t is not None:
+                done[m] = t
+                continue
+        if rep in done or mapping:
+            again.append((m, segs[m][0], segs[m][1]))
+    if again:
+        extra = _batches_items(again, limit)
+        total_groups[0] += len(extra)
+        for got in run_all(extra):
+            done.update(got)
+        groups = groups + extra
+    missing_total = len([n for n in range(len(segs)) if n not in done])
+    return apply(blocks, segs, done), {'segments': len(segs), 'batches': len(groups), 'missing': missing_total,
+                                       'reused': len(reuse) - len(again)}
+
+
+def _batches_items(items, limit):
+    out, cur, size = [], [], 0
+    for it in items:
+        if cur and size + len(it[2]) > limit:
+            out.append(cur)
+            cur, size = [], 0
+        cur.append(it)
+        size += len(it[2]) + 8
+    if cur:
+        out.append(cur)
+    return out
 
 
 def pairs(orig, new):

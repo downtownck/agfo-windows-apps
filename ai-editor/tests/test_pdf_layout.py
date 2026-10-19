@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """AGFO AI Editor 1.4.6 - form XObject icindeki metni duzenleme, sayfa duzeni cikarma ve duzeni koruyan PDF cevirisi."""
 import os
+import re
 import pathlib
 import sys
 import tempfile
@@ -69,6 +70,39 @@ def form_pdf(path, pages=1):
     out += ('xref\n0 %d\n0000000000 65535 f \n' % (len(offs) + 1)).encode() + b''.join(('%010d 00000 n \n' % o).encode() for o in offs)
     out += ('trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n' % (len(offs) + 1, x)).encode()
     pathlib.Path(path).write_bytes(out)
+    return path
+
+
+LIST_PAGE = (b'BT /F1 10 Tf 0 0 0 rg 60 790 Td (The certification body shall assess the background of every auditor before the first audit.) Tj ET\n'
+             b'BT /F1 10 Tf 0 0 0 rg 60 760 Td (Evaluation methods could for example include:) Tj ET\n'
+             b'BT /F3 10 Tf 60 745 Td (\\267) Tj ET BT /F1 10 Tf 80 745 Td (Alpha item) Tj ET\n'
+             b'BT /F3 10 Tf 60 733 Td (\\267) Tj ET BT /F1 10 Tf 80 733 Td (Beta item) Tj ET\n'
+             b'BT /F3 10 Tf 60 721 Td (\\267) Tj ET BT /F1 10 Tf 80 721 Td (Gamma item) Tj ET\n'
+             b'BT /F1 10 Tf 60 680 Td (1) Tj ET BT /F1 10 Tf 100 680 Td (Introduction........................................3) Tj ET\n'
+             b'BT /F1 10 Tf 60 668 Td (2) Tj ET BT /F1 10 Tf 100 668 Td (Requirements........................................3) Tj ET\n'
+             b'BT /F1 10 Tf 60 620 Td (A1 Chemicals and Formulated Chemicals and Mixtures) Tj ET\n'
+             b'BT /F1 10 Tf 60 608 Td (A2 Fabricated paper) Tj ET\n'
+             b'0 0 0 RG 60 500 150 30 re S\n'
+             b'q 60 500 150 30 re W n BT /F1 10 Tf 65 510 Td (Inside box) Tj ET BT /F1 10 Tf 65 490 Td (hidden line) Tj ET Q\n')
+
+
+def list_pdf(path):
+    """Madde imleri Symbol yazi tipinde ayri nesne, icindekiler satirlari, kirpilmis (gorunmeyen) metin, kutu."""
+    w = pypdf.PdfWriter()
+    w.add_blank_page(595, 842)
+    from pypdf.generic import ContentStream, DecodedStreamObject, DictionaryObject, NameObject
+    page = w.pages[0]
+    stream = DecodedStreamObject()
+    stream.set_data(LIST_PAGE)
+    page[NameObject('/Contents')] = w._add_object(stream)
+    fonts = DictionaryObject({NameObject('/F1'): DictionaryObject({NameObject('/Type'): NameObject('/Font'), NameObject('/Subtype'): NameObject('/Type1'),
+                                                                   NameObject('/BaseFont'): NameObject('/Helvetica')}),
+                              NameObject('/F3'): DictionaryObject({NameObject('/Type'): NameObject('/Font'), NameObject('/Subtype'): NameObject('/Type1'),
+                                                                   NameObject('/BaseFont'): NameObject('/Symbol')})})
+    page[NameObject('/Resources')] = DictionaryObject({NameObject('/Font'): fonts})
+    _ = ContentStream
+    with open(path, 'wb') as f:
+        w.write(f)
     return path
 
 
@@ -160,6 +194,63 @@ class LayoutTests(unittest.TestCase):
         self.assertTrue(any(b.get('pb') for b in blocks))                       # ikinci sayfa yeni sayfada
         tb = L.layout_blocks(pr.layout_pages(), None, lays, texts)
         self.assertEqual(''.join(r['text'] for r in tb[0]['runs']), 'TR 0')
+
+
+
+@unittest.skipUnless(HAVE, 'pypdf/pypdfium2/yazi tipi yok')
+class LayoutDetailTests(unittest.TestCase):
+    """1.4.9: CP410 cevirisinde gorulen kucuk hatalar."""
+
+    def setUp(self):
+        self.src = list_pdf(os.path.join(TMP, 'liste.pdf'))
+        self.data = pathlib.Path(self.src).read_bytes()
+        self.pdf = pdfium.PdfDocument(self.data)
+        self.lay = L.extract_layout(self.pdf, 0)
+        self.texts = [P_['text'] for P_ in self.lay['paras']]
+
+    def test_bullets_stay_and_items_are_separate(self):
+        for t in ('Alpha item', 'Beta item', 'Gamma item'):
+            self.assertIn(t, self.texts)                                   # her madde ayri paragraf, imi yok
+        self.assertTrue(all('•' not in t and '\uf0b7' not in t for t in self.texts))
+        P_ = [x for x in self.lay['paras'] if x['text'] == 'Alpha item'][0]
+        self.assertTrue(P_['lines'][0]['bullet'])
+        self.assertNotRegex(P_['font'], '(?i)symbol')
+
+    def test_symbol_font_never_used_for_text(self):
+        fp = E.pick_font('ABCDEF+SymbolMT')
+        self.assertIsNotNone(fp)
+        self.assertNotRegex(os.path.basename(fp), '(?i)symbol')
+
+    def test_toc_lines_and_short_list_lines_not_merged(self):
+        self.assertIn('Introduction........................................3', self.texts)
+        self.assertIn('Requirements........................................3', self.texts)
+        self.assertIn('A1 Chemicals and Formulated Chemicals and Mixtures', self.texts)
+        self.assertIn('A2 Fabricated paper', self.texts)
+
+    def test_clipped_text_is_ignored(self):
+        self.assertIn('Inside box', self.texts)
+        self.assertFalse(any('hidden' in t for t in self.texts))
+
+    def test_translate_keeps_bullets_and_fits_toc(self):
+        tr = {'Alpha item': 'Birinci madde', 'Beta item': 'Ikinci madde', 'Gamma item': 'Ucuncu madde',
+              'Introduction........................................3': 'Giris ve cok daha uzun bir baslik metni.........3',
+              'Inside box': 'Kutunun icinde\tsekme'}
+        out, mode = L.translate_page(pypdf.PdfReader(self.src), 0, self.data, self.pdf, self.lay,
+                                     [tr.get(t) for t in self.texts])
+        self.assertEqual(mode, 'inplace')
+        body = text_of(out)
+        self.assertIn('Birinci madde', body)
+        self.assertEqual(len(re.findall('[•\uf0b7]', body)), 3)                # Symbol madde imleri yerinde
+        lay2 = L.extract_layout(pdfium.PdfDocument(out), 0)
+        toc = [x for x in lay2['paras'] if x['text'].startswith('Giris')]
+        self.assertEqual(len(toc), 1)
+        self.assertEqual(len(toc[0]['lines']), 1)                               # tek satir, noktalar ayarlandi
+        self.assertTrue(toc[0]['text'].endswith('3'))
+        self.assertLessEqual(toc[0]['rect'][2], 100 + 260)
+        self.assertIn('Kutunun icinde sekme', body)                             # sekme kutu olmadi
+
+    def test_clean_text(self):
+        self.assertEqual(L.clean_text('a\tb\u200b c\u00a0d \uf0b7 e'), 'a b c d • e')
 
 
 if __name__ == '__main__':

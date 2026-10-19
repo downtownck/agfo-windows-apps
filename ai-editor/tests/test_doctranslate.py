@@ -130,6 +130,33 @@ class TranslateTests(unittest.TestCase):
         self.assertEqual(sorted(i for e in dones for i in e[1]), list(range(24)))
         self.assertTrue(all(v.startswith('Paragraph') for e in dones for v in e[2].values()))
 
+    def test_repeated_text_translated_once(self):
+        # 1.4.9: sayfa ust/alt bilgileri her sayfada farkli cevriliyordu ("Sayfa 1 / 20" - "20 sayfanin 12. sayfasi")
+        blocks = []
+        for pg in range(1, 13):
+            blocks += [R.para(text='CP410 Guidelines on satisfying Auditor Competence'), R.para(text='Page %d of 12' % pg),
+                       R.para(text='Body text number %d of the document' % pg)]
+        blocks.append(R.para(text='See Issue 3 rules'))
+        blocks.append(R.para(text='See Issue 1 rules'))
+        sent = []
+
+        def call(text, instr):
+            sent.append(text)
+            out = text.replace('Page ', 'Sayfa ').replace(' of ', ' / ').replace('See Issue ', 'Bkz. Sayı ')
+            return re.sub(r'Sayı (\d) rules', lambda m: "Sayı %s'teki kurallar" % m.group(1), out)
+        new, st = T.translate_blocks(blocks, call, 'Türkçe', limit=100000)
+        joined = '\n'.join(sent)
+        self.assertEqual(joined.count('CP410 Guidelines'), 1)                       # ust bilgi bir kez gitti
+        self.assertEqual(len(re.findall(r'Page \d+ of 12', joined)), 1)              # sayfa numarasi kalibi bir kez
+        texts = [R.runs_text(b['runs']) for b in new]
+        self.assertEqual(texts[1], 'Sayfa 1 / 12')
+        self.assertEqual(texts[34], 'Sayfa 12 / 12')
+        self.assertEqual(st['missing'], 0)
+        self.assertGreaterEqual(st['reused'], 22)
+        # sayiya bagli Turkce ek: ornekten turetilmez, ayrica cevrilir
+        self.assertEqual(texts[-1], "Bkz. Sayı 1'teki kurallar")
+        self.assertIn('See Issue 1 rules', joined)
+
     def test_parallel_cancel(self):
         blocks = [R.para(text='Paragraf %d %s' % (k, 'x' * 300)) for k in range(24)]
         n = [0]

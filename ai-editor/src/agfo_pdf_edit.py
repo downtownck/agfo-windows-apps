@@ -133,6 +133,8 @@ def _family_file(name, bold, italic):
 
 def pick_font(name='', bold=False, italic=False, serif=False):
     """Ozgun yazi tipine en yakin TrueType dosyasi: once ayni aile (kuruluysa), sonra benzer aile."""
+    if re.search(r'symbol|wingding|webding|dingbat|marlett|mtextra|zapf', name or '', re.I):
+        name = ''                       # 1.4.9: madde imi yazi tipiyle metin yazilmaz (her harf kutu olur)
     key = (name.lower(), bool(bold), bool(italic), bool(serif))
     if key in _FONT_CACHE:
         return _FONT_CACHE[key]
@@ -257,6 +259,8 @@ def text_objects(page, tp=None):
         e = objs.setdefault(path, {'chars': [], 'box': None})
         e['chars'].append(c)
         l, b, r, t = tp.get_charbox(c)        # pypdfium2: (sol, alt, sag, ust)
+        if chr(raw.FPDFText_GetUnicode(tp.raw, c)).isspace():
+            continue                          # 1.4.9: sondaki bosluk kutuyu genisletmesin (sutunlar birlesiyordu)
         if r > l or t > b:
             e['box'] = [l, b, r, t] if e['box'] is None else [min(e['box'][0], l), min(e['box'][1], b),
                                                                 max(e['box'][2], r), max(e['box'][3], t)]
@@ -270,7 +274,7 @@ def text_objects(page, tp=None):
         h = handles.get(path)
         e['mode'] = raw.FPDFTextObj_GetTextRenderMode(h) if h else 0
         if e['box'] is None:
-            e['box'] = [x.value, y.value, x.value, y.value + e['size']]
+            e['box'] = [x.value, y.value, x.value + 0.25 * e['size'], y.value + e['size']]
     return objs, kids
 
 
