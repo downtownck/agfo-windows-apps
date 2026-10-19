@@ -92,7 +92,9 @@ LIST_PAGE = (b'BT /F1 10 Tf 0 0 0 rg 60 790 Td (The certification body shall ass
              b'BT /F1 10 Tf 80 380 Td (a\\)) Tj ET BT /F1 10 Tf 98 380 Td (observe the cleaning;) Tj ET\n'
              b'BT /F1 10 Tf 80 367 Td (b\\)) Tj ET BT /F1 10 Tf 98 367 Td (check the devices.) Tj ET\n'
              b'BT /F1 10 Tf 100 340 Td (Records......................................) Tj ET BT /F1 10 Tf 500 340 Td (3) Tj ET\n'
-             b'BT /F1 10 Tf 100 327 Td (Grading......................................) Tj ET BT /F1 10 Tf 500 327 Td (2) Tj ET\n')
+             b'BT /F1 10 Tf 100 327 Td (Grading......................................) Tj ET BT /F1 10 Tf 500 327 Td (2) Tj ET\n'
+             # 1.4.14: iki sutun basligi tek TJ icinde, arada buyuk bosluk (Tenda kurulum kilavuzu)
+             b'BT /F1 14 Tf 60 280 Td [(I Connect the router) -15000 (II Connect to the internet)] TJ ET\n')
 
 
 def list_pdf(path):
@@ -309,6 +311,24 @@ class LayoutDetailTests(unittest.TestCase):
         data, _st = pr.translated_pdf(lays, texts)
         self.assertLess(len(data), len(self.data) + 3 * 60000)
         self.assertIn('Çeviri 0 ğüşİ', text_of(data))
+
+    def test_wide_object_split_into_columns(self):
+        self.assertIn('I Connect the router', self.texts)
+        self.assertIn('II Connect to the internet', self.texts)
+        tr = {'I Connect the router': 'I Yönlendiriciyi bağlayın'}            # yalniz biri cevrilse de digeri kaybolmaz
+        out, _m = L.translate_page(pypdf.PdfReader(self.src), 0, self.data, self.pdf, self.lay, [tr.get(x) for x in self.texts])
+        body = text_of(out)
+        self.assertIn('I Yönlendiriciyi bağlayın', body)
+        self.assertIn('II Connect to the internet', body)
+        self.assertNotIn('I Connect the router', body)
+        lay2 = L.extract_layout(pdfium.PdfDocument(out), 0)
+        second = [x for x in lay2['paras'] if x['text'].startswith('II Connect')][0]
+        first = [x for x in self.lay['paras'] if x['text'].startswith('II Connect')][0]
+        self.assertAlmostEqual(second['rect'][0], first['rect'][0], delta=2)  # ikinci baslik yerinde
+
+    def test_broken_unicode_text_left_alone(self):
+        self.assertTrue(L.BROKEN_TEXT_RX.search('\x1b\x1a\x19-\x14: abc'))
+        self.assertFalse(L.BROKEN_TEXT_RX.search('Türkçe metin – ğüşİ'))
 
     def test_clean_text(self):
         self.assertEqual(L.clean_text('a\tb\u200b c\u00a0d \uf0b7 e'), 'a b c d • e')

@@ -22,6 +22,8 @@ import agfo_richdoc as R
 # ----------------------------------------------------------------------------- cikarma
 BULLET_CHARS = set('•●▪■◦○‣∙·–—-*►▶➢✓✔') | {chr(c) for c in range(0xF000, 0xF100)}
 SYMBOL_FONT_RX = re.compile(r'symbol|wingding|webding|dingbat|marlett|mtextra|zapf', re.I)
+# yazi tipinin Unicode eslemesi bozuk metin (kontrol karakterleri / U+FFFD): okunamaz, cevrilmez, yerinde kalir
+BROKEN_TEXT_RX = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\ufffd]')
 TOC_LINE_RX = re.compile(r'^(.*?)\s*(?:\.{3,}|…+|(?:\.\s){3,}|_{3,})[\s.…]*(\d*)\s*$')
 # nokta dizisi + sayfa no; ya da yalniz uzun nokta dizisi (sayfa numarasi saga yasli ayri nesne - Word sekmesi)
 TOC_RX = re.compile(r'(\.{4,}|…{2,}|(\.\s){4,}|_{4,})\s*\d+\s*$|(\.{8,}|…{4,}|_{8,})\s*$')
@@ -185,9 +187,58 @@ def _make_line(raw, tp, live, info, grp, ink, blank):
             'origin': live[first]['origin'], 'size': live[dom]['size'], 'font': fi['font'], 'bold': fi['bold'],
             'italic': fi['italic'], 'serif': fi['serif'], 'color': fl['color'], 'bullet': bullet,
             'listmark': bool(LIST_MARK_RX.match(text)),
+            # kalin bir etiketle baslayan satir ("Polski: ...", "Q1: ...", "NOTE: ..."): yeni paragraf baslatir
+            'runin': bool(info.get(first) and info[first]['bold'] and not fi['bold'] and len(ink) > 1
+                          and re.search(r'[:：]\s*$', live[first]['text'].strip()[:40] or '') is not None),
             'toc': bool(TOC_RX.search(text)),
             'angle': fi['angle'],
             'rotated': abs(fi['angle']) > 0.02 and abs(fi['angle'] - 6.2832) > 0.02}
+
+
+def _split_wide_objects(tp, live):
+    """Tek metin nesnesi icinde buyuk bosluk (or. iki sutun basligi tek TJ'de: "I Connect the router   II Connect
+    ...") varsa nesne parcalara bolunur; her parca ayri satir/paragraf olur. Donus: {parca_anahtari: gercek_yol}."""
+    vreal = {}
+    for path in list(live):
+        o = live[path]
+        chars = o.get('chars') or []
+        if len(chars) < 4:
+            continue
+        size = max(3.0, o['size'])
+        boxes = []
+        for c in chars:
+            l, b, r, t = tp.get_charbox(c)
+            ch = o['text'][len(boxes)] if len(boxes) < len(o['text']) else ''
+            boxes.append((l, b, r, t, ch))
+        pieces, cur, last_r = [], [], None
+        for n, (l, b, r, t, ch) in enumerate(boxes):
+            if ch.isspace():
+                if cur:
+                    cur.append(n)
+                continue
+            if cur and last_r is not None and l - last_r > 2.0 * size:
+                pieces.append(cur)
+                cur = []
+            cur.append(n)
+            last_r = r
+        if cur:
+            pieces.append(cur)
+        if len(pieces) < 2:
+            continue
+        del live[path]
+        for k, idx in enumerate(pieces):
+            ink = [i for i in idx if not boxes[i][4].isspace()]
+            if not ink:
+                continue
+            vk = path + (-1 - k,)
+            bx = [boxes[i] for i in ink]
+            l0, b0, r0, t0 = boxes[ink[0]][:4]
+            x, y = tp.get_charbox(chars[ink[0]])[0], o['origin'][1]
+            live[vk] = dict(o, chars=[chars[i] for i in idx], text=''.join(boxes[i][4] for i in idx).strip(),
+                            box=[min(q[0] for q in bx), min(q[1] for q in bx), max(q[2] for q in bx), max(q[3] for q in bx)],
+                            origin=(x if k else o['origin'][0], y))
+            vreal[vk] = path
+    return vreal
 
 
 def extract_layout(pdf, index):
@@ -208,6 +259,7 @@ def extract_layout(pdf, index):
         except Exception:
             hidden = set()
         live = {k: o for k, o in objs.items() if o['mode'] not in (3, 7) and o['text'] and k not in hidden}
+        vreal = _split_wide_objects(tp, live)
         info = {k: E._char_info(raw, tp, o['chars'][0]) for k, o in live.items() if o['chars']}
         lines = []
         remaining = {k for k in live if live[k]['text'].strip()}
@@ -298,7 +350,9 @@ def extract_layout(pdf, index):
             # yalniz gercekten dolu bir sutunsa (en az 3 satir ayni sag kenarda biter: iki yana yasli/sarilmis metin)
             L['col_r'] = cr if sum(1 for M in same_col if abs(M['rect'][2] - cr) < 3) >= 3 else None
         for L in lines:   # satirin yatayda ne kadar genisleyebilecegi: komsu metin, cizgi/kutu ve sayfa kenar boslugu
-            same = [M for M in lines if M is not L and abs(M['origin'][1] - L['origin'][1]) < 0.6 * L['size']]
+            # ayni yukseklikteki komsular: taban cizgisi yakin ya da kutulari dikeyde ortusen (farkli boyutlu baslik)
+            same = [M for M in lines if M is not L and (abs(M['origin'][1] - L['origin'][1]) < 0.6 * L['size']
+                    or min(M['rect'][3], L['rect'][3]) - max(M['rect'][1], L['rect'][1]) > 0.3 * min(M['size'], L['size']))]
             lo = max([M['rect'][2] + 6 for M in same if M['rect'][2] <= L['rect'][0] + 1] + [8.0, min(margin_l, L['rect'][0]) - 2])
             hi = min([M['rect'][0] - 6 for M in same if M['rect'][0] >= L['rect'][2] - 1] + [width - 8.0, max(margin_r, L['rect'][2]) + 2])
             y0, y1 = L['rect'][1], L['rect'][3]
@@ -332,6 +386,10 @@ def extract_layout(pdf, index):
             floors = [y for y, x0, x1 in horiz if y <= b + 1 and min(r, x1) - max(l, x0) > 2]
             if floors:
                 P['below'] = max(0.0, min(P['below'], b - max(floors) - 1.5))
+        for P in paras:   # bolunmus nesne parcalari gercek nesneye geri eslenir (icerikten cikarma icin)
+            P['objects'] = sorted({vreal.get(o, o) for o in P['objects']})
+            for Ln in P['lines']:
+                Ln['objects'] = sorted({vreal.get(o, o) for o in Ln['objects']})
         return {'width': width, 'height': height, 'paras': paras}
     finally:
         page.close()
@@ -360,7 +418,8 @@ def _paragraphs(lines, page_w, margin_r=None, horiz=()):
         for P in reversed(paras[-60:]):          # cok sutunlu sayfada araya diger sutunlarin satirlari girer
             last = P['lines'][-1]
             s = max(3.0, P['size'])
-            if L['rotated'] or last['rotated'] or L.get('bullet') or L.get('listmark') or L.get('toc') or last.get('toc'):
+            if L['rotated'] or last['rotated'] or L.get('bullet') or L.get('listmark') or L.get('toc') or last.get('toc') \
+                    or L.get('runin'):
                 continue
             if re.fullmatch(r'[\d.,:/()-]{1,8}', L['text'].strip()) or re.fullmatch(r'[\d.,:/()-]{1,8}', last['text'].strip()):
                 continue                                     # numara/sayfa no sutunu
@@ -587,6 +646,12 @@ def place(P, text, font_path, page_w):
     k = size / max(0.1, P['size'])
     lead = (P['lead'] * k if len(P['lines']) > 1 else size * 1.18) * lf
     x0, y0 = P['origin']
+    # asili girinti (madde/tire ile baslayan, devam satirlari icerden): ikinci satirdan itibaren o girinti kullanilir
+    x_rest = x0
+    if len(P['lines']) > 1 and P['align'] in ('left', 'justify'):
+        l1, l2 = P['lines'][0]['rect'][0], P['lines'][1]['rect'][0]
+        if 0.8 < l2 - l1 < 6 * max(3.0, P['size']):
+            x_rest = x0 + (l2 - l1)
     items = []
     for n, line in enumerate(lines):
         w = E.text_width(line, font_path, size)
@@ -595,16 +660,16 @@ def place(P, text, font_path, page_w):
         elif P['align'] == 'right':
             x = P['right'] - w
         else:
-            x = x0
+            x = x0 if n == 0 else x_rest
         y = y0 - n * lead
         words = line.split(' ')
         if P['align'] == 'justify' and n < len(lines) - 1 and len(words) > 1:
             # iki yana yasli: sozcukler satir genisligine dagitilir (son satir sola yasli)
-            target = min(P['right'], x0 + max(P['rect'][2] - P['rect'][0], w)) - x0
+            target = min(P['right'], x0 + max(P['rect'][2] - P['rect'][0], w)) - x
             ww = [E.text_width(t, font_path, size) for t in words]
             gap = (target - sum(ww)) / (len(words) - 1)
             if E.text_width(' ', font_path, size) * 0.8 <= gap <= size * 1.2:
-                xx = x0
+                xx = x
                 for t, wt in zip(words, ww):
                     items.append({'x': xx, 'y': y, 'text': t, 'size': size, 'color': P['color'], 'font': font_path})
                     xx += wt + gap
@@ -725,10 +790,18 @@ def translate_page(reader, index, pdf_bytes, pdf, layout, translations, chars=No
     """Bir sayfanin paragraflarini ceviriyle degistirir. Donus: (tek sayfalik PDF baytlari, 'inplace'|'overlay')."""
     import pypdf
     # dondurulmus metin yalniz tek satirsa cevrilir (kenar yazilari); cok satirli dondurulmus metin yerinde kalir
+    # yazi tipinden Unicode'a eslenemeyen karakter (\ufffd) iceren paragraf yerinde kalir: yeniden yazilirsa kutu olur
     todo = [(P, tr) for P, tr in zip(layout['paras'], translations) if tr and tr.strip()
-            and (not P['rotated'] or len(P['lines']) == 1)]
+            and (not P['rotated'] or len(P['lines']) == 1) and not BROKEN_TEXT_RX.search(P['text'])]
     if not todo:
         return None, None
+    # ayni PDF nesnesini paylasan (bolunmus nesne) cevrilmeyen paragraflar ozgun metinleriyle yeniden yazilir;
+    # yoksa nesne icerikten cikinca kaybolurlar
+    stripped = {o for P, _ in todo for o in P['objects']}
+    chosen = {id(P) for P, _ in todo}
+    for P in layout['paras']:
+        if id(P) not in chosen and not P['rotated'] and stripped & set(P['objects']):
+            todo.append((P, P['text']))
     items = []
     for P, tr in todo:
         fp = E.pick_font(P['font'], P['bold'], P['italic'], P['serif'])

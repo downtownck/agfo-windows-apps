@@ -2125,6 +2125,7 @@ class App(tk.Tk):
         backends = self.backends()
         layouts = None
         live = None
+        import agfo_pdf_layout as playout
         if v:
             path, title = v.pr.path, os.path.splitext(os.path.basename(getattr(v.pr, 'display_name', None) or v.pr.path))[0]
             blocks = None
@@ -2136,7 +2137,9 @@ class App(tk.Tk):
             if not any(lay['paras'] for lay in layouts):
                 messagebox.showinfo('Belge çevirisi', 'PDF\'de okunabilir metin yok (taranmış belge olabilir).', parent=self)
                 return
-            blocks = [rdoc.para(text=P['text']) for lay in layouts for P in lay['paras']]
+            # okunamayan (Unicode eslemesi bozuk) metin modele gonderilmez; PDF'te yerinde kalir
+            blocks = [rdoc.para(text='' if playout.BROKEN_TEXT_RX.search(P['text']) else P['text'])
+                      for lay in layouts for P in lay['paras']]
             pdf_map = [(pi, n, v.pr._disp_rect(pi, P['rect'])) for pi, lay in enumerate(layouts) for n, P in enumerate(lay['paras'])]
             live = trlive.TranslationLive(self, view=v, pdf_map=pdf_map)
         else:

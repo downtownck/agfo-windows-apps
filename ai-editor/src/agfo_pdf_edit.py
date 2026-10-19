@@ -193,7 +193,11 @@ def _char_info(raw, tp, ci):
         color = (r.value, g.value, b.value)
     weight = raw.FPDFText_GetFontWeight(tp.raw, ci)
     low = name.lower()
-    bold = weight >= 600 or any(k in low for k in ('bold', 'black', 'heavy', 'semibold', ',bd'))
+    named_bold = any(k in low for k in ('bold', 'black', 'heavy', 'semibold', ',bd'))
+    # 1.4.14: yazi tipi adi agirligi acikca soyluyorsa (Regular/Light/Book) tanimlayicidaki agirlik yok sayilir;
+    # bazi PDF'lerde "SFProDisplay-Regular" icin 740 yaziyor ve tum metin kalin cevriliyordu
+    named_light = re.search(r'regular|light|book|thin|roman|-medium|medium$|normal', low) is not None
+    bold = named_bold or (weight >= 600 and not named_light)
     italic = bool(flags.value & 64) or 'italic' in low or 'oblique' in low
     serif = bool(flags.value & 2) or any(k in low for k in ('times', 'serif', 'roman', 'georgia', 'garamond', 'cambria'))
     return {'origin': (x.value, y.value), 'size': float(raw.FPDFText_GetFontSize(tp.raw, ci)) or 11.0, 'font': name,
