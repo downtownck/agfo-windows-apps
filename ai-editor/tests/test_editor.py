@@ -495,6 +495,27 @@ class GuiTests(unittest.TestCase):
         self.app.insert_last_answer()
         self.assertIn('Sohbet yanıtı', d.text.get('1.0', 'end-1c'))
 
+    def test_chat_sees_open_pdf(self):
+        # 1.4.6: PDF sekmesinde "Bu belge ne ile ilgili özetle" -> "Belge metni paylaşılmadı"
+        import agfo_pdf
+        src = agfo_pdf.write_simple_pdf(os.path.join(TMP, 'whitepaper.pdf'),
+                                        [['Whitepaper Baslik', 'Tuketici urunleri guvenligi metni'], ['Ikinci sayfa sonuc']])
+        v = self.app.open_path(src)
+        self.app.update()
+        self.app.chat_in.insert('1.0', 'Bu belge ne ile ilgili özetle.')
+        self.app.send_chat()
+        self.assertTrue(self.pump(lambda: len(self.app.chat_messages) == 2))
+        self.assertEqual(self.fake[-1][0], 'chat')
+        doc = self.fake[-1][1][1]
+        self.assertIn('Tuketici urunleri guvenligi metni', doc)
+        self.assertIn('Ikinci sayfa sonuc', doc)
+        self.assertIn('<!-- Sayfa 2 -->', doc)
+        self.assertIn('PDF: 2 sayfa', self.app.chat_view.get('1.0', 'end'))
+        self.app.run_action_key('critique')                                      # sohbet eylemi PDF'de de calisir
+        self.assertTrue(self.pump(lambda: len(self.app.chat_messages) == 4))
+        self.assertIn('Ikinci sayfa sonuc', self.fake[-1][1][1])
+        self.app.close_pdf(v, ask=False)
+
     def test_find_replace_and_save_docx(self):
         self.app.toggle_find()
         self.app.update()

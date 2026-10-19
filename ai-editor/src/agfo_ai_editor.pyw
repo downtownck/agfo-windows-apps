@@ -1926,7 +1926,8 @@ class App(tk.Tk):
                     self.busy.stop()
                     self.busy.pack_forget()
                     self.cancel_btn.pack_forget()
-                    self.ai_var.set('')
+                    if self.ai_var.get().endswith('…'):      # yalniz is etiketi silinir; sonuc mesajlari (flash) kalir
+                        self.ai_var.set('')
                 if cb:
                     try:
                         cb(ok, payload)
@@ -2003,6 +2004,16 @@ class App(tk.Tk):
     def run_action(self, action, options=None, translate_mode=None):
         d = self.cur()
         if not d:
+            if hasattr(self, 'pdf_views') and self.cur_pdf():
+                if action.get('mode') == 'chat':          # ozet, degerlendirme: PDF metniyle sohbette
+                    opts = options or self._ai_options()
+                    prompt = core.CHAT_PROMPTS.get(action['key'], 'Bu metni değerlendir.').format(language=opts.get('language', 'Türkçe'))
+                    self.ai_nb.select(2)
+                    self.send_chat(prompt=prompt, label=action['label'])
+                else:
+                    messagebox.showinfo(action['label'], 'Bu işlem metni değiştirir; PDF\'de doğrudan yapılamaz.\n\n'
+                                        'Önce "Metin olarak aç" ile PDF\'i düzenlenebilir belgeye çevirin ya da '
+                                        'Sohbet sekmesinde PDF hakkında soru sorun (belge metni otomatik gönderilir).', parent=self)
             return
         options = options or self._ai_options()
         if action['key'] == 'custom' and not options.get('user_extra'):
@@ -2403,12 +2414,25 @@ class App(tk.Tk):
             self.chat_in.delete('1.0', 'end')
         document = ''
         d = self.cur()
+        v = self.cur_pdf() if not d and hasattr(self, 'pdf_views') else None
         if d and (self.chat_ctx.get() or prompt):
             try:
                 s0, e0 = d.text.index('sel.first'), d.text.index('sel.last')
             except tk.TclError:
                 s0, e0 = '1.0', d.text.index('end-1c')
             document = d.text.markdown(s0, e0)[0] if d.rich else d.text.get(s0, e0)
+        elif v and (self.chat_ctx.get() or prompt):
+            # 1.4.7: PDF sekmesinde sohbet belgeyi goremiyordu ("Belge metni paylasilmadi")
+            try:
+                document, pages_note = self.pdf_context_text(v)
+            except Exception as e:
+                messagebox.showerror('Sohbet', 'PDF metni okunamadı: %s' % e, parent=self)
+                return
+            if not document.strip():
+                messagebox.showinfo('Sohbet', 'Bu PDF\'de okunabilir metin yok (taranmış belge olabilir). '
+                                    'Metin tanıma (OCR) yapılmış bir kopya açın.', parent=self)
+                return
+            label = (label + ' · ' if label else '') + pages_note
         self.chat_messages.append({'role': 'user', 'content': text})
         self._chat_append('Siz' + (' · ' + label if label else ''), text if not prompt else '(%s)' % (label or 'istek'), 'u')
         msgs = list(self.chat_messages)
@@ -2421,6 +2445,41 @@ class App(tk.Tk):
             self.chat_messages.append({'role': 'assistant', 'content': res['text']})
             self._chat_append('AI · %s' % (res.get('model') or res.get('via', '')), res['text'], 'a')
         self._start_job(label or 'Sohbet', ai.run_with_fallback, done, self.backends(), 'chat', msgs, document[:core.MAX_CHARS])
+
+    def pdf_context_text(self, v):
+        """Acik PDF'in metni (sayfa sayfa, basliklari ve paragraflariyla Markdown). Sayfa listesinde birden cok
+        sayfa seciliyse yalniz onlar. Donus: (metin, 'PDF: n sayfa' notu)."""
+        import agfo_pdf_layout as playout
+        pr = v.pr
+        sel = sorted(v.page_list.curselection())
+        idx = sel if len(sel) > 1 else list(range(len(pr.pages)))
+        pr.require('extract', pr._page_sources(idx))
+        parts = []
+        lays = []
+        for i in idx:
+            p = pr.pages[i]
+            try:
+                lays.append(playout.extract_layout(pr._pdfium_doc(p['src']), p['index']))
+            except Exception:
+                lays.append(None)
+        sizes = [P_['size'] for lay in lays if lay for P_ in lay['paras'] for _ in range(max(1, len(P_['text']) // 20))]
+        body = sorted(sizes)[len(sizes) // 2] if sizes else 11.0
+        for i, lay in zip(idx, lays):
+            if lay and lay['paras']:
+                lines = []
+                for P_ in lay['paras']:
+                    r = P_['size'] / max(1.0, body)
+                    lines.append(('# ' if r >= 1.7 else '## ' if r >= 1.35 else '### ' if r >= 1.15 and P_['bold'] else '') + P_['text'])
+                text = '\n\n'.join(lines)
+            else:
+                text = pr.page_text(i).strip()
+            if text:
+                parts.append('<!-- Sayfa %d -->\n%s' % (i + 1, text))
+        doc = '\n\n'.join(parts)
+        note = 'PDF: %s sayfa' % (len(idx) if len(idx) == len(pr.pages) else '%s/%d' % (','.join(str(i + 1) for i in idx), len(pr.pages)))
+        if len(doc) > core.MAX_CHARS:
+            note += ' (ilk %d karakter)' % core.MAX_CHARS
+        return doc, note
 
     def insert_last_answer(self):
         last = next((m['content'] for m in reversed(self.chat_messages) if m['role'] == 'assistant'), '')
