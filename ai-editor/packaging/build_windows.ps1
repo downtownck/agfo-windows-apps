@@ -5,7 +5,7 @@ $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $root
 $python = (Get-Command python.exe -ErrorAction Stop).Source
 Write-Host ('Python: ' + $python)
-& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'Pillow>=11,<13' 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'cryptography>=42,<47'
+& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'Pillow>=11,<13' 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'cryptography>=42,<47' 'fonttools>=4.50,<5'
 if ($LASTEXITCODE) { throw 'pip install failed' }
 function Write-Annotation([string]$title, [string]$text) {
     # GitHub annotations are readable through the REST API even when raw logs are not.
@@ -39,7 +39,7 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-editor-build' }
     --hidden-import agfo_editor_core --hidden-import agfo_ai_client --hidden-import agfo_secrets `
     --hidden-import agfo_editor_update --hidden-import agfo_github_update --hidden-import agfo_sources --hidden-import agfo_pdf --hidden-import agfo_pdf_view --hidden-import agfo_pdf_edit `
     --hidden-import agfo_richdoc --hidden-import agfo_richtext --hidden-import agfo_doctranslate --hidden-import agfo_compare --hidden-import agfo_pdf_layout --hidden-import agfo_trlive `
-    --collect-submodules pypdf --collect-submodules cryptography --hidden-import pypdf._crypt_providers._cryptography --collect-all pypdfium2 --collect-all pypdfium2_raw --hidden-import PIL.ImageTk `
+    --collect-submodules pypdf --collect-submodules cryptography --collect-submodules fontTools.subset --collect-submodules fontTools.ttLib --hidden-import pypdf._crypt_providers._cryptography --collect-all pypdfium2 --collect-all pypdfium2_raw --hidden-import PIL.ImageTk `
     (Join-Path $root 'src\agfo_ai_editor.pyw')
 if ($LASTEXITCODE) { throw 'PyInstaller failed' }
 $exe = Join-Path $root 'dist\AGFO-AI-Editor.exe'

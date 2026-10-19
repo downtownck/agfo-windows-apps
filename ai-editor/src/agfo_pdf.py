@@ -252,6 +252,20 @@ def build_overlay_pdf(page_box, items):
 
 
 # ---------------------------------------------------------------------------- model
+def _compress(writer):
+    """1.4.12: yeniden yazilan icerik akislari sikistirilmadan kaydediliyordu; ozdes nesneler (her sayfaya gomulen ayni
+    yazi tipi alt kumesi) teke indirilir."""
+    for pg in writer.pages:
+        try:
+            pg.compress_content_streams(level=9)
+        except Exception:
+            pass
+    try:
+        writer.compress_identical_objects()
+    except Exception:
+        pass
+
+
 class PdfProject:
     """Duzenlenen PDF: sayfa listesi + katmanlar + form degerleri + geri al yigini."""
 
@@ -468,6 +482,7 @@ class PdfProject:
         out = pypdf.PdfWriter()
         it = iter(translations)
         stats = {'inplace': 0, 'overlay': 0, 'same': 0}
+        chars = L.font_chars(layouts, translations)       # belge geneli yazi tipi alt kumesi (tek kopya gomulur)
         for n, (p, lay) in enumerate(zip(self.pages, layouts)):
             if progress:
                 progress(n, len(self.pages))
@@ -475,7 +490,7 @@ class PdfProject:
             data, mode = None, None
             try:
                 data, mode = L.translate_page(self._reader(p['src']), p['index'], self._load_bytes(p['src']),
-                                              self._pdfium_doc(p['src']), lay, trs)
+                                              self._pdfium_doc(p['src']), lay, trs, chars)
             except E.EditError:
                 data = None
             if data is None:
@@ -488,10 +503,7 @@ class PdfProject:
             out.add_page(page)
             if p['rot'] % 360:
                 out.pages[-1].rotate(p['rot'] % 360)
-        try:
-            out.compress_identical_objects()
-        except Exception:
-            pass
+        _compress(out)
         buf = io.BytesIO()
         out.write(buf)
         return buf.getvalue(), stats
@@ -776,10 +788,7 @@ class PdfProject:
                 raise PdfError('Form alanları yazılamadı: %s' % e)
         writer.add_metadata({'/Producer': 'AGFO AI Editor'})
         if any(src in self.derived for src in readers):
-            try:                                # duzenlenen sayfalara gomulen ayni yazi tipini tek kopyaya indir
-                writer.compress_identical_objects()
-            except Exception:
-                pass
+            _compress(writer)                   # duzenlenen sayfalar: sikistir, ayni yazi tipini tek kopyaya indir
         # sifreli kaynak varsa cikti da ayni (en kisitli) izinlerle AES-256 sifrelenir; acma parolasi yok
         enc = [self.perms[src] for src in readers if self.perms.get(src) is not None]
         if enc:

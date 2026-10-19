@@ -149,11 +149,13 @@ def selftest(out_path: str) -> int:
         _tp.close()
         _doc.close()
         res['pdf_edit'] = {'font': os.path.basename(_e.pick_font('Helvetica') or ''), 'ok': 'Yeni metin ğüşİ' in edited and 'Eski' not in edited,
-                           'layout_translate': 'Line one' in translated and 'Satir bir' not in translated}
+                           'layout_translate': 'Line one' in translated and 'Satir bir' not in translated,
+                           # 1.4.12: yazi tipi alt kumesi (fontTools pakete girdi mi) - yoksa ceviri PDF'i MB'larca olur
+                           'font_subset': len(_e.font_data(_e.pick_font('Helvetica'), 'abc')) < os.path.getsize(_e.pick_font('Helvetica'))}
         os.unlink(pp)
         os.unlink(out)
         res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
-                     and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'])
+                     and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset'])
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')

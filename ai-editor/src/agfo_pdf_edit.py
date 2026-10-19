@@ -694,6 +694,48 @@ def text_width(text, font_path, size):
         return 0.0
 
 
+_SUBSET_CACHE = {}
+
+
+def font_data(font_path, text=''):
+    """Gomulecek yazi tipi: yalniz kullanilan karakterler (fontTools ile alt kume). 1.4.12 oncesi her yazi tipi
+    dosyasi tamami gomuluyordu (Arial ~550 KB); 50 KB'lik belge ceviriden sonra 1,8 MB oluyordu.
+    fontTools yoksa ya da alt kume alinamazsa dosyanin tamami doner."""
+    chars = frozenset((text or '') + ' .,-')
+    key = (font_path, chars)
+    if key in _SUBSET_CACHE:
+        return _SUBSET_CACHE[key]
+    with open(font_path, 'rb') as f:
+        data = f.read()
+    try:
+        import logging
+        from fontTools import subset
+        from fontTools.ttLib import TTFont
+        logging.getLogger('fontTools').setLevel(logging.ERROR)
+        font = TTFont(io.BytesIO(data), lazy=False)
+        opts = subset.Options()
+        opts.hinting = False
+        opts.name_IDs = ['*']
+        opts.name_languages = ['*']
+        opts.notdef_outline = True
+        opts.recalc_bounds = True
+        opts.drop_tables += ['DSIG', 'GSUB', 'GPOS', 'GDEF', 'kern']
+        sub = subset.Subsetter(opts)
+        sub.populate(unicodes=[ord(c) for c in chars])
+        sub.subset(font)
+        buf = io.BytesIO()
+        font.save(buf)
+        out = buf.getvalue()
+        if len(out) < len(data):
+            data = out
+    except Exception:
+        pass
+    if len(_SUBSET_CACHE) > 64:
+        _SUBSET_CACHE.clear()
+    _SUBSET_CACHE[key] = data
+    return data
+
+
 def text_layer(width, height, origin, lines, size, color, font_path, lead, hscale=1.0, tc=0.0):
     """Yalniz yeni metni iceren tek sayfalik PDF (pdfium ile; ozgun sayfaya dokunmaz). (baytlar, yazi_tipi_adi)."""
     pdfium, raw = _lib()
@@ -701,8 +743,7 @@ def text_layer(width, height, origin, lines, size, color, font_path, lead, hscal
     keep = []
     try:
         page = doc.new_page(width, height)
-        with open(font_path, 'rb') as f:
-            data = f.read()
+        data = font_data(font_path, ''.join(lines))
         fbuf = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
         keep.append(fbuf)
         font = raw.FPDFText_LoadFont(doc.raw, fbuf, len(data), raw.FPDF_FONT_TRUETYPE, 1)

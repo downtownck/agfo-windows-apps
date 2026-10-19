@@ -615,7 +615,7 @@ def _place_rotated(P, text, font_path):
     return [{'x': x, 'y': y, 'text': text, 'size': size, 'color': P['color'], 'font': font_path, 'angle': ang}]
 
 
-def layer_pdf(width, height, items, boxes=()):
+def layer_pdf(width, height, items, boxes=(), chars=None):
     """Birden cok yazi tipi/boyut/renkte metin (ve istenirse ortu kutulari) iceren tek sayfalik katman PDF'i."""
     pdfium, raw = E._lib()
     doc = pdfium.PdfDocument.new()
@@ -633,8 +633,9 @@ def layer_pdf(width, height, items, boxes=()):
                 continue
             fp = it['font']
             if fp not in fonts:
-                with open(fp, 'rb') as f:
-                    data = f.read()
+                used = ''.join(x['text'] for x in items if x['font'] == fp)
+                data = E.font_data(fp, (chars or {}).get(fp, '') + used if chars and fp in chars and set(used) - set(chars[fp])
+                                   else (chars or {}).get(fp) or used)
                 fbuf = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
                 keep.append(fbuf)
                 font = raw.FPDFText_LoadFont(doc.raw, fbuf, len(data), raw.FPDF_FONT_TRUETYPE, 1)
@@ -690,7 +691,23 @@ def _bg_colors(pdf, index, rects, page_h):
     return out
 
 
-def translate_page(reader, index, pdf_bytes, pdf, layout, translations):
+def font_chars(layouts, translations):
+    """Belgenin tamami icin yazi tipi -> kullanilan karakterler. Her sayfaya ayni alt kume gomulur; ozdes akislar
+    kaydederken teke indirilir (sayfa sayfa farkli alt kume 3 kopya demekti)."""
+    out = {}
+    it = iter(translations)
+    for lay in layouts:
+        for P in lay['paras']:
+            tr = next(it, None)
+            if not tr:
+                continue
+            fp = E.pick_font(P['font'], P['bold'], P['italic'], P['serif'])
+            if fp:
+                out.setdefault(fp, set()).update(clean_text(tr) + '.¹²³')
+    return {k: ''.join(sorted(v)) for k, v in out.items()}
+
+
+def translate_page(reader, index, pdf_bytes, pdf, layout, translations, chars=None):
     """Bir sayfanin paragraflarini ceviriyle degistirir. Donus: (tek sayfalik PDF baytlari, 'inplace'|'overlay')."""
     import pypdf
     # dondurulmus metin yalniz tek satirsa cevrilir (kenar yazilari); cok satirli dondurulmus metin yerinde kalir
@@ -716,7 +733,7 @@ def translate_page(reader, index, pdf_bytes, pdf, layout, translations):
         rects = [(P['rect'][0] - 1, P['rect'][1] - 1.5, P['rect'][2] + 1, P['rect'][3] + 1) for P, _ in todo]
         boxes = [(*r, c) for r, c in zip(rects, _bg_colors(pdf, index, rects, layout['height']))]
     mb = page.mediabox
-    layer = layer_pdf(max(1.0, float(mb.right)), max(1.0, float(mb.top)), items, boxes)
+    layer = layer_pdf(max(1.0, float(mb.right)), max(1.0, float(mb.top)), items, boxes, chars)
     page.merge_page(pypdf.PdfReader(io.BytesIO(layer)).pages[0], over=True)
     return E._writer_bytes(w), mode
 

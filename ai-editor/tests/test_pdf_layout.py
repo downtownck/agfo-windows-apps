@@ -299,6 +299,17 @@ class LayoutDetailTests(unittest.TestCase):
         self.assertTrue(rec['text'].endswith('....'))
         self.assertAlmostEqual(rec['rect'][0], 100, delta=1.5)                  # sola yasli, ayni girinti
 
+    def test_fonts_are_subset_and_output_stays_small(self):
+        # 1.4.11: 50 KB'lik belge ceviriden sonra 1,8 MB oluyordu (her yazi tipi dosyasinin tamami gomuluyordu)
+        fp = E.pick_font('Helvetica')
+        self.assertLess(len(E.font_data(fp, 'Kayıtlar ve çeviri')), os.path.getsize(fp) / 3)
+        pr = P.PdfProject(self.src)
+        lays = pr.layouts()
+        texts = ['Çeviri %d ğüşİ' % k for k in range(sum(len(x['paras']) for x in lays))]
+        data, _st = pr.translated_pdf(lays, texts)
+        self.assertLess(len(data), len(self.data) + 3 * 60000)
+        self.assertIn('Çeviri 0 ğüşİ', text_of(data))
+
     def test_clean_text(self):
         self.assertEqual(L.clean_text('a\tb\u200b c\u00a0d \uf0b7 e'), 'a b c d • e')
 
