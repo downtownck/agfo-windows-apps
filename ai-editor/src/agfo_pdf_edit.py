@@ -528,7 +528,12 @@ def _count_ops(ops, res, kind):
             found.append(n)
         elif kind == OBJ_FORM and op == b'Do' and operands and _xsub(res, operands[0]) == '/Form':
             found.append(n)
+        elif kind == OBJ_PATH and op in PAINT_OPS:
+            found.append(n)
     return found
+
+
+PAINT_OPS = (b'S', b's', b'f', b'F', b'f*', b'B', b'B*', b'b', b'b*')
 
 
 def _resolve(w, page, kids, prefix, cache):
@@ -602,7 +607,7 @@ def _rewrite(ops, kill, kind):
     return out
 
 
-def strip_ops(reader, index, pdf_bytes, paths, kind):
+def strip_ops(reader, index, pdf_bytes, paths, kind, extra_paths=None):
     """Secili nesneleri (metin ya da resim; ust duzey ya da form XObject icinde) ICERIK AKISINDAN cikarir; baska
     hicbir sey degismez. paths: yol listesi (eski surumlerle uyum icin tamsayi = ust duzey sira no).
     Donus: (pypdf yazici, sayfa). Esleme dogrulanamazsa EditError."""
@@ -621,19 +626,32 @@ def strip_ops(reader, index, pdf_bytes, paths, kind):
     groups = {}
     for p in paths:
         groups.setdefault(p[:-1], set()).add(p[-1])
+    pgroups = {}                       # 1.4.9: ayrica silinecek yollar (or. cevrilen baglantinin alti cizgisi)
+    for p in (extra_paths or []):
+        pgroups.setdefault(tuple(p)[:-1], set()).add(tuple(p)[-1])
     cache = {}
     # derin akislari once coz (ust akis degismeden once Do sayimi yapilsin)
-    resolved = {pre: _resolve(w, page, kids, pre, cache) for pre in sorted(groups, key=len)}
-    for prefix, ords in groups.items():
+    resolved = {pre: _resolve(w, page, kids, pre, cache) for pre in sorted(set(groups) | set(pgroups), key=len)}
+    for prefix in sorted(set(groups) | set(pgroups), key=len, reverse=True):
+        ords = groups.get(prefix, set())
         owner, cs, res = resolved[prefix]
-        same = [k for k, t, _h in kids.get(prefix, []) if t == kind]
-        if not ords <= set(same):
-            raise EditError('Nesne eşlenemedi.')
-        found = _count_ops(cs.operations, res, kind)
-        if len(found) != len(same):
-            raise EditError('Bu sayfanın içerik yapısı yerinde düzenlemeye uygun değil (%d / %d).' % (len(found), len(same)))
-        kill = {found[same.index(k)] for k in ords}
-        cs.operations = _rewrite(cs.operations, kill, kind)
+        pords = pgroups.get(prefix)
+        if pords:                       # yol: boyama operatoru 'n' olur (sira numaralari kaymaz)
+            psame = [k for k, t, _h in kids.get(prefix, []) if t == OBJ_PATH]
+            pfound = _count_ops(cs.operations, res, OBJ_PATH)
+            if len(pfound) == len(psame) and pords <= set(psame):
+                for k in pords:
+                    n = pfound[psame.index(k)]
+                    cs.operations[n] = ([], b'n')
+        if ords:
+            same = [k for k, t, _h in kids.get(prefix, []) if t == kind]
+            if not ords <= set(same):
+                raise EditError('Nesne eşlenemedi.')
+            found = _count_ops(cs.operations, res, kind)
+            if len(found) != len(same):
+                raise EditError('Bu sayfanın içerik yapısı yerinde düzenlemeye uygun değil (%d / %d).' % (len(found), len(same)))
+            kill = {found[same.index(k)] for k in ords}
+            cs.operations = _rewrite(cs.operations, kill, kind)
         if owner == 'page':
             page.replace_contents(cs)
         else:

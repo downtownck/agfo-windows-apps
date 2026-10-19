@@ -83,7 +83,16 @@ LIST_PAGE = (b'BT /F1 10 Tf 0 0 0 rg 60 790 Td (The certification body shall ass
              b'BT /F1 10 Tf 60 620 Td (A1 Chemicals and Formulated Chemicals and Mixtures) Tj ET\n'
              b'BT /F1 10 Tf 60 608 Td (A2 Fabricated paper) Tj ET\n'
              b'0 0 0 RG 60 500 150 30 re S\n'
-             b'q 60 500 150 30 re W n BT /F1 10 Tf 65 510 Td (Inside box) Tj ET BT /F1 10 Tf 65 490 Td (hidden line) Tj ET Q\n')
+             b'q 60 500 150 30 re W n BT /F1 10 Tf 65 510 Td (Inside box) Tj ET BT /F1 10 Tf 65 490 Td (hidden line) Tj ET Q\n'
+             # 1.4.9 zor durumlar: ust simge dipnot, alti cizili baglanti, dondurulmus kenar yazisi, a) isaretleri,
+             # sayfa numarasi ayri nesne olan icindekiler satiri
+             b'BT /F1 10 Tf 60 440 Td (A major finding) Tj ET BT /F1 6 Tf 126.6 444 Td (1) Tj ET BT /F1 10 Tf 130 440 Td ( shall be closed.) Tj ET\n'
+             b'BT /F1 10 Tf 0 0 1 rg 60 420 Td (Write to audits@example.org today) Tj ET 0 0 1 RG 0.6 w 60 418.5 m 213 418.5 l S\n'
+             b'BT /F1 8 Tf 0 0 0 rg 0 1 -1 0 30 300 Tm (Uncontrolled when printed) Tj ET\n'
+             b'BT /F1 10 Tf 80 380 Td (a\\)) Tj ET BT /F1 10 Tf 98 380 Td (observe the cleaning;) Tj ET\n'
+             b'BT /F1 10 Tf 80 367 Td (b\\)) Tj ET BT /F1 10 Tf 98 367 Td (check the devices.) Tj ET\n'
+             b'BT /F1 10 Tf 100 340 Td (Records......................................) Tj ET BT /F1 10 Tf 500 340 Td (3) Tj ET\n'
+             b'BT /F1 10 Tf 100 327 Td (Grading......................................) Tj ET BT /F1 10 Tf 500 327 Td (2) Tj ET\n')
 
 
 def list_pdf(path):
@@ -248,6 +257,38 @@ class LayoutDetailTests(unittest.TestCase):
         self.assertTrue(toc[0]['text'].endswith('3'))
         self.assertLessEqual(toc[0]['rect'][2], 100 + 260)
         self.assertIn('Kutunun icinde sekme', body)                             # sekme kutu olmadi
+
+    def test_hard_cases_extraction(self):
+        t = self.texts
+        self.assertIn('A major finding¹ shall be closed.', t)                   # ust simge satira katildi
+        self.assertIn('observe the cleaning;', t)                               # a) b) isaretleri yerinde kalir
+        self.assertIn('check the devices.', t)
+        self.assertIn('Records......................................', t)       # icindekiler satirlari ayri
+        self.assertIn('Grading......................................', t)
+        rot = [x for x in self.lay['paras'] if x['text'] == 'Uncontrolled when printed']
+        self.assertEqual(len(rot), 1)
+        self.assertTrue(rot[0]['rotated'])
+        link = [x for x in self.lay['paras'] if x['text'].startswith('Write to')][0]
+        self.assertEqual(len(link['underlines']), 1)                            # alti cizgisi bulundu
+
+    def test_hard_cases_translation(self):
+        tr = {'A major finding¹ shall be closed.': 'Majör bulgu¹ kapatılmalıdır.',
+              'Write to audits@example.org today': 'Bugün audits@example.org adresine yazın',
+              'Uncontrolled when printed': 'Basıldığında kontrolsüzdür',
+              'observe the cleaning;': 'temizliği gözlemlemek;'}
+        out, _mode = L.translate_page(pypdf.PdfReader(self.src), 0, self.data, self.pdf, self.lay, [tr.get(x) for x in self.texts])
+        body = text_of(out)
+        self.assertIn('Majör bulgu¹ kapatılmalıdır.', body)
+        self.assertIn('Basıldığında kontrolsüzdür', body)
+        self.assertIn('a)', body)
+        doc = pdfium.PdfDocument(out)
+        lay2 = L.extract_layout(doc, 0)
+        rot = [x for x in lay2['paras'] if x['text'] == 'Basıldığında kontrolsüzdür']
+        self.assertTrue(rot and rot[0]['rotated'])                              # ceviri de dondurulmus
+        _v, _h, thin = L._walls(doc[0], 595, 842)
+        self.assertFalse(any(abs(y - 418.5) < 1 for _p, y, _a, _b in thin))   # eski alti cizgisi kaldirildi
+        items = {it['text'] for it in []}
+        _ = items
 
     def test_clean_text(self):
         self.assertEqual(L.clean_text('a\tb\u200b c\u00a0d \uf0b7 e'), 'a b c d • e')
