@@ -27,7 +27,7 @@ jobs:
           python -m compileall -q supertools system-care backupsync/src
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
           python -m unittest discover -s backupsync/tests
-          python -m pip install --quiet 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'Pillow>=11,<13' 'cryptography>=42,<47'
+          python -m pip install --quiet 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'Pillow>=11,<13' 'cryptography>=42,<47' 'fonttools>=4.50,<5'
           xvfb-run -a python -m unittest discover -s ai-editor/tests
 
   ai-manager-php:
