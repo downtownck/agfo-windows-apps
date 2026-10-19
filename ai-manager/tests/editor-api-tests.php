@@ -219,5 +219,30 @@ ea_check( 'E40 format=markdown is passed to the transformer, anything else is ht
 $args = AGFO_AIM_Editor_API::transform_args();
 ea_check( 'E41 format arg is declared with an enum', ( $args['format']['enum'] ?? [] ) === [ 'html', 'markdown' ] );
 
+// E42-E46 (17.8.0): per-job translation model.
+ea_check( 'E42 /editor/models route registered (GET, permission checked)', ( $r['agfo-ai/v1/editor/models']['methods'] ?? '' ) === 'GET'
+    && ( $r['agfo-ai/v1/editor/models']['permission_callback'] ?? '' ) !== '__return_true' );
+$opt = AGFO_AIM_Editor_API::transform_options( new AGFO_E_Request( [ 'model' => 'groq|llama-3.1-8b-instant' ] ) );
+ea_check( 'E43 model param reaches the transformer as route_model', $opt['route_model'] === 'groq|llama-3.1-8b-instant' );
+ea_check( 'E44 speed classes', AGFO_AIM_Editor_API::speed_class( 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', false ) === 'slow'
+    && AGFO_AIM_Editor_API::speed_class( 'gpt-5-mini', false ) === 'fast' && AGFO_AIM_Editor_API::speed_class( 'gpt-5.6', false ) === 'normal'
+    && AGFO_AIM_Editor_API::speed_class( 'o3', true ) === 'slow' && AGFO_AIM_Editor_API::speed_class( 'x-large', false, 90 ) === 'fast'
+    && AGFO_AIM_Editor_API::speed_class( 'llama-3.1-8b-instant', false ) === 'fast' );
+if ( ! class_exists( 'AGFO_AIM_Model_Catalog' ) ) {
+    final class AGFO_AIM_Model_Catalog {
+        public static function translation_board( $min = 85, $scope = 'all' ) {
+            return [ 'current' => [ 'provider' => 'together', 'model' => 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B' ], 'rows' => [
+                [ 'provider' => 'openai', 'provider_label' => 'OpenAI', 'id' => 'gpt-5-mini', 'quality' => 88, 'cost_1k_words' => 0.002, 'reasoning' => false, 'speed_score' => null, 'route' => 'chat', 'key' => 'NEVER' ],
+                [ 'provider' => 'x', 'provider_label' => 'X', 'id' => 'gone', 'quality' => 50, 'cost_1k_words' => null, 'reasoning' => false, 'route' => 'unavailable' ],
+            ] ];
+        }
+    }
+}
+$m = AGFO_AIM_Editor_API::rest_models( new AGFO_E_Request( [] ) );
+$md = is_object( $m ) ? (array) $m->data : (array) $m;
+ea_check( 'E45 models list: current route, speed, unavailable dropped', ( $md['current']['model'] ?? '' ) === 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'
+    && count( $md['models'] ?? [] ) === 1 && $md['models'][0]['speed'] === 'fast' && $md['models'][0]['model'] === 'gpt-5-mini' );
+ea_check( 'E46 models list carries no secrets', strpos( json_encode( $md ), 'NEVER' ) === false && strpos( json_encode( $md ), 'sk-' ) === false );
+
 echo "\n{$pass} pass, {$fail} fail\n";
 exit( $fail > 0 ? 1 : 0 );

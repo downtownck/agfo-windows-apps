@@ -1,6 +1,20 @@
 {
-  "current_version": "17.7.0",
+  "current_version": "17.8.0",
   "releases": [
+    {
+      "version": "17.8.0",
+      "date": "2026-10-19",
+      "type": "MINOR",
+      "summary": "AI Editor için iş başına çeviri modeli: yeni GET /editor/models uç noktası, sitede anahtarı olan sağlayıcıların çeviriye uygun modellerini kalite, tahmini maliyet ve hız sınıfıyla (hızlı/dengeli/yavaş-düşünen) listeler; /editor/transform isteğe bağlı model=\"sağlayıcı|model\" alır ve yalnız çeviri şablonlarında, yalnız anahtarı olan sağlayıcıların listedeki modellerini kabul eder. Seçilen model çalışmazsa varsayılan modele düşülür; bu durum sitenin Çeviri rotası hatası olarak kaydedilmez.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/api/class-editor-api.php",
+        "includes/content/class-content-transformer.php",
+        "includes/class-model-catalog.php",
+        "tests/content-translate-tests.php",
+        "tests/editor-api-tests.php"
+      ]
+    },
     {
       "version": "17.7.0",
       "date": "2026-10-18",

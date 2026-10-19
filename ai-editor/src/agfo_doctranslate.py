@@ -14,7 +14,7 @@ import re
 import agfo_richdoc as R
 
 MARK_RX = re.compile(r'(?:⟦|\[\[|【)\s*(\d{1,5})\s*(?:⟧|\]\]|】)')
-BATCH_CHARS = 3500
+BATCH_CHARS = 2500        # 1.4.8: paralel gonderimde daha kucuk gruplar daha erken biter
 
 INSTRUCTION = (
     'Translate every numbered segment into {lang}. Each segment starts with a marker like ⟦12⟧. '
@@ -91,39 +91,84 @@ def apply(blocks, segs, done):
     return new
 
 
-def translate_blocks(blocks, call, lang, progress=None, cancelled=None, limit=BATCH_CHARS):
-    """call(metin, talimat) -> ceviri metni. (yeni_bloklar, istatistik) dondurur."""
+def _translate_group(group, call, instruction, cancelled):
+    """Bir grubu cevirir; eksik donen parcalari tek tek yeniden ister. {n: ceviri} dondurur."""
+    wanted = {n for n, _k, _m in group}
+    got = parse(call(batch_text(group), instruction), wanted)
+    lost = [g for g in group if g[0] not in got]
+    if lost and len(lost) < len(group):
+        for item in lost:                       # eksik parcalari tek tek iste
+            if cancelled and cancelled():
+                raise InterruptedError('Çeviri durduruldu.')
+            one = parse(call(batch_text([item]), instruction), {item[0]})
+            if not one:
+                raw = call(item[2], instruction.replace('Each segment starts with a marker like ⟦12⟧. ', ''))
+                one = {item[0]: re.sub(r'\s*\n\s*', ' ', MARK_RX.sub('', raw)).strip()} if raw.strip() else {}
+            got.update(one)
+    elif lost and len(group) == 1:
+        # hic isaret gelmediyse: grup tek parcaysa yaniti dogrudan kullan
+        raw = call(group[0][2], instruction)
+        got = {group[0][0]: re.sub(r'\s*\n\s*', ' ', MARK_RX.sub('', raw)).strip()}
+    return got
+
+
+def translate_blocks(blocks, call, lang, progress=None, cancelled=None, limit=BATCH_CHARS, workers=1, on_event=None):
+    """call(metin, talimat) -> ceviri metni. (yeni_bloklar, istatistik) dondurur.
+
+    1.4.8: workers > 1 ise gruplar ayni anda gonderilir (sira korunur). on_event(tur, parcalar) her grup basladiginda
+    ('start') ve bittiginde ('done', ceviriler {anahtar: md} ile) cagrilir - canli vurgulama icin; is parcaciginda
+    calisir, arayuze kendisi aktarmalidir."""
+    import concurrent.futures as cf
     segs = segments(blocks)
+    workers = max(1, min(int(workers or 1), 8))
+    if workers > 1:
+        # kucuk belgede bile isler paylasilsin: her istek icin ~3 grup, grup en az 800 karakter
+        total = sum(len(md) for _k, md in segs)
+        limit = max(800, min(limit, -(-total // (workers * 3))))
     groups = batches(segs, limit)
     done = {}
     instruction = INSTRUCTION.format(lang=lang)
-    missing_total = 0
-    for gi, group in enumerate(groups):
+    finished = [0]
+
+    def run(group):
         if cancelled and cancelled():
             raise InterruptedError('Çeviri durduruldu.')
-        if progress:
-            progress(gi, len(groups))
-        wanted = {n for n, _k, _m in group}
-        got = parse(call(batch_text(group), instruction), wanted)
-        lost = [g for g in group if g[0] not in got]
-        if lost and len(lost) < len(group):
-            for item in lost:                       # eksik parcalari tek tek iste
-                if cancelled and cancelled():
-                    raise InterruptedError('Çeviri durduruldu.')
-                one = parse(call(batch_text([item]), instruction), {item[0]})
-                if not one:
-                    raw = call(item[2], instruction.replace('Each segment starts with a marker like ⟦12⟧. ', ''))
-                    one = {item[0]: re.sub(r'\s*\n\s*', ' ', MARK_RX.sub('', raw)).strip()} if raw.strip() else {}
-                got.update(one)
-        elif lost:
-            # hic isaret gelmediyse: grup tek parcaysa yaniti dogrudan kullan
-            if len(group) == 1:
-                raw = call(group[0][2], instruction)
-                got = {group[0][0]: re.sub(r'\s*\n\s*', ' ', MARK_RX.sub('', raw)).strip()}
-        missing_total += len([g for g in group if g[0] not in got])
-        done.update(got)
+        keys = [key for _n, key, _m in group]
+        if on_event:
+            on_event('start', keys, None)
+        got = _translate_group(group, call, instruction, cancelled)
+        if on_event:
+            on_event('done', keys, {key: got[n] for n, key, _m in group if n in got})
+        return got
+
     if progress:
-        progress(len(groups), len(groups))
+        progress(0, len(groups))
+    workers = max(1, min(workers, len(groups) or 1))
+    if workers == 1:
+        results = []
+        for g in groups:
+            results.append(run(g))
+            finished[0] += 1
+            if progress:
+                progress(finished[0], len(groups))
+    else:
+        results = [None] * len(groups)
+        with cf.ThreadPoolExecutor(max_workers=workers, thread_name_prefix='agfo-tr') as ex:
+            futs = {ex.submit(run, g): k for k, g in enumerate(groups)}
+            try:
+                for f in cf.as_completed(futs):
+                    results[futs[f]] = f.result()
+                    finished[0] += 1
+                    if progress:
+                        progress(finished[0], len(groups))
+            except BaseException:
+                for f in futs:
+                    f.cancel()
+                raise
+    missing_total = 0
+    for g, got in zip(groups, results):
+        missing_total += len([x for x in g if x[0] not in got])
+        done.update(got)
     return apply(blocks, segs, done), {'segments': len(segs), 'batches': len(groups), 'missing': missing_total}
 
 

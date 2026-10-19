@@ -179,6 +179,21 @@ class ManagerTests(unittest.TestCase):
         self.assertIn('ek', c['payload']['extra'])
         self.assertTrue(c['payload']['preserve_facts'])
 
+    def test_model_choice_payload(self):
+        # 1.4.8: AI Manager 17.8+ is basina ceviri modeli; dogrudan baglantida model degisir, ozgun nesne degismez
+        http = FakeHTTP([(200, {'format': 'markdown', 'text': 'Hello', 'provider': 'OpenAI', 'model': 'gpt-5-mini'})])
+        b = ai.ManagerBackend('https://site.test', 'cemal', 'abcd efgh ijkl', request=http)
+        b.transform('Merhaba', core.action_by_key('content_strengthen'),
+                    {'rich': True, 'model_choice': {'kind': 'manager', 'provider': 'openai', 'model': 'gpt-5-mini'}})
+        self.assertEqual(http.calls[0]['payload']['model'], 'openai|gpt-5-mini')
+        http2 = FakeHTTP([(200, {'id': 'x', 'content': [{'type': 'text', 'text': 'Hi'}], 'stop_reason': 'end_turn'})])
+        d = ai.DirectBackend('anthropic', 'k', 'claude-big', request=http2)
+        r = d.transform('Merhaba', core.action_by_key('content_strengthen'),
+                        {'model_choice': {'kind': 'direct', 'provider': 'anthropic', 'model': 'claude-small'}})
+        self.assertEqual(http2.calls[0]['payload']['model'], 'claude-small')
+        self.assertEqual(d.model, 'claude-big')
+        self.assertEqual(r['model'], 'claude-small')
+
     def test_query_route_fallback_and_errors(self):
         http = FakeHTTP([(404, b'<html>not found</html>'), (200, {'plugin_version': '17.4.0', 'templates': {}})])
         b = ai.ManagerBackend('https://site.test', 'u', 'p', request=http)
@@ -741,6 +756,84 @@ class GuiTests(unittest.TestCase):
         self.assertFalse(any(t.startswith('s. ') for _s, t in texts))               # "s. 1" sayfa basliklari yok
         self.app.close_pdf(v, ask=False)
 
+    def test_translate_live_highlight_parallel(self):
+        # 1.4.8: paralel ceviri + cevrilen paragraflarin gecici vurgusu (belgeye/geri almaya girmez)
+        R = self.m.rdoc
+        d = self.app.cur()
+        d.title = 'uzun.docx'
+        d.text.load_blocks([R.para(text='Paragraf %d %s' % (k, 'kelime ' * 60)) for k in range(20)])
+        was_dirty = d.dirty
+        self.app.tr_lang.set('English')
+        self.app.doc_tr_out.set('newtab')
+        self.app.settings['translate_workers'] = 3
+        n = len(self.app.docs)
+        self.app.translate_document()
+        self.assertIn('aynı anda 3 istek', self.app.ai_var.get())
+        self.assertTrue(self.pump(lambda: len(self.app.docs) > n, n=1500))
+        self.assertTrue(d.text.tag_ranges('trdone'))                              # cevrilenler yesil
+        self.assertFalse(d.text.tag_ranges('trwork'))
+        self.assertEqual(d.dirty, was_dirty)
+        self.assertNotIn('trdone', str(d.text.get_blocks()))
+        self.assertGreater(len([f for f in self.fake if f[0] == 'transform']), 3)  # birden cok grup
+        self.assertTrue(self.pump(lambda: not d.text.tag_ranges('trdone'), n=400))  # vurgu kendiliginden kalkar
+        self.assertEqual(R.runs_text(self.app.docs[-1].text.get_blocks()[0]['runs'])[:10], 'PARAGRAF 0')
+
+    def test_trlive_marks_lines_and_pdf(self):
+        import agfo_trlive
+        d = self.app.cur()
+        R = self.m.rdoc
+        d.text.load_blocks([R.para(text='Bir'), R.para(text='İki'), {'t': 'table', 'rows': [[[R.run('a')], [R.run('b')]], [[R.run('c')], [R.run('d')]]]}])
+        lines = []
+        blocks = d.text.get_blocks(lines=lines)
+        self.assertEqual(len(lines), len(blocks))
+        self.assertEqual(lines[2][1] - lines[2][0], 1)                              # tablo iki satir
+        live = agfo_trlive.TranslationLive(self.app, text=d.text, lines=lines)
+        live.event('start', [(2, 0, 0), (2, 1, 1)])
+        self.assertEqual(d.text.index(d.text.tag_ranges('trwork')[0]), '%d.0' % lines[2][0])
+        live.event('done', [(2, 0, 0)])
+        self.assertTrue(d.text.tag_ranges('trdone'))
+        self.assertFalse(d.text.tag_ranges('trwork'))
+        live.finish(delay=10)
+        self.assertTrue(self.pump(lambda: not d.text.tag_ranges('trdone')))
+        plain = agfo_trlive.text_block_lines(d.text, blocks)
+        self.assertEqual(plain[1], [lines[1][0], lines[1][0]])
+
+    def test_translation_model_picker(self):
+        app = self.app
+        mb = self.m.ai.ManagerBackend('https://agfo.app', token='x')
+        models = {'current': {'provider': 'together', 'model': 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'}, 'models': [
+            {'provider': 'together', 'provider_label': 'Together AI', 'model': 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 'quality': 80,
+             'cost_1k_words': 0.0004, 'reasoning': True, 'speed': 'slow'},
+            {'provider': 'openai', 'provider_label': 'OpenAI', 'model': 'gpt-5-mini', 'quality': 88, 'cost_1k_words': 0.002,
+             'reasoning': False, 'speed': 'fast'}]}
+        with mock.patch.object(app, 'backends', return_value=[mb]), \
+                mock.patch.object(self.m.ai.ManagerBackend, 'translation_models', return_value=models):
+            app.load_translation_models(force=True)
+            self.assertTrue(self.pump(lambda: len(app.tr_choices) == 3))
+            labels = [x[0] for x in app.tr_choices]
+            self.assertTrue(labels[0].startswith('Varsayılan: AI Manager'))
+            self.assertTrue(labels[1].startswith('Hızlı · OpenAI · gpt-5-mini'))           # hizlilar once
+            self.assertTrue(labels[2].startswith('Yavaş (düşünen) · Together AI'))
+            app.tr_choice_var.set(labels[1])
+            app._tr_choice_selected()
+            self.assertEqual(app.settings['translate_model'], {'kind': 'manager', 'provider': 'openai', 'model': 'gpt-5-mini'})
+            self.assertIn('gpt-5-mini (bu bilgisayarda seçildi)', app.tr_model_var.get())
+            self.assertEqual(app.translation_choice()['model'], 'gpt-5-mini')
+            d = app.cur()
+            d.text.insert('1.0', 'Kapsam metni')
+            app.translate_document()
+            self.assertTrue(self.pump(lambda: any(f[0] == 'transform' for f in self.fake)))
+            tr = [f for f in self.fake if f[0] == 'transform'][-1]
+            self.assertEqual(tr[1][2]['model_choice'], {'kind': 'manager', 'provider': 'openai', 'model': 'gpt-5-mini'})
+            app.tr_choice_var.set(labels[0])
+            app._tr_choice_selected()
+            self.assertIsNone(app.translation_choice())
+        # dogrudan baglantida AI Manager secimi uygulanmaz
+        app.settings['translate_model'] = {'kind': 'manager', 'provider': 'openai', 'model': 'gpt-5-mini'}
+        with mock.patch.object(app, 'backends', return_value=[self.m.ai.DirectBackend('anthropic', 'k', 'claude-x')]):
+            self.assertIsNone(app.translation_choice())
+        self.assertTrue(self.pump(lambda: not app.jobs, n=300))
+
     def test_translation_model_label(self):
         app = self.app
         app.manager_info = {'translation_ready': True, 'translation_provider': 'Together AI',
@@ -1008,6 +1101,21 @@ class EndToEndWithRealAIManagerCode(unittest.TestCase):
         self.assertEqual([R.runs_text(c) for c in new[2]['rows'][0]], ['A', 'B'])
         self.assertIn('varsayılan modelle', notes[0])                                   # olu rota -> varsayilan model
         self.assertIn('non-serverless', notes[0])
+
+    def test_model_choice_end_to_end(self):
+        # 1.4.8 + AI Manager 17.8: is basina ceviri modeli gercek editor API koduyla
+        base = self._server(strip_auth=True)
+        key = urllib.request.urlopen(base + '/__mkkey').read().decode()
+        b = ai.ManagerBackend(base, token=key)
+        action = {'key': 'translate_doc', 'label': 'x', 'template': 'translate_polish', 'extra': 'x', 'mode': 'replace'}
+        r = b.transform('⟦0⟧ Kapsam', action, {'language': 'English', 'rich': True,
+                                               'model_choice': {'kind': 'manager', 'provider': 'groq', 'model': 'llama-3.1-8b-instant'}})
+        self.assertEqual(r['model'], 'llama-3.1-8b-instant')
+        self.assertIn('KAPSAM', r['text'])
+        with self.assertRaises(ai.AIError) as cm:
+            b.transform('⟦0⟧ Kapsam', action, {'rich': True, 'model_choice': {'kind': 'manager', 'provider': 'nokey', 'model': 'm'}})
+        self.assertIn('kullanılamıyor', str(cm.exception))
+        self.assertEqual(b.translation_models()['models'], [])
 
     def test_app_password_flows(self):
         base = self._server()

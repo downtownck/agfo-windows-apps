@@ -98,5 +98,49 @@ class TranslateTests(unittest.TestCase):
         self.assertEqual(blocks[4]['list'], 'bullet')
 
 
+    def test_parallel_batches_keep_order_and_report_events(self):
+        # 1.4.8: gruplar ayni anda gider; sonuc sirasi ve icerik sirali ceviriyle ayni
+        import threading
+        import time
+        blocks = [R.para(text='Paragraf %d %s' % (k, 'x' * 300)) for k in range(24)]
+        active, peak, lock = [0], [0], threading.Lock()
+        events = []
+
+        def call(text, instr):
+            with lock:
+                active[0] += 1
+                peak[0] = max(peak[0], active[0])
+            time.sleep(0.03)
+            with lock:
+                active[0] -= 1
+            return re.sub(r'Paragraf', 'Paragraph', text)
+        seq, st1 = T.translate_blocks(blocks, call, 'English', limit=700)
+        peak[0] = 0
+        par, st2 = T.translate_blocks(blocks, call, 'English', limit=700, workers=4,
+                                      on_event=lambda kind, keys, got: events.append((kind, [k[0] for k in keys], got)))
+        self.assertEqual(seq, par)
+        self.assertEqual(R.runs_text(par[23]['runs'])[:12], 'Paragraph 23')
+        self.assertGreater(st2['batches'], 4)
+        self.assertGreater(peak[0], 1)                                 # gercekten ayni anda
+        self.assertLessEqual(peak[0], 4)
+        starts = [e for e in events if e[0] == 'start']
+        dones = [e for e in events if e[0] == 'done']
+        self.assertEqual(len(starts), st2['batches'])
+        self.assertEqual(len(dones), st2['batches'])
+        self.assertEqual(sorted(i for e in dones for i in e[1]), list(range(24)))
+        self.assertTrue(all(v.startswith('Paragraph') for e in dones for v in e[2].values()))
+
+    def test_parallel_cancel(self):
+        blocks = [R.para(text='Paragraf %d %s' % (k, 'x' * 300)) for k in range(24)]
+        n = [0]
+
+        def call(text, instr):
+            n[0] += 1
+            return text
+        with self.assertRaises(InterruptedError):
+            T.translate_blocks(blocks, call, 'English', cancelled=lambda: n[0] >= 2, limit=700, workers=3)
+        self.assertLess(n[0], 12)
+
+
 if __name__ == '__main__':
     unittest.main()

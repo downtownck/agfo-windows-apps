@@ -2,10 +2,14 @@
 
 AGFO ekosisteminin merkezi AI sağlayıcı, model, yetenek, iş kuyruğu, medya ve maliyet yönetim katmanıdır.
 
-**Version:** 17.7.0  
+**Version:** 17.8.0  
 **Requires WordPress:** 6.0+  
 **Requires PHP:** 7.4+
 
+
+## 17.8.0 — AI Editor'de iş başına çeviri modeli
+
+AI Editor için iş başına çeviri modeli: yeni GET /editor/models uç noktası, sitede anahtarı olan sağlayıcıların çeviriye uygun modellerini kalite, tahmini maliyet ve hız sınıfıyla (hızlı/dengeli/yavaş-düşünen) listeler; /editor/transform isteğe bağlı model="sağlayıcı|model" alır ve yalnız çeviri şablonlarında, yalnız anahtarı olan sağlayıcıların listedeki modellerini kabul eder. Seçilen model çalışmazsa varsayılan modele düşülür; bu durum sitenin Çeviri rotası hatası olarak kaydedilmez.
 
 ## 17.7.0 — Çeviri düzeltmeleri
 

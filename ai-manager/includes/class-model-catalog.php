@@ -352,6 +352,7 @@ if ( ! class_exists( 'AGFO_AIM_Model_Catalog' ) ) {
                         'cost_1k_words'  => $cost,
                         'value'          => $value,
                         'reasoning'      => $reasoning,
+                        'speed_score'    => isset( $m['speed_score'] ) && is_numeric( $m['speed_score'] ) ? (int) $m['speed_score'] : null, // NEW 17.8.0
                         'route'          => (string) ( $m['transport_route'] ?? 'chat' ),
                         'is_new'         => ! empty( $m['is_new'] ),
                         'eligible'       => $quality >= $min_quality && null !== $cost,

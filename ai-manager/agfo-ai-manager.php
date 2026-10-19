@@ -3,7 +3,7 @@
  * Plugin Name: AGFO AI Manager
  * Plugin URI: https://agfocert.com/
  * Description: AI Model Yönetimi + Multi-Source Benchmark
- * Version: 17.7.0
+ * Version: 17.8.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AGFOCERT
@@ -12,11 +12,11 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: agfo-ai-manager
  * Domain Path: /languages
- * Revision: 17.7.0 - Translation route fallback to the default model on dead/non-serverless models; <think> stripping; Markdown mode for the AI Editor (/editor/transform format=markdown).
+ * Revision: 17.8.0 - AI Editor per-job translation model: GET /editor/models (quality, cost, speed class) and /editor/transform model="provider|model", validated against keyed providers.
  */
 if (!defined('ABSPATH')) exit;
 
-define('AGFO_AIM_VERSION',    '17.7.0');
+define('AGFO_AIM_VERSION',    '17.8.0');
 define('AGFO_AIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AGFO_AIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AGFO_AIM_DATA_DIR',   AGFO_AIM_PLUGIN_DIR . 'data/');

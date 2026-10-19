@@ -50,6 +50,7 @@ class PdfView(tk.Frame):
         self.page_y = []             # her sayfanin ust kenari (kanvas)
         self.page_x = []
         self.selected = None         # (sayfa, overlay)
+        self.tr_marks = {}           # 1.4.8: canli ceviri vurgusu {(sayfa, paragraf): (drect, 'work'|'done')}
         self.drag = None
         self._render_queue = []
         self.auto_fit = True          # kullanici yakinlastirana kadar sayfa genisligine sigdir
@@ -200,6 +201,7 @@ class PdfView(tk.Frame):
         self._schedule_render()
         for i in range(len(self.pr.pages)):
             self._draw_overlays(i)
+        self._draw_tr_marks()
         self.app._update_status()
 
     def _refresh_list(self):
@@ -256,6 +258,7 @@ class PdfView(tk.Frame):
                 c.delete('img%d' % i)
                 c.create_image(self.page_x[i], self.page_y[i], image=ph, anchor='nw', tags=('img', 'img%d' % i))
                 c.tag_raise('ov%d' % i)
+                c.tag_raise('trmark')
             except Exception as e:  # bozuk sayfa: yer tutucuda hata yaz
                 self.canvas.itemconfigure('ph%d' % i, text='Sayfa %d gösterilemedi: %s' % (i + 1, str(e)[:60]))
         if self._render_queue:
@@ -355,6 +358,47 @@ class PdfView(tk.Frame):
             if y <= mid:
                 cur = i
         return cur
+
+    # ------------------------------------------------------------------ 1.4.8: canli ceviri vurgusu
+    TR_COLORS = {'work': ('#f0b429', 'gray12'), 'done': ('#2f9e44', 'gray12')}
+
+    def set_tr_mark(self, i, n, drect, state):
+        self.tr_marks[(i, n)] = (drect, state)
+        self._draw_tr_mark(i, n)
+
+    def clear_tr_marks(self):
+        self.tr_marks.clear()
+        self.canvas.delete('trmark')
+
+    def _draw_tr_mark(self, i, n):
+        c = self.canvas
+        tag = 'tr_%d_%d' % (i, n)
+        c.delete(tag)
+        if (i, n) not in self.tr_marks or i >= len(self.page_x):
+            return
+        (a, b, cc, d), state = self.tr_marks[(i, n)]
+        z, x0, y0 = self.zoom, self.page_x[i], self.page_y[i]
+        color, stipple = self.TR_COLORS.get(state, self.TR_COLORS['work'])
+        c.create_rectangle(x0 + a * z - 3, y0 + b * z - 2, x0 + cc * z + 3, y0 + d * z + 2, fill=color, stipple=stipple,
+                           outline=color, width=1, tags=('trmark', tag))
+
+    def _draw_tr_marks(self):
+        self.canvas.delete('trmark')
+        for (i, n) in list(self.tr_marks):
+            self._draw_tr_mark(i, n)
+
+    def follow_page(self, i, rect_top=0.0):
+        """Ceviride ilerleyen sayfayi gorunur tutar (yalniz o sayfa ekranda degilse)."""
+        if not (0 <= i < len(self.page_y)):
+            return
+        c = self.canvas
+        top, bottom = c.canvasy(0), c.canvasy(c.winfo_height() or 800)
+        y = self.page_y[i] + rect_top * self.zoom
+        if top <= y <= bottom - 40:
+            return
+        total = float(c.cget('scrollregion').split()[3]) or 1
+        c.yview_moveto(max(0, (y - 60) / total))
+        self._schedule_render()
 
     def goto(self, i):
         if 0 <= i < len(self.page_y):

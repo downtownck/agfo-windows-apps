@@ -39,7 +39,18 @@ if ( ! class_exists( 'WP_Error', false ) ) { class WP_Error { public $c; public 
 if ( ! function_exists( 'is_wp_error' ) ) { function is_wp_error( $x ) { return $x instanceof WP_Error; } }
 
 if ( ! function_exists( 'agfo_get_priority_api_key' ) ) {
-    function agfo_get_priority_api_key( $force = false, $model = '', $provider = '' ) { return $GLOBALS['AGFO_T']['DEFAULT']; }
+    function agfo_get_priority_api_key( $force = false, $model = '', $provider = '' ) {
+        if ( '' !== $provider ) {   // 17.8.0: provider override for a per-job model choice
+            return [ 'code' => $provider, 'provider_name' => ucfirst( $provider ), 'model' => $model ?: 'x', 'key' => 'k', 'chat_url' => 'https://api.' . $provider . '.test/chat', 'auth' => [] ];
+        }
+        return $GLOBALS['AGFO_T']['DEFAULT'];
+    }
+}
+if ( ! function_exists( 'agfo_api_registry' ) ) {
+    function agfo_api_registry() { return [ 'openai' => [ 'type' => 'llm', 'label' => 'OpenAI' ], 'groq' => [ 'type' => 'llm', 'label' => 'Groq' ], 'fal' => [ 'type' => 'media' ], 'nokey' => [ 'type' => 'llm' ] ]; }
+}
+if ( ! function_exists( 'agfo_get_api_key' ) ) {
+    function agfo_get_api_key( $code ) { return 'nokey' === $code ? '' : 'sk-test'; }
 }
 if ( ! function_exists( 'agfo_get_translation_config' ) ) {
     function agfo_get_translation_config() { return $GLOBALS['AGFO_T']['TRANSLATION']; }
@@ -195,6 +206,27 @@ agfo_aim_test_ct_check( 'T24 markdown mode sends source verbatim and the format 
     strpos( json_encode( $GLOBALS['AGFO_T']['SENT'][0]['body'], JSON_UNESCAPED_UNICODE ), '**Temizlik**' ) !== false
     && strpos( json_encode( $GLOBALS['AGFO_T']['SENT'][0]['body'], JSON_UNESCAPED_UNICODE ), 'OUTPUT FORMAT OVERRIDE' ) !== false );
 $GLOBALS['AGFO_T']['REPLY'] = null;
+
+// T25-T29 (17.8.0): AI Editor picks the translation model per job.
+$GLOBALS['AGFO_T']['TRANSLATION'] = $together;
+$GLOBALS['AGFO_T']['SENT'] = [];
+$r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish', 'route_model' => 'groq|llama-3.1-8b-instant' ] );
+agfo_aim_test_ct_check( 'T25 chosen model is used instead of the route', is_array( $r ) && $r['model'] === 'llama-3.1-8b-instant' && ! empty( $r['model_choice'] )
+    && $GLOBALS['AGFO_T']['SENT'][0]['args']['model'] === 'llama-3.1-8b-instant' );
+foreach ( [ 'fal|flux', 'nokey|m', 'unknown|m', 'openai', 'openai|bad model name;' ] as $bad ) {
+    $r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish', 'route_model' => $bad ] );
+    agfo_aim_test_ct_check( 'T26 rejected choice ' . $bad, is_wp_error( $r ) && $r->get_error_code() === 'agfo_model_choice' );
+}
+$GLOBALS['AGFO_T']['SENT'] = [];
+$r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'rewrite_balanced', 'route_model' => 'groq|llama-3.1-8b-instant' ] );
+agfo_aim_test_ct_check( 'T27 choice only applies to translation templates', is_array( $r ) && $r['model'] === 'gpt-5.6' && empty( $r['model_choice'] ) );
+$GLOBALS['AGFO_T']['FAIL'] = [ 'llama-3.1-8b-instant' => [ 404, 'model not found' ] ];
+unset( $GLOBALS['AGFO_T']['O']['agfo_aim_translation_route_error'] );
+$r = AGFO_AIM_Content_Transformer::transform( '<p>Merhaba</p>', [ 'template' => 'translate_polish', 'route_model' => 'groq|llama-3.1-8b-instant' ] );
+agfo_aim_test_ct_check( 'T28 failing choice falls back to default', is_array( $r ) && $r['model'] === 'gpt-5.6' && ! empty( $r['route_fallback'] ) );
+agfo_aim_test_ct_check( 'T29 failing choice does not mark the site route as broken', ! isset( $GLOBALS['AGFO_T']['O']['agfo_aim_translation_route_error'] ) );
+$GLOBALS['AGFO_T']['FAIL'] = [];
+$GLOBALS['AGFO_T']['TRANSLATION'] = null;
 
 echo "\n{$agfo_aim_test_pass} pass, {$agfo_aim_test_fail} fail\n";
 exit( $agfo_aim_test_fail > 0 ? 1 : 0 );

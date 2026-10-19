@@ -46,6 +46,7 @@ import agfo_sources as srcs  # noqa: E402
 import agfo_pdf  # noqa: E402
 import agfo_richdoc as rdoc  # noqa: E402
 import agfo_doctranslate as dtr  # noqa: E402
+import agfo_trlive as trlive  # noqa: E402
 
 
 def selftest(out_path: str) -> int:
@@ -725,16 +726,36 @@ class App(tk.Tk):
     def _tab_translate(self, f):
         self.tr_model_var = tk.StringVar(value='Çeviri modeli: bağlantı denetleniyor…')
         tk.Label(f, textvariable=self.tr_model_var, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w', justify='left',
-                 wraplength=int(380 * self.scale)).pack(fill='x', pady=(0, 8))
+                 wraplength=int(380 * self.scale)).pack(fill='x', pady=(0, 4))
+        # 1.4.8: is basina ceviri modeli ve ayni anda gonderilen istek sayisi
+        mrow = tk.Frame(f, bg=PANEL)
+        mrow.pack(fill='x', pady=(0, 6))
+        self.tr_choice_var = tk.StringVar()
+        self.tr_choices = []                # [(etiket, secim_sozlugu|None)]
+        self.tr_choice_combo = ttk.Combobox(mrow, textvariable=self.tr_choice_var, state='readonly', width=42,
+                                            postcommand=self._tr_models_lazy)
+        self.tr_choice_combo.pack(side='left', fill='x', expand=True)
+        self.tr_choice_combo.bind('<<ComboboxSelected>>', lambda e: self._tr_choice_selected())
+        self.btn(mrow, '↻', lambda: self.load_translation_models(force=True), 'ghost', padx=8).pack(side='left', padx=(4, 0))
+        self._set_tr_choices([])
         self.tr_lang = tk.StringVar(value='English')
-        self.lbl(f, 'Hedef dil', muted=True).pack(anchor='w')
-        self._combo(f, self.tr_lang, core.LANGUAGES, width=30, readonly=False).pack(anchor='w', pady=(2, 8))
+        lrow = tk.Frame(f, bg=PANEL)
+        lrow.pack(fill='x', pady=(0, 6))
+        self.lbl(lrow, 'Hedef dil', muted=True).pack(side='left')
+        self._combo(lrow, self.tr_lang, core.LANGUAGES, width=16, readonly=False).pack(side='left', padx=(6, 12))
+        self.lbl(lrow, 'Aynı anda', muted=True).pack(side='left')
+        self.tr_workers_var = tk.IntVar(value=self.translation_workers())
+        ttk.Spinbox(lrow, from_=1, to=6, width=3, textvariable=self.tr_workers_var, state='readonly',
+                    command=self._tr_workers_changed).pack(side='left', padx=(6, 0))
+        self.lbl(lrow, 'istek', muted=True).pack(side='left', padx=(4, 0))
         self.tr_mode = tk.StringVar(value='replace')
-        ttk.Radiobutton(f, text='Seçimin yerine koy', value='replace', variable=self.tr_mode).pack(anchor='w')
-        ttk.Radiobutton(f, text='Seçimin altına ekle (iki dilli)', value='below', variable=self.tr_mode).pack(anchor='w')
-        ttk.Radiobutton(f, text='Yeni sekmede aç', value='newtab', variable=self.tr_mode).pack(anchor='w', pady=(0, 8))
+        rrow = tk.Frame(f, bg=PANEL)
+        rrow.pack(fill='x', pady=(0, 6))
+        ttk.Radiobutton(rrow, text='Yerine koy', value='replace', variable=self.tr_mode).pack(side='left')
+        ttk.Radiobutton(rrow, text='Altına ekle (iki dilli)', value='below', variable=self.tr_mode).pack(side='left', padx=(8, 0))
+        ttk.Radiobutton(rrow, text='Yeni sekme', value='newtab', variable=self.tr_mode).pack(side='left', padx=(8, 0))
         self.lbl(f, 'Terminoloji / ek not (isteğe bağlı)', muted=True).pack(anchor='w')
-        self.tr_extra = self._textbox(f, height=3)
+        self.tr_extra = self._textbox(f, height=2)
         self.tr_extra.pack(fill='x', pady=(2, 8))
         self.btn(f, 'Seçimi / paragrafı çevir', self.run_translate, 'primary', side=None, padx=14, pady=7).pack(anchor='w')
         box = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
@@ -746,9 +767,11 @@ class App(tk.Tk):
         for val, lab in (('pdf', 'PDF: sayfa düzeni korunur (yalnız PDF)'), ('newtab', 'Biçimli yeni belge'),
                          ('compare', 'Yan yana (özgün | çeviri)'), ('both', 'İkisi de (PDF\'de: çevrilmiş PDF + yan yana)')):
             tk.Radiobutton(box, text=lab, value=val, variable=self.doc_tr_out, bg=PANEL2, fg=FG, selectcolor=EDIT_BG,
-                           activebackground=PANEL2, activeforeground=FG, font=('Segoe UI', 9), anchor='w').pack(anchor='w')
+                           activebackground=PANEL2, activeforeground=FG, font=('Segoe UI', 9), anchor='w',
+                           highlightthickness=0, bd=0).pack(anchor='w')
         self.btn(box, '🌐 Belgeyi çevir', self.translate_document, 'primary', side=None, padx=14, pady=6).pack(anchor='w', pady=(6, 0))
-        self.lbl(f, 'AI Manager bağlıysa sitedeki "Çeviri" yönlendirmesi (en iyi fiyat/kalite modeli) kullanılır.',
+        self.lbl(f, 'Model seçilmezse AI Manager\'daki "Çeviri" yönlendirmesi kullanılır. Hızlı modeller ve 3–4 eşzamanlı istek '
+                    'uzun belgelerde süreyi belirgin kısaltır; çevrilen paragraflar belgede renkle gösterilir.',
                  muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(10, 0))
 
     def _tab_chat(self, f):
@@ -1163,6 +1186,8 @@ class App(tk.Tk):
         t.tag_configure('md_li', foreground=FG, lmargin2=int(18 * self.scale))
         t.tag_configure('found', background='#5a4a1c')
         t.tag_configure('ai_new', background='#173a2a')
+        t.tag_configure('trwork', background='#4a3f12')
+        t.tag_configure('trdone', background='#173a2a')
         if rich:
             t.set_font(zoom=float(self.settings.get('page_zoom', 1.0)))
             t.set_page_mode(bool(self.settings.get('page_view', True)))
@@ -1935,15 +1960,29 @@ class App(tk.Tk):
                         self._log_error(traceback.format_exc())
         except queue.Empty:
             pass
+        self._drain_tr_events()
         prog = getattr(self, '_tr_progress', None)
         if prog and self.jobs:
             model = getattr(self, '_tr_model', None)
-            self.ai_var.set('Belge çevriliyor… %d / %d parça grubu%s' % (min(prog[0] + 1, prog[1]), prog[1],
-                                                                       (' · ' + model) if model else ''))
+            self.ai_var.set('Belge çevriliyor… %d / %d parça grubu tamam%s…' % (prog[0], prog[1], (' · ' + model) if model else ''))
         if self._timers:
             self._timers['poll'] = self.after(POLL_MS, self._poll)
 
+    def _drain_tr_events(self):
+        events, live = getattr(self, '_tr_events', None), getattr(self, '_tr_live', None)
+        if not events:
+            return
+        n = len(events)
+        batch, events[:n] = events[:n], []
+        if live:
+            for kind, keys in batch:
+                live.event(kind, keys)
+
     def cancel_jobs(self):
+        live = getattr(self, '_tr_live', None)
+        if live:
+            live.finish(800)
+            self._tr_live = None
         if getattr(self, '_tr_cancel', None):
             self._tr_cancel.set()
         self.jobs.clear()
@@ -2067,6 +2106,7 @@ class App(tk.Tk):
         opts['language'] = self.tr_lang.get() or 'English'
         opts['user_extra'] = self.tr_extra.get('1.0', 'end-1c').strip()
         opts['from_scratch'] = False
+        opts['model_choice'] = self.translation_choice()
         action = {'key': 'translate', 'label': 'Çeviri → %s' % opts['language'], 'template': 'translate_polish',
                   'extra': 'Translate into %s.' % opts['language'], 'mode': 'replace', 'description': ''}
         self.run_action(action, opts, translate_mode=self.tr_mode.get())
@@ -2082,6 +2122,7 @@ class App(tk.Tk):
         extra = self.tr_extra.get('1.0', 'end-1c').strip()
         backends = self.backends()
         layouts = None
+        live = None
         if v:
             path, title = v.pr.path, os.path.splitext(os.path.basename(getattr(v.pr, 'display_name', None) or v.pr.path))[0]
             blocks = None
@@ -2094,9 +2135,17 @@ class App(tk.Tk):
                 messagebox.showinfo('Belge çevirisi', 'PDF\'de okunabilir metin yok (taranmış belge olabilir).', parent=self)
                 return
             blocks = [rdoc.para(text=P['text']) for lay in layouts for P in lay['paras']]
+            pdf_map = [(pi, n, v.pr._disp_rect(pi, P['rect'])) for pi, lay in enumerate(layouts) for n, P in enumerate(lay['paras'])]
+            live = trlive.TranslationLive(self, view=v, pdf_map=pdf_map)
         else:
             title = os.path.splitext(d.title)[0]
-            blocks = d.text.get_blocks() if d.rich else rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
+            if d.rich:
+                lines = []
+                blocks = d.text.get_blocks(lines=lines)
+            else:
+                blocks = rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
+                lines = trlive.text_block_lines(d.text, blocks)
+            live = trlive.TranslationLive(self, text=d.text, lines=lines)
             path = None
             if not any(b['t'] == 'p' and rdoc.runs_text(b['runs']).strip() or b['t'] == 'table' for b in blocks):
                 messagebox.showinfo('Belge çevirisi', 'Çevrilecek metin yok.', parent=self)
@@ -2105,7 +2154,11 @@ class App(tk.Tk):
         self._tr_cancel = cancel
         self._tr_progress = None
         options = self._ai_options()
-        options.update(language=lang, rich=True, from_scratch=False, preserve_facts=True, user_extra=extra)
+        options.update(language=lang, rich=True, from_scratch=False, preserve_facts=True, user_extra=extra,
+                       model_choice=self.translation_choice(backends))
+        workers = self.translation_workers()
+        events = []                 # is parcaciklarindan gelen vurgu olaylari; _poll ana is parcaciginda isler
+        self._tr_events, self._tr_live = events, live
 
         notes = []
         models = []                 # gercekten yanit veren modeller (sirayla, tekrar etmeden)
@@ -2129,13 +2182,18 @@ class App(tk.Tk):
         def work():
             src = blocks
             try:
-                new, stats = dtr.translate_blocks(src, call, lang, progress, cancel.is_set)
+                new, stats = dtr.translate_blocks(src, call, lang, progress, cancel.is_set, workers=workers,
+                                                  on_event=lambda kind, keys, _got: events.append((kind, keys)))
             except InterruptedError as e:
                 raise ai.AIError(str(e))
             return src, new, stats
 
         def done(ok, res):
             self._tr_progress = None
+            self._drain_tr_events()
+            if live:
+                live.finish()
+            self._tr_live = None
             if not ok:
                 messagebox.showerror('Belge çevirisi', res, parent=self)
                 return
@@ -2156,7 +2214,8 @@ class App(tk.Tk):
             if notes:
                 note += ' · ' + notes[0]
             self.flash(note, 10000)
-        self._start_job('Belge çevriliyor → %s · %s' % (lang, self.translation_model_text().replace('Çeviri modeli: ', '')), work, done)
+        self._start_job('Belge çevriliyor → %s · %s · aynı anda %d istek' % (
+            lang, self.translation_model_text().replace('Çeviri modeli: ', ''), workers), work, done)
 
     def _pdf_translation_outputs(self, v, layouts, new, title, lang, out, used):
         """PDF cevirisinin ciktilari. pdf: sayfa duzeni korunmus cevrilmis PDF (PDF duzenleyicide acilir);
@@ -2533,11 +2592,125 @@ class App(tk.Tk):
                 self.conn_lbl.configure(fg=WARN if len(backends) > 1 else BAD_C)
         self._start_job('AI Manager bağlantısı', b.info, done)
 
+    # ------------------------------------------------------------------ 1.4.8: ceviri modeli secimi
+    SPEED_ICON = {'fast': 'Hızlı', 'normal': 'Dengeli', 'slow': 'Yavaş (düşünen)'}
+
+    def translation_workers(self):
+        try:
+            return max(1, min(6, int(self.settings.get('translate_workers', 4))))
+        except (TypeError, ValueError):
+            return 4
+
+    def _tr_workers_changed(self):
+        try:
+            self.settings['translate_workers'] = max(1, min(6, int(self.tr_workers_var.get())))
+            core.save_settings(self.settings)
+        except (tk.TclError, ValueError):
+            pass
+
+    def translation_choice(self, backends=None):
+        """Kayitli secim, ilk baglantinin turune uyuyorsa {'kind','provider','model'}; yoksa None (varsayilan)."""
+        ch = self.settings.get('translate_model')
+        if not isinstance(ch, dict) or not ch.get('model'):
+            return None
+        backends = self.backends() if backends is None else backends
+        if not backends:
+            return None
+        b = backends[0]
+        if ch.get('kind') != b.kind or (b.kind == 'direct' and ch.get('provider') != b.provider):
+            return None
+        return {'kind': ch['kind'], 'provider': ch.get('provider') or '', 'model': ch['model']}
+
+    @classmethod
+    def speed_of(cls, model_id, reasoning=False):
+        low = (model_id or '').lower()
+        if reasoning or re.search(r'(^|[/\-_])(r1|o1|o3|o4)([\-_]|$)|reason|think|deepseek-r', low):
+            return 'slow'
+        if re.search(r'mini|flash|haiku|lite|nano|small|turbo|instant|(^|[\-_/])(7|8|9|12)b([\-_]|$)', low):
+            return 'fast'
+        return 'normal'
+
+    def _set_tr_choices(self, items, current=None):
+        """items: [{'kind','provider','provider_label','model','speed','quality','cost_1k_words'}]."""
+        if not hasattr(self, 'tr_choice_combo'):
+            return
+        b = (self.backends() or [None])[0]
+        default = 'Varsayılan: ' + (('AI Manager › Çeviri rotası' + (' (%s)' % current if current else ''))
+                                    if b is not None and b.kind == 'manager' else 'Ayarlar\'daki model')
+        order = {'fast': 0, 'normal': 1, 'slow': 2}
+        items = sorted(items, key=lambda m: (order.get(m.get('speed'), 1), -(m.get('quality') or 0), m['model']))
+        self.tr_choices = [(default, None)]
+        for m in items:
+            extra = []
+            if m.get('quality'):
+                extra.append('kalite %d' % m['quality'])
+            if m.get('cost_1k_words') is not None:
+                extra.append('$%.4f/1000 kelime' % m['cost_1k_words'])
+            label = '%s · %s · %s%s' % (self.SPEED_ICON.get(m.get('speed'), '●'), m.get('provider_label') or m['provider'], m['model'],
+                                     ('  (' + ', '.join(extra) + ')') if extra else '')
+            self.tr_choices.append((label, {'kind': m['kind'], 'provider': m['provider'], 'model': m['model']}))
+        self.tr_choice_combo.configure(values=[x[0] for x in self.tr_choices])
+        ch = self.translation_choice()
+        sel = next((lab for lab, c in self.tr_choices if c and ch and c['model'] == ch['model'] and c['provider'] == ch['provider']), None)
+        if sel is None and ch:            # liste henuz gelmedi: kayitli secimi yine de goster
+            sel = '%s · %s · %s' % (self.SPEED_ICON.get(self.speed_of(ch['model'])), ch['provider'], ch['model'])
+        self.tr_choice_var.set(sel or default)
+
+    def _tr_models_lazy(self):
+        if len(getattr(self, 'tr_choices', [])) <= 1 and not getattr(self, '_tr_models_loading', False):
+            self.load_translation_models()
+
+    def load_translation_models(self, force=False):
+        backends = self.backends()
+        if not backends:
+            return
+        b = backends[0]
+        self._tr_models_loading = True
+
+        def work():
+            if b.kind == 'manager':
+                d = b.translation_models()
+                cur = d.get('current') or {}
+                items = [dict(m, kind='manager') for m in d['models']]
+                return items, cur.get('model') or ''
+            name = ai.PROVIDERS[b.provider]['name']
+            return [{'kind': 'direct', 'provider': b.provider, 'provider_label': name, 'model': mid, 'speed': self.speed_of(mid)}
+                    for mid in b.list_models()], b.model
+
+        def done(ok, res):
+            self._tr_models_loading = False
+            if not ok:
+                if force:
+                    msg = res
+                    if 'bulunamadı' in res or '404' in res:
+                        msg = ('Sitedeki AI Manager model seçimini desteklemiyor (17.8.0 gerekli). WordPress › Eklentiler '
+                               'ekranından AI Manager\'ı güncelleyin.')
+                    messagebox.showwarning('Çeviri modelleri', msg, parent=self)
+                return
+            items, cur = res
+            self._set_tr_choices(items, cur)
+            self.flash('%d çeviri modeli listelendi.' % len(items), 4000)
+        self._start_job('Çeviri modelleri alınıyor', work, done)
+
+    def _tr_choice_selected(self):
+        lab = self.tr_choice_var.get()
+        ch = next((c for l2, c in self.tr_choices if l2 == lab), None)
+        if ch is None:
+            self.settings['translate_model'] = {}
+        else:
+            self.settings['translate_model'] = dict(ch)
+        core.save_settings(self.settings)
+        self._set_translation_model_label()
+
     def translation_model_text(self):
-        """Ceviride kullanilacak model: AI Manager'in Ceviri rotasi (yoksa varsayilan metin modeli) ya da dogrudan saglayici."""
+        """Ceviride kullanilacak model: secilen model, AI Manager'in Ceviri rotasi (yoksa varsayilan metin modeli) ya da dogrudan saglayici."""
         backends = self.backends()
         if not backends:
             return 'Çeviri modeli: bağlantı yok'
+        ch = self.translation_choice(backends)
+        if ch:
+            return 'Çeviri modeli: %s · %s (bu bilgisayarda seçildi)' % (
+                ai.PROVIDERS.get(ch['provider'], {}).get('name') or ch['provider'], ch['model'])
         b = backends[0]
         if b.kind == 'direct':
             return 'Çeviri modeli: %s · %s (doğrudan)' % (ai.PROVIDERS[b.provider]['name'], b.model or 'varsayılan')
@@ -2551,6 +2724,8 @@ class App(tk.Tk):
     def _set_translation_model_label(self):
         if hasattr(self, 'tr_model_var'):
             self.tr_model_var.set(self.translation_model_text())
+        if len(getattr(self, 'tr_choices', [])) <= 1:
+            self._set_tr_choices([], (self.manager_info or {}).get('translation_model') if getattr(self, 'manager_info', None) else None)
 
     @staticmethod
     def model_label(res):

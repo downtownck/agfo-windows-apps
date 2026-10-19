@@ -6,6 +6,7 @@
  *   GET  /editor/info       capabilities, prompt templates, configured text/translation model names
  *   POST /editor/transform  content transformation (same service as the Classic Editor Content Studio)
  *   POST /editor/chat       writing-assistant chat about the user's document
+ *   GET  /editor/models     NEW 17.8.0: translation models the editor may pick per job (names, quality, cost, speed)
  *
  * Authentication is WordPress' own (Application Passwords over HTTPS, or a logged-in cookie session
  * with the REST nonce). Every route requires the Content Studio capability (default manage_options).
@@ -139,6 +140,11 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'permission_callback' => [ __CLASS__, 'can_use' ],
                 'args'                => self::transform_args(),
             ] );
+            register_rest_route( self::NAMESPACE_V1, '/editor/models', [
+                'methods'             => 'GET',
+                'callback'            => [ __CLASS__, 'rest_models' ],
+                'permission_callback' => [ __CLASS__, 'can_use' ],
+            ] );
             register_rest_route( self::NAMESPACE_V1, '/editor/chat', [
                 'methods'             => 'POST',
                 'callback'            => [ __CLASS__, 'rest_chat' ],
@@ -236,6 +242,16 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'from_scratch'   => [ 'type' => 'boolean', 'required' => false, 'default' => false ],
                 'preserve_facts' => [ 'type' => 'boolean', 'required' => false, 'default' => true ],
                 'format'         => [ 'type' => 'string', 'required' => false, 'default' => 'html', 'enum' => [ 'html', 'markdown' ] ],
+                // NEW 17.8.0: per-job translation model "provider|model" (validated against this site's keyed providers).
+                'model'          => [
+                    'type'              => 'string',
+                    'required'          => false,
+                    'default'           => '',
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'validate_callback' => function ( $v ) {
+                        return is_string( $v ) && strlen( $v ) <= 200;
+                    },
+                ],
             ];
         }
 
@@ -326,9 +342,45 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'translation_provider' => self::config_name( $trans ),
                 'translation_model' => self::config_model( $trans ),
                 'max_chars'         => self::MAX_CHARS,
-                'features'          => [ 'transform', 'chat', 'translate', 'markdown', 'route_fallback' ],
+                'features'          => [ 'transform', 'chat', 'translate', 'markdown', 'route_fallback', 'model_choice' ],
             ];
             return self::response( $data, 200 );
+        }
+
+        /** NEW 17.8.0: translation models for the editor's per-job picker. */
+        public static function rest_models( $request ) {
+            $board = class_exists( 'AGFO_AIM_Model_Catalog' ) ? AGFO_AIM_Model_Catalog::translation_board( 0 ) : [ 'rows' => [], 'current' => [] ];
+            $rows  = [];
+            foreach ( (array) ( $board['rows'] ?? [] ) as $r ) {
+                if ( in_array( (string) ( $r['route'] ?? 'chat' ), [ 'unavailable', 'not_chat' ], true ) ) {
+                    continue;
+                }
+                $rows[] = [
+                    'provider'       => (string) $r['provider'],
+                    'provider_label' => (string) ( $r['provider_label'] ?? $r['provider'] ),
+                    'model'          => (string) $r['id'],
+                    'quality'        => (int) ( $r['quality'] ?? 0 ),
+                    'cost_1k_words'  => isset( $r['cost_1k_words'] ) ? (float) $r['cost_1k_words'] : null,
+                    'reasoning'      => ! empty( $r['reasoning'] ),
+                    'speed'          => self::speed_class( (string) $r['id'], ! empty( $r['reasoning'] ), $r['speed_score'] ?? null ),
+                ];
+            }
+            $cur = (array) ( $board['current'] ?? [] );
+            return self::response( [
+                'current' => [ 'provider' => (string) ( $cur['provider'] ?? '' ), 'model' => (string) ( $cur['model'] ?? '' ) ],
+                'models'  => $rows,
+            ], 200 );
+        }
+
+        /** fast | normal | slow — reasoning models think before answering and are the slowest. */
+        public static function speed_class( string $id, bool $reasoning, $speed_score = null ): string {
+            if ( $reasoning || preg_match( '/(^|[\/\-_])(r1|o1|o3|o4)([\-_]|$)|reason|think|deepseek-r/i', $id ) ) {
+                return 'slow';
+            }
+            if ( is_numeric( $speed_score ) ) {
+                return (int) $speed_score >= 70 ? 'fast' : ( (int) $speed_score >= 40 ? 'normal' : 'slow' );
+            }
+            return preg_match( '/mini|flash|haiku|lite|nano|small|turbo|instant|(^|[\-_\/])(7|8|9|12)b([\-_]|$)/i', $id ) ? 'fast' : 'normal';
         }
 
         public static function rest_transform( $request ) {
@@ -382,6 +434,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'from_scratch'   => self::truthy( $request->get_param( 'from_scratch' ), false ),
                 'preserve_facts' => self::truthy( $request->get_param( 'preserve_facts' ), true ),
                 'format'         => 'markdown' === (string) ( $request->get_param( 'format' ) ?? '' ) ? 'markdown' : 'html',
+                'route_model'    => substr( sanitize_text_field( (string) $get( 'model', '' ) ), 0, 200 ),
                 'post_id'        => 0,
                 'current_title'  => '',
             ];

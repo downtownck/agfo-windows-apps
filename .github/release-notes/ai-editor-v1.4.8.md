@@ -1,0 +1,7 @@
+## AGFO AI Editor 1.4.8: Daha hızlı çeviri, model seçimi ve canlı vurgu
+
+- **Paralel çeviri.** Belge çevirisinde parçalar artık sırayla değil, aynı anda gönderiliyor (varsayılan 4 istek; Çeviri sekmesinde "Aynı anda" ile 1–6 arası ayarlanabiliyor). Uzun belgelerde süre kabaca istek sayısı oranında kısalıyor. Sonuç sırası ve kalitesi sıralı çeviriyle aynı. Gruplar da daha küçük, böylece ilk sonuçlar daha erken geliyor.
+- **Model seçimi uygulamadan yapılabiliyor.** Çeviri sekmesinin üstündeki listeden bu çeviri için model seçebilirsiniz. AI Manager'a bağlıyken sitede anahtarı olan sağlayıcıların çeviriye uygun modelleri; doğrudan bağlantıda sağlayıcının modelleri listeleniyor. Her model **Hızlı / Dengeli / Yavaş (düşünen)** olarak işaretli, kalite puanı ve 1000 kelime için tahmini maliyetiyle gösteriliyor; hızlı modeller en üstte. "Varsayılan" seçeneği sitedeki Çeviri rotasını kullanır. Seçim bu bilgisayarda saklanır; liste ↻ ile yenilenir. AI Manager 17.8.0 gerektirir.
+- **Çeviri sırasında canlı vurgu.** Çevrilmekte olan paragraflar sarı, çevrilenler yeşil vurgulanıyor; ekran, siz kaydırmadıkça çevrilen yeri izliyor. PDF'de aynı vurgu sayfanın üzerinde görünüyor. Vurgular geçici: belgeye, geri alma geçmişine ve kaydedilen dosyaya girmiyor, çeviri bitince kendiliğinden kalkıyor.
+- Çeviri sekmesi sıkılaştırıldı; tüm seçenekler kaydırmadan görünüyor.
+- Düzeltme: Sayfa görünümü, yakınlaştırma, belge çevirisi çıktı seçimi ve biçimli yazı tipi ayarları kaydediliyor ama uygulama yeniden açılınca okunmuyordu. Artık hatırlanıyor.

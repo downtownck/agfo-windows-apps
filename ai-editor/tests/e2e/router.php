@@ -35,7 +35,14 @@ function wp_get_current_user() { return (object) [ 'display_name' => 'AGFO AI', 
 function is_ssl() { return false; }
 function wp_is_application_passwords_available() { return true; }
 function register_rest_route( $ns, $r, $args ) { $GLOBALS['ROUTES'][ '/' . $ns . $r ] = $args; }
-function agfo_get_priority_api_key() { return [ 'code' => 'openai', 'provider_name' => 'OpenAI', 'model' => 'gpt-e2e', 'key' => 'sk-x', 'chat_url' => 'x' ]; }
+function agfo_get_priority_api_key( $f = false, $model = '', $provider = '' ) {
+    if ( $provider !== '' ) {   // AI Manager 17.8: is basina secilen ceviri modeli
+        return [ 'code' => $provider, 'provider_name' => ucfirst( $provider ), 'model' => $model, 'key' => 'k-x', 'chat_url' => 'x' ];
+    }
+    return [ 'code' => 'openai', 'provider_name' => 'OpenAI', 'model' => 'gpt-e2e', 'key' => 'sk-x', 'chat_url' => 'x' ];
+}
+function agfo_api_registry() { return [ 'openai' => [ 'type' => 'llm' ], 'groq' => [ 'type' => 'llm' ] ]; }
+function agfo_get_api_key( $c ) { return in_array( $c, [ 'openai', 'groq' ], true ) ? 'k' : ''; }
 function agfo_get_translation_config() {
     // E2E_ROUTE=dead: AI Kontrol Merkezi'nde Ceviri rotasi Together'da sunulmayan bir modele ayarli (gercek hata)
     return getenv( 'E2E_ROUTE' ) === 'dead'

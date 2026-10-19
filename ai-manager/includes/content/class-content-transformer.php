@@ -182,6 +182,19 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
                     $translation_route = true;
                 }
             }
+            // NEW 17.8.0: AI Editor can pick the translation model per job ("provider|model"). Only chat models of
+            // providers that have a key on this site are accepted; a failing choice still falls back to the default.
+            $model_choice = false;
+            $choice       = trim( (string) ( $options['route_model'] ?? '' ) );
+            if ( $is_translation && '' !== $choice ) {
+                $chosen = self::chosen_config( $choice );
+                if ( is_wp_error( $chosen ) ) {
+                    return $chosen;
+                }
+                $config            = $chosen;
+                $translation_route = true;
+                $model_choice      = true;
+            }
             if ( ! is_array( $config ) || empty( $config['key'] ) || empty( $config['model'] ) || empty( $config['chat_url'] ) ) {
                 return new WP_Error( 'agfo_content_config', 'AGFO AI Manager metin sağlayıcısı veya modeli yapılandırılmamış.' );
             }
@@ -263,7 +276,7 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
                     && ( (string) ( $default['code'] ?? '' ) . '|' . (string) $default['model'] ) !== ( (string) ( $config['code'] ?? '' ) . '|' . (string) $config['model'] ) ) {
                     $route_error = $call->get_error_message();
                     $retry       = self::call_model( $default, $system, $user, $template, $max_output_tokens, $timeout );
-                    if ( function_exists( 'update_option' ) ) {   // AI Kontrol Merkezi › Ceviri'de uyari gosterilir
+                    if ( ! $model_choice && function_exists( 'update_option' ) ) {   // AI Kontrol Merkezi › Ceviri'de uyari gosterilir
                         update_option( 'agfo_aim_translation_route_error', [
                             'provider' => sanitize_key( (string) ( $config['code'] ?? '' ) ),
                             'model'    => sanitize_text_field( (string) $config['model'] ),
@@ -285,7 +298,7 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
             if ( is_wp_error( $call ) ) {
                 return $call;
             }
-            if ( $translation_route && function_exists( 'get_option' ) && get_option( 'agfo_aim_translation_route_error' ) && function_exists( 'delete_option' ) ) {
+            if ( $translation_route && ! $model_choice && function_exists( 'get_option' ) && get_option( 'agfo_aim_translation_route_error' ) && function_exists( 'delete_option' ) ) {
                 delete_option( 'agfo_aim_translation_route_error' );           // rota yeniden calisiyor
             }
             $response = $call['response'];
@@ -315,6 +328,7 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
                     'translation_route' => $translation_route,
                     'route_fallback'    => $route_fallback,
                     'route_error'       => $route_fallback ? sanitize_text_field( $route_error ) : '',
+                    'model_choice'      => $model_choice,
                     'truncated'         => self::is_truncated( $decoded ),
                 ];
             }
@@ -354,6 +368,7 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
                 // NEW 17.3.0: translation routing and truncation signal for the editor UI.
                 'translation'       => $is_translation,
                 'translation_route' => $translation_route,
+                'model_choice'      => $model_choice,
                 'truncated'         => self::is_truncated( $decoded ),
                 'reasoning_tokens'=> absint( $decoded['usage']['completion_tokens_details']['reasoning_tokens'] ?? 0 ),
             ];
@@ -599,6 +614,41 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
          *
          * @return array|false
          */
+        /**
+         * NEW 17.8.0: config for a per-job translation model chosen in AI Editor ("provider|model").
+         *
+         * @return array|WP_Error
+         */
+        public static function chosen_config( string $choice ) {
+            $bad = new WP_Error( 'agfo_model_choice', 'Seçilen çeviri modeli bu sitede kullanılamıyor. AI Editor › Çeviri sekmesinde listeyi yenileyin.', [ 'status' => 400 ] );
+            if ( strlen( $choice ) > 200 || strpos( $choice, '|' ) === false ) {
+                return $bad;
+            }
+            list( $provider, $model ) = explode( '|', $choice, 2 );
+            $provider = sanitize_key( $provider );
+            $model    = trim( $model );
+            if ( '' === $provider || ! preg_match( '#^[A-Za-z0-9._:/@+\-]{1,160}$#', $model ) ) {
+                return $bad;
+            }
+            $registry = function_exists( 'agfo_api_registry' ) ? agfo_api_registry() : [];
+            if ( ! isset( $registry[ $provider ] ) || ( $registry[ $provider ]['type'] ?? 'llm' ) !== 'llm'
+                || ! function_exists( 'agfo_get_api_key' ) || empty( agfo_get_api_key( $provider ) ) ) {
+                return $bad;
+            }
+            if ( class_exists( 'AGFO_AIM_Ajax_Data' ) ) {
+                $ids = array_map( static function ( $m ) { return (string) ( $m['id'] ?? '' ); }, AGFO_AIM_Ajax_Data::models_for_provider( $provider ) );
+                if ( $ids && ! in_array( $model, $ids, true ) ) {
+                    return $bad;
+                }
+            }
+            $config = function_exists( 'agfo_get_priority_api_key' ) ? agfo_get_priority_api_key( false, $model, $provider ) : false;
+            if ( ! is_array( $config ) || empty( $config['key'] ) || empty( $config['chat_url'] ) ) {
+                return $bad;
+            }
+            $config['model'] = $model;
+            return $config;
+        }
+
         public static function translation_config() {
             if ( ! function_exists( 'agfo_get_translation_config' ) ) {
                 return false;

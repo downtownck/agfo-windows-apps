@@ -30,7 +30,7 @@ LEVEL_TAGS = ('lvl0', 'lvl1', 'lvl2', 'lvl3')
 ALIGN_TAGS = ('al_center', 'al_right', 'al_justify')
 PARA_FIXED = set(STYLE_TAGS + LIST_TAGS + LEVEL_TAGS + ALIGN_TAGS + ('tbl', 'pb'))
 CHAR_FIXED = {'b', 'i', 'u'}
-TRANSIENT = {'sel', 'found', 'ai_new', 'hover', 'md_h', 'md_mark', 'md_li', 'fmt_flash', 'pairhl'}
+TRANSIENT = {'sel', 'found', 'ai_new', 'hover', 'md_h', 'md_mark', 'md_li', 'fmt_flash', 'pairhl', 'trwork', 'trdone'}
 ERR_MARK = '\x01AGFOERR\x01'
 ERR_MARK_TCL = '\\x01AGFOERR\\x01'
 BULLETS = ('• ', '◦ ', '▪ ', '▫ ')
@@ -49,6 +49,23 @@ def is_char_tag(t):
 
 def recorded(t):
     return t not in TRANSIENT and not t.startswith('ais_') and not t.startswith('aie_')
+
+
+class _LineTrack(list):
+    """get_blocks icin: eklenen her blogun satir araligini yan listeye yazar."""
+    def __init__(self, lines):
+        super().__init__()
+        self.lines = lines
+        self.line = 0
+
+    def append(self, blk):
+        super().append(blk)
+        if self.lines is not None:
+            self.lines.append([self.line, self.line])
+
+    def extend_last(self, ln):
+        if self.lines is not None and self.lines:
+            self.lines[-1][1] = ln
 
 
 class RichText(tk.Text):
@@ -359,7 +376,7 @@ class RichText(tk.Text):
             self._call('tag', 'lower', t)
         for t in STYLE_TAGS + LEVEL_TAGS + ALIGN_TAGS + ('li_b', 'li_n', 'pb', 'u'):
             self._call('tag', 'raise', t)
-        for t in ('found', 'ai_new', 'sel'):
+        for t in ('trdone', 'trwork', 'found', 'ai_new', 'sel'):
             try:
                 self._call('tag', 'raise', t)
             except tk.TclError:
@@ -394,12 +411,16 @@ class RichText(tk.Text):
                            padx=int(self.px(R.MARGIN_PT * 0.9)), pady=int(self.px(R.MARGIN_PT * 0.7)), spacing3=int(self.px(6)))
             self.tag_configure('found', background='#ffe58f')
             self.tag_configure('ai_new', background='#c9f2d6')
+            self.tag_configure('trwork', background='#fff1b8')       # cevriliyor
+            self.tag_configure('trdone', background='#d3f5dd')       # cevrildi
         else:
             self.configure(bg=c['EDIT_BG'], fg=c['FG'], insertbackground=c['ACCENT'], selectbackground=c['SEL_BG'],
                            selectforeground='#ffffff', inactiveselectbackground='#1d3b57', padx=int(28 * self.zoom),
                            pady=18, spacing3=int(self.px(6)))
             self.tag_configure('found', background='#5a4a1c')
             self.tag_configure('ai_new', background='#173a2a')
+            self.tag_configure('trwork', background='#4a3f12')
+            self.tag_configure('trdone', background='#173a2a')
         self.configure_tags()
 
     # ================================================================ satir/paragraf yardimcilari
@@ -1133,14 +1154,16 @@ class RichText(tk.Text):
         self.mark_set('insert', end)
         return end
 
-    def get_blocks(self, s='1.0', e='end-1c'):
+    def get_blocks(self, s='1.0', e='end-1c', lines=None):
+        """lines: liste verilirse her blok icin (ilk_satir, son_satir) eklenir (canli ceviri vurgusu icin)."""
         s, e = self.index(s), self.index(e)
+        out = _LineTrack(lines)
         if self.compare(e, '<', s):
             s, e = e, s
-        out = []
         first, last = int(s.split('.')[0]), int(e.split('.')[0])
         table_open = None
         for ln in range(first, last + 1):
+            out.line = ln
             ls = s if ln == first else '%d.0' % ln
             le = e if ln == last else '%d.end' % ln
             props = self.para_props(ln)
@@ -1159,6 +1182,7 @@ class RichText(tk.Text):
                 cells = [R.merge_runs(c) for c in cells]
                 if table_open is not None and table_open[0] == props['table']:
                     table_open[1]['rows'].append(cells)
+                    out.extend_last(ln)
                 else:
                     blk = {'t': 'table', 'rows': [cells]}
                     out.append(blk)
@@ -1185,7 +1209,11 @@ class RichText(tk.Text):
             only_img = items and all(it[0] == 'i' or not it[1].strip() for it in items) and any(it[0] == 'i' for it in items)
             if not only_img and (cur or not items or not out or out[-1]['t'] != 'img'):
                 out.append(self._para_block(cur, props, pb))
-        return out
+        return list(out)
+
+    def flash_lines(self, tag, first, last):
+        """Gecici vurgu (geri alma kaydina ve belgeye girmez)."""
+        self._call('tag', 'add', tag, '%d.0' % first, '%d.end+1c' % last)
 
     def _run_from(self, text, tags):
         return R.run(text, 'b' in tags, 'i' in tags, 'u' in tags, next((t[2:] for t in tags if t.startswith('c_')), None))

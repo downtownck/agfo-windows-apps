@@ -1,3 +1,25 @@
+Tarih: 2026-10-19
+Eski Versiyon: 17.7.0
+Yeni Versiyon: 17.8.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/api/class-editor-api.php; includes/content/class-content-transformer.php; includes/class-model-catalog.php; tests/content-translate-tests.php; tests/editor-api-tests.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: AI Editor'de belge çevirisi yavaştı; çeviri modeli yalnız sitedeki Çeviri rotasından geliyordu ve uygulamadan değiştirilemiyordu.
+
+Yapılanlar:
+- GET /editor/models: anahtarı olan sağlayıcıların çeviriye uygun sohbet modelleri (Çeviri panosundaki liste), kalite puanı, 1000 kelime için tahmini maliyet ve hız sınıfı (fast/normal/slow; düşünen modeller slow) ile döner. Kullanılamayan modeller listelenmez; anahtar ya da gizli bilgi dönmez.
+- /editor/transform isteğe bağlı model="sağlayıcı|model" alır. Yalnız çeviri şablonlarında uygulanır; sağlayıcı kayıtlı bir LLM olmalı, sitede anahtarı bulunmalı ve model sağlayıcının model listesinde olmalı. Aksi halde 400 agfo_model_choice.
+- Seçilen model çalışmazsa 17.7.0'daki gibi varsayılan metin modeline düşülür; bu, sitenin Çeviri rotası hatası (agfo_aim_translation_route_error) olarak kaydedilmez. Yanıtta model_choice alanı var.
+- /editor/info features listesine model_choice eklendi.
+
+Geriye Uyumluluk: Tam. model parametresi gönderilmezse davranış 17.7.0 ile aynıdır.
+
+Migration: Gerekmiyor.
+
+Doğrulama: content-translate 35/35 (T25–T29 yeni), editor-api 48/48 (E42–E46 yeni), diğer tüm test dosyaları geçti; php -l temiz.
+
+====================================================================================================
+
 Tarih: 2026-10-18
 Eski Versiyon: 17.6.0
 Yeni Versiyon: 17.7.0

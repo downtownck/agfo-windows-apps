@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
-VERSION = '1.4.7'
+VERSION = '1.4.8'
 APP_NAME = 'AGFO AI Editor'
 IS_WIN = sys.platform == 'win32'
 MAX_CHARS = 60000
@@ -67,6 +67,15 @@ DEFAULT_SETTINGS = {
     'last_action': 'content_strengthen',
     'sources': [],                 # 1.2: Kaynaklar sekmesindeki belgelerin yollari
     'mask_sources': True,          # 1.2: gondermeden once e-posta/telefon/kimlik no/IBAN maskele
+    'translate_workers': 4,        # 1.4.8: belge cevirisinde ayni anda gonderilen istek
+    'translate_model': {},
+    # 1.4.8: bu ayarlar kaydediliyordu ama acilista okunmuyordu (varsayilanlarda yoktu)
+    'doc_translate_output': 'both',
+    'page_view': True,
+    'page_zoom': 1.0,
+    'rich_font': '',
+    'rich_size': 11,
+    'install_declined': False,         # 1.4.8: is basina ceviri modeli {'kind', 'provider', 'model'}; bos = varsayilan
 }
 
 
