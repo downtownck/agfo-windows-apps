@@ -458,6 +458,9 @@ def _paragraphs(lines, page_w, margin_r=None, horiz=()):
             P['boxcenter'] = True
         elif votes:
             P['align'] = votes.most_common(1)[0][0]
+    for P in paras:
+        if P['lines'][0].get('toc'):
+            P['align'] = 'left'                          # icindekiler satiri her zaman sola yasli
     # tesaduf eseri sayfa ortasina dusen tek satir: sola hizali paragraflarla ayni soldan basliyorsa sola hizalidir
     left_edges = [Q['lines'][0]['rect'][0] for Q in paras if len(Q['lines']) > 1 and Q.get('align') == 'left']
     for P in paras:
@@ -501,6 +504,10 @@ def fit_paragraph(P, text, font_path, page_w):
     room = max(room, width)
     below = max(0.0, P.get('below', 0.0))
     tw = lambda t, k: E.text_width(t, font_path, size * k)  # noqa: E731
+    if P['lines'][0].get('toc') and not TOC_LINE_RX.match(text):
+        # model nokta dizisini atmis olabilir: icindekiler satiri noktalarla yeniden kurulur
+        num = re.search(r'(\d+)\s*$', P['text'])
+        text = text.rstrip(' .…') + '....' + (num.group(1) if num and TOC_RX.search(P['text']) and re.search(r'\d\s*$', P['text']) else '')
     m = TOC_LINE_RX.match(text) if P['lines'][0].get('toc') else None
     if m and lines_n == 1:
         # icindekiler satiri: nokta dizisi, ceviri ozgun satir genisligine sigacak kadar kisaltilir/uzatilir

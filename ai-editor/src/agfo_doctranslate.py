@@ -21,7 +21,8 @@ INSTRUCTION = (
     'Return ALL segments in the same order, each starting with its unchanged marker, one segment per paragraph, '
     'with a blank line between segments. Translate only the text after the marker; do not merge, split, skip or '
     'renumber segments, do not add notes. Keep inline Markdown markers (**bold**, *italic*, <u>underline</u>) around '
-    'the corresponding translated words. Keep numbers, clause references, codes, units, names, URLs and e-mail '
+    'the corresponding translated words. Keep dot leaders (......) and trailing page numbers of table-of-contents '
+    'lines. Keep numbers, clause references, codes, units, names, URLs and e-mail '
     'addresses exactly. Use the established professional terminology of the field (for example food safety, '
     'certification and audit terms).')
 

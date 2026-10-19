@@ -290,6 +290,15 @@ class LayoutDetailTests(unittest.TestCase):
         items = {it['text'] for it in []}
         _ = items
 
+    def test_toc_leaders_rebuilt_when_model_drops_them(self):
+        # gercek model (DeepSeek-R1-Distill) icindekiler satirlarinin noktalarini atiyordu; satir ortalaniyordu
+        tr = {'Records......................................': 'Kayıtlar', 'Grading......................................': 'Derecelendirme'}
+        out, _m = L.translate_page(pypdf.PdfReader(self.src), 0, self.data, self.pdf, self.lay, [tr.get(x) for x in self.texts])
+        lay2 = L.extract_layout(pdfium.PdfDocument(out), 0)
+        rec = [x for x in lay2['paras'] if x['text'].startswith('Kayıtlar')][0]
+        self.assertTrue(rec['text'].endswith('....'))
+        self.assertAlmostEqual(rec['rect'][0], 100, delta=1.5)                  # sola yasli, ayni girinti
+
     def test_clean_text(self):
         self.assertEqual(L.clean_text('a\tb\u200b c\u00a0d \uf0b7 e'), 'a b c d • e')
 
