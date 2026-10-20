@@ -19,11 +19,20 @@ function FindPython {
 $python=FindPython
 if(-not $python) { throw 'Python 3 ve tkinter gerekli. Python kurun: https://www.python.org/downloads/windows/ (kurucu Pythonu otomatik indirmez).' }
 
-# Gerekli paketler (yakalama + tus dinleme) ve istege bagli paketler (jpg + tepsi ikonu).
+# pip cikisi: stderr'e yazilan UYARILARI (or. "script mss.exe is not on PATH") betigi durduran
+# hataya cevirmeyelim. Ciktiyi metne cevirip gosteririz; basari yalnizca pip cikis koduyla belirlenir.
+function Invoke-Pip {
+ param([string[]]$Packages)
+ $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
+ try {
+  & $python -m pip install --user --upgrade @Packages 2>&1 | ForEach-Object { Write-Host ("{0}" -f $_) }
+ } finally { $ErrorActionPreference=$old }
+ return $LASTEXITCODE
+}
 Write-Host 'Gerekli paketler kuruluyor: mss, pynput ...'
-& $python -m pip install --user --upgrade mss pynput 2>&1 | Out-Host
-if($LASTEXITCODE -ne 0) { Write-Warning 'mss/pynput kurulamadi; uygulama ilk acilista uyari verebilir. Internet/pip erisimini kontrol edin.' }
-& $python -m pip install --user --upgrade pillow pystray 2>&1 | Out-Host   # istege bagli; basarisiz olursa sorun degil
+if((Invoke-Pip @('mss','pynput')) -ne 0) { Write-Warning 'mss/pynput kurulamadi; uygulama ilk acilista uyari verebilir. Internet/pip erisimini kontrol edin.' }
+Write-Host 'Istege bagli paketler kuruluyor: pillow, pystray (jpg + tepsi) ...'
+[void](Invoke-Pip @('pillow','pystray'))   # istege bagli; basarisiz olursa sorun degil
 
 # Calisan eski surum varsa kapat (dosyalar kilitli kalmasin, yeni surum aninda devreye girsin).
 Get-CimInstance Win32_Process -Filter "Name='pythonw.exe' OR Name='python.exe'" -ErrorAction SilentlyContinue |
@@ -38,7 +47,10 @@ foreach($file in ($required + $optional)){
  Copy-Item -LiteralPath $src -Destination $target -Force
  Unblock-File -LiteralPath $target -ErrorAction SilentlyContinue   # Internet'ten indirilen ZIP'in Zone.Identifier isaretini kaldir
 }
-Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value '1.0.0' -Encoding ASCII
+# Surumu phantom_core.py'dan oku (elle guncelleme gerekmez).
+$ver='1.0.0'
+try { $m=Select-String -LiteralPath (Join-Path $root 'phantom_core.py') -Pattern "^VERSION = '([0-9.]+)'"; if($m){ $ver=$m.Matches[0].Groups[1].Value } } catch {}
+Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value $ver -Encoding ASCII
 
 $pythonW=Join-Path (Split-Path $python -Parent) 'pythonw.exe'
 if(-not (Test-Path $pythonW)) { $pythonW=$python }
@@ -49,6 +61,6 @@ $ico=Join-Path $dest 'assets\agfo-phantom.ico'
 $sc=(New-Object -ComObject WScript.Shell).CreateShortcut($link)
 $sc.TargetPath=$pythonW; $sc.Arguments='"'+(Join-Path $dest 'app.pyw')+'"'; $sc.WorkingDirectory=$dest
 if(Test-Path -LiteralPath $ico) { $sc.IconLocation=$ico+',0' }
-$sc.Description='AGFO Phantom Shot 1.0.0'; $sc.Save()
+$sc.Description=('AGFO Phantom Shot '+$ver); $sc.Save()
 Write-Host ('Kurulum tamamlandi: '+$dest)
 Start-Process -FilePath $pythonW -ArgumentList ('"'+(Join-Path $dest 'app.pyw')+'"') -WorkingDirectory $dest

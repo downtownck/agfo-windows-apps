@@ -1,4 +1,4 @@
-# AGFO Phantom Shot 1.0.0 — Tek tuşla sessiz ekran görüntüsü
+# AGFO Phantom Shot — Tek tuşla sessiz ekran görüntüsü
 
 Belirlediğiniz bir klavye ya da fare tuşuna basınca ekran görüntüsünü alır ve ayarladığınız klasöre kaydeder. **Ekranda hiçbir pencere, bildirim, ses ya da imleç değişimi göstermez.** Pencere yalnızca ayar ve kontrol içindir.
 
