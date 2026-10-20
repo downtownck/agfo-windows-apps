@@ -342,6 +342,8 @@ class SpeechGuiTests(unittest.TestCase):
     def setUp(self):
         self.app = self.m.App(smoke=True)
         self.app.withdraw()
+        self.app.settings['speech_service'] = 'site'      # 1.7: bu testler sitedeki AI Manager yolunu dener
+        self.app._test_local_cfg = None
         self.backend = FakeBackend()
         self.backend.speech_script = lambda text: {'text': text.replace('Chicago', 'Şikago'), 'chunks': 1, 'rewritten': 1,
                                                    'kept_original': 0, 'model': 'openai|m'}

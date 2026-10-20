@@ -1,0 +1,17 @@
+﻿AGFO Ses Servisi - Windows (EMA Lightning, Türkçe)
+===================================================
+
+1) AGFO-Ses-Kur.cmd   -> çift tıklayın. Ses servisini bu bilgisayara kurar (NVIDIA ekran kartını kullanır),
+                         oturum açılınca kendiliğinden başlatır, sonunda masaüstüne bir deneme MP3'ü bırakır.
+                         Yönetici izni gerekmez. Kurulum yeri: %LOCALAPPDATA%\AGFO\TTS
+                         Kaldırmak için: AGFO-Ses-Kur.cmd -Kaldir
+
+2) AGFO AI Editor 1.7.0 -> Ses sekmesi > Ses servisi > "Bu bilgisayar". "Sözlüğü siteden eşitle" ile sunucudaki
+                         ortak telaffuz sözlüğünü alın.
+
+3) AGFO-Ses-Dene.cmd  -> isteğe bağlı erkek ses denemesi: aynı metni EMA, Chatterbox Multilingual ve (onay geldiyse)
+                         Piper "Cem" ile okutur; MP3'ler Masaüstü\agfo-ses-deneme klasörüne gelir.
+                         Silmek için: AGFO-Ses-Dene.cmd -Kaldir
+
+Her betik çıktısını masaüstüne .txt olarak kaydeder; sorun olursa o dosyayı gönderin.
+Servis yalnız 127.0.0.1 (bu bilgisayar) adresinden erişilir; ağdaki başka cihazlar ulaşamaz.

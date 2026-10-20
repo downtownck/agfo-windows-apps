@@ -1,0 +1,28 @@
+[Unit]
+Description=AGFO TTS Service (EMA Lightning)
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__APP_DIR__/.env
+# Model weights are downloaded once into the writable cache dir (ProtectSystem=strict blocks ~/.cache)
+Environment=HF_HOME=__APP_DIR__/cache/hf
+Environment=HF_HUB_DISABLE_TELEMETRY=1
+ExecStart=__APP_DIR__/venv/bin/uvicorn server:app --host 127.0.0.1 --port ${AGFO_TTS_PORT} --workers 1 --timeout-keep-alive 120
+Restart=always
+RestartSec=5
+Nice=10
+# Limit memory so a runaway request cannot starve LiteSpeed
+MemoryMax=2G
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+# data/ holds lexicon.custom.json, edited from WordPress (AI Manager › Telaffuz Sözlüğü)
+ReadWritePaths=__APP_DIR__/cache __APP_DIR__/.cache __APP_DIR__/data
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

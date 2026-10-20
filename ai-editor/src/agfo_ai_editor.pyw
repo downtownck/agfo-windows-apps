@@ -49,6 +49,7 @@ import agfo_doctranslate as dtr  # noqa: E402
 import agfo_trlive as trlive  # noqa: E402
 import agfo_speech as speech  # noqa: E402  # 1.5: seslendirme
 import agfo_readaloud as readaloud  # noqa: E402  # 1.6: sesli oku
+import agfo_localtts as localtts  # noqa: E402  # 1.7: bu bilgisayardaki ses servisi
 
 
 def selftest(out_path: str) -> int:
@@ -138,6 +139,8 @@ def selftest(out_path: str) -> int:
         import agfo_speech as _sp   # 1.5: seslendirme modulu EXE'de
         res['speech'] = _sp.markdown_to_speech('# Başlık\n\n- madde') == 'Başlık.\n\nmadde.'
         import agfo_readaloud as _ra  # 1.6: sesli oku
+        import agfo_localtts as _lt   # 1.7: bu bilgisayardaki ses servisi
+        res['speech'] = res['speech'] and _lt.read_config(os.path.join(tempfile.gettempdir(), 'agfo-yok', '.env')) is None
         res['speech'] = res['speech'] and _ra.group_paragraphs(['a', '', 'b'], False) == [(0, 0), (2, 2)] and \
             [x['title'] for x in _sp.plan_sections('## A\n\n' + 'x. ' * 200 + '\n\n## B\n\n' + 'y. ' * 200)] == ['A', 'B']
         res['ok'] = res['ok'] and res['speech']
@@ -467,7 +470,7 @@ class LexiconWindow(tk.Toplevel):
         super().__init__(app)
         self.app, self.b = app, backend
         self.rows = []
-        self.title('Telaffuz sözlüğü')
+        self.title('Telaffuz sözlüğü' + (' – bu bilgisayar' if getattr(backend, 'kind', '') == 'local' else ''))
         self.configure(bg=PANEL, padx=12, pady=10)
         self.transient(app)
         self.geometry('%dx%d' % (int(640 * app.scale), int(560 * app.scale)))
@@ -524,7 +527,7 @@ class LexiconWindow(tk.Toplevel):
         self.status.set(label + '…')
         self.app._start_job(label, fn, done, *args)
 
-    def load(self):
+    def load(self, note=None):
         def done(ok, res):
             if not self.winfo_exists():
                 return
@@ -537,7 +540,7 @@ class LexiconWindow(tk.Toplevel):
                 b.configure(state='normal' if can else 'disabled')
             mine = sum(1 for r in self.rows if r.get('source') in ('added', 'edited'))
             self.count.configure(text='%s etkin · %d sizin' % (res.get('active', len(self.rows)), mine))
-            self.status.set('Hazır.' if can else 'Sözlüğü yalnız site yöneticisi değiştirebilir; dinleyebilirsiniz.')
+            self.status.set(note or ('Hazır.' if can else 'Sözlüğü yalnız site yöneticisi değiştirebilir; dinleyebilirsiniz.'))
             self.render()
             w = self.word.get().strip()
             hit = next((r for r in self.rows if r.get('word') == w), None)
@@ -574,8 +577,17 @@ class LexiconWindow(tk.Toplevel):
             if not ok:
                 self.status.set(res)
                 return
-            self.status.set(msg)
-            self.load()
+            site = res.get('site') if isinstance(res, dict) else None
+            if site is None:
+                note = msg + ' Bütün sitelerde geçerli.'
+            elif site == 'ok':
+                note = msg + ' Bu bilgisayarda ve bütün sitelerde geçerli.'
+            elif site == 'none':
+                note = msg + ' Bu bilgisayarda geçerli.'
+            else:
+                note = msg + ' Bu bilgisayarda geçerli; ortak sözlüğe yazılamadı: ' + site
+            self.status.set(note)
+            self.load(note)
         return done
 
     def save(self):
@@ -583,7 +595,7 @@ class LexiconWindow(tk.Toplevel):
         if not w or not rd:
             self.status.set('Kelime ve okunuş gerekli.')
             return
-        self._job('Kaydediliyor', self.b.lexicon_change, self._after_change('“%s” → “%s” kaydedildi; bütün sitelerde geçerli.' % (w, rd)), 'save', w, rd)
+        self._job('Kaydediliyor', self.b.lexicon_change, self._after_change('“%s” → “%s” kaydedildi.' % (w, rd)), 'save', w, rd)
 
     def delete(self):
         w = self.word.get().strip()
@@ -1017,6 +1029,16 @@ class App(tk.Tk):
         self.sp_state_lbl = tk.Label(f, textvariable=self.sp_state_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w',
                                      justify='left', wraplength=int(380 * self.scale))
         self.sp_state_lbl.pack(fill='x', pady=(0, 6))
+        # 1.7: ses servisi secimi
+        svc = tk.Frame(f, bg=PANEL)
+        svc.pack(fill='x', pady=(0, 6))
+        self.lbl(svc, 'Ses servisi', muted=True).pack(side='left')
+        self.sp_service_var = tk.StringVar(value=self._speech_mode())
+        ttk.Radiobutton(svc, text='Site (AI Manager)', value='site', variable=self.sp_service_var,
+                        command=self._speech_service_changed).pack(side='left', padx=(6, 4))
+        ttk.Radiobutton(svc, text='Bu bilgisayar', value='local', variable=self.sp_service_var,
+                        command=self._speech_service_changed).pack(side='left', padx=(0, 8))
+        self.sp_sync_btn = self.btn(svc, 'Sözlüğü siteden eşitle', self.sync_local_lexicon, 'ghost', padx=8)
         row = tk.Frame(f, bg=PANEL)
         row.pack(fill='x', pady=(0, 4))
         self.lbl(row, 'Hız', muted=True).pack(side='left')
@@ -1078,13 +1100,17 @@ class App(tk.Tk):
 
         box = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
         box.pack(fill='x', pady=(10, 0))
-        tk.Label(box, text='Telaffuz sözlüğü (bütün siteler)', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        tk.Label(box, text='Telaffuz sözlüğü', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
         self.lbl(box, 'Yanlış okunan bir adı seçip sağ tıklayın ya da aşağıdan ekleyin. Kayıt sunucudaki ortak listeye yazılır '
-                      've hemen geçerli olur.', muted=True, bg=PANEL2, wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
+                      've hemen geçerli olur; “Bu bilgisayar” seçiliyken bu bilgisayardaki sözlüğe de yazılır.', muted=True, bg=PANEL2, wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
         brow = tk.Frame(box, bg=PANEL2)
         brow.pack(fill='x')
         self.btn(brow, 'Seçili kelimeyi ekle…', self.add_selection_to_lexicon, 'ghost', padx=10)
         self.btn(brow, 'Sözlüğü aç…', self.open_lexicon, 'ghost', padx=10)
+        if self._speech_mode() == 'local':      # 1.7: yerel servis site baglantisini beklemeden denetlenir
+            self.after(300, self._sync_speech_tab)
+        else:
+            self.sp_sync_btn.configure(state='disabled')
 
     def _speech_settings_changed(self):
         try:
@@ -1096,8 +1122,100 @@ class App(tk.Tk):
         except (tk.TclError, ValueError, OSError):
             pass
 
+    # ------------------------------------------------------------------ 1.7: ses servisi (site / bu bilgisayar)
+    def _local_tts_config(self):
+        if hasattr(self, '_test_local_cfg'):
+            return self._test_local_cfg
+        return localtts.read_config()
+
+    def _speech_mode(self):
+        mode = self.settings.get('speech_service')
+        if mode in ('site', 'local'):
+            return mode
+        return 'local' if self._local_tts_config() else 'site'
+
+    def _speech_service_changed(self):
+        self.settings['speech_service'] = self.sp_service_var.get()
+        try:
+            core.save_settings(self.settings)
+        except OSError:
+            pass
+        self._sync_speech_tab()
+
+    def _site_backend(self):
+        for b in self.backends():
+            if getattr(b, 'kind', '') == 'manager':
+                return b
+        return None
+
+    def _local_backend(self, title=None):
+        if hasattr(self, '_test_local_backend'):
+            return self._test_local_backend
+        cfg = self._local_tts_config()
+        if not cfg:
+            if title:
+                messagebox.showinfo(title, 'Bu bilgisayarda AGFO Ses Servisi kurulu değil. AGFO-Ses-Kur.cmd ile kurun ya da '
+                                           'Ses sekmesinde “Site (AI Manager)”ı seçin.', parent=self)
+            return None
+        return localtts.LocalSpeechBackend(cfg['endpoint'], cfg['token'], site=self._site_backend())
+
+    def _speech_backend(self, title):
+        """Secili ses servisi: bu bilgisayar ya da sitedeki AI Manager."""
+        if self._speech_mode() == 'local':
+            return self._local_backend(title)
+        return self._manager_backend(title)
+
+    def sync_local_lexicon(self):
+        title = 'Sözlüğü eşitle'
+        b = self._local_backend(title)
+        if not b:
+            return
+        if b.site is None:
+            messagebox.showinfo(title, 'Ortak sözlük sitedeki AI Manager üzerinden alınır; Ayarlar › Bağlantı bölümünden sitenizi ekleyin.',
+                                parent=self)
+            return
+
+        def done(ok, res):
+            if not ok:
+                messagebox.showerror(title, res, parent=self)
+                return
+            msg = 'Sözlük eşitlendi: %d kelime eklendi/güncellendi, %d kaldırıldı, %d zaten aynıydı.' % (
+                res['added'], res['removed'], res['same'])
+            if res['errors']:
+                msg += ' %d kelimede hata: %s' % (len(res['errors']), '; '.join(res['errors'][:3]))
+            self.flash(msg, 9000)
+            self.sp_result_var.set(msg)
+        self._start_job('Sözlük eşitleniyor', b.sync_from_site, done)
+
     def _sync_speech_tab(self):
         if not hasattr(self, 'sp_state_var'):
+            return
+        local = self._speech_mode() == 'local'
+        try:
+            self.sp_sync_btn.configure(state='normal' if local else 'disabled')
+        except (AttributeError, tk.TclError):
+            pass
+        if local:
+            b = self._local_backend()
+            if b is None:
+                self.sp_state_var.set('● Bu bilgisayarda ses servisi kurulu değil: AGFO-Ses-Kur.cmd ile kurun.')
+                self.sp_state_lbl.configure(fg=WARN)
+                return
+            self.sp_state_var.set('● Bu bilgisayardaki ses servisi denetleniyor…')
+            self.sp_state_lbl.configure(fg=MUTED)
+
+            def done(ok, res):
+                if self._speech_mode() != 'local':
+                    return
+                if ok:
+                    dev = str(res.get('device') or 'cpu')
+                    where = 'ekran kartında' if dev.startswith('cuda') else 'işlemcide'
+                    self.sp_state_var.set('● EMA Lightning bu bilgisayarda hazır (%s, %s kelimelik sözlük)' % (where, res.get('lexicon_entries', '?')))
+                    self.sp_state_lbl.configure(fg=OK_C)
+                else:
+                    self.sp_state_var.set('● ' + str(res))
+                    self.sp_state_lbl.configure(fg=WARN)
+            self._start_job('Ses servisi denetleniyor', b.health, done)
             return
         info = (self.manager_info or {}).get('speech') if isinstance(self.manager_info, dict) else None
         if not isinstance(info, dict):
@@ -1159,7 +1277,7 @@ class App(tk.Tk):
     def narrate_current(self):
         """1.6: bolum planini gosteren 'Ses dosyasi olustur' penceresi."""
         title = 'Ses dosyası oluştur'
-        b = self._manager_backend(title)
+        b = self._speech_backend(title)
         if not b:
             return None
         d = self.cur()
@@ -1190,14 +1308,14 @@ class App(tk.Tk):
             self.read_aloud_pause()
             return
         title = 'Sesli oku'
-        b = self._manager_backend(title)
+        b = self._speech_backend(title)
         d = b and self.cur()
         if not d:
             if b:
                 messagebox.showinfo(title, 'Sesli okuma metin belgelerinde yapılır.', parent=self)
             return
         info = (self.manager_info or {}).get('speech') if isinstance(self.manager_info, dict) else None
-        if isinstance(info, dict) and not info.get('quick'):
+        if getattr(b, 'kind', '') == 'manager' and isinstance(info, dict) and not info.get('quick'):
             messagebox.showinfo(title, 'Sesli okuma için sitede AGFO AI Manager 17.13.0 veya üstü gerekir.', parent=self)
             return
         t = d.text
@@ -1334,10 +1452,12 @@ class App(tk.Tk):
         self.open_lexicon(word=word)
 
     def open_lexicon(self, word=''):
-        b = self._manager_backend('Telaffuz sözlüğü')
+        b = self._speech_backend('Telaffuz sözlüğü')
         if not b:
             return None
         win = getattr(self, 'lexicon_win', None)
+        if win is not None and win.winfo_exists() and getattr(win.b, 'kind', '') != getattr(b, 'kind', ''):
+            win.destroy()
         if win is not None and win.winfo_exists():
             win.lift()
             if word:

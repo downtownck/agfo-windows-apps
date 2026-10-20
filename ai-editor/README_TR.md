@@ -42,6 +42,12 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
   birleştirilir. **Telaffuz sözlüğü:** yanlış okunan bir adı seçip sağ tıklayın ("Telaffuz sözlüğüne ekle") ya da Ses ›
   Sözlüğü aç; okunuşu dinleyip kaydedin. Kayıt sunucudaki ortak listeye yazılır, bütün sitelerde hemen geçerli olur
   (değiştirmek için site yöneticisi gerekir).
+- **Ses servisi: bu bilgisayar (1.7):** AGFO-Ses-Kur.cmd ile EMA Lightning bu bilgisayara kurulur (NVIDIA ekran kartı
+  varsa onu kullanır; yönetici izni gerekmez, oturum açılınca kendiliğinden başlar, yalnız bu bilgisayardan erişilir).
+  Ses sekmesinde "Ses servisi: Bu bilgisayar" seçilince Sesli oku, Ses dosyası ve Telaffuz sözlüğü siteye gitmeden
+  burada çalışır. AI okuma metni istenirse yine sitedeki AI Manager hazırlar. "Sözlüğü siteden eşitle" sunucudaki ortak
+  sözlükte eklenen, değiştirilen ve kaldırılan kelimeleri bu bilgisayara uygular; buradan eklenen kelime site
+  yöneticisiyseniz ortak sözlüğe de yazılır.
 - **Sesli oku (1.6):** Ses sekmesinde "▶ Sesli oku" (F9) imlecin bulunduğu paragraftan (ya da seçimden) başlayarak
   belgeyi okur; okunan paragraf editörde yeşil vurgulanır. Sıradaki paragrafların sesi arka planda hazırlanır, böylece
   okuma beklemeden sürer. F9 duraklatır/sürdürür, "■ Durdur" bitirir. Aynı paragraf ikinci kez okunurken ses
