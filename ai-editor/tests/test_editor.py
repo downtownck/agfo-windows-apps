@@ -791,7 +791,7 @@ class GuiTests(unittest.TestCase):
         self.app.doc_tr_out.set('pdf')
         n = len(self.app.pdf_views)
         self.app.translate_document()
-        self.assertTrue(self.pump(lambda: len(self.app.pdf_views) > n))
+        self.assertTrue(self.pump(lambda: len(self.app.pdf_views) > n, n=3000))   # Windows derleme makinesinde yavas olabilir
         pv = self.app.cur_pdf()
         self.assertIsNot(pv, v)
         self.assertEqual(pv.pr.save_dir, os.path.dirname(v.pr.path))
