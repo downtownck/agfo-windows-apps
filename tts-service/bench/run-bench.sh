@@ -14,7 +14,11 @@ echo "Çekirdek: $(nproc) · Boş bellek: $(free -g | awk '/Mem:/{print $7}') GB
 AVAIL_G=$(df -BG --output=avail /opt | tail -1 | tr -dc '0-9')
 [ "$AVAIL_G" -ge 8 ] || { echo "En az 8 GB boş disk gerekir."; exit 1; }
 MEM_G=$(free -g | awk '/Mem:/{print $7}')
-[ "$MEM_G" -ge 3 ] || echo "UYARI: 3 GB'tan az boş bellek var; deneme yavaş olabilir veya bellek yetmeyebilir."
+if [ "$MEM_G" -lt 6 ] && [ "${AGFO_BENCH_FORCE:-}" != "1" ]; then
+  echo "DURDURULDU: boş bellek ${MEM_G} GB. Chatterbox çalışırken ~5-6 GB kullanır; bu sunucudaki siteleri bellek"
+  echo "yetersizliğine (500 hatası) sokar. Ayrı/boş bir sunucuda çalıştırın. (Zorlamak: AGFO_BENCH_FORCE=1, önerilmez)"
+  exit 1
+fi
 mkdir -p "$BENCH" "$OUT"
 REF=""
 if [ -n "$REF_IN" ]; then
@@ -36,7 +40,7 @@ export UV_NO_CONFIG=1 UV_CACHE_DIR="$BENCH/uv-cache" UV_PYTHON_INSTALL_DIR="$BEN
   --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match chatterbox-tts==0.1.7
 echo "== Deneme (model ilk seferde Hugging Face'ten iner, yaklaşık 2 GB)"
 THREADS=$(( $(nproc) / 2 )); [ "$THREADS" -ge 1 ] || THREADS=1
-HF_HOME="$BENCH/hf" BENCH_THREADS=$THREADS nice -n 15 "$BENCH/venv/bin/python" "$HERE/bench.py" "$OUT" "$REF"
+HF_HOME="$BENCH/hf" BENCH_THREADS=$THREADS nice -n 15 systemd-run --scope -q -p MemoryMax=6G -p MemorySwapMax=0 "$BENCH/venv/bin/python" "$HERE/bench.py" "$OUT" "$REF"
 echo
 echo "== Dosyalar: $OUT"
 ls -la "$OUT"
