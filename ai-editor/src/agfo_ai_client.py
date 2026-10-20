@@ -332,6 +332,20 @@ class ManagerBackend:
                 except OSError:
                     pass
 
+    def speech_quick(self, text: str, reading_script: bool = False, speed: float = 1.0, pause_ms: int = 300,
+                     paragraph_pause_ms: int = 500, script_ready: bool = False):
+        """1.6 Sesli oku (AI Manager 17.13+): kisa metnin sesi bekletmeden (mp3_bytes, saniye)."""
+        d = self._call('/editor/speech-quick', {'text': text, 'reading_script': bool(reading_script), 'script_ready': bool(script_ready),
+                                                'speed': round(float(speed), 2),
+                                                'pause_ms': int(pause_ms), 'paragraph_pause_ms': int(paragraph_pause_ms)}, timeout=120)
+        try:
+            audio = base64.b64decode(d.get('audio_base64') or '')
+        except (ValueError, TypeError):
+            audio = b''
+        if not audio:
+            raise AIError('AI Manager ses döndürmedi.')
+        return audio, float(d.get('seconds') or 0)
+
     def speech_script(self, text: str) -> dict:
         """Okuma metni onizlemesi: {'text', 'chunks', 'rewritten', 'kept_original', 'model', ...}."""
         return self._call('/editor/speech-script', {'text': text}, timeout=900)

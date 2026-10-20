@@ -42,6 +42,15 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
   birleştirilir. **Telaffuz sözlüğü:** yanlış okunan bir adı seçip sağ tıklayın ("Telaffuz sözlüğüne ekle") ya da Ses ›
   Sözlüğü aç; okunuşu dinleyip kaydedin. Kayıt sunucudaki ortak listeye yazılır, bütün sitelerde hemen geçerli olur
   (değiştirmek için site yöneticisi gerekir).
+- **Sesli oku (1.6):** Ses sekmesinde "▶ Sesli oku" (F9) imlecin bulunduğu paragraftan (ya da seçimden) başlayarak
+  belgeyi okur; okunan paragraf editörde yeşil vurgulanır. Sıradaki paragrafların sesi arka planda hazırlanır, böylece
+  okuma beklemeden sürer. F9 duraklatır/sürdürür, "■ Durdur" bitirir. Aynı paragraf ikinci kez okunurken ses
+  önbellekten gelir. AI Manager 17.13.0+ gerekir.
+- **Ses dosyası oluştur (1.6):** belge önce başlık yapısına göre bölümlere ayrılır (en az iki kez kullanılan en üst
+  başlık düzeyi), çok kısa bölümler komşusuyla birleşir, çok uzun bölümler önce alt başlıklardan, sonra dengeli
+  paragraf gruplarından "Başlık (1/3)" gibi parçalara bölünür. Açılan pencerede bölümleri, karakter sayılarını ve
+  tahmini süreleri görür, istediklerinizi seçersiniz. "Her bölüm ayrı MP3" klasöre "01 - Başlık.mp3" dosyaları ve bir
+  çalma listesi yazar; "Tek MP3" seçilenleri birleştirir. Bir bölüm hata verirse diğerleri devam eder.
 - **Kaynaklar (1.2):** PDF, Word, Excel, PowerPoint, metin ve e-posta dosyalarını ekleyip onlara soru sorun (tıklanabilir
   sayfa atıflarıyla) ya da onlardan makale, eğitim notu, SSS, quiz, denetim kontrol listesi, karşılaştırma, sunum taslağı
   üretin. Büyük belgelerde yerel arama yalnız ilgili bölümleri gönderir; kişisel bilgiler gönderimden önce maskelenebilir.

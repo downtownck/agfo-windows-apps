@@ -1,4 +1,25 @@
 Tarih: 2026-10-20
+Eski Versiyon: 17.12.0
+Yeni Versiyon: 17.13.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/api/class-editor-speech-api.php; includes/adapters/class-adapter-ema.php; tests/live/editor-speech-live.py; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: AGFO AI Editor 1.6.0 "Sesli oku" için eşzamanlı kısa seslendirme ucu.
+
+Yapılanlar:
+- POST /editor/speech-quick: en çok 4.000 karakter; iş kuyruğu yok, MP3 yanıtta (audio_base64, seconds, script). Sunucu sözlüğü; reading_script açıksa okuma metni (önbellekli); script_ready ile hazır metin sözlüksüz okunur. Kimlik doğrulama diğer /editor uçlarıyla aynı.
+- AGFO_AIM_Adapter_EMA::synthesize_short(): kısa metni tek /tts çağrısıyla seslendirir.
+- /editor/info speech özeti: quick, quick_max_chars.
+
+Geriye Uyumluluk: Tam.
+
+Migration: Gerekmiyor. AI Editor 1.6.0 ile kullanılır.
+
+Doğrulama: canlı editör API testi (speech-quick dahil); önceki tüm testler (paket kapısı).
+
+====================================================================================================
+
+Tarih: 2026-10-20
 Eski Versiyon: 17.11.0
 Yeni Versiyon: 17.12.0
 Değişiklik Tipi: MINOR

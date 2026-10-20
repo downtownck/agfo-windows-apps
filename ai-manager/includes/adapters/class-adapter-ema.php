@@ -261,6 +261,55 @@ if ( ! class_exists( 'AGFO_AIM_Adapter_EMA' ) ) {
             return $json;
         }
 
+        /**
+         * NEW 17.13.0: synchronous synthesis of a short text (AI Editor "Sesli oku").
+         * $apply_lexicon=false when the text already is a reading script.
+         *
+         * @return array{audio:string,seconds:float}|WP_Error
+         */
+        public static function synthesize_short( string $text, bool $apply_lexicon = true, float $speed = 1.0, int $pause_ms = 300, int $paragraph_pause_ms = 500 ) {
+            $text = trim( $text );
+            if ( '' === $text ) {
+                return new WP_Error( 'agfo_ema_short_empty', 'Metin boş.' );
+            }
+            if ( '' === self::token() ) {
+                return new WP_Error( 'agfo_ema_no_token', 'EMA servis token’ı tanımlı değil.' );
+            }
+            $body = [
+                'text'               => $text,
+                'format'             => 'mp3',
+                'speed'              => round( max( 0.7, min( 1.4, $speed ) ), 2 ),
+                'pause_ms'           => max( 0, min( 2000, $pause_ms ) ),
+                'paragraph_pause_ms' => max( 0, min( 3000, $paragraph_pause_ms ) ),
+            ];
+            if ( $apply_lexicon ) {
+                $lex = self::lexicon();
+                if ( $lex ) {
+                    $body['lexicon'] = $lex;
+                }
+            } else {
+                $body['apply_lexicon'] = false;
+            }
+            $res = wp_remote_post(
+                self::endpoint() . '/tts',
+                [
+                    'timeout'   => 90,
+                    'sslverify' => true,
+                    'headers'   => [ 'X-AGFO-Token' => self::token(), 'Content-Type' => 'application/json', 'Accept' => 'audio/mpeg' ],
+                    'body'      => wp_json_encode( $body, JSON_UNESCAPED_UNICODE ),
+                ]
+            );
+            if ( is_wp_error( $res ) ) {
+                return new WP_Error( 'agfo_ema_tts_http', 'EMA servisine ulaşılamadı: ' . agfo_redact_secrets( $res->get_error_message() ) );
+            }
+            $code  = (int) wp_remote_retrieve_response_code( $res );
+            $audio = (string) wp_remote_retrieve_body( $res );
+            if ( 200 !== $code || '' === $audio ) {
+                return new WP_Error( 'agfo_ema_tts_' . $code, 'EMA ses üretemedi (HTTP ' . $code . ').' );
+            }
+            return [ 'audio' => $audio, 'seconds' => (float) wp_remote_retrieve_header( $res, 'x-agfo-seconds' ) ];
+        }
+
         /** Short MP3 of a reading, spoken exactly as written (lexicon not applied). */
         public static function listen( string $reading ) {
             $reading = trim( $reading );

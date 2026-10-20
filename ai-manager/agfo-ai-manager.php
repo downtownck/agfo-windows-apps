@@ -3,7 +3,7 @@
  * Plugin Name: AGFO AI Manager
  * Plugin URI: https://agfocert.com/
  * Description: AI Model Yönetimi + Multi-Source Benchmark
- * Version: 17.12.0
+ * Version: 17.13.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AGFOCERT
@@ -12,11 +12,11 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: agfo-ai-manager
  * Domain Path: /languages
- * Revision: 17.12.0 - AI Editor speech API: EMA narration jobs, audio download, reading-script preview and shared lexicon over /editor routes. 17.11.0 - Telaffuz Sözlüğü: add, edit, remove, restore and listen to words of the shared EMA lexicon on the TTS server from WordPress. 17.10.1 - Reading script reads HACCP as "hasip". 17.10.0 - EMA reading script: the site text model rewrites the text into exactly what should be heard (foreign names, numbers, dates, units, abbreviations) with per-chunk fidelity checks, preview and cache. 17.9.1 - Classic editor always lists EMA Lightning and explains a missing token. 17.9.0 - EMA Lightning provider: self-hosted Turkish TTS (AGFO TTS Service) in Ses Stüdyosu and the classic editor, with pronunciation lexicon, pauses and a Turkish-only failover guard.
+ * Revision: 17.13.0 - AI Editor read-aloud endpoint /editor/speech-quick: short text to MP3 synchronously (lexicon, optional reading script). 17.12.0 - AI Editor speech API: EMA narration jobs, audio download, reading-script preview and shared lexicon over /editor routes. 17.11.0 - Telaffuz Sözlüğü: add, edit, remove, restore and listen to words of the shared EMA lexicon on the TTS server from WordPress. 17.10.1 - Reading script reads HACCP as "hasip". 17.10.0 - EMA reading script: the site text model rewrites the text into exactly what should be heard (foreign names, numbers, dates, units, abbreviations) with per-chunk fidelity checks, preview and cache. 17.9.1 - Classic editor always lists EMA Lightning and explains a missing token. 17.9.0 - EMA Lightning provider: self-hosted Turkish TTS (AGFO TTS Service) in Ses Stüdyosu and the classic editor, with pronunciation lexicon, pauses and a Turkish-only failover guard.
  */
 if (!defined('ABSPATH')) exit;
 
-define('AGFO_AIM_VERSION',    '17.12.0');
+define('AGFO_AIM_VERSION',    '17.13.0');
 define('AGFO_AIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AGFO_AIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AGFO_AIM_DATA_DIR',   AGFO_AIM_PLUGIN_DIR . 'data/');
