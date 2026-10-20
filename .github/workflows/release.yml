@@ -7,6 +7,7 @@ name: Release
 #   backupsync-vX.Y.Z   -> AGFO-BackupSync-Setup.exe + AGFO-BackupSync.exe (Windows'ta derlenir) + kaynak ZIP
 #   ai-manager-vX.Y.Z   -> agfo-ai-manager-X.Y.Z.zip (WordPress eklentisi; siteler GitHub'dan gunceller)
 #   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + AGFO-AI-Editor-Kur.cmd (yoneticisiz kurulum) + ekran goruntusu
+#   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot-vX.Y.Z.zip (uygulama ici / tek-tik guncelleme paketi, MANIFEST'li)
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -29,6 +30,7 @@ jobs:
       bs: ${{ steps.d.outputs.bs }}
       am: ${{ steps.d.outputs.am }}
       ae: ${{ steps.d.outputs.ae }}
+      ps: ${{ steps.d.outputs.ps }}
     steps:
       - uses: actions/checkout@v4
       - id: d
@@ -45,6 +47,8 @@ jobs:
           AE=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" ai-editor/src/agfo_editor_core.py)
           echo "am=$(need ai-manager-v$AM)" >> "$GITHUB_OUTPUT"
           echo "ae=$(need ai-editor-v$AE)" >> "$GITHUB_OUTPUT"
+          PS=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" phantom-shot/phantom_core.py)
+          echo "ps=$(need phantom-shot-v$PS)" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   system-care:
@@ -290,3 +294,39 @@ jobs:
           $notes = ".github/release-notes/$env:TAG.md"
           if (-not (Test-Path $notes)) { "AGFO AI Editor $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
           gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO AI Editor $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA
+
+  phantom-shot:
+    needs: detect
+    if: needs.detect.outputs.ps != ''
+    runs-on: ubuntu-latest
+    env: { TAG: '${{ needs.detect.outputs.ps }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket ve ortak modul denetimi
+        run: |
+          V="${TAG#phantom-shot-v}"
+          C=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" phantom-shot/phantom_core.py)
+          [ "$V" = "$C" ] || { echo "Etiket $V ile phantom_core.py VERSION $C uyusmuyor"; exit 1; }
+          cmp shared/agfo_github_update.py phantom-shot/agfo_github_update.py
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - name: Testler
+        run: |
+          python -I shared/tests/test_agfo_github_update.py shared
+          python -I phantom-shot/tests/test_core.py phantom-shot
+          python -m compileall -q phantom-shot
+      - name: Paketle
+        run: |
+          mkdir -p out pkg
+          rsync -a --exclude '__pycache__' phantom-shot/ pkg/phantom-shot/
+          python pkg/phantom-shot/packaging/build_update_manifest.py pkg/phantom-shot
+          rm -rf pkg/phantom-shot/__pycache__
+          (cd pkg && zip -qr "../out/AGFO-Phantom-Shot-v${VERSION}.zip" phantom-shot)
+          python -I -c "import sys; sys.path.insert(0,'phantom-shot'); import phantom_core as c; i=c.inspect_update('out/AGFO-Phantom-Shot-v${VERSION}.zip','0'); assert i['ok'] and i['manifest'] and i['version']=='${VERSION}', i; print('paket dogrulandi', i['version'])"
+          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          NOTES=".github/release-notes/${TAG}.md"; [ -f "$NOTES" ] || { echo "AGFO Phantom Shot ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
+          gh release create "$TAG" out/* --title "AGFO Phantom Shot ${VERSION}" --notes-file "$NOTES" --target "$GITHUB_SHA"

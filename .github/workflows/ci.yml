@@ -18,13 +18,15 @@ jobs:
           cmp shared/agfo_github_update.py supertools/agfo_github_update.py
           cmp shared/agfo_github_update.py backupsync/src/agfo_github_update.py
           cmp shared/agfo_github_update.py ai-editor/src/agfo_github_update.py
+          cmp shared/agfo_github_update.py phantom-shot/agfo_github_update.py
       - name: Testler
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
           python -I shared/tests/test_agfo_github_update.py shared
           python -I system-care/tests/test_core.py system-care
           python -I system-care/tests/test_runner_stream.py system-care
-          python -m compileall -q supertools system-care backupsync/src
+          python -I phantom-shot/tests/test_core.py phantom-shot
+          python -m compileall -q supertools system-care backupsync/src phantom-shot
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
           python -m unittest discover -s backupsync/tests
           python -m pip install --quiet 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'Pillow>=11,<13' 'cryptography>=42,<47' 'fonttools>=4.50,<5'
