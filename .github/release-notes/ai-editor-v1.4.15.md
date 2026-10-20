@@ -6,3 +6,5 @@
 - En güncel sürüme geçilince düğme ve başlık notu kendiliğinden kalkar. Ağ hatasında gösterilen düğme kaybolmaz.
 - Ayarlar → "GitHub'dan yeni sürümü kendiliğinden denetle" kapatılırsa arka plan denetimi yapılmaz; "Şimdi denetle" her zaman çalışır.
 - Sürümle birlikte **AGFO-AI-Editor-Kur.cmd** yayınlanır: yönetici izni istemeden GitHub'daki en son sürümü indirir, SHA-256 ile doğrular, kurar, kısayolları oluşturur ve editörü açar. Teams'ten ya da bağlantıyla paylaşılabilir; içinde sabit sürüm yoktur.
+- Teams `.cmd` eklerini engellediği için dosyasız kurulum da var: Win+R'ye ya da bir terminale şu satır yapıştırılır (yönetici gerekmez):
+  `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/downtownck/agfo-windows-apps/main/ai-editor/packaging/Install-AgfoAIEditor.ps1 | iex"`
