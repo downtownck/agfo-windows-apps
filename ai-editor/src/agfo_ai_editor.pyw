@@ -48,6 +48,7 @@ import agfo_richdoc as rdoc  # noqa: E402
 import agfo_doctranslate as dtr  # noqa: E402
 import agfo_trlive as trlive  # noqa: E402
 import agfo_speech as speech  # noqa: E402  # 1.5: seslendirme
+import agfo_readaloud as readaloud  # noqa: E402  # 1.6: sesli oku
 
 
 def selftest(out_path: str) -> int:
@@ -136,6 +137,9 @@ def selftest(out_path: str) -> int:
         import agfo_pdf_layout  # noqa: F401  (1.4.6: duzeni koruyan PDF cevirisi)
         import agfo_speech as _sp   # 1.5: seslendirme modulu EXE'de
         res['speech'] = _sp.markdown_to_speech('# Başlık\n\n- madde') == 'Başlık.\n\nmadde.'
+        import agfo_readaloud as _ra  # 1.6: sesli oku
+        res['speech'] = res['speech'] and _ra.group_paragraphs(['a', '', 'b'], False) == [(0, 0), (2, 2)] and \
+            [x['title'] for x in _sp.plan_sections('## A\n\n' + 'x. ' * 200 + '\n\n## B\n\n' + 'y. ' * 200)] == ['A', 'B']
         res['ok'] = res['ok'] and res['speech']
         pr2 = _p.PdfProject(pp)
         lays = pr2.layouts()
@@ -273,6 +277,186 @@ class Doc:
     def saved_text(self, _value):
         """Eski arayuz: belgenin su anki hali 'kaydedilmis' sayilir."""
         self.text.undo.mark_saved()
+
+
+class SpeechExportWindow(tk.Toplevel):
+    """1.6: ses dosyasi - bolum plani, secim, cikti bicimi ve bolum bolum ilerleme."""
+
+    def __init__(self, app, backend, doc, sections, what):
+        super().__init__(app)
+        self.app, self.b, self.doc, self.sections = app, backend, doc, sections
+        self.checked = [True] * len(sections)
+        self.status = {}             # is parcaciginden gelen durumlar; after() ile tabloya yazilir
+        self.cancel = threading.Event()
+        self.running = False
+        self.title('Ses dosyası oluştur')
+        self.configure(bg=PANEL, padx=12, pady=10)
+        self.transient(app)
+        self.geometry('%dx%d' % (int(720 * app.scale), int(560 * app.scale)))
+        tk.Label(self, text='Bölümler (%s · %s)' % (what, doc.title or 'belge'), fg=FG, bg=PANEL,
+                 font=('Segoe UI', 11, 'bold'), anchor='w').pack(fill='x')
+        app.lbl(self, 'Belge başlıklarına göre bölündü; çok uzun bölümler paragraf sınırında dengeli parçalara ayrıldı. '
+                      'Satıra tıklayarak bölümü ekleyin ya da çıkarın.', muted=True, wraplength=int(680 * app.scale)).pack(fill='x', pady=(2, 6))
+        self.tree = ttk.Treeview(self, columns=('on', 'title', 'chars', 'dur', 'state'), show='headings', height=12, selectmode='browse')
+        for col, lab, w, anchor in (('on', '✓', 34, 'center'), ('title', 'Bölüm', 330, 'w'), ('chars', 'Karakter', 80, 'e'),
+                                    ('dur', 'Süre (tahmini)', 100, 'e'), ('state', 'Durum', 150, 'w')):
+            self.tree.heading(col, text=lab)
+            self.tree.column(col, width=int(w * app.scale), anchor=anchor, stretch=(col == 'title'))
+        for i, s in enumerate(sections):
+            self.tree.insert('', 'end', iid=str(i), values=('☑', s['title'], '{:,}'.format(s['chars']).replace(',', '.'),
+                                                             self._dur(s['seconds']), 'bekliyor'))
+        self.tree.pack(fill='both', expand=True)
+        self.tree.bind('<ButtonRelease-1>', self._toggle_click)
+        self.tree.bind('<space>', lambda e: self._toggle(self.tree.focus()))
+        sel = tk.Frame(self, bg=PANEL)
+        sel.pack(fill='x', pady=(6, 0))
+        app.btn(sel, 'Tümünü seç', lambda: self._set_all(True), 'ghost', padx=8)
+        app.btn(sel, 'Hiçbirini seçme', lambda: self._set_all(False), 'ghost', padx=8)
+        self.total = app.lbl(sel, '', muted=True)
+        self.total.pack(side='right')
+        opt = tk.Frame(self, bg=PANEL)
+        opt.pack(fill='x', pady=(8, 0))
+        self.mode = tk.StringVar(value=app.settings.get('speech_export_mode', 'files' if len(sections) > 1 else 'single'))
+        for val, lab in (('files', 'Her bölüm ayrı MP3 (+ çalma listesi)'), ('single', 'Tek MP3 dosyası')):
+            tk.Radiobutton(opt, text=lab, value=val, variable=self.mode, bg=PANEL, fg=FG, selectcolor=EDIT_BG, activebackground=PANEL,
+                           activeforeground=FG, font=('Segoe UI', 9), highlightthickness=0, bd=0).pack(side='left', padx=(0, 14))
+        tk.Checkbutton(self, text='Okuma metnini AI ile hazırla (yabancı adlar, sayılar, kısaltmalar)', variable=app.sp_script_var,
+                       bg=PANEL, fg=FG, selectcolor=EDIT_BG, activebackground=PANEL, activeforeground=FG, font=('Segoe UI', 9),
+                       highlightthickness=0, bd=0, anchor='w').pack(fill='x', pady=(4, 0))
+        if getattr(doc, 'speech_script', False):
+            app.lbl(self, 'Bu sekme önizlenmiş okuma metni: metin olduğu gibi okunur.', muted=True).pack(fill='x')
+        bot = tk.Frame(self, bg=PANEL)
+        bot.pack(fill='x', pady=(10, 0))
+        self.go_btn = app.btn(bot, '🎧 Oluştur', self.start, 'primary', padx=16, pady=6)
+        self.cancel_btn = app.btn(bot, 'Durdur', self.stop, 'ghost', padx=10)
+        self.cancel_btn.configure(state='disabled')
+        self.open_btn = app.btn(bot, 'Klasörü aç', lambda: app._open_external(self.out_dir), 'ghost', padx=10)
+        self.open_btn.configure(state='disabled')
+        self.msg = tk.StringVar(value='')
+        tk.Label(self, textvariable=self.msg, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(680 * app.scale)).pack(fill='x', pady=(6, 0))
+        self.out_dir = ''
+        self.bind('<Escape>', lambda e: None if self.running else self.destroy())
+        self._update_total()
+
+    @staticmethod
+    def _dur(seconds):
+        seconds = int(seconds or 0)
+        return '%d:%02d' % (seconds // 60, seconds % 60) if seconds < 3600 else '%d:%02d:%02d' % (seconds // 3600, seconds // 60 % 60, seconds % 60)
+
+    def _toggle_click(self, e):
+        if self.tree.identify_region(e.x, e.y) == 'cell':
+            self._toggle(self.tree.identify_row(e.y))
+
+    def _toggle(self, iid):
+        if self.running or iid in ('', None):
+            return
+        i = int(iid)
+        self.checked[i] = not self.checked[i]
+        self.tree.set(iid, 'on', '☑' if self.checked[i] else '☐')
+        self._update_total()
+
+    def _set_all(self, on):
+        if self.running:
+            return
+        for i in range(len(self.sections)):
+            self.checked[i] = on
+            self.tree.set(str(i), 'on', '☑' if on else '☐')
+        self._update_total()
+
+    def _update_total(self):
+        chosen = [s for s, c in zip(self.sections, self.checked) if c]
+        self.total.configure(text='%d / %d bölüm · %s karakter · ~%s' % (len(chosen), len(self.sections),
+                             '{:,}'.format(sum(s['chars'] for s in chosen)).replace(',', '.'), self._dur(sum(s['seconds'] for s in chosen))))
+        self.go_btn.configure(state='normal' if chosen and not self.running else 'disabled')
+
+    def _ask_target(self, mode):
+        app = self.app
+        base = re.sub(r'[\\/:*?"<>|]+', '_', os.path.splitext(self.doc.title or 'ses')[0]).strip() or 'ses'
+        initial_dir = os.path.dirname(self.doc.path) if self.doc.path else str(pathlib.Path.home())
+        if app.smoke and getattr(app, '_test_speech_path', None):
+            return app._test_speech_path
+        if mode == 'files':
+            parent = filedialog.askdirectory(parent=self, title='Bölüm dosyalarının klasörü', initialdir=initial_dir)
+            return os.path.join(parent, base + ' - ses') if parent else ''
+        return filedialog.asksaveasfilename(parent=self, title='Sesi kaydet', defaultextension='.mp3', initialfile=base + '.mp3',
+                                            initialdir=initial_dir, filetypes=[('MP3 ses', '*.mp3')])
+
+    def start(self):
+        chosen = [(i, s) for i, s in enumerate(self.sections) if self.checked[i]]
+        if not chosen or self.running:
+            return
+        mode = self.mode.get()
+        dest = self._ask_target(mode)
+        if not dest:
+            return
+        app = self.app
+        app.settings['speech_export_mode'] = mode
+        app._speech_settings_changed()
+        ready = bool(getattr(self.doc, 'speech_script', False))
+        opts = dict(reading_script=bool(app.sp_script_var.get()) and not ready, script_ready=ready,
+                    speed=float(app.settings.get('speech_speed', 1.0)), paragraph_pause_ms=int(app.settings.get('speech_paragraph_pause', 700)))
+        index = [i for i, _s in chosen]
+        for i in range(len(self.sections)):
+            self.tree.set(str(i), 'state', 'bekliyor' if self.checked[i] else '—')
+        self.running = True
+        self.cancel.clear()
+        self.go_btn.configure(state='disabled')
+        self.cancel_btn.configure(state='normal')
+        self.msg.set('Bölümler sırayla seslendiriliyor…')
+
+        def status(k, state, info):
+            self.status[index[k]] = (state, info)
+
+        def work():
+            return speech.narrate_sections(self.b, [s for _i, s in chosen], dest, mode=mode, status=status, cancel=self.cancel.is_set, **opts)
+
+        def done(ok, res):
+            self.running = False
+            self._flush()
+            if not self.winfo_exists():
+                return
+            self.cancel_btn.configure(state='disabled')
+            self._update_total()
+            if not ok:
+                self.msg.set('Durduruldu.' if 'Cancelled' in str(res) else 'Hata: %s' % res)
+                return
+            secs = (res.get('duration_ms') or 0) / 1000.0
+            note = speech.script_note(res.get('scripts') or [])
+            where = dest if mode == 'files' else res['paths'][0]
+            self.out_dir = dest if mode == 'files' else os.path.dirname(dest)
+            text = '✓ %d dosya · %s%s' % (len(res['paths']), self._dur(secs), (' · ' + note) if note else '')
+            if res.get('failed'):
+                text += ' · %d bölüm hata verdi' % len(res['failed'])
+            self.msg.set(text + '\n' + where)
+            self.open_btn.configure(state='normal')
+            app._sp_last = res['paths'][0]
+            app._sp_last_dir = self.out_dir
+            app.sp_result_var.set(text)
+            app.sp_play_btn.configure(state='normal')
+            app.sp_folder_btn.configure(state='normal')
+        app._start_job('Ses dosyası', work, done)
+        self._poll_status()
+
+    def _flush(self):
+        if not self.winfo_exists():
+            return
+        for i, (state, info) in list(self.status.items()):
+            label = {'hazırlanıyor': '… ' + (info or 'hazırlanıyor'), 'tamam': '✓ ' + (info or 'tamam'), 'hata': '✗ hata'}.get(state, state)
+            self.tree.set(str(i), 'state', label[:60])
+            if state == 'hazırlanıyor':
+                self.tree.see(str(i))
+
+    def _poll_status(self):
+        if not self.winfo_exists():
+            return
+        self._flush()
+        if self.running:
+            self.after(250, self._poll_status)
+
+    def stop(self):
+        self.cancel.set()
+        self.msg.set('Durduruluyor (sıradaki adımda)…')
 
 
 class LexiconWindow(tk.Toplevel):
@@ -833,14 +1017,8 @@ class App(tk.Tk):
         self.sp_state_lbl = tk.Label(f, textvariable=self.sp_state_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w',
                                      justify='left', wraplength=int(380 * self.scale))
         self.sp_state_lbl.pack(fill='x', pady=(0, 6))
-        self.lbl(f, 'Kapsam yukarıdaki seçime göre: seçili metin (yoksa paragraf) ya da tüm belge. Ses, sitenizdeki AI Manager '
-                    'üzerinden sunucudaki EMA Lightning ile üretilir; Türkçe, karakter ücreti yok.',
-                 muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(0, 8))
-        self.sp_script_var = tk.BooleanVar(value=bool(self.settings.get('speech_script', True)))
-        ttk.Checkbutton(f, text='Okuma metnini AI ile hazırla (yabancı adlar, sayılar, kısaltmalar)', variable=self.sp_script_var,
-                        command=self._speech_settings_changed).pack(anchor='w')
         row = tk.Frame(f, bg=PANEL)
-        row.pack(fill='x', pady=(6, 4))
+        row.pack(fill='x', pady=(0, 4))
         self.lbl(row, 'Hız', muted=True).pack(side='left')
         self.sp_speed_var = tk.DoubleVar(value=float(self.settings.get('speech_speed', 1.0)))
         ttk.Spinbox(row, from_=0.7, to=1.4, increment=0.05, width=5, textvariable=self.sp_speed_var, format='%.2f',
@@ -849,21 +1027,57 @@ class App(tk.Tk):
         self.sp_ppause_var = tk.IntVar(value=int(self.settings.get('speech_paragraph_pause', 700)))
         ttk.Spinbox(row, from_=0, to=3000, increment=50, width=6, textvariable=self.sp_ppause_var,
                     command=self._speech_settings_changed).pack(side='left', padx=(6, 0))
-        go = tk.Frame(f, bg=PANEL)
-        go.pack(fill='x', pady=(8, 4))
-        self.btn(go, '🔊 Seslendir', self.narrate_current, 'primary', padx=14, pady=7)
+
+        # 1.6: Sesli oku
+        ra = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
+        ra.pack(fill='x', pady=(8, 0))
+        tk.Label(ra, text='Sesli oku', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        self.lbl(ra, 'Seçimi ya da imleçten başlayarak belgeyi paragraf paragraf okur; okunan paragraf vurgulanır. '
+                     'Sıradaki paragraflar arka planda hazırlanır.', muted=True, bg=PANEL2,
+                 wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
+        rrow = tk.Frame(ra, bg=PANEL2)
+        rrow.pack(fill='x')
+        self.ra_play_btn = self.btn(rrow, '▶ Sesli oku  (F9)', self.read_aloud, 'primary', padx=12, pady=6)
+        self.ra_pause_btn = self.btn(rrow, '⏸ Duraklat', self.read_aloud_pause, 'ghost', padx=10)
+        self.ra_stop_btn = self.btn(rrow, '■ Durdur', self.read_aloud_stop, 'ghost', padx=10)
+        self.ra_pause_btn.configure(state='disabled')
+        self.ra_stop_btn.configure(state='disabled')
+        self.ra_script_var = tk.BooleanVar(value=bool(self.settings.get('readaloud_script', False)))
+        tk.Checkbutton(ra, text='Okurken AI okuma metni kullan (yabancı adlar, sayılar; başlaması birkaç saniye gecikir)',
+                       variable=self.ra_script_var, command=self._speech_settings_changed, bg=PANEL2, fg=FG, selectcolor=EDIT_BG,
+                       activebackground=PANEL2, activeforeground=FG, font=('Segoe UI', 9), anchor='w', justify='left',
+                       wraplength=int(340 * self.scale), highlightthickness=0, bd=0).pack(anchor='w', pady=(6, 0))
+        self.ra_state_var = tk.StringVar(value='')
+        tk.Label(ra, textvariable=self.ra_state_var, fg=ACCENT, bg=PANEL2, font=('Segoe UI', 9), anchor='w').pack(fill='x', pady=(4, 0))
+
+        # 1.6: Ses dosyasi (bolum plani)
+        fx = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
+        fx.pack(fill='x', pady=(10, 0))
+        tk.Label(fx, text='Ses dosyası', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        self.lbl(fx, 'Belge önce başlıklara, uzun bölümler paragraf sınırında dengeli parçalara ayrılır. Bölümleri görüp seçer, '
+                     'tek MP3 ya da bölüm başına MP3 alırsınız.', muted=True, bg=PANEL2,
+                 wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
+        self.sp_script_var = tk.BooleanVar(value=bool(self.settings.get('speech_script', True)))
+        tk.Checkbutton(fx, text='Okuma metnini AI ile hazırla (yabancı adlar, sayılar, kısaltmalar)', variable=self.sp_script_var,
+                       command=self._speech_settings_changed, bg=PANEL2, fg=FG, selectcolor=EDIT_BG, activebackground=PANEL2,
+                       activeforeground=FG, font=('Segoe UI', 9), anchor='w', highlightthickness=0, bd=0).pack(anchor='w')
+        go = tk.Frame(fx, bg=PANEL2)
+        go.pack(fill='x', pady=(6, 0))
+        self.btn(go, '🎧 Ses dosyası oluştur…', self.narrate_current, 'primary', padx=12, pady=6)
         self.btn(go, 'Okuma metnini önizle', self.preview_reading_script, 'ghost', padx=10)
         self.sp_result_var = tk.StringVar(value='')
-        tk.Label(f, textvariable=self.sp_result_var, fg=OK_C, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
-                 wraplength=int(380 * self.scale)).pack(fill='x', pady=(4, 2))
-        res = tk.Frame(f, bg=PANEL)
+        tk.Label(fx, textvariable=self.sp_result_var, fg=OK_C, bg=PANEL2, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(360 * self.scale)).pack(fill='x', pady=(4, 2))
+        res = tk.Frame(fx, bg=PANEL2)
         res.pack(fill='x')
         self.sp_play_btn = self.btn(res, 'Dinle', lambda: self._open_external(getattr(self, '_sp_last', '')), 'ghost', padx=10)
-        self.sp_folder_btn = self.btn(res, 'Klasörü aç', lambda: self._open_external(os.path.dirname(getattr(self, '_sp_last', '') or '')), 'ghost', padx=10)
+        self.sp_folder_btn = self.btn(res, 'Klasörü aç', lambda: self._open_external(getattr(self, '_sp_last_dir', '') or
+                                                                                    os.path.dirname(getattr(self, '_sp_last', '') or '')), 'ghost', padx=10)
         self.sp_play_btn.configure(state='disabled')
         self.sp_folder_btn.configure(state='disabled')
+
         box = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
-        box.pack(fill='x', pady=(14, 0))
+        box.pack(fill='x', pady=(10, 0))
         tk.Label(box, text='Telaffuz sözlüğü (bütün siteler)', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
         self.lbl(box, 'Yanlış okunan bir adı seçip sağ tıklayın ya da aşağıdan ekleyin. Kayıt sunucudaki ortak listeye yazılır '
                       've hemen geçerli olur.', muted=True, bg=PANEL2, wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
@@ -871,14 +1085,13 @@ class App(tk.Tk):
         brow.pack(fill='x')
         self.btn(brow, 'Seçili kelimeyi ekle…', self.add_selection_to_lexicon, 'ghost', padx=10)
         self.btn(brow, 'Sözlüğü aç…', self.open_lexicon, 'ghost', padx=10)
-        self.lbl(f, 'Önizleme okuma metnini yeni sekmede açar; düzeltip o sekmeden “Seslendir”e basarsanız metin olduğu gibi okunur.',
-                 muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(10, 0))
 
     def _speech_settings_changed(self):
         try:
             self.settings['speech_script'] = bool(self.sp_script_var.get())
             self.settings['speech_speed'] = max(0.7, min(1.4, round(float(self.sp_speed_var.get()), 2)))
             self.settings['speech_paragraph_pause'] = max(0, min(3000, int(self.sp_ppause_var.get())))
+            self.settings['readaloud_script'] = bool(self.ra_script_var.get())
             core.save_settings(self.settings)
         except (tk.TclError, ValueError, OSError):
             pass
@@ -940,57 +1153,164 @@ class App(tk.Tk):
             note = '%d/%d bölüm hazırlandı (%s)' % (res.get('rewritten', 0), res.get('chunks', 0), res.get('model', ''))
             if res.get('kept_original'):
                 note += '; %d bölüm özgün bırakıldı' % res['kept_original']
-            self.flash('Okuma metni yeni sekmede: ' + note + '. Düzeltip bu sekmeden “Seslendir”e basın.', 12000)
+            self.flash('Okuma metni yeni sekmede: ' + note + '. Düzeltip bu sekmeden “Ses dosyası oluştur” ya da “Sesli oku”yu kullanın.', 12000)
         self._start_job('Okuma metni hazırlanıyor (%s)' % what, b.speech_script, done, text)
 
     def narrate_current(self):
-        title = 'Seslendir'
+        """1.6: bolum planini gosteren 'Ses dosyasi olustur' penceresi."""
+        title = 'Ses dosyası oluştur'
         b = self._manager_backend(title)
-        src = b and self._speech_source(title)
-        if not src:
+        if not b:
+            return None
+        d = self.cur()
+        if not d:
+            messagebox.showinfo(title, 'Ses dosyası metin belgelerinden oluşturulur. PDF için önce “Metin olarak aç”ı kullanın.', parent=self)
+            return None
+        start, end, what = self._scope_range(d, force_all=self.scope_var.get() == 'all')
+        try:
+            d.text.index('sel.first')
+        except tk.TclError:
+            if what == 'paragraf':                  # secim yoksa tum belge (tek paragrafin dosyasi pek istenmez)
+                start, end, what = '1.0', d.text.index('end-1c'), 'belge'
+        md = d.text.markdown(start, end)[0] if d.rich else d.text.get(start, end)
+        sections = speech.plan_sections(md)
+        if not sections:
+            messagebox.showinfo(title, 'Seslendirilecek metin bulunamadı.', parent=self)
+            return None
+        win = getattr(self, 'export_win', None)
+        if win is not None and win.winfo_exists():
+            win.destroy()
+        self.export_win = SpeechExportWindow(self, b, d, sections, what)
+        return self.export_win
+
+    # ------------------------------------------------------------------ 1.6: Sesli oku
+    def read_aloud(self):
+        ses = getattr(self, 'ra_session', None)
+        if ses is not None and not ses.done:
+            self.read_aloud_pause()
             return
-        text, d, what = src
-        base = re.sub(r'[\\/:*?"<>|]+', '_', (os.path.splitext(d.title or 'ses')[0] or 'ses')).strip() or 'ses'
-        initial_dir = os.path.dirname(d.path) if d.path else str(pathlib.Path.home())
-        dest = self._ask_speech_path(base + '.mp3', initial_dir)
-        if not dest:
+        title = 'Sesli oku'
+        b = self._manager_backend(title)
+        d = b and self.cur()
+        if not d:
+            if b:
+                messagebox.showinfo(title, 'Sesli okuma metin belgelerinde yapılır.', parent=self)
+            return
+        info = (self.manager_info or {}).get('speech') if isinstance(self.manager_info, dict) else None
+        if isinstance(info, dict) and not info.get('quick'):
+            messagebox.showinfo(title, 'Sesli okuma için sitede AGFO AI Manager 17.13.0 veya üstü gerekir.', parent=self)
+            return
+        t = d.text
+        try:
+            first_line, last_line = int(t.index('sel.first').split('.')[0]), int(t.index('sel.last').split('.')[0])
+        except tk.TclError:
+            first_line, last_line = int(t.index('insert').split('.')[0]), int(t.index('end-1c').split('.')[0])
+        lines = t.get('1.0', 'end-1c').split('\n')
+        segments = []
+        for a, z in readaloud.group_paragraphs(lines, d.rich):
+            if z + 1 < first_line or a + 1 > last_line:
+                continue
+            s0, e0 = '%d.0' % (a + 1), '%d.end' % (z + 1)
+            raw = t.markdown(s0, e0)[0] if d.rich else t.get(s0, e0)
+            texts = readaloud.split_piece(speech.markdown_to_speech(raw))
+            if not texts:
+                continue
+            i = len(segments)
+            t.mark_set('ra_s%d' % i, s0)
+            t.mark_gravity('ra_s%d' % i, 'left')
+            t.mark_set('ra_e%d' % i, e0)
+            segments.append({'id': i, 'texts': texts})
+        if not segments:
+            messagebox.showinfo(title, 'Okunacak metin bulunamadı.', parent=self)
             return
         self._speech_settings_changed()
         ready = bool(getattr(d, 'speech_script', False))
-        opts = dict(reading_script=bool(self.sp_script_var.get()) and not ready, script_ready=ready,
-                    speed=float(self.settings.get('speech_speed', 1.0)), paragraph_pause_ms=int(self.settings.get('speech_paragraph_pause', 700)),
-                    title=d.title or 'AGFO AI Editor')
-        self._sp_cancel = threading.Event()
-        self._sp_progress = 'başlıyor…'
-        cancel = self._sp_cancel
+        opts = {'reading_script': bool(self.ra_script_var.get()) and not ready, 'script_ready': ready,
+                'speed': float(self.settings.get('speech_speed', 1.0)), 'pause_ms': 280, 'paragraph_pause_ms': 0}
+        key = '%s-%.2f' % ('hazir' if ready else ('ai' if opts['reading_script'] else 'sozluk'), opts['speed'])
+        cache = core.data_dir() / 'readaloud' / key
+        self._prune_readaloud_cache()
+        t.tag_configure('readaloud', background='#24452c', foreground=FG)
+        self.ra_doc = d
+        self.ra_count = len(segments)
+        self.ra_session = readaloud.ReadAloud(segments, lambda text: b.speech_quick(text, **opts), str(cache),
+                                              player=getattr(self, '_test_player', None),
+                                              on_segment=self._ra_segment, on_state=self._ra_state)
+        self.ra_play_btn.configure(text='⏯ Duraklat / sürdür  (F9)')
+        self.ra_pause_btn.configure(state='normal')
+        self.ra_stop_btn.configure(state='normal')
+        self.ra_session.start()
+        self._ra_tick()
 
-        def progress(msg):
-            self._sp_progress = msg
+    def _ra_tick(self):
+        ses = getattr(self, 'ra_session', None)
+        if ses is None or ses.done:
+            return
+        try:
+            ses.tick()
+        except Exception:
+            self._log_error(traceback.format_exc())
+            ses.stop()
+            return
+        self._timers['readaloud'] = self.after(150, self._ra_tick)
 
-        def work():
-            return speech.narrate(b, text, dest, progress=progress, cancel=cancel.is_set, **opts)
+    def _ra_segment(self, i):
+        d = getattr(self, 'ra_doc', None)
+        if d is None or not d.text.winfo_exists():
+            return
+        t = d.text
+        t.tag_remove('readaloud', '1.0', 'end')
+        try:
+            t.tag_add('readaloud', 'ra_s%d' % i, 'ra_e%d' % i)
+            t.see('ra_e%d' % i)
+            t.see('ra_s%d' % i)
+        except tk.TclError:
+            pass
 
-        def done(ok, res):
-            self._sp_progress = None
-            if not ok:
-                if 'Cancelled' not in str(res):
-                    messagebox.showerror(title, res, parent=self)
-                return
-            self._sp_last = res['path']
-            secs = (res.get('duration_ms') or 0) / 1000.0
-            dur = (' · %d:%02d' % (secs // 60, secs % 60)) if secs else ''
-            note = speech.script_note(res.get('scripts') or [])
-            self.sp_result_var.set('✓ %s%s%s' % (os.path.basename(res['path']), dur, (' · ' + note) if note else ''))
-            self.sp_play_btn.configure(state='normal')
-            self.sp_folder_btn.configure(state='normal')
-            self.flash('Ses kaydedildi: %s' % res['path'])
-        self._start_job('Seslendiriliyor (%s)' % what, work, done)
+    def _ra_state(self, state, msg=''):
+        self.ra_state_var.set(msg)
+        if state in ('bitti', 'hata', 'durdu'):
+            d = getattr(self, 'ra_doc', None)
+            if d is not None and d.text.winfo_exists():
+                d.text.tag_remove('readaloud', '1.0', 'end')
+                for i in range(getattr(self, 'ra_count', 0)):
+                    for m in ('ra_s%d' % i, 'ra_e%d' % i):
+                        try:
+                            d.text.mark_unset(m)
+                        except tk.TclError:
+                            pass
+            self.ra_play_btn.configure(text='▶ Sesli oku  (F9)')
+            self.ra_pause_btn.configure(state='disabled', text='⏸ Duraklat')
+            self.ra_stop_btn.configure(state='disabled')
+            if state == 'hata':
+                self.flash('Sesli okuma durdu: ' + msg, 10000)
+        elif state == 'duraklatıldı':
+            self.ra_pause_btn.configure(text='▶ Sürdür')
+        elif state == 'okuyor':
+            self.ra_pause_btn.configure(text='⏸ Duraklat')
 
-    def _ask_speech_path(self, initial, initial_dir):
-        if self.smoke and getattr(self, '_test_speech_path', None):
-            return self._test_speech_path
-        return filedialog.asksaveasfilename(parent=self, title='Sesi kaydet', defaultextension='.mp3', initialfile=initial,
-                                            initialdir=initial_dir, filetypes=[('MP3 ses', '*.mp3')])
+    def read_aloud_pause(self):
+        ses = getattr(self, 'ra_session', None)
+        if ses is not None and not ses.done:
+            ses.toggle_pause()
+
+    def read_aloud_stop(self):
+        ses = getattr(self, 'ra_session', None)
+        if ses is not None and not ses.done:
+            ses.stop()
+
+    def _prune_readaloud_cache(self, keep_days=7):
+        import time as _time
+        root = core.data_dir() / 'readaloud'
+        if not root.exists():
+            return
+        limit = _time.time() - keep_days * 86400
+        for p in root.glob('*/*'):
+            try:
+                if p.stat().st_mtime < limit:
+                    p.unlink()
+            except OSError:
+                pass
 
     def _open_external(self, path):
         if not path:
@@ -1932,6 +2252,7 @@ class App(tk.Tk):
         self.settings.update(language=self.lang_var.get(), tone=self.tone_var.get(), audience=self.aud_var.get(),
                              length=self.len_var.get(), preserve_facts=bool(self.preserve_var.get()))
         core.save_settings(self.settings)
+        self.read_aloud_stop()
         self.destroy()
 
     def zoom(self, delta):
@@ -2280,6 +2601,7 @@ class App(tk.Tk):
         b('<Control-h>', lambda e: (self.toggle_find(replace=True), 'break')[1])
         b('<Control-e>', lambda e: (self.run_selected_action(), 'break')[1])
         b('<F3>', lambda e: (self.find_next(), 'break')[1])
+        b('<F9>', lambda e: (self.read_aloud(), 'break')[1])     # 1.6: sesli oku / duraklat
         b('<Control-plus>', lambda e: self.zoom(1))
         b('<Control-minus>', lambda e: self.zoom(-1))
         b('<Control-Tab>', lambda e: self._cycle_tab(1))

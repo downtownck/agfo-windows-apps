@@ -2,10 +2,14 @@
 
 AGFO ekosisteminin merkezi AI sağlayıcı, model, yetenek, iş kuyruğu, medya ve maliyet yönetim katmanıdır.
 
-**Version:** 17.12.0  
+**Version:** 17.13.0  
 **Requires WordPress:** 6.0+  
 **Requires PHP:** 7.4+
 
+
+## 17.13.0 — Sesli oku ucu
+
+AI Editor 1.6.0'ın "Sesli oku" özelliği için `POST /editor/speech-quick`: en çok 4.000 karakterlik bir paragrafı iş kuyruğuna girmeden, istek içinde EMA ile MP3'e çevirir ve `audio_base64`, `seconds`, `script` döndürür. Sunucu sözlüğü uygulanır; `reading_script` açıksa okuma metni hazırlanır (30 günlük önbellek sayesinde tekrar okumada model çağrılmaz); `script_ready` hazır okuma metnini sözlüksüz okur. `/editor/info` speech özetinde `quick` ve `quick_max_chars` vardır.
 
 ## 17.12.0 — AI Editor seslendirme uçları
 

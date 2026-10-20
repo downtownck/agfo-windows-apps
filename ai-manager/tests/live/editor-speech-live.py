@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AI Editor seslendirme uclari canli testi (AI Manager 17.12.0).
+"""AI Editor seslendirme uclari canli testi (AI Manager 17.12.0; speech-quick 17.13.0).
 
 Yerel/izinli bir WordPress'te calisir; EMA servisi olarak AGFO TTS Service 1.1.0+ (gercek ya da sahte model)
 gerekir. Ortam: AGFO_TEST_BASE_URL, AGFO_TEST_WP_PATH, AGFO_TEST_EMA_TOKEN, AGFO_TEST_EMA_LEXICON_ENDPOINT.
@@ -84,6 +84,18 @@ try:
     chk('lexicon delete', st == 200 and d.get('ok'), d)
     st, d, _ = call('/editor/lexicon', {'op': 'nope', 'word': 'x'}, token)
     chk('invalid op -> 400', st == 400, st)
+    st, d, _ = call('/editor/speech-quick', {'text': 'AGFO_REGRESSION sesli okuma paragrafı.', 'reading_script': False, 'speed': 1.2}, token)
+    import base64 as _b64
+    qa = _b64.b64decode(d.get('audio_base64', '') or b'') if st == 200 else b''
+    chk('speech-quick returns mp3', st == 200 and d.get('mime') == 'audio/mpeg' and qa[:3] in (b'ID3', b'\xff\xfb', b'\xff\xf3') and d.get('seconds', 0) > 0 and d.get('script') is False, (st, d if st != 200 else d.get('seconds')))
+    st, d, _ = call('/editor/speech-quick', {'text': 'Hazır okuma metni.', 'script_ready': True}, token)
+    chk('speech-quick script_ready', st == 200 and len(d.get('audio_base64', '')) > 10, st)
+    st, d, _ = call('/editor/speech-quick', {'text': 'x' * 4001}, token)
+    chk('speech-quick too long -> 400', st == 400, st)
+    st, d, _ = call('/editor/speech-quick', {'text': 'x'})
+    chk('speech-quick without key -> 401', st == 401, st)
+    st, d, _ = call('/editor/info', token=token)
+    chk('info advertises quick', d.get('speech', {}).get('quick') is True and d.get('speech', {}).get('quick_max_chars') == 4000, d.get('speech'))
     st, d, _ = call('/editor/lexicon/listen', {'reading': 'hasip'}, token)
     chk('listen returns mp3', st == 200 and d.get('mime') == 'audio/mpeg' and len(d.get('audio_base64', '')) > 100, st)
 finally:

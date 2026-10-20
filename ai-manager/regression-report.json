@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "runner_version": "1.1.0",
-  "generated_at": "2026-10-20T12:09:39+00:00",
+  "generated_at": "2026-10-20T14:23:54+00:00",
   "project": {
     "slug": "aim-work",
-    "version": "17.12.0",
+    "version": "17.13.0",
     "kind": "wordpress-plugin"
   },
   "contract": "/home/claude/aim-work/regression.json",
@@ -114,6 +114,7 @@
       "rest:agfo-ai/v1/editor/lexicon",
       "rest:agfo-ai/v1/editor/lexicon/listen",
       "rest:agfo-ai/v1/editor/speech",
+      "rest:agfo-ai/v1/editor/speech-quick",
       "rest:agfo-ai/v1/editor/speech-script"
     ],
     "uncovered": [
@@ -1653,7 +1654,7 @@
       "id": "editor.speech.live_api",
       "status": "pass",
       "title": "Live: AI Editor speech API — info, auth, reading script, job submit/poll, audio stream, lexicon list/save/delete/listen, reading_script=false kept",
-      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nPASS editor token created\nPASS info advertises speech\nPASS speech without key -> 401\nPASS reading script preview\nPASS submit -> 202 queued\nPASS job completes\nPASS reading_script=false honoured\nPASS audio streamed\nPASS audio without key -> 401\nPASS lexicon list\nPASS lexicon save\nPASS saved word listed as added\nPASS lexicon delete\nPASS invalid op -> 400\nPASS listen returns mp3\nTOTAL 15 pass / 0 fail",
+      "detail": "exit=0; expected=0\nstdout_contains='0 fail':True\noutput:\nPASS editor token created\nPASS info advertises speech\nPASS speech without key -> 401\nPASS reading script preview\nPASS submit -> 202 queued\nPASS job completes\nPASS reading_script=false honoured\nPASS audio streamed\nPASS audio without key -> 401\nPASS lexicon list\nPASS lexicon save\nPASS saved word listed as added\nPASS lexicon delete\nPASS invalid op -> 400\nPASS speech-quick returns mp3\nPASS speech-quick script_ready\nPASS speech-quick too long -> 400\nPASS speech-quick without key -> 401\nPASS info advertises quick\nPASS listen returns mp3\nTOTAL 20 pass / 0 fail",
       "evidence_level": "live_runtime",
       "required_for_package": true
     }

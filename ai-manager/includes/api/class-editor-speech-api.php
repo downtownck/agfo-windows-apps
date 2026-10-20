@@ -16,7 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
     final class AGFO_AIM_Editor_Speech_API {
-        const JOB_RE = '(?P<job>[A-Za-z0-9\-]{8,64})';
+        const JOB_RE    = '(?P<job>[A-Za-z0-9\-]{8,64})';
+        const QUICK_MAX = 4000;
 
         public static function register_hooks(): void {
             add_action( 'rest_api_init', [ __CLASS__, 'register_routes' ] );
@@ -41,6 +42,11 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
             register_rest_route( $ns, '/editor/speech/' . self::JOB_RE . '/audio', [
                 'methods'             => 'GET',
                 'callback'            => [ __CLASS__, 'rest_audio' ],
+                'permission_callback' => $auth,
+            ] );
+            register_rest_route( $ns, '/editor/speech-quick', [   // NEW 17.13.0: AI Editor "Sesli oku"
+                'methods'             => 'POST',
+                'callback'            => [ __CLASS__, 'rest_quick' ],
                 'permission_callback' => $auth,
             ] );
             register_rest_route( $ns, '/editor/speech-script', [
@@ -89,6 +95,8 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
                 'reading_script'        => class_exists( 'AGFO_AIM_Speech_Script' ),
                 'reading_script_default'=> class_exists( 'AGFO_AIM_Speech_Script' ) && AGFO_AIM_Speech_Script::enabled_by_default(),
                 'lexicon_edit'          => current_user_can( 'manage_options' ),
+                'quick'                 => true,              // 17.13.0: /editor/speech-quick
+                'quick_max_chars'       => self::QUICK_MAX,
             ];
         }
 
@@ -199,6 +207,49 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
             }
             fclose( $handle );
             exit;
+        }
+
+        /**
+         * NEW 17.13.0: short text -> MP3 at once (no job queue), for reading a document aloud
+         * paragraph by paragraph. Optional reading script (cached per chunk on the site).
+         */
+        public static function rest_quick( $request ) {
+            $ready = self::ready();
+            if ( true !== $ready ) {
+                return $ready;
+            }
+            $text = AGFO_AIM_Job_API::sanitize_speech_text( (string) $request->get_param( 'text' ) );
+            if ( '' === $text ) {
+                return self::error( 'agfo_editor_quick_empty', 'Metin boş.', 400 );
+            }
+            if ( mb_strlen( $text, 'UTF-8' ) > self::QUICK_MAX ) {
+                return self::error( 'agfo_editor_quick_long', 'Sesli okuma parçası en fazla ' . self::QUICK_MAX . ' karakter olabilir.', 400 );
+            }
+            $apply_lexicon = ! filter_var( $request->get_param( 'script_ready' ), FILTER_VALIDATE_BOOLEAN ); // hazir okuma metni: sozluk bir daha uygulanmaz
+            $script        = false;
+            if ( $apply_lexicon && filter_var( $request->get_param( 'reading_script' ), FILTER_VALIDATE_BOOLEAN ) && class_exists( 'AGFO_AIM_Speech_Script' ) ) {
+                $base = AGFO_AIM_Adapter_EMA::apply_server_lexicon( $text );
+                $prep = AGFO_AIM_Speech_Script::prepare( is_wp_error( $base ) ? $text : $base );
+                if ( ! is_wp_error( $prep ) ) {
+                    $text          = (string) $prep['text'];
+                    $apply_lexicon = is_wp_error( $base );
+                    $script        = $prep['rewritten'] > 0;
+                }
+            }
+            $speed = (float) ( $request->get_param( 'speed' ) ?: 1.0 );
+            $res   = AGFO_AIM_Adapter_EMA::synthesize_short( $text, $apply_lexicon, $speed, absint( $request->get_param( 'pause_ms' ) ?? 300 ), absint( $request->get_param( 'paragraph_pause_ms' ) ?? 500 ) );
+            if ( is_wp_error( $res ) ) {
+                return self::error( $res->get_error_code(), $res->get_error_message(), 502 );
+            }
+            return new WP_REST_Response(
+                [
+                    'mime'         => 'audio/mpeg',
+                    'audio_base64' => base64_encode( $res['audio'] ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+                    'seconds'      => $res['seconds'],
+                    'script'       => $script,
+                ],
+                200
+            );
         }
 
         public static function rest_script( $request ) {
