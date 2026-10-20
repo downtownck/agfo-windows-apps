@@ -2,18 +2,20 @@
 
 Belirlediğiniz bir klavye ya da fare tuşuna basınca ekran görüntüsünü alır ve ayarladığınız klasöre kaydeder. **Ekranda hiçbir pencere, bildirim, ses ya da imleç değişimi göstermez.** Pencere yalnızca ayar ve kontrol içindir.
 
-Dağıtım tek dosyalık bir **EXE**'dir (PyInstaller). Çalışması için Python kurulu olması gerekmez; `mss`, `pynput`, `pillow` ve `pystray` EXE'nin içine gömülüdür.
+Uygulama tek dosyalık bir **EXE** olarak çalışır. EXE, diğer AGFO uygulamalarında olduğu gibi **sizin bilgisayarınızda derlenir**. Yerelde üretilen dosya "internetten indirildi" damgası taşımaz; bu yüzden SmartScreen uyarısı çıkmaz.
 
 ## Kurulum (yönetici gerekmez)
-En kolay yol: GitHub Releases'ten **`AGFO-Phantom-Shot-Kur.cmd`** dosyasını indirip çift tıklayın. Bu dosya:
-1. En güncel `AGFO-Phantom-Shot.exe`'yi GitHub'dan indirir ve SHA-256 ile doğrular,
-2. `%LOCALAPPDATA%\Programs\AGFO-Phantom-Shot` altına kurar,
-3. Başlat menüsü (AGFO) ve masaüstü kısayolu oluşturur,
-4. Uygulamayı başlatır.
+1. GitHub Releases'ten **`AGFO-Phantom-Shot-vX.Y.Z-Kurulum.zip`** dosyasını indirip bir klasöre açın.
+2. Klasördeki **`Derle-ve-Kur.cmd`** dosyasına çift tıklayın. Betik:
+   - bilgisayardaki Python 3.10+ sürümünü (tkinter ile) bulur,
+   - `%LOCALAPPDATA%\AGFO\PhantomShot\build` altında ayrı bir derleme ortamı kurar (Python kurulumunuza dokunmaz),
+   - PyInstaller, mss, pynput, Pillow ve pystray kitaplıklarını bu ortama yükler,
+   - `AGFO-Phantom-Shot.exe` dosyasını derler ve `%LOCALAPPDATA%\Programs\AGFO-Phantom-Shot` altına kurar,
+   - Başlat menüsü (AGFO) ile masaüstüne kısayol ekler ve uygulamayı açar.
 
-Alternatif: Doğrudan `AGFO-Phantom-Shot.exe`'yi indirip çalıştırın; ilk açılışta bilgisayara kurulmayı teklif eder.
+İlk derleme kitaplıkları indirdiği için birkaç dakika sürebilir. Bir hata olursa ayrıntılar `%LOCALAPPDATA%\AGFO\PhantomShot\build\last-build.txt` dosyasına yazılır. Yalnızca derlemek, kurmamak için `Sadece-Derle.cmd` kullanılır; EXE `dist\` klasörüne çıkar.
 
-> **SmartScreen:** EXE kod imzalı değildir. `.cmd` ile indirmek genelde SmartScreen uyarısını atlatır (dosyaya tarayıcı "internetten indirildi" damgası eklemez); yine de ilk çalıştırmada Defender bir uyarı gösterirse **Ek bilgi › Yine de çalıştır** deyin. Sonraki güncellemeler uygulama içinden sessizce gelir.
+Python yoksa önce https://www.python.org/downloads/windows/ adresinden kurun. Derlenen EXE çalışmak için Python'a ihtiyaç duymaz.
 
 ## Kullanım
 1. **Kayıt klasörü** — "Gözat…" ile seçin. Boşsa `~/Pictures/PhantomShots` (ya da Resimler).
@@ -36,7 +38,7 @@ Alternatif: Doğrudan `AGFO-Phantom-Shot.exe`'yi indirip çalıştırın; ilk a�
 Güncelleme penceresinde **Bu bilgisayardan kaldır** — ya da depodaki `Kaldir.cmd`. Program dosyası ve kısayollar silinir; ayarlarınız ve günlükler korunur.
 
 ## Geliştirme (kaynaktan çalıştırma)
-`Baslat.cmd` uygulamayı Python ile kaynaktan çalıştırır (geliştirme için; `pip install pynput mss pillow pystray` gerekir). Dağıtım her zaman EXE'dir. EXE'yi yerelde derlemek için Python 3.12 ile `packaging/build_windows.ps1`.
+`Baslat.cmd` uygulamayı derlemeden, Python ile doğrudan kaynaktan çalıştırır. Geliştirme içindir ve `pip install pynput mss pillow pystray` gerektirir. `packaging/build_windows.ps1` dosyasını yalnızca GitHub Actions kullanır; uygulama içi güncelleme EXE'sini o üretir.
 
 ## Güvenlik
 - Uygulama yalnızca `https://api.github.com/repos/downtownck/agfo-windows-apps/releases` adresini sorgular ve yalnızca `github.com` / `*.githubusercontent.com` üzerinden indirir (yönlendirmeler de denetlenir).

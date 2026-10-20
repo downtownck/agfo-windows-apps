@@ -7,7 +7,7 @@ name: Release
 #   backupsync-vX.Y.Z   -> AGFO-BackupSync-Setup.exe + AGFO-BackupSync.exe (Windows'ta derlenir) + kaynak ZIP
 #   ai-manager-vX.Y.Z   -> agfo-ai-manager-X.Y.Z.zip (WordPress eklentisi; siteler GitHub'dan gunceller)
 #   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + AGFO-AI-Editor-Kur.cmd (yoneticisiz kurulum) + ekran goruntusu
-#   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot.exe (Windows'ta derlenir) + AGFO-Phantom-Shot-Kur.cmd (yoneticisiz kurulum)
+#   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd: EXE kullanicinin PC'sinde derlenir) + AGFO-Phantom-Shot.exe (uygulama ici guncelleme)
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -351,11 +351,33 @@ jobs:
       - name: Paketle
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
+          # Uygulama ici guncelleme icin hazir EXE (uygulama kendi koduyla indirir).
           Copy-Item phantom-shot/dist/AGFO-Phantom-Shot.exe out/
-          Copy-Item phantom-shot/packaging/AGFO-Phantom-Shot-Kur.cmd out/
+          # Ilk kurulum icin kaynak paket: Derle-ve-Kur.cmd EXE'yi kullanicinin bilgisayarinda derler.
+          $src = "AGFO-Phantom-Shot-v$env:VERSION"
+          New-Item -ItemType Directory -Force "pkg/$src" | Out-Null
+          Get-ChildItem phantom-shot -Force | Where-Object { $_.Name -notin @('dist', '__pycache__') } | Copy-Item -Destination "pkg/$src/" -Recurse -Force
+          Get-ChildItem "pkg/$src" -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force
+          if (-not (Test-Path "pkg/$src/Derle-ve-Kur.cmd")) { throw 'Derle-ve-Kur.cmd pakette yok' }
+          Compress-Archive -Path "pkg/$src" -DestinationPath "out/$src-Kurulum.zip"
           Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
             '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
           Get-Content out/SHA256SUMS.txt
+      - name: Yerel derleme yolu testi (Kurulum ZIP'i ac -> build_local.ps1 -> EXE oz-testi)
+        run: |
+          $zip = (Get-ChildItem out -Filter '*-Kurulum.zip' | Select-Object -First 1).FullName
+          $t = Join-Path $env:RUNNER_TEMP 'ps-local'
+          Expand-Archive -LiteralPath $zip -DestinationPath $t -Force
+          $dir = (Get-ChildItem $t -Directory | Select-Object -First 1).FullName
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dir 'packaging\build_local.ps1')
+          if ($LASTEXITCODE) { $l = Join-Path $env:LOCALAPPDATA 'AGFO\PhantomShot\build\last-build.txt'; if (Test-Path $l) { Get-Content $l -Tail 60 }; throw 'build_local.ps1 basarisiz' }
+          $exe = Join-Path $dir 'dist\AGFO-Phantom-Shot.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw 'Yerel derleme EXE uretmedi' }
+          $png = Join-Path $env:RUNNER_TEMP 'local-smoke.png'
+          $p = Start-Process -FilePath $exe -ArgumentList @('--smoke', ('"' + $png + '"')) -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'yerel EXE smoke zaman asimi' }
+          if ($p.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $png)) { throw ('yerel EXE smoke basarisiz, cikis ' + $p.ExitCode) }
+          Write-Host 'Yerel derleme yolu dogrulandi.'
       - name: Yayinla
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
