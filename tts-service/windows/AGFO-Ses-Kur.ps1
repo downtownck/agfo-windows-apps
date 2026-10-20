@@ -9,6 +9,7 @@ param([switch]$Kaldir, [switch]$CpuOnly)
 $ErrorActionPreference = 'Continue'   # yerel komutların stderr çıktısı PS 5.1'de hata sayılmasın
 $ProgressPreference = 'SilentlyContinue'
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 
 $Src = $PSScriptRoot
 $D = Join-Path $env:LOCALAPPDATA 'AGFO\TTS'
@@ -44,8 +45,10 @@ function Find-Exe($name) {
     if ($hit) { return $hit.FullName }
     return $null
 }
+# Yerel komut ciktisi hem ekrana hem kayit dosyasina (Start-Transcript) gitsin; $LASTEXITCODE korunur
+function Show { process { Write-Host "  $_" } }
 function Winget-Install($id) {
-    winget install --id $id -e --silent --accept-source-agreements --accept-package-agreements
+    winget install --id $id -e --silent --source winget --accept-source-agreements --accept-package-agreements 2>&1 | ForEach-Object { "$_" } | Show
     return ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq -1978335189 -or $LASTEXITCODE -eq -1978335135)
 }
 function Stop-Service-Process {
@@ -128,21 +131,28 @@ Ok "Kurulum klasörü: $D"
 # ---------------------------------------------------------------- 4. Python ve paketler
 Step 'Python 3.12 ve paketler (ilk kurulumda birkaç GB indirilir)'
 $env:UV_NO_CONFIG = '1'
-& $uv python install 3.12
+& $uv python install 3.12 2>&1 | ForEach-Object { "$_" } | Show
 if (-not (Test-Path $Py)) {
-    & $uv venv --python 3.12 (Join-Path $D 'venv')
+    & $uv venv --python 3.12 (Join-Path $D 'venv') 2>&1 | ForEach-Object { "$_" } | Show
     if (-not (Test-Path $Py)) { Fail 'Sanal ortam oluşturulamadı.'; Done 1 }
 }
 if ($gpu) { $torchIndex = 'https://download.pytorch.org/whl/cu126' } else { $torchIndex = 'https://download.pytorch.org/whl/cpu' }
 Write-Host "  PyTorch ($torchIndex)…"
-& $uv pip install --python $Py torch --index-url $torchIndex
+& $uv pip install --python $Py torch --index-url $torchIndex 2>&1 | ForEach-Object { "$_" } | Show
 if ($LASTEXITCODE -ne 0) { Fail 'PyTorch kurulamadı.'; Done 1 }
-& $uv pip install --python $Py ema-lightning fastapi 'uvicorn[standard]' soundfile numpy
+# Kurulan torch surumu sabitlenir: diger paketler onu PyPI'deki islemci surumuyle sessizce degistiremesin
+$tv = ((& $Py -c "import torch; print(torch.__version__)" 2>$null) -join '').Trim()
+$cons = Join-Path $D 'torch-constraint.txt'
+[IO.File]::WriteAllText($cons, "torch==$tv`n", (New-Object Text.UTF8Encoding($false)))
+& $uv pip install --python $Py -c $cons --extra-index-url $torchIndex --index-strategy unsafe-best-match ema-lightning fastapi 'uvicorn[standard]' soundfile numpy 2>&1 | ForEach-Object { "$_" } | Show
 if ($LASTEXITCODE -ne 0) { Fail 'Paketler kurulamadı.'; Done 1 }
-$probe = & $Py -c "import torch, ema_lightning; print(torch.__version__, 'cuda' if torch.cuda.is_available() else 'cpu')" 2>$null
+$probe = ((& $Py -c "import torch, ema_lightning; print(torch.__version__, 'cuda' if torch.cuda.is_available() else 'cpu')" 2>$null) -join ' ')
 if ($LASTEXITCODE -ne 0) { Fail 'Python paketleri yüklenemedi.'; Done 1 }
 Ok "torch $probe"
-if ($gpu -and $probe -notmatch 'cuda') { Warn 'PyTorch ekran kartını görmüyor; NVIDIA sürücüsünü güncelleyin. Servis şimdilik işlemcide çalışacak.' }
+if ($gpu -and $probe -notmatch 'cuda') {
+    if ($probe -match '\+cpu' -or $probe -notmatch '\+cu') { Warn 'İşlemci sürümü PyTorch kuruldu; servis işlemcide çalışacak. Bu çıktıyı Claude''a gönderin.' }
+    else { Warn 'PyTorch ekran kartını görmüyor; NVIDIA sürücüsünü güncelleyin. Servis şimdilik işlemcide çalışacak.' }
+}
 
 # ---------------------------------------------------------------- 5. ayarlar
 Step 'Ayarlar'
@@ -153,10 +163,12 @@ if (-not $envMap['AGFO_TTS_TOKEN']) {
     $envMap['AGFO_TTS_TOKEN'] = -join ($bytes | ForEach-Object { $_.ToString('x2') })
 }
 if (-not $envMap['AGFO_TTS_PORT']) {
+    # Dinleyen yoksa bile Hyper-V/WSL/Docker'in ayirdigi portlar kullanilamaz: gercekten baglanip denenir
     $port = 8765
     while ($port -lt 8800) {
-        $busy = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-        if (-not $busy) { break }
+        $free = $false
+        try { $l = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, $port); $l.Start(); $l.Stop(); $free = $true } catch {}
+        if ($free) { break }
         $port++
     }
     $envMap['AGFO_TTS_PORT'] = "$port"
@@ -186,16 +198,23 @@ Ok "Başlangıç kısayolu: $Lnk"
 
 # ---------------------------------------------------------------- 7. başlat ve bekle
 Step 'Servis başlatılıyor (ilk açılışta ses modeli indirilir)'
+$svcLog = Join-Path $D 'service.log'
 Start-Process -FilePath $Pyw -ArgumentList ('"' + (Join-Path $D 'run_local.py') + '"') -WorkingDirectory $D
 $hdr = @{ 'X-AGFO-Token' = $Token }
 $health = $null
+$why = 'Servis 10 dakikada yanıt vermedi.'
 for ($i = 0; $i -lt 200 -and -not $health; $i++) {
     Start-Sleep 3
-    try { $health = Invoke-RestMethod "$Api/health" -Headers $hdr -TimeoutSec 5 -ErrorAction Stop } catch {}
-    if ($i % 10 -eq 9) { Write-Host "  … bekleniyor ($([int](($i + 1) * 3)) sn)" }
+    try { $health = Invoke-RestMethod "$Api/health" -Headers $hdr -TimeoutSec 5 -ErrorAction Stop } catch {
+        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 401) { $why = "Port $Port başka bir program tarafından kullanılıyor."; break }
+    }
+    if ($health) { break }
+    $alive = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*run_local.py*' }
+    if (-not $alive -and $i -ge 2) { $why = 'Servis açılırken kapandı.'; break }
+    if ($i % 10 -eq 9) { Write-Host "  … bekleniyor ($([int](($i + 1) * 3)) sn; ilk açılışta ses modeli indiriliyor)" }
 }
 if (-not $health) {
-    Fail 'Servis 10 dakikada yanıt vermedi. Kayıt dosyasının son satırları:'
+    Fail ($why + ' Kayıt dosyasının son satırları:')
     Get-Content (Join-Path $D 'service.log') -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
     Done 1
 }
@@ -205,7 +224,7 @@ Ok "Servis $($health.version) çalışıyor - aygıt: $($health.device), sözlü
 Step 'Deneme'
 $sample = 'Merhaba, ben AGFO ses servisi. Bu ses şu anda kendi bilgisayarınızda üretildi. Chicago''daki HACCP denetimi on beş dakika sürdü.'
 foreach ($n in 1, 2) {
-    $body = @{ text = $sample; speed = 1.0; seed = $n } | ConvertTo-Json
+    $body = @{ text = $sample; speed = 1.0; seed = (Get-Random -Maximum 100000) + $n } | ConvertTo-Json   # her kurulumda yeni ses: hız gerçekten ölçülür
     $out = Join-Path $Desk 'agfo-ses-deneme.mp3'
     $sw = [Diagnostics.Stopwatch]::StartNew()
     try {

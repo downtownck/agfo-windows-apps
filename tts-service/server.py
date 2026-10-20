@@ -169,6 +169,7 @@ def to_mp3(wav_bytes: bytes) -> bytes:
         [FFMPEG, "-loglevel", "error", "-i", "pipe:0", "-codec:a", "libmp3lame",
          "-b:a", "96k", "-f", "mp3", "pipe:1"],
         input=wav_bytes, capture_output=True, check=True,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),   # 1.1.1: no console flash under pythonw
     )
     return p.stdout
 
@@ -266,7 +267,12 @@ def synthesize(req: TTSRequest, x_agfo_token: str | None = Header(default=None))
     key = hashlib.sha256((req.model_dump_json() + f"|lex:{_lexicon_mtime}").encode()).hexdigest()
     cached = CACHE_DIR / f"{key}.{req.format}"
     if cached.exists():
-        return _audio_response(cached.read_bytes(), req.format, cached=True)
+        secs_file = cached.with_suffix(cached.suffix + ".sec")
+        try:
+            secs = float(secs_file.read_text())
+        except (OSError, ValueError):
+            secs = None
+        return _audio_response(cached.read_bytes(), req.format, cached=True, seconds=secs)
 
     paragraphs = [p for p in re.split(r"\n\s*\n", req.text) if p.strip()]
     pieces: list[np.ndarray] = []
@@ -291,7 +297,12 @@ def synthesize(req: TTSRequest, x_agfo_token: str | None = Header(default=None))
         data = to_mp3(data)
 
     cached.write_bytes(data)
-    return _audio_response(data, req.format, cached=False, seconds=len(full) / sr)
+    seconds = len(full) / sr
+    try:
+        cached.with_suffix(cached.suffix + ".sec").write_text(f"{seconds:.2f}")
+    except OSError:
+        pass
+    return _audio_response(data, req.format, cached=False, seconds=seconds)
 
 
 def _audio_response(data: bytes, fmt: str, cached: bool, seconds: float | None = None):

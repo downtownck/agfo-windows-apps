@@ -52,5 +52,7 @@ c.post("/lexicon/entry", headers=H, json={"word": "Gugenheim", "reading": "Gugge
 r = c.post("/tts", headers=H, json={"text": "Gugenheim."})
 chk("tts not served stale after edit", r.headers.get("X-AGFO-Cached") == "0" and ema_lightning.SAID[-1].startswith("Guggenhaym"), ema_lightning.SAID)
 r = c.post("/tts", headers=H, json={"text": "Gugenheim.", "apply_lexicon": False}); chk("apply_lexicon false honoured", ema_lightning.SAID[-1].startswith("Gugenheim"))
+r1 = c.post("/tts", headers=H, json={"text": "Süre denemesi.", "seed": 7}); r2 = c.post("/tts", headers=H, json={"text": "Süre denemesi.", "seed": 7})
+chk("cached response keeps duration", r2.headers.get("X-AGFO-Cached") == "1" and r2.headers.get("X-AGFO-Seconds") == r1.headers.get("X-AGFO-Seconds") and r1.headers.get("X-AGFO-Seconds"), dict(r2.headers))
 r = c.get("/health", headers=H).json(); chk("health reports version and device", r.get("version") == "1.1.1" and "device" in r, r)
 print("TOTAL", ok, "pass /", fail, "fail")

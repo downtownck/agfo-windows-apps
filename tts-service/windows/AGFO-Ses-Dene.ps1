@@ -10,6 +10,8 @@ param([string]$Referans = '', [string]$HfToken = '', [switch]$Kaldir, [switch]$S
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+function Show { process { Write-Host "  $_" } }
 
 $Src = $PSScriptRoot
 $T = Join-Path $env:LOCALAPPDATA 'AGFO\TTS'
@@ -90,11 +92,11 @@ if (-not $Sorma) {
 Step 'Deneme ortamı (ilk seferde yaklaşık 5-6 GB indirilir)'
 New-Item -ItemType Directory -Force -Path $B, $Out, (Join-Path $B 'hf'), (Join-Path $B 'model') | Out-Null
 $env:UV_NO_CONFIG = '1'
-& $uv python install 3.11
-if (-not (Test-Path $Py)) { & $uv venv --python 3.11 (Join-Path $B 'venv') }
+& $uv python install 3.11 2>&1 | ForEach-Object { "$_" } | Show
+if (-not (Test-Path $Py)) { & $uv venv --python 3.11 (Join-Path $B 'venv') 2>&1 | ForEach-Object { "$_" } | Show }
 if (-not (Test-Path $Py)) { Fail 'Sanal ortam oluşturulamadı.'; Done 1 }
 $idx = $(if ($gpu) { 'https://download.pytorch.org/whl/cu124' } else { 'https://download.pytorch.org/whl/cpu' })
-& $uv pip install --python $Py --index-url https://pypi.org/simple --extra-index-url $idx --index-strategy unsafe-best-match chatterbox-tts==0.1.7 soundfile
+& $uv pip install --python $Py --index-url https://pypi.org/simple --extra-index-url $idx --index-strategy unsafe-best-match chatterbox-tts==0.1.7 soundfile 2>&1 | ForEach-Object { "$_" } | Show
 if ($LASTEXITCODE -ne 0) { Fail 'Chatterbox kurulamadı.'; Done 1 }
 $probe = & $Py -c "import torch; print(torch.__version__, 'cuda' if torch.cuda.is_available() else 'cpu')" 2>$null
 Ok "torch $probe"
@@ -130,8 +132,10 @@ if ($HfToken) {
                 $dst = Join-Path $B ('model\' + (Split-Path $f -Leaf))
                 Invoke-WebRequest "https://huggingface.co/dcx514ai/piper_tts_turkish_high/resolve/main/$f" -Headers $h -OutFile $dst -UseBasicParsing -ErrorAction Stop
             }
-            Copy-Item (Join-Path $B ('model\' + (Split-Path $conf -Leaf))) "$m.json" -Force
-            & $uv pip install --python $Py piper-tts
+            if ((Split-Path $conf -Leaf) -ne ((Split-Path $onnx -Leaf) + '.json')) {
+                Copy-Item (Join-Path $B ('model\' + (Split-Path $conf -Leaf))) "$m.json" -Force
+            }
+            & $uv pip install --python $Py piper-tts 2>&1 | ForEach-Object { "$_" } | Show
             if ($LASTEXITCODE -eq 0) { $piper = $m; Ok 'Piper Cem hazır' } else { Warn 'piper-tts kurulamadı; atlanıyor.' }
         }
     } catch { Warn "Piper Cem indirilemedi (onay henüz verilmemiş olabilir): $($_.Exception.Message)" }
@@ -142,7 +146,7 @@ Step 'Seslendirme (Chatterbox ilk seferde ~2 GB model indirir)'
 $env:HF_HOME = Join-Path $B 'hf'
 $env:PYTHONIOENCODING = 'utf-8'
 $a1 = $(if ($ref) { $ref } else { '-' }); $a2 = $(if ($piper) { $piper } else { '-' })
-& $Py (Join-Path $Src 'bench_win.py') $Out $a1 $a2
+& $Py (Join-Path $Src 'bench_win.py') $Out $a1 $a2 2>&1 | ForEach-Object { "$_" } | Show
 Step 'Bitti'
 Write-Host "  Dosyalar: $Out"
 Get-ChildItem $Out -Filter *.mp3 | ForEach-Object { Write-Host "   - $($_.Name)" }

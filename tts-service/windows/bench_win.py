@@ -113,7 +113,7 @@ if PIPER:
         exe = os.path.join(os.path.dirname(sys.executable), 'piper.exe')
         wav = os.path.join(OUT, '4-piper-cem.wav')
         t = time.time()
-        subprocess.run([exe, '--model', PIPER, '--output_file', wav], input=TEXT.encode('utf-8'), check=True)
+        subprocess.run([exe, '-m', PIPER, '-f', wav], input=TEXT.encode('utf-8'), check=True)
         el = time.time() - t
         info = sf.info(wav)
         mp3(wav, os.path.join(OUT, '4-piper-cem.mp3'))
