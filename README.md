@@ -6,7 +6,7 @@
 | AGFO SuperTools | `supertools/` | `supertools-vX.Y.Z` | `AGFO-SuperTools-vX.Y.Z.update.zip` (Güncelleme Merkezi) + `-Kurulum.zip` |
 | AGFO BackupSync | `backupsync/` | `backupsync-vX.Y.Z` | `AGFO-BackupSync-Setup.exe` (Windows'ta GitHub Actions derler) |
 | AGFO AI Editor | `ai-editor/` | `ai-editor-vX.Y.Z` | `AGFO-AI-Editor.exe` (tek dosya; ilk açılışta kullanıcı klasörüne kurulur) |
-| AGFO Phantom Shot | `phantom-shot/` | `phantom-shot-vX.Y.Z` | `AGFO-Phantom-Shot-vX.Y.Z.zip` (uygulama içi / tek tıkla güncelleme paketi, MANIFEST'li) |
+| AGFO Phantom Shot | `phantom-shot/` | `phantom-shot-vX.Y.Z` | `AGFO-Phantom-Shot.exe` (Windows'ta derlenir) + `AGFO-Phantom-Shot-Kur.cmd` (yöneticisiz kurulum) |
 | AGFO AI Manager (WordPress) | `ai-manager/` | `ai-manager-vX.Y.Z` | `agfo-ai-manager-X.Y.Z.zip` (siteler Eklentiler ekranından GitHub'dan günceller; `data/data.json` korunur) |
 
 ## Güncelleme nasıl yayılır

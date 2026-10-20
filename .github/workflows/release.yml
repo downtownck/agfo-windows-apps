@@ -7,7 +7,7 @@ name: Release
 #   backupsync-vX.Y.Z   -> AGFO-BackupSync-Setup.exe + AGFO-BackupSync.exe (Windows'ta derlenir) + kaynak ZIP
 #   ai-manager-vX.Y.Z   -> agfo-ai-manager-X.Y.Z.zip (WordPress eklentisi; siteler GitHub'dan gunceller)
 #   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + AGFO-AI-Editor-Kur.cmd (yoneticisiz kurulum) + ekran goruntusu
-#   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot-vX.Y.Z.zip (uygulama ici / tek-tik guncelleme paketi, MANIFEST'li)
+#   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot.exe (Windows'ta derlenir) + AGFO-Phantom-Shot-Kur.cmd (yoneticisiz kurulum)
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -298,35 +298,67 @@ jobs:
   phantom-shot:
     needs: detect
     if: needs.detect.outputs.ps != ''
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     env: { TAG: '${{ needs.detect.outputs.ps }}' }
+    defaults:
+      run: { shell: pwsh }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - name: Surum / etiket ve ortak modul denetimi
         run: |
-          V="${TAG#phantom-shot-v}"
-          C=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" phantom-shot/phantom_core.py)
-          [ "$V" = "$C" ] || { echo "Etiket $V ile phantom_core.py VERSION $C uyusmuyor"; exit 1; }
-          cmp shared/agfo_github_update.py phantom-shot/agfo_github_update.py
-          echo "VERSION=$V" >> "$GITHUB_ENV"
-      - name: Testler
+          $v = $env:TAG -replace '^phantom-shot-v',''
+          $c = (Select-String -Path phantom-shot/phantom_core.py -Pattern "^VERSION = '([0-9.]+)'").Matches[0].Groups[1].Value
+          if ($v -ne $c) { throw "Etiket $v ile phantom_core.py VERSION $c uyusmuyor" }
+          if ((Get-FileHash shared/agfo_github_update.py).Hash -ne (Get-FileHash phantom-shot/agfo_github_update.py).Hash) { throw 'Ortak modul kopyasi farkli' }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Ortak modul testi
+        run: python -I shared/tests/test_agfo_github_update.py shared
+      - name: Derle (testler + PyInstaller + EXE oz-testi)
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File phantom-shot/packaging/build_windows.ps1
+      - name: Guncelleyici gercek testi (eski surum acikken EXE degistirme + yeniden baslatma)
         run: |
-          python -I shared/tests/test_agfo_github_update.py shared
-          python -I phantom-shot/tests/test_core.py phantom-shot
-          python -m compileall -q phantom-shot
+          $exe = (Resolve-Path phantom-shot/dist/AGFO-Phantom-Shot.exe).Path
+          $t = Join-Path $env:RUNNER_TEMP 'ps-upd'
+          New-Item -ItemType Directory -Force $t | Out-Null
+          $target = Join-Path $t 'AGFO-Phantom-Shot.exe'
+          Copy-Item -LiteralPath $exe -Destination $target
+          (Get-Item -LiteralPath $target).LastWriteTime = (Get-Date).AddDays(-3)
+          $before = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+          $old = Start-Process -FilePath $target -PassThru
+          Start-Sleep -Seconds 10
+          $child = Get-CimInstance Win32_Process -Filter "ParentProcessId=$($old.Id)" | Where-Object Name -eq 'AGFO-Phantom-Shot.exe' | Select-Object -First 1
+          $waitPid = if ($child) { [int]$child.ProcessId } else { $old.Id }
+          Write-Host "old app parent=$($old.Id) wait=$waitPid"
+          $u = Start-Process -FilePath $exe -ArgumentList @('--apply-update', ('"' + $target + '"'), '--wait-pid', $waitPid) -PassThru
+          Start-Sleep -Seconds 5
+          if ($u.HasExited) { throw ('updater exited early: ' + $u.ExitCode) }
+          Stop-Process -Id $waitPid -Force            # kullanici eski surumu kapatir
+          if (-not $u.WaitForExit(150000)) { throw 'updater timeout' }
+          $log = Join-Path $env:LOCALAPPDATA 'AGFO\PhantomShot\update-log.txt'
+          if (Test-Path $log) { Get-Content $log }
+          if ($u.ExitCode -ne 0) { throw ('updater exit code ' + $u.ExitCode) }
+          $after = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+          if ($after -le $before) { throw 'target was not replaced' }
+          if ((Get-FileHash $target).Hash -ne (Get-FileHash $exe).Hash) { throw 'target content differs' }
+          Start-Sleep -Seconds 8
+          $relaunched = @(Get-CimInstance Win32_Process -Filter "Name='AGFO-Phantom-Shot.exe'" | Where-Object { $_.ExecutablePath -eq $target })
+          Write-Host ('relaunched: ' + $relaunched.Count)
+          if (-not $relaunched.Count) { throw 'new version was not relaunched' }
+          Get-Process AGFO-Phantom-Shot -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not (Select-String -Path $log -Pattern 'Update applied' -Quiet)) { throw 'no success line in log' }
       - name: Paketle
         run: |
-          mkdir -p out pkg
-          rsync -a --exclude '__pycache__' phantom-shot/ pkg/phantom-shot/
-          python pkg/phantom-shot/packaging/build_update_manifest.py pkg/phantom-shot
-          rm -rf pkg/phantom-shot/__pycache__
-          (cd pkg && zip -qr "../out/AGFO-Phantom-Shot-v${VERSION}.zip" phantom-shot)
-          python -I -c "import sys; sys.path.insert(0,'phantom-shot'); import phantom_core as c; i=c.inspect_update('out/AGFO-Phantom-Shot-v${VERSION}.zip','0'); assert i['ok'] and i['manifest'] and i['version']=='${VERSION}', i; print('paket dogrulandi', i['version'])"
-          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item phantom-shot/dist/AGFO-Phantom-Shot.exe out/
+          Copy-Item phantom-shot/packaging/AGFO-Phantom-Shot-Kur.cmd out/
+          Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
+          Get-Content out/SHA256SUMS.txt
       - name: Yayinla
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          NOTES=".github/release-notes/${TAG}.md"; [ -f "$NOTES" ] || { echo "AGFO Phantom Shot ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
-          gh release create "$TAG" out/* --title "AGFO Phantom Shot ${VERSION}" --notes-file "$NOTES" --target "$GITHUB_SHA"
+          $notes = ".github/release-notes/$env:TAG.md"
+          if (-not (Test-Path $notes)) { "AGFO Phantom Shot $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
+          gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO Phantom Shot $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA

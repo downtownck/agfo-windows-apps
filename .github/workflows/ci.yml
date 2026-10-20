@@ -26,6 +26,7 @@ jobs:
           python -I system-care/tests/test_core.py system-care
           python -I system-care/tests/test_runner_stream.py system-care
           python -I phantom-shot/tests/test_core.py phantom-shot
+          python -I phantom-shot/tests/test_update.py phantom-shot
           python -m compileall -q supertools system-care backupsync/src phantom-shot
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
           python -m unittest discover -s backupsync/tests

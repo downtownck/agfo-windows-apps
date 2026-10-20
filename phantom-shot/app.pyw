@@ -1,23 +1,21 @@
-"""AGFO Phantom Shot 1.0.0 - tek tusla sessiz ekran goruntusu (Windows GUI).
+"""AGFO Phantom Shot - tek tusla sessiz ekran goruntusu (Windows GUI, tek dosyalik EXE).
 
 Ayar penceresinden klasoru, tetik tusunu/fare tusunu ve bicimi secersiniz. "Baslat" dediginizde arka
 planda dinler; secili tusa basildiginda ekran goruntusunu alir ve ekranda HICBIR pencere, bildirim ya
-da ses gostermeden kaydeder. Pencereyi sistem tepsisine kucultebilirsiniz (pystray varsa).
+da ses gostermeden kaydeder. Pencereyi sistem tepsisine kucultebilirsiniz.
 
-Yakalama mss, tus/fare dinleme pynput ile yapilir (ilk acilista kurulmasi onerilir). GitHub'daki
-downtownck/agfo-windows-apps deposundan uygulama kendini tek tikla gunceller (yedek + otomatik geri alma).
+Yakalama mss, tus/fare dinleme pynput ile yapilir (EXE'ye gomuludur). GitHub'daki
+downtownck/agfo-windows-apps deposundan uygulama kendini tek tikla gunceller: yeni EXE indirilir,
+SHA-256 ile dogrulanir, uygulama kapaninca yeni surum kendini eski dosyanin uzerine yazar ve acilir.
 
-Gerekli:    pip install pynput mss
-Istege bagli: pip install pillow pystray   (jpg + tepsi ikonu icin)
+Komut satiri: --smoke <png> (derleme oz-testi), --apply-update <hedef> --wait-pid <pid> (guncelleyici).
 """
 import ctypes
 import os
 import pathlib
 import queue
-import subprocess
 import sys
 import threading
-import time
 
 IS_WIN = sys.platform == 'win32'
 
@@ -39,12 +37,14 @@ _enable_dpi_awareness()
 import tkinter as tk  # noqa: E402
 from tkinter import filedialog, messagebox, ttk  # noqa: E402
 
-BASE = pathlib.Path(__file__).resolve().parent
-sys.path.insert(0, str(BASE))
+if not getattr(sys, 'frozen', False):
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import phantom_core as core  # noqa: E402
+import phantom_update as upd  # noqa: E402
 import agfo_github_update as ghu  # noqa: E402
 
 VERSION = core.VERSION
+FROZEN = bool(getattr(sys, 'frozen', False))
 BG, PANEL, PANEL2, FG, MUTED, ACCENT = '#0a1425', '#12243b', '#192e48', '#ecf3ff', '#a5b6ce', '#49b3ef'
 WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
 POLL_MS = 90
@@ -60,7 +60,6 @@ _PYNPUT = {}
 
 
 def _pynput():
-    """pynput.keyboard, pynput.mouse modullerini (keyboard, mouse) dondurur; yoksa (None, None)."""
     if 'kb' not in _PYNPUT:
         try:
             from pynput import keyboard, mouse
@@ -71,17 +70,15 @@ def _pynput():
 
 
 def resolve_key(key_name):
-    """config'teki tus adini pynput nesnesine cevirir. Donus: (obj, char) - ikisi de None olabilir."""
     keyboard, _ = _pynput()
     if keyboard is None or not key_name or key_name == '(yok)':
         return None, None
     name = str(key_name).strip().lower()
-    special = {'print_screen': 'print_screen', 'pause': 'pause', 'scroll_lock': 'scroll_lock', 'insert': 'insert',
-               'home': 'home', 'end': 'end', 'page_up': 'page_up', 'page_down': 'page_down', 'menu': 'menu', 'space': 'space'}
+    special = {'print_screen', 'pause', 'scroll_lock', 'insert', 'home', 'end', 'page_up', 'page_down', 'menu', 'space'}
     for i in range(1, 25):
-        special['f%d' % i] = 'f%d' % i
+        special.add('f%d' % i)
     if name in special:
-        obj = getattr(keyboard.Key, special[name], None)
+        obj = getattr(keyboard.Key, name, None)
         if obj is not None:
             return obj, None
     if len(name) == 1:
@@ -94,14 +91,13 @@ def resolve_mouse_button(btn_name):
     if mouse is None or not btn_name or btn_name == '(yok)':
         return None
     name = str(btn_name).strip().lower()
-    mapping = {'left': 'left', 'right': 'right', 'middle': 'middle', 'x1': 'x1', 'x2': 'x2',
-               'button8': 'button8', 'button9': 'button9'}
-    attr = mapping.get(name)
-    return getattr(mouse.Button, attr, None) if attr else None
+    if name in ('left', 'right', 'middle', 'x1', 'x2', 'button8', 'button9'):
+        return getattr(mouse.Button, name, None)
+    return None
 
 
 class Capturer:
-    """Tek bir ekran goruntusu alir; ekranda hicbir sey gostermez. mss (gerekli), Pillow (jpg icin) tembel yuklenir."""
+    """Tek bir ekran goruntusu alir; ekranda hicbir sey gostermez."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -153,8 +149,6 @@ class App(tk.Tk):
         self.running = False
         self.busy = False
         self.tray_icon = None
-        self.install_dir = BASE
-        self.backup_root = core.APP_DATA_DIR / 'update-backups'
         self.gh_result = None
         self.messages = queue.Queue()
 
@@ -168,14 +162,21 @@ class App(tk.Tk):
         self._fill_from_cfg()
         self.protocol('WM_DELETE_WINDOW', self._on_close)
         self.after(POLL_MS, self._poll)
-        if self.cfg.get('auto_update_check', True):
+        if self.cfg.get('auto_update_check', True) and FROZEN:
             self.after(2500, lambda: self.gh_check(force=False))
         if self.cfg.get('autostart'):
             self.after(400, self.start)
+        if FROZEN:
+            self.after(600, self._first_run_install)
 
     # ---------------------------------------------------------------- stil / iskelet
+    def _icon_path(self):
+        if FROZEN:
+            return pathlib.Path(getattr(sys, '_MEIPASS', '.')) / 'assets' / 'agfo-phantom.ico'
+        return pathlib.Path(__file__).resolve().parent / 'assets' / 'agfo-phantom.ico'
+
     def _set_icon(self):
-        ico = BASE / 'assets' / 'agfo-phantom.ico'
+        ico = self._icon_path()
         if IS_WIN and ico.is_file():
             try:
                 self.iconbitmap(default=str(ico))
@@ -186,7 +187,6 @@ class App(tk.Tk):
         s = ttk.Style(self)
         s.theme_use('clam')
         s.configure('.', background=PANEL, foreground=FG, fieldbackground=PANEL2, font=('Segoe UI', 10))
-        s.configure('Card.TFrame', background=PANEL)
         s.configure('TCombobox', fieldbackground=PANEL2, background=PANEL2, foreground=FG, arrowcolor=FG)
         s.map('TCombobox', fieldbackground=[('readonly', PANEL2)], foreground=[('readonly', FG)],
               selectbackground=[('readonly', PANEL2)], selectforeground=[('readonly', FG)])
@@ -199,15 +199,12 @@ class App(tk.Tk):
         s.map('TCheckbutton', background=[('active', PANEL)])
         s.configure('TRadiobutton', background=PANEL, foreground=FG)
         s.map('TRadiobutton', background=[('active', PANEL)])
-        s.configure('Treeview', background='#0e1b2e', fieldbackground='#0e1b2e', foreground=FG, borderwidth=0)
-        s.configure('Treeview.Heading', background=PANEL2, foreground=FG, font=('Segoe UI', 9, 'bold'), relief='flat')
 
     def _btn(self, parent, text, cmd, kind='normal', **kw):
         colors = {'normal': '#285475', 'danger': '#685229', 'ghost': PANEL2, 'go': '#1f6a4a'}
-        b = tk.Button(parent, text=text, command=cmd, bg=colors[kind], fg='#ffffff', activebackground=ACCENT,
-                      relief='flat', cursor='hand2', padx=12, pady=6, font=('Segoe UI', 9, 'bold'),
-                      disabledforeground='#7f8ea3', **kw)
-        return b
+        return tk.Button(parent, text=text, command=cmd, bg=colors[kind], fg='#ffffff', activebackground=ACCENT,
+                         relief='flat', cursor='hand2', padx=12, pady=6, font=('Segoe UI', 9, 'bold'),
+                         disabledforeground='#7f8ea3', **kw)
 
     def _lbl(self, parent, text, muted=True, **kw):
         return tk.Label(parent, text=text, fg=MUTED if muted else FG, bg=PANEL, font=('Segoe UI', 9),
@@ -220,7 +217,6 @@ class App(tk.Tk):
         tk.Label(top, text='Tek tusla sessiz ekran goruntusu — ekranda hicbir sey gostermez.',
                  fg=MUTED, bg=BG, font=('Segoe UI', 10)).pack(anchor='w', pady=(2, 0))
 
-        # GitHub guncelleme bandi
         self.gh_banner = tk.Frame(self, bg='#1d4d3a', padx=12, pady=7)
         self.gh_banner_text = tk.StringVar(value='')
         tk.Label(self.gh_banner, textvariable=self.gh_banner_text, fg='#ffffff', bg='#1d4d3a',
@@ -266,8 +262,7 @@ class App(tk.Tk):
         self.var_autostart = tk.BooleanVar()
         self.var_tray = tk.BooleanVar()
         ttk.Checkbutton(frm, text='Acilista dinlemeye basla', variable=self.var_autostart).grid(row=6, column=1, columnspan=2, sticky='w', **pad)
-        self.chk_tray = ttk.Checkbutton(frm, text='Kapatinca sistem tepsisine kucult (pystray gerekli)', variable=self.var_tray)
-        self.chk_tray.grid(row=7, column=1, columnspan=2, sticky='w', **pad)
+        ttk.Checkbutton(frm, text='Kapatinca sistem tepsisine kucult', variable=self.var_tray).grid(row=7, column=1, columnspan=2, sticky='w', **pad)
         frm.columnconfigure(1, weight=1)
 
         btns = tk.Frame(self, bg=BG); btns.pack(fill='x', padx=22, pady=(0, 6))
@@ -295,7 +290,8 @@ class App(tk.Tk):
     # ---------------------------------------------------------------- ayar / dosya
     def _collect(self):
         self.cfg['save_dir'] = self.var_dir.get().strip()
-        self.cfg['key'] = self.var_key.get()
+        key = self.var_key.get()
+        self.cfg['key'] = '' if key == '(yok)' else key
         self.cfg['mouse_button'] = '' if self.var_mouse.get() == '(yok)' else self.var_mouse.get()
         self.cfg['format'] = self.var_fmt.get()
         self.cfg['prefix'] = self.var_prefix.get().strip() or 'shot'
@@ -309,8 +305,6 @@ class App(tk.Tk):
             self.cfg['jpg_quality'] = 90
         self.cfg['autostart'] = bool(self.var_autostart.get())
         self.cfg['minimize_to_tray'] = bool(self.var_tray.get())
-        if self.cfg['key'] == '(yok)':
-            self.cfg['key'] = ''
 
     def _save(self):
         self._collect()
@@ -318,8 +312,7 @@ class App(tk.Tk):
 
     def _save_notify(self):
         if self._save():
-            self.var_status.set('Ayarlar kaydedildi.')
-            self.lbl_status.config(fg=MUTED)
+            self.var_status.set('Ayarlar kaydedildi.'); self.lbl_status.config(fg=MUTED)
 
     def _browse(self):
         d = filedialog.askdirectory(initialdir=core.resolve_save_dir(self.var_dir.get()), title='Kayit klasoru sec')
@@ -344,12 +337,12 @@ class App(tk.Tk):
         self._save()
         keyboard, mouse = _pynput()
         if keyboard is None:
-            messagebox.showerror('Eksik paket', 'pynput ve mss gerekli:\n\n    pip install pynput mss\n\nKurup tekrar deneyin.')
+            messagebox.showerror('Eksik bilesen', 'Tus dinleme (pynput) yuklenemedi.')
             return
         try:
             import mss  # noqa: F401
         except Exception:
-            messagebox.showerror('Eksik paket', 'mss gerekli:\n\n    pip install mss')
+            messagebox.showerror('Eksik bilesen', 'Ekran yakalama (mss) yuklenemedi.')
             return
         key_obj, key_char = resolve_key(self.cfg.get('key'))
         mouse_btn = resolve_mouse_button(self.cfg.get('mouse_button'))
@@ -358,14 +351,12 @@ class App(tk.Tk):
             return
 
         def on_done(path, count, err=None):
-            def upd():
+            def ui():
                 if path:
-                    self.var_status.set('Alindi (%d): %s' % (count, os.path.basename(path)))
-                    self.lbl_status.config(fg=OK_C)
+                    self.var_status.set('Alindi (%d): %s' % (count, os.path.basename(path))); self.lbl_status.config(fg=OK_C)
                 else:
-                    self.var_status.set('Hata: %s' % (err or 'yakalama basarisiz'))
-                    self.lbl_status.config(fg=BAD_C)
-            self.messages.put(('call', upd))
+                    self.var_status.set('Hata: %s' % (err or 'yakalama basarisiz')); self.lbl_status.config(fg=BAD_C)
+            self.messages.put(('call', ui))
 
         def on_press(k):
             try:
@@ -381,23 +372,14 @@ class App(tk.Tk):
                 self.cap.shoot(self.cfg, on_done)
 
         if key_obj is not None or key_char is not None:
-            self.kb_listener = keyboard.Listener(on_press=on_press)
-            self.kb_listener.daemon = True
-            self.kb_listener.start()
+            self.kb_listener = keyboard.Listener(on_press=on_press); self.kb_listener.daemon = True; self.kb_listener.start()
         if mouse_btn is not None:
-            self.ms_listener = mouse.Listener(on_click=on_click)
-            self.ms_listener.daemon = True
-            self.ms_listener.start()
+            self.ms_listener = mouse.Listener(on_click=on_click); self.ms_listener.daemon = True; self.ms_listener.start()
 
         self.running = True
         self.btn_toggle.config(text='Durdur', bg='#6b2a2a')
-        trig = []
-        if self.cfg.get('key'):
-            trig.append(self.cfg['key'])
-        if self.cfg.get('mouse_button'):
-            trig.append('fare:' + self.cfg['mouse_button'])
-        self.var_status.set('Dinleniyor  (%s)' % ', '.join(trig))
-        self.lbl_status.config(fg=OK_C)
+        trig = [t for t in (self.cfg.get('key'), ('fare:' + self.cfg['mouse_button']) if self.cfg.get('mouse_button') else '') if t]
+        self.var_status.set('Dinleniyor  (%s)' % ', '.join(trig)); self.lbl_status.config(fg=OK_C)
 
     def stop(self):
         for l in (self.kb_listener, self.ms_listener):
@@ -409,8 +391,7 @@ class App(tk.Tk):
         self.kb_listener = self.ms_listener = None
         self.running = False
         self.btn_toggle.config(text='Baslat', bg='#1f6a4a')
-        self.var_status.set('Durdu')
-        self.lbl_status.config(fg=MUTED)
+        self.var_status.set('Durdu'); self.lbl_status.config(fg=MUTED)
 
     # ---------------------------------------------------------------- Tk kuyrugu
     def _poll(self):
@@ -427,16 +408,42 @@ class App(tk.Tk):
         self.after(POLL_MS, self._poll)
 
     def _run_bg(self, fn):
-        """fn(post) arka planda calisir; post(callable) ana is parcacigina is yollar."""
         def post(cb):
             self.messages.put(('call', cb))
         threading.Thread(target=lambda: fn(post), daemon=True).start()
 
-    # ---------------------------------------------------------------- GitHub tek-tik guncelleme
+    # ---------------------------------------------------------------- ilk acilista kurulum (EXE)
+    def _first_run_install(self):
+        try:
+            if pathlib.Path(sys.executable).resolve() == upd.installed_exe().resolve():
+                return  # zaten Programs altindan calisiyor
+        except OSError:
+            return
+        if not messagebox.askyesno('Kurulum', 'AGFO Phantom Shot bu bilgisayara kurulsun mu?\n\n'
+                                   'Program %s klasorune kopyalanir; Baslat menusu ve masaustu kisayolu olusturulur. '
+                                   'Yonetici gerekmez.' % upd.install_dir(), parent=self):
+            return
+
+        def fn(post):
+            try:
+                dst = upd.install_self(desktop=True)
+                post(lambda: self._reopen_installed(dst))
+            except Exception as e:
+                post(lambda: messagebox.showwarning('Kurulum', 'Kurulamadi: %s\nUygulama buradan calismaya devam ediyor.' % e, parent=self))
+        self._run_bg(fn)
+
+    def _reopen_installed(self, dst):
+        messagebox.showinfo('Kuruldu', 'Kuruldu: %s\nKurulu surum aciliyor.' % dst, parent=self)
+        try:
+            upd.launch(dst)
+        except Exception:
+            pass
+        self.stop(); self.destroy()
+
+    # ---------------------------------------------------------------- GitHub guncelleme
     def gh_check(self, force=True):
         def fn(post):
-            res = ghu.check_for_update(core.GH_PREFIX, VERSION, core.GH_STATE, core.GH_ASSET, force=force,
-                                       user_agent='AGFO-Phantom-Shot/' + VERSION)
+            res = upd.check(force=force)
             post(lambda: self._gh_checked(res, force))
         self._run_bg(fn)
 
@@ -455,9 +462,9 @@ class App(tk.Tk):
                    'skipped': 'Surum %s atlanmis olarak isaretli.' % res.get('version', ''),
                    'error': 'Denetlenemedi: %s' % res.get('message', '')}.get(st, st)
             messagebox.showinfo('GitHub guncelleme', msg)
-            if getattr(self, 'upd_gh_state', None):
+            if getattr(self, 'upd_state', None):
                 try:
-                    self.upd_gh_state.set(msg)
+                    self.upd_state.set(msg)
                 except tk.TclError:
                     pass
 
@@ -470,7 +477,7 @@ class App(tk.Tk):
 
     def gh_skip(self):
         if self.gh_result:
-            ghu.skip_version(core.GH_STATE, self.gh_result['version'])
+            ghu.skip_version(upd.state_path(), self.gh_result['version'])
         self.gh_banner.pack_forget()
 
     def gh_update(self):
@@ -479,232 +486,79 @@ class App(tk.Tk):
             if self.busy:
                 messagebox.showinfo('Mesgul', 'Bir islem suruyor; bitince tekrar deneyin.')
             return
-        rel, asset = res['release'], res['asset']
+        if not FROZEN:
+            messagebox.showinfo('Guncelleme', 'Tek tikla guncelleme yalnizca derlenmis (EXE) surumde calisir. '
+                                'Kaynaktan calistiriyorsunuz; GitHub\'dan yeni surumu elle kurabilirsiniz.')
+            return
+        rel = res['release']
         notes = (rel.get('notes') or '').strip()
-        if not messagebox.askyesno('Guncelleme', 'AGFO Phantom Shot %s -> %s\n\n%s\n\nIndirilip dogrulanacak, mevcut surum '
-                                   'yedeklenecek ve uygulama yeniden baslatilacak. Devam edilsin mi?'
+        if not messagebox.askyesno('Guncelleme', 'AGFO Phantom Shot %s -> %s\n\n%s\n\nIndirilip dogrulanacak, uygulama '
+                                   'kapanip yeni surumle yeniden acilacak. Devam edilsin mi?'
                                    % (VERSION, res['version'], (notes[:800] + ('…' if len(notes) > 800 else '')) or 'Surum notu yok.')):
             return
-        dest = core.GH_DOWNLOAD_DIR / asset['name']
-        stage = core.APP_DATA_DIR / 'update-stage'
         self.busy = True
+        self.var_status.set('Guncelleme indiriliyor…'); self.lbl_status.config(fg=ACCENT)
 
         def fn(post):
             try:
-                sha = ghu.expected_sha256(rel, asset, user_agent='AGFO-Phantom-Shot/' + VERSION)
-                ghu.download_asset(asset, dest, sha, None, None, user_agent='AGFO-Phantom-Shot/' + VERSION)
-                info = core.inspect_update(str(dest), VERSION)
-                if not info['ok']:
-                    raise OSError('Paket denetimi basarisiz: ' + '; '.join(info['errors']))
-                if info['version'] != res['version']:
-                    raise OSError('Paket surumu (%s) etiketle (%s) uyusmuyor.' % (info['version'], res['version']))
-                core.stage_update(str(dest), info, stage)
-                checks = core.preflight(stage)
-                bad = [n + ': ' + d for n, s_, d in checks if s_ == 'fail']
-                if bad:
-                    raise OSError('On kontrol basarisiz: ' + '; '.join(bad))
-                bdir = core.apply_update(stage, self.install_dir, self.backup_root, VERSION, info['version'])
-                import shutil
-                shutil.rmtree(stage, ignore_errors=True)
-                try:
-                    dest.unlink()
-                except OSError:
-                    pass
-                post(lambda: self._gh_update_done(info['version'], bdir))
+                new_exe = upd.download(res)
+                proc = upd.apply_update(new_exe)
+                import time as _t
+                _t.sleep(2)
+                if proc.poll() is not None:   # guvenlik yazilimi guncelleyiciyi hemen kapattiysa
+                    raise OSError('Guncelleyici baslatilamadi (guvenlik yazilimi engellemis olabilir).')
+                post(self._gh_update_launched)
             except Exception as e:
                 post(lambda: self._gh_update_fail(str(e)))
         self._run_bg(fn)
 
-    def _gh_update_done(self, new_version, bdir):
-        self.busy = False
-        self.gh_banner.pack_forget()
-        self.var_status.set('Phantom Shot %s kuruldu; yeniden baslatiliyor…' % new_version)
-        self.after(900, self.restart_app)
+    def _gh_update_launched(self):
+        # Guncelleyici ayakta; bu surum kapanmali ki dosya serbest kalsin.
+        self.var_status.set('Yeni surum kuruluyor; uygulama kapaniyor…')
+        self.stop()
+        self.after(400, self.destroy)
 
     def _gh_update_fail(self, msg):
         self.busy = False
-        messagebox.showerror('Guncelleme', 'Guncelleme tamamlanamadi; kurulu surum degismedi veya geri yuklendi.\n\n%s' % msg)
+        self.var_status.set('Guncelleme basarisiz.'); self.lbl_status.config(fg=BAD_C)
+        messagebox.showerror('Guncelleme', 'Guncelleme tamamlanamadi; kurulu surum degismedi.\n\n%s' % msg)
 
-    # ---------------------------------------------------------------- guncelleme penceresi (elle ZIP + yedekler)
     def open_updater(self):
         if getattr(self, 'upd_win', None) and self.upd_win.winfo_exists():
             self.upd_win.lift(); return
         win = self.upd_win = tk.Toplevel(self); win.title('AGFO Phantom Shot — Guncelleme'); win.configure(bg=PANEL); win.transient(self)
-        w, h = int(780 * self.scale), int(560 * self.scale)
+        w, h = int(620 * self.scale), int(300 * self.scale)
         win.geometry('%dx%d+%d+%d' % (w, h, self.winfo_rootx() + 40, self.winfo_rooty() + 40))
-        top = tk.Frame(win, bg=PANEL); top.pack(fill='x', padx=16, pady=(14, 4))
-        tk.Label(top, text='Guncelleme', fg=FG, bg=PANEL, font=('Segoe UI', 13, 'bold')).pack(side='left')
-        tk.Label(top, text='Kurulu surum: %s' % VERSION, fg=OK_C, bg=PANEL2, font=('Segoe UI', 9, 'bold'), padx=10, pady=3).pack(side='left', padx=10)
-        self._lbl(win, 'Konum: %s\nGitHub\'da denetleyip tek tikla guncelleyebilir ya da elle bir guncelleme paketi (.zip) secebilirsiniz. '
-                       'Paket once denetlenir (yapi, surum, MANIFEST/SHA-256, Python/PowerShell on kontrol); mevcut surum yedeklenir, '
-                       'yeni dosyalar yerlestirilir ve uygulama yeniden baslar. Bir adim basarisiz olursa onceki surum otomatik geri '
-                       'yuklenir. Ayarlariniz (config.json) ve gunlukler etkilenmez.' % self.install_dir,
-                  wraplength=int(740 * self.scale)).pack(fill='x', padx=16)
-        bar = tk.Frame(win, bg=PANEL); bar.pack(fill='x', padx=16, pady=8)
+        tk.Label(win, text='Guncelleme', fg=FG, bg=PANEL, font=('Segoe UI', 13, 'bold')).pack(anchor='w', padx=16, pady=(14, 2))
+        tk.Label(win, text='Kurulu surum: %s' % VERSION, fg=OK_C, bg=PANEL, font=('Segoe UI', 10, 'bold')).pack(anchor='w', padx=16)
+        note = ('GitHub\'daki %s deposundan yeni surum denetlenir. "Simdi guncelle" yeni EXE\'yi indirir, '
+                'SHA-256 ile dogrular, uygulama kapaninca yerine koyar ve yeniden acar. Ayarlariniz (config.json) korunur.' % ghu.GITHUB_REPO)
+        self._lbl(win, note, wraplength=int(580 * self.scale)).pack(fill='x', padx=16, pady=(6, 8))
+        bar = tk.Frame(win, bg=PANEL); bar.pack(fill='x', padx=16)
         self._btn(bar, "GitHub'da denetle", lambda: self.gh_check(force=True), 'go').pack(side='left', padx=(0, 6))
-        self._btn(bar, 'Guncelleme paketi sec (.zip)…', self.upd_pick, 'ghost').pack(side='left', padx=(0, 6))
-        self.upd_apply_btn = self._btn(bar, 'Uygula ve yeniden baslat', self.upd_apply, 'danger'); self.upd_apply_btn.pack(side='left')
-        self.upd_apply_btn.configure(state='disabled')
-        ghf = tk.Frame(win, bg=PANEL); ghf.pack(fill='x', padx=16, pady=(0, 6))
-        self.upd_gh_state = tk.StringVar(value='GitHub deposu: %s (etiket: %s*)' % (ghu.GITHUB_REPO, core.GH_PREFIX))
-        tk.Label(ghf, textvariable=self.upd_gh_state, fg=MUTED, bg=PANEL, font=('Segoe UI', 9)).pack(side='left')
+        self._btn(bar, 'Simdi guncelle', self.gh_update, 'normal').pack(side='left', padx=(0, 6))
+        self._btn(bar, 'Bu bilgisayardan kaldir', self._uninstall, 'danger').pack(side='right')
+        self.upd_state = tk.StringVar(value='Hazir.' if FROZEN else 'Kaynaktan calisiyor — tek tikla guncelleme yalnizca EXE surumunde.')
+        tk.Label(win, textvariable=self.upd_state, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w',
+                 wraplength=int(580 * self.scale), justify='left').pack(fill='x', padx=16, pady=(10, 4))
         self.upd_auto = tk.BooleanVar(value=self.cfg.get('auto_update_check', True))
 
         def _auto():
-            self.cfg['auto_update_check'] = bool(self.upd_auto.get())
-            core.save_settings(self.cfg)
-        ttk.Checkbutton(ghf, text='Acilista guncellemeleri denetle', variable=self.upd_auto, command=_auto).pack(side='right')
-        self.upd_check = tk.Text(win, height=9, bg='#09111e', fg='#dce8fa', relief='flat', font=('Consolas', 9), padx=10, pady=8, wrap='word')
-        self.upd_check.pack(fill='both', expand=True, padx=16)
-        for tg, col in (('ok', OK_C), ('fail', BAD_C), ('warn', WARN), ('h', ACCENT)):
-            self.upd_check.tag_configure(tg, foreground=col)
-        self.upd_check.insert('end', 'Paket secilmedi.'); self.upd_check.configure(state='disabled')
-        low = tk.Frame(win, bg=PANEL); low.pack(fill='x', padx=16, pady=(8, 14))
-        tk.Label(low, text='Yedekler (en son %d)' % core.UPDATE_KEEP_BACKUPS, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold')).pack(anchor='w')
-        self.upd_bk = ttk.Treeview(low, columns=('ver', 'time'), show='headings', height=3)
-        self.upd_bk.heading('ver', text='Surum'); self.upd_bk.heading('time', text='Yedek zamani')
-        self.upd_bk.column('ver', width=120); self.upd_bk.column('time', width=200)
-        self.upd_bk.pack(side='left', fill='x', expand=True)
-        rb = tk.Frame(low, bg=PANEL); rb.pack(side='left', padx=10)
-        self._btn(rb, 'Secili yedege don', self.upd_rollback, 'ghost').pack(side='top', pady=2)
-        self._btn(rb, 'Gecmis', self.upd_history, 'ghost').pack(side='top', pady=2)
-        self.upd_info = None
-        self._upd_refresh_backups()
+            self.cfg['auto_update_check'] = bool(self.upd_auto.get()); core.save_settings(self.cfg)
+        ttk.Checkbutton(win, text='Acilista guncellemeleri denetle', variable=self.upd_auto, command=_auto).pack(anchor='w', padx=16, pady=(6, 10))
 
-    def _upd_refresh_backups(self):
-        if not getattr(self, 'upd_bk', None) or not self.upd_bk.winfo_exists():
+    def _uninstall(self):
+        if not FROZEN:
+            messagebox.showinfo('Kaldir', 'Kaldirma yalnizca kurulu EXE surumunde gecerli.'); return
+        if not messagebox.askyesno('Kaldir', 'AGFO Phantom Shot bu bilgisayardan kaldirilsin mi?\n\n'
+                                   'Program dosyasi ve kisayollar silinir; ayarlariniz (config.json) ve gunlukler korunur. '
+                                   'Uygulama kapanacak.', parent=self.upd_win):
             return
-        self.upd_bk.delete(*self.upd_bk.get_children())
-        for b in core.list_backups(self.backup_root):
-            self.upd_bk.insert('', 'end', iid=b['path'], values=(b['version'], b['time']))
-
-    def _upd_show(self, lines):
-        tx = self.upd_check
-        tx.configure(state='normal'); tx.delete('1.0', 'end')
-        for text, tag in lines:
-            tx.insert('end', text + '\n', tag)
-        tx.configure(state='disabled')
-
-    def upd_pick(self):
-        path = filedialog.askopenfilename(parent=self.upd_win, title='Guncelleme paketi secin',
-                                          filetypes=[('Guncelleme paketi', '*.zip'), ('Tum dosyalar', '*.*')])
-        if not path:
-            return
-        self.upd_apply_btn.configure(state='disabled')
-        stage = core.APP_DATA_DIR / 'update-stage'
-        self._upd_show([('Denetleniyor: %s' % path, 'h')])
-
-        def fn(post):
-            info = core.inspect_update(path, VERSION)
-            checks = []
-            if info['ok']:
-                try:
-                    core.stage_update(path, info, stage)
-                    checks = core.preflight(stage)
-                except Exception as e:
-                    info['ok'] = False
-                    info['errors'].append(str(e))
-            post(lambda: self._upd_checked(path, info, checks))
-        self._run_bg(fn)
-
-    def _upd_checked(self, path, info, checks):
-        L = [('Paket: %s' % path, 'h')]
-        if info['version']:
-            arrow = '%s → %s' % (VERSION, info['version'])
-            L.append(('✓ Surum: %s%s' % (arrow, '  (DUSURME)' if info['downgrade'] else ('  (ayni surum)' if info['same'] else '')),
-                      'warn' if (info['downgrade'] or info['same']) else 'ok'))
-        for e in info['errors']:
-            L.append(('✗ ' + e, 'fail'))
-        if info['ok']:
-            L.append(('✓ Paket yapisi ve dosya yollari guvenli; zorunlu dosyalar mevcut', 'ok'))
-            L.append(('✓ %d calisma dosyasi' % len(info['files']), 'ok'))
-            if info['manifest']:
-                L.append(('✓ MANIFEST.json: tum dosyalarin SHA-256 ozetleri dogrulandi', 'ok'))
-        for wmsg in info['warnings']:
-            L.append(('! ' + wmsg, 'warn'))
-        for name, st, det in checks:
-            L.append((('✓ ' if st == 'ok' else ('✗ ' if st == 'fail' else '– ')) + name + (('  — ' + det) if det else ''),
-                      {'ok': 'ok', 'fail': 'fail'}.get(st, 'warn')))
-        ready = info['ok'] and not any(st == 'fail' for _, st, _ in checks)
-        L.append(('', None))
-        L.append(('Hazir: "Uygula ve yeniden baslat" ile kurabilirsiniz.' if ready else 'Bu paket kurulamaz.', 'ok' if ready else 'fail'))
-        self.upd_info = (path, info) if ready else None
-        if getattr(self, 'upd_win', None) and self.upd_win.winfo_exists():
-            self._upd_show(L)
-            self.upd_apply_btn.configure(state='normal' if ready else 'disabled')
-
-    def upd_apply(self):
-        if not self.upd_info or self.busy:
-            return
-        path, info = self.upd_info
-        msg = 'AGFO Phantom Shot %s → %s guncellenecek.\nMevcut surum yedeklenecek; uygulama yeniden baslatilacak.' % (VERSION, info['version'])
-        if info['downgrade']:
-            msg += '\n\nDIKKAT: Bu daha ESKI bir surum.'
-        if not info['manifest']:
-            msg += '\n\nUYARI: Pakette MANIFEST.json yok; dosya butunlugu dogrulanamadi. Yalnizca guvendiginiz kaynaktan gelen paketi kurun.'
-        if not messagebox.askyesno('Guncellemeyi uygula', msg + '\n\nDevam edilsin mi?', parent=self.upd_win):
-            return
-        self.upd_apply_btn.configure(state='disabled')
-        self.busy = True
-        stage = core.APP_DATA_DIR / 'update-stage'
-
-        def fn(post):
-            try:
-                bdir = core.apply_update(stage, self.install_dir, self.backup_root, VERSION, info['version'])
-                import shutil
-                shutil.rmtree(stage, ignore_errors=True)
-                post(lambda: self._upd_done(info['version'], bdir, None))
-            except Exception as e:
-                post(lambda: self._upd_done(None, None, str(e)))
-        self._run_bg(fn)
-
-    def _upd_done(self, new_version, bdir, err):
-        self.busy = False
-        self._upd_refresh_backups()
-        if err or not new_version:
-            self._upd_show([('✗ Guncelleme uygulanamadi; onceki surum geri yuklendi.%s' % (('  ' + err) if err else ''), 'fail')])
-            return
-        self.upd_info = None
-        self._upd_show([('✓ AGFO Phantom Shot %s kuruldu. Uygulama yeniden baslatiliyor…' % new_version, 'ok')])
-        self.after(800, self.restart_app)
-
-    def upd_rollback(self):
-        sel = self.upd_bk.selection()
-        if not sel:
-            messagebox.showinfo('Yedekler', 'Listeden bir yedek secin.', parent=self.upd_win); return
-        b = next((x for x in core.list_backups(self.backup_root) if x['path'] == sel[0]), None)
-        if not b or not messagebox.askyesno('Onceki surume don', 'Surum %s (%s) geri yuklenecek; mevcut surum de yedeklenecek. '
-                                            'Uygulama yeniden baslatilacak. Devam?' % (b['version'], b['time']), parent=self.upd_win):
-            return
-        self.busy = True
-
-        def fn(post):
-            try:
-                target, bdir = core.rollback_update(b['path'], self.install_dir, VERSION)
-                post(lambda: self._upd_done(target, bdir, None))
-            except Exception as e:
-                post(lambda: self._upd_done(None, None, str(e)))
-        self._run_bg(fn)
-
-    def upd_history(self):
-        h = core.update_history(15)
-        messagebox.showinfo('Guncelleme gecmisi', '\n'.join(h) if h else 'Henuz guncelleme yapilmadi.', parent=self.upd_win)
-
-    def restart_app(self):
         try:
-            exe = sys.executable
-            # pythonw varsa penceresiz baslat
-            if IS_WIN and exe.lower().endswith('python.exe'):
-                cand = str(pathlib.Path(exe).with_name('pythonw.exe'))
-                if os.path.isfile(cand):
-                    exe = cand
-            subprocess.Popen([exe, str(pathlib.Path(self.install_dir) / 'app.pyw')], cwd=str(self.install_dir),
-                             creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
-        except OSError as e:
-            messagebox.showerror('Yeniden baslatma', 'Uygulamayi elle yeniden acin: %s' % e)
-            return
-        self.stop()
-        self.destroy()
+            upd.uninstall()
+        except Exception as e:
+            messagebox.showerror('Kaldir', 'Kaldirilamadi: %s' % e, parent=self.upd_win); return
+        self.stop(); self.destroy()
 
     # ---------------------------------------------------------------- tepsi / kapanis
     def _on_close(self):
@@ -716,8 +570,7 @@ class App(tk.Tk):
                 return
             except Exception:
                 pass
-        self.stop()
-        self.destroy()
+        self.stop(); self.destroy()
 
     def _hide_to_tray(self):
         import pystray
@@ -755,13 +608,98 @@ class App(tk.Tk):
         self.deiconify(); self.lift()
 
     def _really_quit(self):
-        self.stop()
-        self.destroy()
+        self.stop(); self.destroy()
+
+
+# =========================================================================== komut satiri / giris
+def smoke(png_path):
+    """Derleme oz-testi: tum bilesenler yuklenebiliyor mu, GUI kuruluyor mu, mss bir kare alabiliyor mu."""
+    try:
+        import mss  # noqa: F401
+        import mss.tools  # noqa: F401
+        from pynput import keyboard, mouse  # noqa: F401
+        from PIL import Image  # noqa: F401
+        import pystray  # noqa: F401
+        app = App()
+        app.withdraw()
+        app.update_idletasks()
+        app.update()
+        try:
+            with mss.mss() as sct:
+                shot = sct.grab(sct.monitors[0])
+                mss.tools.to_png(shot.rgb, shot.size, output=png_path)
+        except Exception:
+            Image.new('RGB', (64, 64), (20, 32, 52)).save(png_path)
+        app.destroy()
+        print('AGFO PHANTOM SHOT SMOKE OK')
+        return 0
+    except Exception as e:
+        print('SMOKE FAIL: %r' % e)
+        return 1
+
+
+def apply_update_main(target, pid):
+    """Yeni EXE guncelleyici kipinde: eski surum kapaninca kendini hedefe kopyalar ve hedefi acar."""
+    root = tk.Tk()
+    root.title('AGFO Phantom Shot')
+    root.configure(bg=PANEL)
+    root.geometry('420x120')
+    root.resizable(False, False)
+    try:
+        ico = pathlib.Path(getattr(sys, '_MEIPASS', '.')) / 'assets' / 'agfo-phantom.ico'
+        if IS_WIN and ico.is_file():
+            root.iconbitmap(default=str(ico))
+    except Exception:
+        pass
+    tk.Label(root, text='AGFO Phantom Shot %s kuruluyor…' % VERSION, fg=FG, bg=PANEL,
+             font=('Segoe UI', 11, 'bold')).pack(pady=(20, 8))
+    pb = ttk.Progressbar(root, mode='indeterminate', length=340); pb.pack(); pb.start(12)
+    q = queue.Queue()
+
+    def work():
+        try:
+            if not upd.wait_for_pid(pid, 90):
+                raise OSError('Eski surum 90 saniyede kapanmadi.')
+            upd.replace_target(sys.executable, target)
+            upd.launch(target)
+            upd.log_line('Update applied: %s' % target)
+            q.put(None)
+        except Exception as e:
+            upd.log_line('Update failed: %r' % e)
+            q.put(e)
+    threading.Thread(target=work, daemon=True).start()
+    out = {}
+
+    def poll():
+        try:
+            out['err'] = q.get_nowait()
+        except queue.Empty:
+            root.after(150, poll); return
+        pb.stop()
+        if out['err'] is not None:
+            messagebox.showerror('Guncelleme', 'Guncelleme uygulanamadi: %s\n\nYeni surum su dosyada, dogrudan acabilirsiniz:\n%s'
+                                 % (out['err'], sys.executable), parent=root)
+        root.destroy()
+    root.after(150, poll)
+    root.mainloop()
+    return 0 if out.get('err') is None else 1
 
 
 def main():
+    argv = sys.argv
+    if len(argv) >= 3 and argv[1] == '--smoke':
+        return smoke(argv[2])
+    if len(argv) >= 3 and argv[1] == '--apply-update':
+        pid = 0
+        if '--wait-pid' in argv:
+            try:
+                pid = int(argv[argv.index('--wait-pid') + 1])
+            except (ValueError, IndexError):
+                pid = 0
+        return apply_update_main(argv[2], pid)
     App().mainloop()
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
