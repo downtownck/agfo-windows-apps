@@ -65,9 +65,27 @@ def scrub_env(env=None) -> dict:
     return out
 
 
+CHECK_INTERVAL = 30 * 60      # 1.4.15: arka plan denetimi 30 dk'da bir (GitHub sinirinin cok altinda)
+
+
+def package_ready(release: dict, asset: dict) -> bool:
+    """Guncelleme paketi gercekten kurulabilir mi: EXE var ve SHA-256 ozeti (GitHub ozeti ya da SHA256SUMS.txt) yayinlanmis."""
+    if not asset or not asset.get('url'):
+        return False
+    if asset.get('sha256'):
+        return True
+    return ghu.pick_asset(release, r'SHA256SUMS(\.txt)?') is not None
+
+
 def check(force=False, releases=None) -> dict:
-    return ghu.check_for_update(GH_PREFIX, core.VERSION, state_path(), GH_ASSET, force=force,
-                                releases=releases, user_agent=USER_AGENT)
+    """Hata firlatmaz. 'update' yalniz paket indirilebilir ve dogrulanabilir oldugunda doner."""
+    res = ghu.check_for_update(GH_PREFIX, core.VERSION, state_path(), GH_ASSET, force=force, interval=CHECK_INTERVAL,
+                               releases=releases, user_agent=USER_AGENT)
+    if res.get('status') == 'update' and not package_ready(res.get('release') or {}, res.get('asset') or {}):
+        return {'status': 'error', 'version': res.get('version'),
+                'message': 'v%s yayınlanmış ama güncelleme paketi henüz hazır değil (SHA-256 özeti yok); kısa süre sonra tekrar denenecek.'
+                           % res.get('version')}
+    return res
 
 
 def download(result: dict, progress=None, should_stop=None) -> pathlib.Path:

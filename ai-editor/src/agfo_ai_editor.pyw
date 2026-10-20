@@ -234,6 +234,7 @@ WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
 EDIT_BG, SEL_BG, PRIMARY = '#0e1b2e', '#285475', '#1f6fa3'
 POLL_MS = 80
 AUTOSAVE_MS = 45000
+UPDATE_CHECK_MS = 30 * 60 * 1000   # 1.4.15: acik kaldikca 30 dk'da bir sessiz guncelleme denetimi
 FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm *.pdf *.xlsx *.xlsm *.pptx *.eml *.csv'),
              ('Metin', '*.txt'), ('Markdown', '*.md *.markdown'), ('Word belgesi', '*.docx'), ('PDF (metin olarak)', '*.pdf'),
              ('Excel / PowerPoint (metin olarak)', '*.xlsx *.xlsm *.pptx'), ('HTML', '*.html *.htm'), ('Tüm dosyalar', '*.*')]
@@ -307,8 +308,7 @@ class App(tk.Tk):
             self.after(600, self._offer_recovery)
             self.after(900, self._refresh_connection_label)
             self.after(1200, self._restore_sources)
-            if self.settings.get('auto_update', True):
-                self.after(5000, lambda: self.check_update(silent=True))
+            self._timers['update'] = self.after(5000, self._auto_update_tick)   # 1.4.15: acilista + 30 dk'da bir
             self.after(1500, self._offer_install)
 
     # ------------------------------------------------------------------ gorunum
@@ -386,7 +386,9 @@ class App(tk.Tk):
         self.conn_lbl = tk.Label(right, textvariable=self.conn_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), padx=10, pady=5)
         self.conn_lbl.pack(side='right')
         self.update_btn = tk.Button(right, text='', command=self.do_update, bg='#1f6a4a', fg='#ffffff', relief='flat', bd=0,
-                                    font=('Segoe UI', 9, 'bold'), padx=10, pady=5, cursor='hand2', activebackground=ACCENT)
+                                    font=('Segoe UI', 9, 'bold'), padx=10, pady=5, cursor='hand2', activebackground=ACCENT,
+                                    activeforeground='#ffffff')
+        self._update_shown = None      # 1.4.15: dugmesi gosterilen surum (ayni surum icin tekrar bildirim yok)
 
         bar = tk.Frame(self, bg=PANEL, padx=10, pady=6)
         bar.pack(fill='x', padx=18, pady=(6, 0))
@@ -740,7 +742,7 @@ class App(tk.Tk):
         self.tr_choice_combo.bind('<<ComboboxSelected>>', lambda e: self._tr_choice_selected())
         self.btn(mrow, '↻', lambda: self.load_translation_models(force=True), 'ghost', padx=8).pack(side='left', padx=(4, 0))
         self._set_tr_choices([])
-        self.tr_lang = tk.StringVar(value='English')
+        self.tr_lang = tk.StringVar(value='Türkçe')   # 1.4.15: çeviri hedefi varsayılan Türkçe
         lrow = tk.Frame(f, bg=PANEL)
         lrow.pack(fill='x', pady=(0, 6))
         self.lbl(lrow, 'Hedef dil', muted=True).pack(side='left')
@@ -2105,7 +2107,7 @@ class App(tk.Tk):
 
     def run_translate(self):
         opts = self._ai_options()
-        opts['language'] = self.tr_lang.get() or 'English'
+        opts['language'] = self.tr_lang.get() or 'Türkçe'
         opts['user_extra'] = self.tr_extra.get('1.0', 'end-1c').strip()
         opts['from_scratch'] = False
         opts['model_choice'] = self.translation_choice()
@@ -2115,7 +2117,7 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------------ belge cevirisi (1.4)
     def translate_document(self):
-        lang = (self.tr_lang.get() or 'English').strip()
+        lang = (self.tr_lang.get() or 'Türkçe').strip()
         out = self.doc_tr_out.get() if hasattr(self, 'doc_tr_out') else 'both'
         self.settings['doc_translate_output'] = out
         v, d = self.cur_pdf(), self.cur()
@@ -2749,6 +2751,49 @@ class App(tk.Tk):
         SettingsDialog(self)
 
     # ------------------------------------------------------------------ guncelleme / kurulum
+    def _auto_update_tick(self):
+        """1.4.15: arka planda sessiz denetim; is gostergesi/iptal dugmesi acmaz, kullaniciyi bolmez."""
+        try:
+            self._timers['update'] = self.after(UPDATE_CHECK_MS, self._auto_update_tick)
+        except tk.TclError:
+            return
+        if not self.settings.get('auto_update', True):
+            return
+
+        # Sonuc, diger isler gibi self.q kuyrugu uzerinden ana iplige doner (Tk is parcacigi guvenli degil).
+        jid = 'update-' + uuid.uuid4().hex
+        self.jobs[jid] = lambda ok, res: self._apply_update_result(res if ok else {'status': 'error'}, silent=True)
+
+        def work():
+            try:
+                self.q.put((jid, True, upd.check(force=False)))
+            except Exception as e:          # denetim asla uygulamayi bozmaz
+                self.q.put((jid, False, repr(e)))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _apply_update_result(self, res, silent=True):
+        """Denetim sonucunu arayuze uygular: guncelleme varsa dugme kendiliginden gorunur, yoksa gizlenir."""
+        st = (res or {}).get('status')
+        if st == 'update':
+            self.update_result = res
+            ver = res['version']
+            self.update_btn.configure(text='⬆ Güncelleme var: v%s' % ver)
+            if not self.update_btn.winfo_ismapped():
+                self.update_btn.pack(side='right', padx=(0, 8))
+            if self._update_shown != ver:
+                self._update_shown = ver
+                self.title('AGFO AI Editor %s  ·  güncelleme var: v%s' % (core.VERSION, ver))
+                self.flash('Yeni sürüm hazır: v%s — sağ üstteki "Güncelleme var" düğmesiyle tek tıkla güncelleyin.' % ver, ms=12000)
+            return True
+        if st in ('current', 'none', 'skipped'):
+            self.update_result = None
+            self._update_shown = None
+            if self.update_btn.winfo_ismapped():
+                self.update_btn.pack_forget()
+            self.title('AGFO AI Editor %s' % core.VERSION)
+        # 'throttled' / 'error': mevcut durum korunur (gosterilen dugme kaybolmaz)
+        return False
+
     def check_update(self, silent=True):
         def done(ok, res):
             if not ok:
@@ -2756,10 +2801,7 @@ class App(tk.Tk):
                     messagebox.showerror('Güncelleme', res, parent=self)
                 return
             st = res.get('status')
-            if st == 'update':
-                self.update_result = res
-                self.update_btn.configure(text='Güncelle: v%s (tek tık)' % res['version'])
-                self.update_btn.pack(side='right', padx=(0, 8))
+            if self._apply_update_result(res, silent=silent):
                 if not silent:
                     self.do_update()
             elif not silent:
@@ -2950,7 +2992,7 @@ class SettingsDialog(tk.Toplevel):
         u = ttk.Frame(nb, padding=14)
         nb.add(u, text='Güncelleme')
         self.auto_upd = tk.BooleanVar(value=s['auto_update'])
-        ttk.Checkbutton(u, text='Açılışta GitHub\'dan yeni sürümü denetle', variable=self.auto_upd).pack(anchor='w')
+        ttk.Checkbutton(u, text='GitHub\'dan yeni sürümü kendiliğinden denetle (açılışta ve 30 dakikada bir)', variable=self.auto_upd).pack(anchor='w')
         app.lbl(u, 'Sürüm %s · github.com/downtownck/agfo-windows-apps (etiket ai-editor-v*)\nİndirilen dosya SHA-256 ile doğrulanır.' % core.VERSION,
                 muted=True).pack(anchor='w', pady=8)
         app.btn(u, 'Şimdi denetle', lambda: app.check_update(silent=False), 'normal', side=None).pack(anchor='w')
