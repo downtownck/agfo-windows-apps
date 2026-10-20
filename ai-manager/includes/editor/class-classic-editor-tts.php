@@ -50,11 +50,12 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
             $openai     = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openai' ) );
             $eleven     = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'elevenlabs' ) );
             $minimax    = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'minimax' ) );
+            $ema        = class_exists( 'AGFO_AIM_Adapter_EMA' ) && function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'ema' ) );
             $default    = sanitize_key( (string) ( $saved['provider'] ?? '' ) );
             $effects    = class_exists( 'AGFO_AIM_Audio_Effects' ) ? AGFO_AIM_Audio_Effects::status() : [ 'available' => false, 'reason' => 'Ses efekti motoru yüklenmedi.', 'path' => '' ];
-            $allowed    = [ 'openai' => $openai, 'elevenlabs' => $eleven, 'minimax' => $minimax ];
+            $allowed    = [ 'openai' => $openai, 'elevenlabs' => $eleven, 'minimax' => $minimax, 'ema' => $ema ];
             if ( empty( $allowed[ $default ] ) ) {
-                $default = $eleven ? 'elevenlabs' : ( $minimax ? 'minimax' : ( $openai ? 'openai' : '' ) );
+                $default = $eleven ? 'elevenlabs' : ( $minimax ? 'minimax' : ( $openai ? 'openai' : ( $ema ? 'ema' : '' ) ) );
             }
 
             wp_localize_script(
@@ -71,11 +72,13 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
                         'openai'     => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::openai_catalog() : [],
                         'elevenlabs' => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::elevenlabs_fallback_catalog() : [],
                         'minimax'     => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::minimax_fallback_catalog() : [],
+                        'ema'         => class_exists( 'AGFO_AIM_Adapter_EMA' ) ? AGFO_AIM_Adapter_EMA::catalog( false ) : [],
                     ],
                     'hasKeys'         => [
                         'openai'     => $openai,
                         'elevenlabs' => $eleven,
                         'minimax'     => $minimax,
+                        'ema'         => $ema,
                     ],
                     'audioEffects'    => [
                         'available' => ! empty( $effects['available'] ),
@@ -117,7 +120,7 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
             <div class="agfo-classic-tts-guaranteed-launcher" data-agfo-tts-launcher="1">
                 <div class="agfo-classic-tts-guaranteed-copy">
                     <strong><span class="dashicons dashicons-superhero-alt" aria-hidden="true"></span> AGFO İçerik Stüdyosu</strong>
-                    <span class="agfo-content-launcher-note">Metni AI ile düzenleyin veya OpenAI, ElevenLabs ve MiniMax ile seslendirin.</span>
+                    <span class="agfo-content-launcher-note">Metni AI ile düzenleyin veya OpenAI, ElevenLabs, MiniMax ve EMA Lightning ile seslendirin.</span>
                 </div>
                 <div class="agfo-classic-tts-guaranteed-actions">
                     <button type="button" class="button agfo-classic-content-open" data-editor="content" aria-haspopup="dialog" aria-controls="agfo-classic-content-modal"><span class="dashicons dashicons-edit-page" aria-hidden="true"></span> AI Düzenle</button>
@@ -135,6 +138,9 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
             $openai         = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openai' ) );
             $eleven         = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'elevenlabs' ) );
             $minimax        = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'minimax' ) );
+            $ema            = class_exists( 'AGFO_AIM_Adapter_EMA' ) && function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'ema' ) );
+            $ema_available  = class_exists( 'AGFO_AIM_Adapter_EMA' );
+            $ema_settings   = $ema_available ? AGFO_AIM_Adapter_EMA::settings() : [];
             $effects        = class_exists( 'AGFO_AIM_Audio_Effects' ) ? AGFO_AIM_Audio_Effects::status() : [ 'available' => false, 'reason' => 'Ses efekti motoru yüklenmedi.' ];
             ?>
             <div id="agfo-classic-tts-overlay" class="agfo-classic-tts-overlay" hidden></div>
@@ -142,14 +148,14 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
                 <header class="agfo-classic-tts-header">
                     <div>
                         <h2 id="agfo-classic-tts-title"><span class="dashicons dashicons-controls-volumeon" aria-hidden="true"></span> Sayfayı Seslendir</h2>
-                        <p>Seçili metni veya sayfa içeriğini OpenAI, ElevenLabs veya MiniMax ile sese dönüştürün.</p>
+                        <p>Seçili metni veya sayfa içeriğini OpenAI, ElevenLabs, MiniMax veya EMA Lightning (Türkçe, ücretsiz) ile sese dönüştürün.</p>
                     </div>
                     <button type="button" class="agfo-classic-tts-close" aria-label="Kapat">×</button>
                 </header>
 
                 <div class="agfo-classic-tts-body">
-                    <?php if ( ! $openai && ! $eleven && ! $minimax ) : ?>
-                        <div class="notice notice-error inline"><p>Önce AGFO AI → Sağlayıcılar ekranında OpenAI, ElevenLabs veya MiniMax API anahtarı kaydedin.</p></div>
+                    <?php if ( ! $openai && ! $eleven && ! $minimax && ! $ema ) : ?>
+                        <div class="notice notice-error inline"><p>Önce AGFO AI → Sağlayıcılar ekranında OpenAI, ElevenLabs veya MiniMax API anahtarı ya da EMA Lightning servis token’ı kaydedin.</p></div>
                     <?php endif; ?>
 
                     <div class="agfo-classic-tts-quota-bar" aria-label="TTS kredi durumu">
@@ -178,10 +184,11 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
                         <div class="agfo-classic-tts-grid agfo-classic-tts-grid-three">
                             <label>
                                 <span>Sağlayıcı</span>
-                                <select id="agfo-classic-tts-provider" name="provider" <?php disabled( ! $openai && ! $eleven && ! $minimax ); ?>>
+                                <select id="agfo-classic-tts-provider" name="provider" <?php disabled( ! $openai && ! $eleven && ! $minimax && ! $ema_available ); ?>>
                                     <?php if ( $eleven ) : ?><option value="elevenlabs">ElevenLabs</option><?php endif; ?>
                                     <?php if ( $minimax ) : ?><option value="minimax">MiniMax</option><?php endif; ?>
                                     <?php if ( $openai ) : ?><option value="openai">OpenAI</option><?php endif; ?>
+                                    <?php if ( $ema_available ) : ?><option value="ema"><?php echo esc_html( 'EMA Lightning (yerel, Türkçe)' . ( $ema ? '' : ' — token gerekli' ) ); ?></option><?php endif; ?>
                                 </select>
                             </label>
                             <label>
@@ -311,6 +318,39 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
                             </details>
                         </section>
 
+                        <?php if ( $ema_available ) : ?>
+                        <section class="agfo-classic-tts-provider-panel" data-provider-panel="ema" hidden>
+                            <?php if ( ! $ema ) : ?>
+                                <div class="notice notice-warning inline"><p>EMA servis token’ı tanımlı değil. <a href="<?php echo esc_url( admin_url( 'admin.php?page=agfo-ai-manager' ) ); ?>" target="_blank" rel="noopener">AGFO AI › Sağlayıcılar</a> ekranındaki “EMA Lightning (yerel TTS)” alanına sunucudaki TTS servisinin token’ını girin (veya wp-config.php içinde AGFO_TTS_TOKEN tanımlayın), sonra bu sayfayı yenileyin.</p></div>
+                            <?php endif; ?>
+                            <div id="agfo-classic-tts-ema-status" class="agfo-classic-tts-catalog-status">EMA servisi: <?php echo esc_html( (string) ( $ema_settings['endpoint'] ?? '' ) ); ?></div>
+                            <div class="agfo-classic-tts-grid agfo-classic-tts-grid-two">
+                                <label>
+                                    <span>EMA modeli</span>
+                                    <select id="agfo-classic-tts-model-ema"><option value="ema-lightning" selected>EMA Lightning (yerel, Türkçe)</option></select>
+                                    <input id="agfo-classic-tts-voice-ema" type="hidden" value="ema">
+                                    <small>Tek ses, yalnız Türkçe; karakter ücreti yok. Tek işte en fazla <?php echo esc_html( number_format_i18n( AGFO_AIM_Adapter_EMA::MAX_CHARS ) ); ?> karakter.</small>
+                                </label>
+                                <div class="agfo-classic-tts-grid agfo-classic-tts-grid-two">
+                                    <label><span>Cümle arası (ms)</span><input id="agfo-classic-tts-ema-pause" type="number" min="0" max="2000" step="50" value="<?php echo esc_attr( (string) ( $ema_settings['pause_ms'] ?? 350 ) ); ?>"></label>
+                                    <label><span>Paragraf arası (ms)</span><input id="agfo-classic-tts-ema-paragraph-pause" type="number" min="0" max="3000" step="50" value="<?php echo esc_attr( (string) ( $ema_settings['paragraph_pause_ms'] ?? 700 ) ); ?>"></label>
+                                </div>
+                            </div>
+                            <?php if ( class_exists( 'AGFO_AIM_Speech_Script' ) ) : ?>
+                            <label class="agfo-classic-tts-publish-row">
+                                <input id="agfo-classic-tts-ema-script" type="checkbox" <?php checked( ! empty( $ema_settings['script_enabled'] ) ); ?>>
+                                <span>Okuma metnini AI ile hazırla: yabancı adlar, sayılar, tarihler, birimler ve kısaltmalar okunduğu gibi yazılır.</span>
+                            </label>
+                            <p>
+                                <button type="button" class="button button-small" id="agfo-classic-tts-ema-script-preview">Okuma metnini önizle</button>
+                                <button type="button" class="button-link" id="agfo-classic-tts-ema-script-undo" hidden>Özgün metne dön</button>
+                                <small id="agfo-classic-tts-ema-script-status" aria-live="polite"></small>
+                            </p>
+                            <?php endif; ?>
+                            <p><button type="button" class="button button-small" id="agfo-classic-tts-refresh-ema">Bağlantıyı test et</button> <small>Telaffuz sözlüğü ve servis adresi: AGFO AI → Ses Stüdyosu → EMA servis ayarları. Hız 0.7–1.4.</small></p>
+                        </section>
+                        <?php endif; ?>
+
                         <label class="agfo-classic-tts-block-label">
                             <span>Okuma talimatı</span>
                             <textarea id="agfo-classic-tts-instructions" name="instructions" rows="2" placeholder="Örn. Sakin, olgun ve İstanbul Türkçesiyle oku."></textarea>
@@ -345,7 +385,7 @@ if ( ! class_exists( 'AGFO_AIM_Classic_Editor_TTS' ) ) {
                     <span>Yapay ses kullanıldığını yayımlanan içerikte açıkça belirtmeniz önerilir.</span>
                     <div>
                         <button type="button" class="button agfo-classic-tts-close">Kapat</button>
-                        <button type="submit" form="agfo-classic-tts-form" id="agfo-classic-tts-submit" class="button button-primary" <?php disabled( ! $openai && ! $eleven && ! $minimax ); ?>>Sesi Üret</button>
+                        <button type="submit" form="agfo-classic-tts-form" id="agfo-classic-tts-submit" class="button button-primary" <?php disabled( ! $openai && ! $eleven && ! $minimax && ! $ema ); ?>>Sesi Üret</button>
                     </div>
                 </footer>
             </section>

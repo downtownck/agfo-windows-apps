@@ -495,6 +495,19 @@ function agfo_api_registry(): array {
                 'image_generate'    => 'image-01',
             ],
         ],
+        // NEW 17.9.0: self-hosted Turkish TTS. The "key" is the AGFO TTS Service token
+        // (or AGFO_TTS_TOKEN in wp-config.php); the endpoint lives in Ses Stüdyosu.
+        'ema'            => [
+            'label'          => 'EMA Lightning (yerel TTS)',
+            'url'            => '',
+            'chat_url'       => '',
+            'submit_url'     => '',
+            'auth'           => ['X-AGFO-Token' => '{key}'],
+            'type'           => 'media',
+            'capabilities'   => ['speech_synthesize'],
+            'default_model'  => 'ema-lightning',
+            'default_models' => [ 'speech_synthesize' => 'ema-lightning' ],
+        ],
     ];
 }
 
@@ -502,7 +515,13 @@ function agfo_api_registry(): array {
 function agfo_get_api_key(string $code): ?string {
     global $AGFO_ENC;
     $stored = get_option('agfo_' . $code . '_api_key', '');
-    if (empty($stored)) return null;
+    if (empty($stored)) {
+        // NEW 17.9.0: the EMA service token may live only in wp-config.php.
+        if ('ema' === $code && defined('AGFO_TTS_TOKEN') && '' !== trim((string) AGFO_TTS_TOKEN)) {
+            return trim((string) AGFO_TTS_TOKEN);
+        }
+        return null;
+    }
     if ($AGFO_ENC) {
         $dec = $AGFO_ENC->decrypt($stored);
         return ($dec !== null) ? $dec : $stored;

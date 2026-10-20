@@ -35,6 +35,13 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
   uygunsuzluk bulgusu, uygunluk ifadesi, DÖF ve kök neden değerlendirmesi, yönetici özeti). Kayıt no, tarih, ölçüm
   veya madde metni uydurulmaz.
 
+- **Ses (1.5):** seçili metni ya da tüm belgeyi sitenizdeki AI Manager (17.12.0+) üzerinden sunucudaki EMA Lightning ile
+  Türkçe seslendirip MP3 olarak kaydeder; karakter ücreti yoktur. "Okuma metnini AI ile hazırla" seçiliyse yabancı adlar,
+  sayılar, tarihler, birimler ve kısaltmalar önce okunduğu gibi yazılır. "Okuma metnini önizle" hazırlanan metni yeni
+  sekmede açar; düzeltip o sekmeden seslendirirseniz metin olduğu gibi okunur. Uzun belgeler parçalara bölünüp tek MP3'te
+  birleştirilir. **Telaffuz sözlüğü:** yanlış okunan bir adı seçip sağ tıklayın ("Telaffuz sözlüğüne ekle") ya da Ses ›
+  Sözlüğü aç; okunuşu dinleyip kaydedin. Kayıt sunucudaki ortak listeye yazılır, bütün sitelerde hemen geçerli olur
+  (değiştirmek için site yöneticisi gerekir).
 - **Kaynaklar (1.2):** PDF, Word, Excel, PowerPoint, metin ve e-posta dosyalarını ekleyip onlara soru sorun (tıklanabilir
   sayfa atıflarıyla) ya da onlardan makale, eğitim notu, SSS, quiz, denetim kontrol listesi, karşılaştırma, sunum taslağı
   üretin. Büyük belgelerde yerel arama yalnız ilgili bölümleri gönderir; kişisel bilgiler gönderimden önce maskelenebilir.

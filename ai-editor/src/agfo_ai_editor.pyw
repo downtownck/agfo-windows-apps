@@ -47,6 +47,7 @@ import agfo_pdf  # noqa: E402
 import agfo_richdoc as rdoc  # noqa: E402
 import agfo_doctranslate as dtr  # noqa: E402
 import agfo_trlive as trlive  # noqa: E402
+import agfo_speech as speech  # noqa: E402  # 1.5: seslendirme
 
 
 def selftest(out_path: str) -> int:
@@ -133,6 +134,9 @@ def selftest(out_path: str) -> int:
         pr.save(out)
         pr.close()
         import agfo_pdf_layout  # noqa: F401  (1.4.6: duzeni koruyan PDF cevirisi)
+        import agfo_speech as _sp   # 1.5: seslendirme modulu EXE'de
+        res['speech'] = _sp.markdown_to_speech('# Başlık\n\n- madde') == 'Başlık.\n\nmadde.'
+        res['ok'] = res['ok'] and res['speech']
         pr2 = _p.PdfProject(pp)
         lays = pr2.layouts()
         tdata, _tst = pr2.translated_pdf(lays, ['Line one', 'Old text'][:sum(len(x['paras']) for x in lays)] or ['Line one'])
@@ -251,6 +255,7 @@ class Doc:
         self.path = path
         self.docfile = docfile or core.DocFile()
         self.docx_warned = False
+        self.speech_script = False   # 1.5: bu sekme AI ile hazirlanmis bir okuma metni mi
 
     @property
     def rich(self) -> bool:
@@ -268,6 +273,166 @@ class Doc:
     def saved_text(self, _value):
         """Eski arayuz: belgenin su anki hali 'kaydedilmis' sayilir."""
         self.text.undo.mark_saved()
+
+
+class LexiconWindow(tk.Toplevel):
+    """1.5: sunucudaki ortak EMA telaffuz sozlugu (AI Manager 17.12+ /editor/lexicon)."""
+    SOURCE = {'base': 'Hazır', 'added': 'Eklendi', 'edited': 'Değiştirildi', 'removed': 'Kaldırıldı'}
+
+    def __init__(self, app, backend, word=''):
+        super().__init__(app)
+        self.app, self.b = app, backend
+        self.rows = []
+        self.title('Telaffuz sözlüğü')
+        self.configure(bg=PANEL, padx=12, pady=10)
+        self.transient(app)
+        self.geometry('%dx%d' % (int(640 * app.scale), int(560 * app.scale)))
+        top = tk.Frame(self, bg=PANEL)
+        top.pack(fill='x')
+        app.lbl(top, 'Ara', muted=True).pack(side='left')
+        self.q = tk.StringVar()
+        e = ttk.Entry(top, textvariable=self.q, width=30)
+        e.pack(side='left', padx=(6, 8))
+        self.q.trace_add('write', lambda *_: self.render())
+        app.btn(top, 'Yenile', self.load, 'ghost', padx=8)
+        self.count = app.lbl(top, '', muted=True)
+        self.count.pack(side='right')
+        self.tree = ttk.Treeview(self, columns=('word', 'reading', 'source'), show='headings', height=14, selectmode='browse')
+        for col, lab, w in (('word', 'Kelime', 180), ('reading', 'Okunuş', 260), ('source', 'Kaynak', 100)):
+            self.tree.heading(col, text=lab)
+            self.tree.column(col, width=int(w * app.scale), anchor='w')
+        self.tree.pack(fill='both', expand=True, pady=(8, 8))
+        self.tree.bind('<<TreeviewSelect>>', lambda e: self._picked())
+        form = tk.Frame(self, bg=PANEL)
+        form.pack(fill='x')
+        app.lbl(form, 'Kelime (metindeki gibi)', muted=True).grid(row=0, column=0, sticky='w')
+        app.lbl(form, 'Okunuş (Türkçe harflerle)', muted=True).grid(row=0, column=1, sticky='w', padx=(8, 0))
+        self.word = tk.StringVar(value=word)
+        self.reading = tk.StringVar()
+        ttk.Entry(form, textvariable=self.word, width=26).grid(row=1, column=0, sticky='we')
+        self.reading_entry = ttk.Entry(form, textvariable=self.reading, width=34)
+        self.reading_entry.grid(row=1, column=1, sticky='we', padx=(8, 0))
+        form.columnconfigure(0, weight=1)
+        form.columnconfigure(1, weight=2)
+        btns = tk.Frame(self, bg=PANEL)
+        btns.pack(fill='x', pady=(8, 0))
+        app.btn(btns, 'Dinle', self.listen, 'ghost', padx=10)
+        self.save_btn = app.btn(btns, 'Kaydet', self.save, 'primary', padx=14)
+        self.del_btn = app.btn(btns, 'Sil', self.delete, 'ghost', padx=10)
+        self.restore_btn = app.btn(btns, 'Geri al / hazıra dön', self.restore, 'ghost', padx=10)
+        self.status = tk.StringVar(value='Yükleniyor…')
+        tk.Label(self, textvariable=self.status, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(600 * app.scale)).pack(fill='x', pady=(8, 0))
+        self.bind('<Escape>', lambda e: self.destroy())
+        self.reading_entry.bind('<Return>', lambda e: self.save())
+        if word:
+            self.q.set(word)
+            self.reading_entry.focus_set()
+        self.load()
+
+    def set_word(self, word):
+        self.word.set(word)
+        self.reading.set('')
+        self.q.set(word)
+        self.reading_entry.focus_set()
+
+    def _job(self, label, fn, done, *args):
+        self.status.set(label + '…')
+        self.app._start_job(label, fn, done, *args)
+
+    def load(self):
+        def done(ok, res):
+            if not self.winfo_exists():
+                return
+            if not ok:
+                self.status.set(res)
+                return
+            self.rows = res.get('entries') or []
+            can = res.get('can_edit', True)
+            for b in (self.save_btn, self.del_btn, self.restore_btn):
+                b.configure(state='normal' if can else 'disabled')
+            mine = sum(1 for r in self.rows if r.get('source') in ('added', 'edited'))
+            self.count.configure(text='%s etkin · %d sizin' % (res.get('active', len(self.rows)), mine))
+            self.status.set('Hazır.' if can else 'Sözlüğü yalnız site yöneticisi değiştirebilir; dinleyebilirsiniz.')
+            self.render()
+            w = self.word.get().strip()
+            hit = next((r for r in self.rows if r.get('word') == w), None)
+            if hit and not self.reading.get().strip():
+                self.reading.set(hit.get('reading', ''))
+        self._job('Sözlük alınıyor', self.b.lexicon_list, done)
+
+    def render(self):
+        if not self.winfo_exists():
+            return
+        term = self.q.get().strip().lower()
+        self.tree.delete(*self.tree.get_children())
+        shown = 0
+        for r in self.rows:
+            w, rd = str(r.get('word', '')), str(r.get('reading', ''))
+            if term and term not in w.lower() and term not in rd.lower():
+                continue
+            self.tree.insert('', 'end', iid='r%d' % shown, values=(w, rd, self.SOURCE.get(r.get('source'), r.get('source', ''))))
+            shown += 1
+            if shown >= 400:
+                break
+
+    def _picked(self):
+        sel = self.tree.selection()
+        if sel:
+            w, rd, _src = self.tree.item(sel[0], 'values')
+            self.word.set(w)
+            self.reading.set(rd)
+
+    def _after_change(self, msg):
+        def done(ok, res):
+            if not self.winfo_exists():
+                return
+            if not ok:
+                self.status.set(res)
+                return
+            self.status.set(msg)
+            self.load()
+        return done
+
+    def save(self):
+        w, rd = self.word.get().strip(), self.reading.get().strip()
+        if not w or not rd:
+            self.status.set('Kelime ve okunuş gerekli.')
+            return
+        self._job('Kaydediliyor', self.b.lexicon_change, self._after_change('“%s” → “%s” kaydedildi; bütün sitelerde geçerli.' % (w, rd)), 'save', w, rd)
+
+    def delete(self):
+        w = self.word.get().strip()
+        if w:
+            self._job('Siliniyor', self.b.lexicon_change, self._after_change('“%s” sözlükten kaldırıldı.' % w), 'delete', w, '')
+
+    def restore(self):
+        w = self.word.get().strip()
+        if w:
+            self._job('Geri alınıyor', self.b.lexicon_change, self._after_change('“%s” hazır okunuşuna döndü.' % w), 'restore', w, '')
+
+    def listen(self):
+        text = self.reading.get().strip() or self.word.get().strip()
+        if not text:
+            return
+
+        def done(ok, res):
+            if not ok:
+                self.status.set(res)
+                return
+            folder = core.data_dir() / 'listen'
+            folder.mkdir(exist_ok=True)
+            for old in sorted(folder.glob('*.mp3'))[:-10]:
+                try:
+                    old.unlink()
+                except OSError:
+                    pass
+            path = folder / ('%s.mp3' % uuid.uuid4().hex[:10])
+            path.write_bytes(res)
+            self.last_listen = str(path)
+            self.status.set('“%s” çalınıyor.' % text)
+            self.app._open_external(str(path))
+        self._job('Örnek ses hazırlanıyor', self.b.lexicon_listen, done, text)
 
 
 class App(tk.Tk):
@@ -660,6 +825,206 @@ class App(tk.Tk):
         self._tab_chat(self._ai_tab('Sohbet'))
         self._tab_audit(self._ai_tab('Denetim'))
         self._tab_sources(self._ai_tab('Kaynaklar'))
+        self._tab_speech(self._ai_tab('Ses'))   # 1.5
+
+    # ------------------------------------------------------------------ 1.5: Ses (EMA seslendirme)
+    def _tab_speech(self, f):
+        self.sp_state_var = tk.StringVar(value='Seslendirme: AI Manager bağlantısı denetleniyor…')
+        self.sp_state_lbl = tk.Label(f, textvariable=self.sp_state_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w',
+                                     justify='left', wraplength=int(380 * self.scale))
+        self.sp_state_lbl.pack(fill='x', pady=(0, 6))
+        self.lbl(f, 'Kapsam yukarıdaki seçime göre: seçili metin (yoksa paragraf) ya da tüm belge. Ses, sitenizdeki AI Manager '
+                    'üzerinden sunucudaki EMA Lightning ile üretilir; Türkçe, karakter ücreti yok.',
+                 muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(0, 8))
+        self.sp_script_var = tk.BooleanVar(value=bool(self.settings.get('speech_script', True)))
+        ttk.Checkbutton(f, text='Okuma metnini AI ile hazırla (yabancı adlar, sayılar, kısaltmalar)', variable=self.sp_script_var,
+                        command=self._speech_settings_changed).pack(anchor='w')
+        row = tk.Frame(f, bg=PANEL)
+        row.pack(fill='x', pady=(6, 4))
+        self.lbl(row, 'Hız', muted=True).pack(side='left')
+        self.sp_speed_var = tk.DoubleVar(value=float(self.settings.get('speech_speed', 1.0)))
+        ttk.Spinbox(row, from_=0.7, to=1.4, increment=0.05, width=5, textvariable=self.sp_speed_var, format='%.2f',
+                    command=self._speech_settings_changed).pack(side='left', padx=(6, 12))
+        self.lbl(row, 'Paragraf arası (ms)', muted=True).pack(side='left')
+        self.sp_ppause_var = tk.IntVar(value=int(self.settings.get('speech_paragraph_pause', 700)))
+        ttk.Spinbox(row, from_=0, to=3000, increment=50, width=6, textvariable=self.sp_ppause_var,
+                    command=self._speech_settings_changed).pack(side='left', padx=(6, 0))
+        go = tk.Frame(f, bg=PANEL)
+        go.pack(fill='x', pady=(8, 4))
+        self.btn(go, '🔊 Seslendir', self.narrate_current, 'primary', padx=14, pady=7)
+        self.btn(go, 'Okuma metnini önizle', self.preview_reading_script, 'ghost', padx=10)
+        self.sp_result_var = tk.StringVar(value='')
+        tk.Label(f, textvariable=self.sp_result_var, fg=OK_C, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(380 * self.scale)).pack(fill='x', pady=(4, 2))
+        res = tk.Frame(f, bg=PANEL)
+        res.pack(fill='x')
+        self.sp_play_btn = self.btn(res, 'Dinle', lambda: self._open_external(getattr(self, '_sp_last', '')), 'ghost', padx=10)
+        self.sp_folder_btn = self.btn(res, 'Klasörü aç', lambda: self._open_external(os.path.dirname(getattr(self, '_sp_last', '') or '')), 'ghost', padx=10)
+        self.sp_play_btn.configure(state='disabled')
+        self.sp_folder_btn.configure(state='disabled')
+        box = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
+        box.pack(fill='x', pady=(14, 0))
+        tk.Label(box, text='Telaffuz sözlüğü (bütün siteler)', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        self.lbl(box, 'Yanlış okunan bir adı seçip sağ tıklayın ya da aşağıdan ekleyin. Kayıt sunucudaki ortak listeye yazılır '
+                      've hemen geçerli olur.', muted=True, bg=PANEL2, wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
+        brow = tk.Frame(box, bg=PANEL2)
+        brow.pack(fill='x')
+        self.btn(brow, 'Seçili kelimeyi ekle…', self.add_selection_to_lexicon, 'ghost', padx=10)
+        self.btn(brow, 'Sözlüğü aç…', self.open_lexicon, 'ghost', padx=10)
+        self.lbl(f, 'Önizleme okuma metnini yeni sekmede açar; düzeltip o sekmeden “Seslendir”e basarsanız metin olduğu gibi okunur.',
+                 muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(10, 0))
+
+    def _speech_settings_changed(self):
+        try:
+            self.settings['speech_script'] = bool(self.sp_script_var.get())
+            self.settings['speech_speed'] = max(0.7, min(1.4, round(float(self.sp_speed_var.get()), 2)))
+            self.settings['speech_paragraph_pause'] = max(0, min(3000, int(self.sp_ppause_var.get())))
+            core.save_settings(self.settings)
+        except (tk.TclError, ValueError, OSError):
+            pass
+
+    def _sync_speech_tab(self):
+        if not hasattr(self, 'sp_state_var'):
+            return
+        info = (self.manager_info or {}).get('speech') if isinstance(self.manager_info, dict) else None
+        if not isinstance(info, dict):
+            self.sp_state_var.set('Seslendirme için sitede AGFO AI Manager 17.12.0 veya üstü gerekir.')
+            self.sp_state_lbl.configure(fg=WARN)
+            return
+        if info.get('speech_ready'):
+            self.sp_state_var.set('● EMA Lightning hazır (sitedeki AI Manager üzerinden)')
+            self.sp_state_lbl.configure(fg=OK_C)
+        else:
+            self.sp_state_var.set('● Sitede EMA servis token’ı yok: AI Manager › Sağlayıcılar › EMA Lightning')
+            self.sp_state_lbl.configure(fg=WARN)
+        if 'speech_script' not in self.settings and 'reading_script_default' in info:
+            self.sp_script_var.set(bool(info.get('reading_script_default')))
+
+    def _manager_backend(self, title):
+        for b in self.backends():
+            if getattr(b, 'kind', '') == 'manager':
+                return b
+        messagebox.showinfo(title, 'Bu özellik sitenizdeki AGFO AI Manager üzerinden çalışır. Ayarlar › Bağlantı bölümünden '
+                                   'AI Manager site adresini ve bağlantı anahtarını girin.', parent=self)
+        return None
+
+    def _speech_source(self, title):
+        """(metin, belge, kapsam etiketi) ya da None."""
+        d = self.cur()
+        if not d:
+            messagebox.showinfo(title, 'Seslendirme metin belgelerinde yapılır. PDF için önce “Metin olarak aç”ı kullanın.', parent=self)
+            return None
+        start, end, what = self._scope_range(d)
+        raw = d.text.markdown(start, end)[0] if d.rich else d.text.get(start, end)
+        text = speech.markdown_to_speech(raw)
+        if not text.strip():
+            messagebox.showinfo(title, 'Seslendirilecek metin bulunamadı.', parent=self)
+            return None
+        return text, d, what
+
+    def preview_reading_script(self):
+        title = 'Okuma metni'
+        b = self._manager_backend(title)
+        src = b and self._speech_source(title)
+        if not src:
+            return
+        text, d, what = src
+
+        def done(ok, res):
+            if not ok:
+                messagebox.showerror(title, res, parent=self)
+                return
+            nd = self.new_doc(text=res.get('text', ''), title='Okuma metni – ' + (d.title or 'belge'))
+            if nd is not None:
+                nd.speech_script = True
+            note = '%d/%d bölüm hazırlandı (%s)' % (res.get('rewritten', 0), res.get('chunks', 0), res.get('model', ''))
+            if res.get('kept_original'):
+                note += '; %d bölüm özgün bırakıldı' % res['kept_original']
+            self.flash('Okuma metni yeni sekmede: ' + note + '. Düzeltip bu sekmeden “Seslendir”e basın.', 12000)
+        self._start_job('Okuma metni hazırlanıyor (%s)' % what, b.speech_script, done, text)
+
+    def narrate_current(self):
+        title = 'Seslendir'
+        b = self._manager_backend(title)
+        src = b and self._speech_source(title)
+        if not src:
+            return
+        text, d, what = src
+        base = re.sub(r'[\\/:*?"<>|]+', '_', (os.path.splitext(d.title or 'ses')[0] or 'ses')).strip() or 'ses'
+        initial_dir = os.path.dirname(d.path) if d.path else str(pathlib.Path.home())
+        dest = self._ask_speech_path(base + '.mp3', initial_dir)
+        if not dest:
+            return
+        self._speech_settings_changed()
+        ready = bool(getattr(d, 'speech_script', False))
+        opts = dict(reading_script=bool(self.sp_script_var.get()) and not ready, script_ready=ready,
+                    speed=float(self.settings.get('speech_speed', 1.0)), paragraph_pause_ms=int(self.settings.get('speech_paragraph_pause', 700)),
+                    title=d.title or 'AGFO AI Editor')
+        self._sp_cancel = threading.Event()
+        self._sp_progress = 'başlıyor…'
+        cancel = self._sp_cancel
+
+        def progress(msg):
+            self._sp_progress = msg
+
+        def work():
+            return speech.narrate(b, text, dest, progress=progress, cancel=cancel.is_set, **opts)
+
+        def done(ok, res):
+            self._sp_progress = None
+            if not ok:
+                if 'Cancelled' not in str(res):
+                    messagebox.showerror(title, res, parent=self)
+                return
+            self._sp_last = res['path']
+            secs = (res.get('duration_ms') or 0) / 1000.0
+            dur = (' · %d:%02d' % (secs // 60, secs % 60)) if secs else ''
+            note = speech.script_note(res.get('scripts') or [])
+            self.sp_result_var.set('✓ %s%s%s' % (os.path.basename(res['path']), dur, (' · ' + note) if note else ''))
+            self.sp_play_btn.configure(state='normal')
+            self.sp_folder_btn.configure(state='normal')
+            self.flash('Ses kaydedildi: %s' % res['path'])
+        self._start_job('Seslendiriliyor (%s)' % what, work, done)
+
+    def _ask_speech_path(self, initial, initial_dir):
+        if self.smoke and getattr(self, '_test_speech_path', None):
+            return self._test_speech_path
+        return filedialog.asksaveasfilename(parent=self, title='Sesi kaydet', defaultextension='.mp3', initialfile=initial,
+                                            initialdir=initial_dir, filetypes=[('MP3 ses', '*.mp3')])
+
+    def _open_external(self, path):
+        if not path:
+            return
+        try:
+            if IS_WIN:
+                os.startfile(path)  # noqa: S606 - kullanicinin kendi dosyasi
+        except OSError as e:
+            messagebox.showerror('Aç', str(e), parent=self)
+
+    def add_selection_to_lexicon(self):
+        d = self.cur()
+        word = ''
+        if d:
+            try:
+                word = d.text.get('sel.first', 'sel.last').strip()
+            except tk.TclError:
+                word = ''
+        if len(word) > 80 or '\n' in word:
+            word = ''
+        self.open_lexicon(word=word)
+
+    def open_lexicon(self, word=''):
+        b = self._manager_backend('Telaffuz sözlüğü')
+        if not b:
+            return None
+        win = getattr(self, 'lexicon_win', None)
+        if win is not None and win.winfo_exists():
+            win.lift()
+            if word:
+                win.set_word(word)
+            return win
+        self.lexicon_win = LexiconWindow(self, b, word)
+        return self.lexicon_win
 
     def _ai_tab(self, title):
         f = ttk.Frame(self.ai_nb, padding=(10, 10))
@@ -1841,6 +2206,13 @@ class App(tk.Tk):
             a = core.action_by_key(key)
             m.add_command(label='AI: ' + a['label'], command=lambda k=key: self.run_action_key(k))
         m.add_command(label='AI: Çevir (%s)' % self.tr_lang.get(), command=self.run_translate)
+        try:
+            picked = t.get('sel.first', 'sel.last').strip()
+        except tk.TclError:
+            picked = ''
+        if picked and len(picked) <= 80 and '\n' not in picked:
+            m.add_separator()
+            m.add_command(label='Telaffuz sözlüğüne ekle: “%s”…' % picked, command=lambda w=picked: self.open_lexicon(word=w))
         m.tk_popup(e.x_root, e.y_root)
 
     def _image_menu(self, m, t, name):
@@ -1965,6 +2337,9 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         self._drain_tr_events()
+        sp_prog = getattr(self, '_sp_progress', None)
+        if sp_prog and self.jobs:
+            self.ai_var.set('Seslendirme: ' + sp_prog)
         prog = getattr(self, '_tr_progress', None)
         if prog and self.jobs:
             model = getattr(self, '_tr_model', None)
@@ -1989,6 +2364,8 @@ class App(tk.Tk):
             self._tr_live = None
         if getattr(self, '_tr_cancel', None):
             self._tr_cancel.set()
+        if getattr(self, '_sp_cancel', None):
+            self._sp_cancel.set()
         self.jobs.clear()
         self.busy.stop()
         self.busy.pack_forget()
@@ -2594,6 +2971,7 @@ class App(tk.Tk):
                 self.conn_lbl.configure(fg=OK_C if res.get('text_ready', True) else WARN)
                 self._merge_manager_templates(res.get('templates'))
                 self._set_translation_model_label()
+                self._sync_speech_tab()
             else:
                 self.conn_var.set('● AI Manager bağlanamadı' + (' (doğrudan yedek hazır)' if len(backends) > 1 else ''))
                 self.conn_lbl.configure(fg=WARN if len(backends) > 1 else BAD_C)

@@ -79,12 +79,15 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
                             'openai'     => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::openai_catalog() : [],
                             'elevenlabs' => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::elevenlabs_fallback_catalog() : [],
                             'minimax'     => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::minimax_fallback_catalog() : [],
+                            'ema'         => class_exists( 'AGFO_AIM_Adapter_EMA' ) ? AGFO_AIM_Adapter_EMA::catalog( false ) : [],
                         ],
                         'hasKeys'  => [
                             'openai'     => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openai' ) ),
                             'elevenlabs' => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'elevenlabs' ) ),
                             'minimax'     => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'minimax' ) ),
+                            'ema'         => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'ema' ) ),
                         ],
+                        'emaSettings' => class_exists( 'AGFO_AIM_Adapter_EMA' ) ? AGFO_AIM_Adapter_EMA::settings() : [],
                         'messages' => [
                             'queued'         => 'İş kuyruğa alındı.',
                             'processing'     => 'Ses üretiliyor…',
@@ -108,6 +111,8 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
             $openai_key    = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openai' ) );
             $eleven_key    = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'elevenlabs' ) );
             $minimax_key   = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'minimax' ) );
+            $ema_key       = class_exists( 'AGFO_AIM_Adapter_EMA' ) && function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'ema' ) );
+            $ema_settings  = class_exists( 'AGFO_AIM_Adapter_EMA' ) ? AGFO_AIM_Adapter_EMA::settings() : [];
             $storage_error = (string) get_option( 'agfo_ai_storage_error', '' );
             $schema_error  = (string) get_option( 'agfo_ai_schema_error', '' );
             $openai_catalog = class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::openai_catalog() : [ 'models' => [], 'voices' => [] ];
@@ -116,7 +121,7 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
             ?>
             <div class="wrap agfo-ops-wrap">
                 <h1>Ses Stüdyosu</h1>
-                <p class="description">Metni OpenAI, ElevenLabs veya MiniMax üzerinden sese dönüştürür. Model ve konuşmacı listeleri sağlayıcıya göre hazırlanır; hesap sesleri yalnız sunucu tarafında güvenli biçimde okunur.</p>
+                <p class="description">Metni OpenAI, ElevenLabs, MiniMax veya sunucudaki EMA Lightning (Türkçe, ücretsiz) üzerinden sese dönüştürür. Model ve konuşmacı listeleri sağlayıcıya göre hazırlanır; hesap sesleri yalnız sunucu tarafında güvenli biçimde okunur.</p>
 
                 <?php if ( $schema_error ) : ?>
                     <div class="notice notice-error inline"><p><strong>Veri tabanı şeması hazır değil:</strong> <?php echo esc_html( $schema_error ); ?></p></div>
@@ -124,8 +129,8 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
                 <?php if ( $storage_error ) : ?>
                     <div class="notice notice-error inline"><p><strong>Özel depolama hazır değil:</strong> <?php echo esc_html( $storage_error ); ?></p></div>
                 <?php endif; ?>
-                <?php if ( ! $openai_key && ! $eleven_key && ! $minimax_key ) : ?>
-                    <div class="notice notice-warning inline"><p>Önce <a href="<?php echo esc_url( admin_url( 'admin.php?page=agfo-ai-manager' ) ); ?>">Sağlayıcılar</a> ekranında OpenAI, ElevenLabs veya MiniMax API anahtarı tanımlayın.</p></div>
+                <?php if ( ! $openai_key && ! $eleven_key && ! $minimax_key && ! $ema_key ) : ?>
+                    <div class="notice notice-warning inline"><p>Önce <a href="<?php echo esc_url( admin_url( 'admin.php?page=agfo-ai-manager' ) ); ?>">Sağlayıcılar</a> ekranında OpenAI, ElevenLabs veya MiniMax API anahtarı ya da EMA Lightning servis token’ı tanımlayın.</p></div>
                 <?php elseif ( ! $eleven_key || ! $minimax_key ) : ?>
                     <div class="notice notice-info inline"><p>ElevenLabs ve MiniMax anahtarları kaydedildiğinde bu sağlayıcılardaki hesap sesleri otomatik olarak dropdown listelerine alınır.</p></div>
                 <?php endif; ?>
@@ -367,6 +372,107 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
                                 </details>
                             </section>
 
+                            <?php if ( class_exists( 'AGFO_AIM_Adapter_EMA' ) ) : ?>
+                            <section class="agfo-provider-settings" data-provider-panel="ema">
+                                <div class="agfo-provider-heading">
+                                    <div>
+                                        <h2>EMA Lightning konuşma ayarları</h2>
+                                        <p class="description">Sunucuda çalışan Türkçe model. Karakter ücreti yok; tek ses; yalnız Türkçe metin.</p>
+                                    </div>
+                                    <div class="agfo-provider-actions">
+                                        <span class="agfo-provider-badge <?php echo $ema_key ? 'is-ready' : 'is-missing'; ?>"><?php echo esc_html( $ema_key ? 'Token hazır' : 'Token yok' ); ?></span>
+                                        <button type="button" id="agfo-ema-refresh" class="button button-secondary" <?php disabled( ! $ema_key ); ?>>Bağlantıyı test et</button>
+                                    </div>
+                                </div>
+                                <div id="agfo-ema-catalog-status" class="agfo-catalog-status" aria-live="polite">
+                                    <?php echo esc_html( $ema_key ? 'EMA servisi: ' . (string) ( $ema_settings['endpoint'] ?? '' ) : 'EMA servis token’ı Sağlayıcılar ekranında “EMA Lightning (yerel TTS)” alanına girildiğinde kullanılabilir.' ); ?>
+                                </div>
+                                <div class="agfo-inline-fields agfo-inline-fields-two">
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-tts-model-ema">EMA modeli</label>
+                                        <select id="agfo-tts-model-ema" name="model_ema">
+                                            <option value="ema-lightning" data-max-characters="<?php echo esc_attr( (string) AGFO_AIM_Adapter_EMA::MAX_CHARS ); ?>" selected>EMA Lightning (yerel, Türkçe) — önerilen</option>
+                                        </select>
+                                        <p id="agfo-ema-model-help" class="description">Tek istekte en fazla <?php echo esc_html( number_format_i18n( AGFO_AIM_Adapter_EMA::MAX_CHARS ) ); ?> karakter. Hız 0.7–1.4.</p>
+                                    </div>
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-tts-voice-ema">EMA sesi</label>
+                                        <select id="agfo-tts-voice-ema" name="voice_ema">
+                                            <option value="ema" selected>EMA (Türkçe, kadın)</option>
+                                        </select>
+                                        <p id="agfo-ema-voice-help" class="description">Model tek sesle gelir.</p>
+                                    </div>
+                                </div>
+                                <div class="agfo-inline-fields agfo-inline-fields-two">
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-ema-pause">Cümle arası duraklama (ms)</label>
+                                        <input id="agfo-ema-pause" type="number" name="pause_ms" min="0" max="2000" step="50" value="<?php echo esc_attr( (string) ( $ema_settings['pause_ms'] ?? 350 ) ); ?>">
+                                    </div>
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-ema-paragraph-pause">Paragraf arası duraklama (ms)</label>
+                                        <input id="agfo-ema-paragraph-pause" type="number" name="paragraph_pause_ms" min="0" max="3000" step="50" value="<?php echo esc_attr( (string) ( $ema_settings['paragraph_pause_ms'] ?? 700 ) ); ?>">
+                                    </div>
+                                </div>
+
+                                <?php if ( class_exists( 'AGFO_AIM_Speech_Script' ) ) : ?>
+                                <div class="agfo-ema-script-box">
+                                    <label class="agfo-check-row">
+                                        <input type="checkbox" id="agfo-ema-script" value="1" <?php checked( ! empty( $ema_settings['script_enabled'] ) ); ?>>
+                                        Okuma metnini AI ile hazırla (yabancı adlar, sayılar, tarihler, birimler ve kısaltmalar okunduğu gibi yazılır)
+                                    </label>
+                                    <p class="description">Metin, seslendirmeden önce sitenin metin modeline gönderilir; yalnız yanlış okunacak parçalar değişir. Bir bölümün yanıtı denetimden geçmezse o bölüm özgün haliyle okunur.</p>
+                                    <p>
+                                        <button type="button" id="agfo-ema-script-preview" class="button button-secondary">Okuma metnini önizle</button>
+                                        <button type="button" id="agfo-ema-script-undo" class="button-link" hidden>Özgün metne dön</button>
+                                        <span id="agfo-ema-script-status" class="description" aria-live="polite"></span>
+                                    </p>
+                                </div>
+                                <?php endif; ?>
+
+                                <details class="agfo-advanced-settings">
+                                    <summary>EMA servis ayarları ve telaffuz sözlüğü</summary>
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-ema-endpoint">Servis adresi</label>
+                                        <input id="agfo-ema-endpoint" type="url" class="regular-text" placeholder="<?php echo esc_attr( AGFO_AIM_Adapter_EMA::DEFAULT_URL ); ?>" value="<?php echo esc_attr( (string) ( $ema_settings['endpoint_saved'] ?? '' ) ); ?>">
+                                        <p class="description">Boş bırakılırsa <?php echo esc_html( ! empty( $ema_settings['endpoint_constant'] ) ? 'wp-config.php içindeki AGFO_TTS_ENDPOINT' : AGFO_AIM_Adapter_EMA::DEFAULT_URL ); ?> kullanılır. Servis aynı sunucudaysa yerel adres yeterlidir.</p>
+                                    </div>
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-ema-lexicon">Telaffuz sözlüğü</label>
+                                        <textarea id="agfo-ema-lexicon" rows="6" placeholder="BRCGS = Bi Ar Si Ci Es&#10;Nietzsche = Niçe"><?php echo esc_textarea( (string) ( $ema_settings['lexicon'] ?? '' ) ); ?></textarea>
+                                        <p class="description">Her satıra bir kayıt: <code>Kelime = okunuş</code>. Yalnız bu site için geçerlidir; sunucudaki ortak sözlüğe eklenir ve aynı kelimede bu site kazanır. Bütün siteler için: <a href="<?php echo esc_url( admin_url( 'admin.php?page=agfo-ai-ema-lexicon' ) ); ?>">Telaffuz Sözlüğü</a>.</p>
+                                    </div>
+                                    <?php if ( class_exists( 'AGFO_AIM_Speech_Script' ) ) : ?>
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-ema-script-model">Okuma metni modeli</label>
+                                        <select id="agfo-ema-script-model">
+                                            <option value="">Sitenin varsayılan metin modeli</option>
+                                            <?php
+                                            $board = class_exists( 'AGFO_AIM_Model_Catalog' ) ? AGFO_AIM_Model_Catalog::translation_board( 0 ) : [ 'rows' => [] ];
+                                            $saved_choice = (string) ( $ema_settings['script_model'] ?? '' );
+                                            $seen_choice  = false;
+                                            foreach ( (array) ( $board['rows'] ?? [] ) as $row ) :
+                                                if ( in_array( (string) ( $row['route'] ?? 'chat' ), [ 'unavailable', 'not_chat' ], true ) ) {
+                                                    continue;
+                                                }
+                                                $choice = (string) $row['provider'] . '|' . (string) $row['id'];
+                                                $seen_choice = $seen_choice || $choice === $saved_choice;
+                                                $speed  = class_exists( 'AGFO_AIM_Editor_API' ) ? AGFO_AIM_Editor_API::speed_class( (string) $row['id'], ! empty( $row['reasoning'] ), $row['speed_score'] ?? null ) : '';
+                                                ?>
+                                                <option value="<?php echo esc_attr( $choice ); ?>" <?php selected( $saved_choice, $choice ); ?>><?php echo esc_html( (string) ( $row['provider_label'] ?? $row['provider'] ) . ' — ' . (string) $row['id'] . ( ! empty( $row['quality'] ) ? ' · kalite ' . (int) $row['quality'] : '' ) . ( 'fast' === $speed ? ' · hızlı' : ( 'slow' === $speed ? ' · yavaş' : '' ) ) ); ?></option>
+                                            <?php endforeach; ?>
+                                            <?php if ( '' !== $saved_choice && ! $seen_choice ) : ?>
+                                                <option value="<?php echo esc_attr( $saved_choice ); ?>" selected><?php echo esc_html( $saved_choice ); ?></option>
+                                            <?php endif; ?>
+                                        </select>
+                                        <p class="description">Hızlı ve ucuz bir model yeterlidir; düşünen (reasoning) modeller yavaştır. Yanıtlar bölüm bölüm 30 gün saklanır, aynı metin yeniden ücretlendirilmez.</p>
+                                    </div>
+                                    <?php endif; ?>
+                                    <p class="description"><?php echo esc_html( ! empty( $ema_settings['token_constant'] ) ? 'Token wp-config.php içindeki AGFO_TTS_TOKEN sabitinden okunuyor.' : 'Token, Sağlayıcılar ekranındaki EMA Lightning anahtar alanında şifreli saklanır.' ); ?></p>
+                                    <p><button type="button" id="agfo-ema-save" class="button button-secondary">EMA ayarlarını kaydet</button> <span id="agfo-ema-save-status" class="description" aria-live="polite"></span></p>
+                                </details>
+                            </section>
+                            <?php endif; ?>
+
                             <div class="agfo-inline-fields">
                                 <div class="agfo-field-row">
                                     <label for="agfo-tts-format">Biçim</label>
@@ -410,7 +516,7 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
                             </label>
 
                             <p class="agfo-disclosure">Yapay ses kullanıldığında, içeriğin yayımlandığı yerde bunun yapay olarak üretildiğini açıkça belirtin.</p>
-                            <button type="submit" class="button button-primary button-hero" <?php disabled( ( ! $openai_key && ! $eleven_key && ! $minimax_key ) || $storage_error || $schema_error ); ?>>Sesi Üret</button>
+                            <button type="submit" class="button button-primary button-hero" <?php disabled( ( ! $openai_key && ! $eleven_key && ! $minimax_key && ! $ema_key ) || $storage_error || $schema_error ); ?>>Sesi Üret</button>
                         </form>
                     </section>
 

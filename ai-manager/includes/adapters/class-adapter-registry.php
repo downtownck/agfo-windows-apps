@@ -31,6 +31,9 @@ if ( ! class_exists( 'AGFO_AIM_Adapter_Registry' ) ) {
             if ( class_exists( 'AGFO_AIM_Adapter_Gemini' ) ) {
                 self::register( new AGFO_AIM_Adapter_Gemini() );
             }
+            if ( class_exists( 'AGFO_AIM_Adapter_EMA' ) ) {
+                self::register( new AGFO_AIM_Adapter_EMA() );
+            }
             do_action( 'agfo_ai_register_adapters', __CLASS__ );
         }
 

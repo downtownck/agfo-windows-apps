@@ -55,6 +55,10 @@ if ( ! class_exists( 'AGFO_AIM_TTS_Catalog' ) ) {
             if ( 'minimax' === $provider ) {
                 return self::minimax_catalog( $force );
             }
+            if ( 'ema' === $provider && class_exists( 'AGFO_AIM_Adapter_EMA' ) ) {
+                // $force (the Studio "test" button) also probes the local service.
+                return AGFO_AIM_Adapter_EMA::catalog( $force );
+            }
             return new WP_Error( 'agfo_tts_catalog_provider', 'Desteklenmeyen TTS katalog sağlayıcısı.' );
         }
 

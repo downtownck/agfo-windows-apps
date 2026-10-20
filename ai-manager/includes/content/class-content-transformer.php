@@ -488,6 +488,39 @@ if ( ! class_exists( 'AGFO_AIM_Content_Transformer' ) ) {
         }
 
         /**
+         * NEW 17.10.0: plain system+user completion for other AI Manager features (EMA reading script).
+         * Uses the given config or the site's default text model.
+         *
+         * @return array|WP_Error [ text, truncated, provider_code, model ]
+         */
+        public static function complete( string $system, string $user, array $options = [] ) {
+            $config = isset( $options['config'] ) && is_array( $options['config'] )
+                ? $options['config']
+                : ( function_exists( 'agfo_get_priority_api_key' ) ? agfo_get_priority_api_key() : false );
+            if ( ! is_array( $config ) || empty( $config['key'] ) || empty( $config['model'] ) || empty( $config['chat_url'] ) ) {
+                return new WP_Error( 'agfo_content_config', 'AGFO AI Manager metin sağlayıcısı veya modeli yapılandırılmamış.' );
+            }
+            $call = self::call_model(
+                $config,
+                $system,
+                $user,
+                [ 'temperature' => isset( $options['temperature'] ) ? (float) $options['temperature'] : 0.1 ],
+                max( 256, min( 12000, (int) ( $options['max_output_tokens'] ?? 4000 ) ) ),
+                max( 30, min( 300, (int) ( $options['timeout'] ?? 120 ) ) )
+            );
+            if ( is_wp_error( $call ) ) {
+                return $call;
+            }
+            $text = trim( (string) preg_replace( '/^```[a-z]*\s*|\s*```$/i', '', (string) $call['raw'] ) );
+            return [
+                'text'          => $text,
+                'truncated'     => self::is_truncated( $call['decoded'] ),
+                'provider_code' => sanitize_key( (string) $config['code'] ),
+                'model'         => sanitize_text_field( (string) $config['model'] ),
+            ];
+        }
+
+        /**
          * NEW 17.7.0: one provider call. Returns [ raw, decoded, response ] or WP_Error carrying the HTTP status.
          */
         private static function call_model( array $config, string $system, string $user, array $template, int $max_output_tokens, int $timeout ) {

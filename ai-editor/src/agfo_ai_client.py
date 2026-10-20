@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import ssl
 import time
@@ -280,6 +281,73 @@ class ManagerBackend:
         if d.get('route_fallback'):
             res['note'] = 'Çeviri modeli kullanılamadı, varsayılan modelle çevrildi (%s)' % str(d.get('route_error') or '')[:160]
         return res
+
+    # ------------------------------------------------------------------ 1.5: seslendirme (AI Manager 17.12+)
+    def speech_submit(self, text: str, reading_script: bool = True, script_ready: bool = False, speed: float = 1.0,
+                      pause_ms=None, paragraph_pause_ms=None, fmt: str = 'mp3', title: str = '', request_id: str = '') -> dict:
+        """EMA seslendirme isi baslatir: {'job', 'status', ...}."""
+        payload = {'text': text, 'reading_script': bool(reading_script), 'script_ready': bool(script_ready),
+                   'speed': round(float(speed), 2), 'format': 'wav' if fmt == 'wav' else 'mp3',
+                   'title': title or 'AGFO AI Editor', 'request_id': request_id}
+        if pause_ms is not None:
+            payload['pause_ms'] = int(pause_ms)
+        if paragraph_pause_ms is not None:
+            payload['paragraph_pause_ms'] = int(paragraph_pause_ms)
+        return self._call('/editor/speech', payload, timeout=60)
+
+    def speech_status(self, job: str) -> dict:
+        return self._call('/editor/speech/' + urllib.parse.quote(job, safe=''), timeout=30)
+
+    def speech_download(self, job: str, dest: str, timeout=TIMEOUT) -> int:
+        """Bitmis sesi dosyaya akitir; yazilan bayt sayisi."""
+        if not self.configured():
+            raise AIError('AI Manager bağlantısı ayarlanmamış.')
+        route = '/editor/speech/' + urllib.parse.quote(job, safe='') + '/audio'
+        style = self._route_style or 'pretty'
+        req = urllib.request.Request(self._url(route, style), headers=dict(self.auth_headers(), **{'User-Agent': USER_AGENT}), method='GET')
+        op = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl.create_default_context()), _NoRedirect())
+        tmp = dest + '.part'
+        total = 0
+        try:
+            with op.open(req, timeout=timeout) as r, open(tmp, 'wb') as fh:
+                while True:
+                    chunk = r.read(1024 * 256)
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+                    total += len(chunk)
+            if total == 0:
+                raise AIError('Ses indirilemedi: sunucu boş dosya döndürdü.')
+            os.replace(tmp, dest)
+            return total
+        except urllib.error.HTTPError as e:
+            decoded = _json(e.read(65536) or b'')
+            raise AIError('Ses indirilemedi: ' + _error_message(decoded, e.code))
+        except (urllib.error.URLError, OSError) as e:
+            raise AIError('Ses indirilemedi: %s' % getattr(e, 'reason', e))
+        finally:
+            if os.path.exists(tmp):
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+
+    def speech_script(self, text: str) -> dict:
+        """Okuma metni onizlemesi: {'text', 'chunks', 'rewritten', 'kept_original', 'model', ...}."""
+        return self._call('/editor/speech-script', {'text': text}, timeout=900)
+
+    def lexicon_list(self) -> dict:
+        return self._call('/editor/lexicon', timeout=60)
+
+    def lexicon_change(self, op: str, word: str, reading: str = '') -> dict:
+        return self._call('/editor/lexicon', {'op': op, 'word': word, 'reading': reading}, timeout=60)
+
+    def lexicon_listen(self, reading: str) -> bytes:
+        d = self._call('/editor/lexicon/listen', {'reading': reading}, timeout=90)
+        try:
+            return base64.b64decode(d.get('audio_base64') or '')
+        except (ValueError, TypeError):
+            raise AIError('Örnek ses çözülemedi.')
 
     def chat(self, messages: list, document: str = '', max_tokens: int = 0) -> dict:
         payload = {'messages': messages[-40:], 'document': document[:core.MAX_CHARS]}

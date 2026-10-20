@@ -2,10 +2,34 @@
 
 AGFO ekosisteminin merkezi AI sağlayıcı, model, yetenek, iş kuyruğu, medya ve maliyet yönetim katmanıdır.
 
-**Version:** 17.8.0  
+**Version:** 17.12.0  
 **Requires WordPress:** 6.0+  
 **Requires PHP:** 7.4+
 
+
+## 17.12.0 — AI Editor seslendirme uçları
+
+AGFO AI Editor 1.5.0'ın "Ses" sekmesi için REST uçları (aynı bağlantı anahtarı / uygulama parolası): `POST /editor/speech` EMA işi başlatır (okuma metni seçeneği, önizlenmiş metin, hız, duraklamalar), `GET /editor/speech/{iş}` durumu ve okuma metni özetini, `GET /editor/speech/{iş}/audio` MP3'ü akıtır; `POST /editor/speech-script` okuma metnini önizler; `GET/POST /editor/lexicon` ortak sözlüğü listeler ve değiştirir (değiştirmek için manage_options), `POST /editor/lexicon/listen` okunuşu örnek MP3 olarak döndürür. `/editor/info` yanıtında `speech` özeti vardır. Düzeltme: iş verisinde PHP `false` olarak gelen reading_script artık "kapalı" sayılır (önceden site varsayılanına düşüyordu).
+
+## 17.11.0 — Telaffuz Sözlüğü (WordPress → sunucu)
+
+AGFO AI › Telaffuz Sözlüğü sayfası, Hetzner'deki AGFO TTS Service'in ortak sözlüğünü yönetir: arama ve süzme (tümü / eklenen-değiştirilen / kaldırılan / hazır), kelime ekleme, satırda okunuş değiştirme, kaldırma, hazır okunuşa dönme ve "Dinle" ile okunuşu EMA'nın sesiyle hemen duyma. Kayıtlar sunucuda data/lexicon.custom.json dosyasına yazılır; bütün sitelerde ve okuma metni adımında hemen geçerlidir, servis güncellemesi (update.sh) bu dosyaya dokunmaz. Hazır gelen bir kelime kaldırıldığında maskelenir; güncelleme onu geri getirmez. Siteye özel okunuşlar Ses Stüdyosu'ndaki alanda kalır. AGFO TTS Service 1.1.0 gerekir.
+
+## 17.10.0 — EMA okuma metni (AI ile)
+
+EMA Lightning yalnız Türkçe okur; rakam, sembol ve yabancı adları harf harf okur. 17.10.0'da EMA işi seslendirilmeden önce metin üç adımdan geçer: (1) sunucu telaffuz sözlüğü tek geçişte uygulanır, (2) sitenin metin modeli metni "okuma metni"ne çevirir — yabancı adlar Türkçe okunuşla, sayılar, tarihler, saatler, yüzdeler, birimler, para, semboller, internet adresleri ve kısaltmalar sözcükle yazılır; geri kalan her kelime aynen kalır, (3) sonuç sözlük yeniden uygulanmadan seslendirilir.
+
+Metin paragraf sınırlarında en çok 2.800 karakterlik bölümlere ayrılır. Her bölümün yanıtı denetlenir: satır sayısı aynı olmalı, uzunluk oranı makul olmalı, kaynaktaki Türkçe kelimelerin en az %85'i korunmalı, yanıt kesilmemiş olmalı. Denetimden geçmeyen bölüm özgün haliyle okunur; model hiçbir cümleyi atamaz, ekleyemez ya da çeviremez. Yanıtlar bölüm başına 30 gün önbellekte tutulur.
+
+Ses Stüdyosu ve klasik editörde "Okuma metnini AI ile hazırla" seçeneği (varsayılan açık), "Okuma metnini önizle" ve "Özgün metne dön" düğmeleri vardır; önizlenen metin elle düzeltilip aynen seslendirilebilir. Okuma metni modeli EMA servis ayarlarından seçilir (boşsa sitenin varsayılan metin modeli). AGFO TTS Service 1.0.8 gerekir (/lexicon/apply ve apply_lexicon); eski serviste sözlük yine seslendirme sırasında uygulanır.
+
+## 17.9.1 — EMA seçeneği editörde her zaman görünür
+
+Klasik editördeki "Sayfayı Seslendir" penceresi yalnız anahtarı kayıtlı sağlayıcıları listelediği için token girilmemiş sitelerde EMA hiç görünmüyordu. Artık "EMA Lightning (yerel, Türkçe) — token gerekli" olarak listelenir; seçildiğinde token'ın Sağlayıcılar ekranında nereye girileceği gösterilir ve "Sesi Üret" kapalı kalır.
+
+## 17.9.0 — EMA Lightning (yerel Türkçe TTS) sağlayıcısı
+
+Sunucuda çalışan AGFO TTS Service (EMA Lightning, Apache-2.0) yeni bir konuşma sağlayıcısı olarak eklendi. Sağlayıcılar ekranındaki "EMA Lightning (yerel TTS)" alanına servis token'ı girilir (ya da wp-config.php içinde AGFO_TTS_TOKEN); servis adresi, telaffuz sözlüğü ve duraklamalar Ses Stüdyosu › EMA servis ayarlarından yönetilir. Karakter ücreti yoktur, tek işte 60.000 karaktere kadar metin kabul edilir, hız 0.7–1.4 aralığındadır. Otomatik yönlendirmede Türkçe olmayan metin EMA tarafından reddedilir ve iş sonraki sağlayıcıya geçer.
 
 ## 17.8.0 — AI Editor'de iş başına çeviri modeli
 

@@ -3,7 +3,7 @@ Contributors: agfocert
 Tags: ai, image-generation, featured-image, music-generation, tts, gemini, wordpress
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 17.8.0
+Stable tag: 17.12.0
 License: GPL-2.0-or-later
 
 Central AI provider, capability, persistent job, private asset and budget management for the AGFO ecosystem.
@@ -43,6 +43,24 @@ Existing public agfo_* APIs, AJAX action names, option keys and data/data.json r
 * Added agfo_content_generate_structured() with JSON Schema Structured Outputs for trusted AGFO plugin integrations.
 * Academy Content Studio timeout is capped at 60 seconds; general content transformations at 45 seconds.
 * Added elapsed time, finish reason and reasoning-token diagnostics.
+
+= 17.12.0 =
+* AGFO AI Editor için seslendirme uçları: /editor/speech (iş başlat, durum, MP3 indir), /editor/speech-script (okuma metni önizlemesi), /editor/lexicon ve /editor/lexicon/listen (ortak telaffuz sözlüğü). AI Editor 1.5.0 ile kullanılır.
+
+= 17.11.0 =
+* Yeni sayfa AGFO AI › Telaffuz Sözlüğü: sunucudaki ortak EMA sözlüğünde kelime ekle, okunuşu değiştir, kaldır, hazır okunuşa dön ve dinle. Değişiklikler bütün sitelerde hemen geçerli; servis güncellemeleri eklenen kayıtları silmez. AGFO TTS Service 1.1.0 gerekir.
+
+= 17.10.1 =
+* Okuma metni: HACCP "hasip" okunur (istem sürümü v2; eski önbellek kullanılmaz).
+
+= 17.10.0 =
+* EMA okuma metni: seslendirmeden önce metin, sitenin metin modeliyle okunduğu gibi yazılır (yabancı adlar, sayılar, tarihler, birimler, semboller, kısaltmalar). Bölüm bölüm sadakat denetimi; denetimden geçmeyen bölüm özgün haliyle okunur. Ses Stüdyosu ve editörde önizleme/geri alma, model seçimi, 30 günlük önbellek.
+
+= 17.9.1 =
+* Klasik editör "Sayfayı Seslendir": EMA Lightning token girilmemiş olsa da sağlayıcı listesinde görünür; seçilince token'ın nereye girileceğini gösterir ve üretimi engeller.
+
+= 17.9.0 =
+* Yeni TTS sağlayıcısı EMA Lightning: sunucudaki AGFO TTS Service ile ücretsiz Türkçe seslendirme. Ses Stüdyosu ve klasik editörde seçilebilir; telaffuz sözlüğü, cümle/paragraf duraklaması ve bağlantı testi. Türkçe olmayan metin EMA'ya düşmez.
 
 = 17.8.0 =
 * AI Editor iş başına çeviri modeli: GET /editor/models (kalite, maliyet, hız) ve /editor/transform model parametresi.

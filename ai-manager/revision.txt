@@ -1,3 +1,139 @@
+Tarih: 2026-10-20
+Eski Versiyon: 17.11.0
+Yeni Versiyon: 17.12.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/api/class-editor-speech-api.php (yeni); includes/api/class-editor-api.php; includes/jobs/class-job-api.php; includes/adapters/class-adapter-ema.php; tests/live/editor-speech-live.py (yeni); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: AGFO AI Editor seslendirme, okuma metni ve telaffuz sözlüğünü AI Manager üzerinden kullanabilir.
+
+Yapılanlar:
+- AGFO_AIM_Editor_Speech_API: POST /editor/speech (EMA işi, 202), GET /editor/speech/{iş} (durum, süre, okuma metni özeti; kuyrukta bekleyen işte WP-Cron'u dürter), GET /editor/speech/{iş}/audio (MP3 akışı; çerez gerektirmez, iş sahibi veya yönetici), POST /editor/speech-script, GET/POST /editor/lexicon, POST /editor/lexicon/listen. Kimlik doğrulama diğer /editor uçlarıyla aynı; sözlüğü değiştirmek manage_options ister.
+- /editor/info: features listesine speech, reading_script, lexicon; speech özeti (hazır mı, varsayılanlar, sözlük yetkisi).
+- HATA DÜZELTMESİ: iş verisinde reading_script PHP false olarak geldiğinde (string'e çevrilince boş kaldığı için) site varsayılanına (açık) düşüyordu; artık kapalı sayılır. Hem iş verisi temizleyicide hem EMA adaptöründe.
+
+Geriye Uyumluluk: Tam.
+
+Migration: Gerekmiyor. AI Editor 1.5.0 ile kullanılır; AGFO TTS Service 1.1.0 önerilir.
+
+Doğrulama: canlı editör API testi 15/15 (gerçek servis kodu, sahte EMA modeli); AI Editor 1.5.0 istemcisiyle uçtan uca (okuma metni, seslendirme, MP3 indirme, sözlük); önceki tüm testler (paket kapısı).
+
+====================================================================================================
+
+Tarih: 2026-10-20
+Eski Versiyon: 17.10.1
+Yeni Versiyon: 17.11.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; admin/class-ema-lexicon.php (yeni); assets/js/ema-lexicon.js (yeni); assets/css/operations.css; includes/adapters/class-adapter-ema.php; admin/class-operations.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Ortak telaffuz sözlüğü WordPress'ten yönetilebilir; kelime eklenince doğrudan Hetzner'deki servise yazılır.
+
+Yapılanlar:
+- Yeni alt sayfa AGFO AI › Telaffuz Sözlüğü (agfo-ai-ema-lexicon): sayfalı liste (50/sayfa), arama, kaynak süzgeci, sayılar; kelime ekleme formu; satırda okunuş düzenleme (Enter ile kaydet), Sil, Geri al / Hazıra dön; Dinle (okunuş EMA ile sözlüksüz seslendirilir, sayfada çalınır).
+- Yeni AJAX eylemi agfo_ai_ema_lexicon (op: list, save, delete, restore, listen; manage_options + nonce). Kelime 80, okunuş 160 karakterle sınırlı; etiket ve kontrol karakterleri temizlenir.
+- AGFO_AIM_Adapter_EMA::service_call() ve listen(): servis uç noktalarına tek noktadan erişim; eski serviste anlaşılır "1.1.0'a güncelleyin" mesajı.
+- Ses Stüdyosu'ndaki site sözlüğü açıklaması siteye özel olduğunu belirtir ve yeni sayfaya bağlanır.
+
+Geriye Uyumluluk: Tam.
+
+Migration: AGFO TTS Service 1.1.0 (update.sh; systemd birimi data/ dizinine yazma izniyle yenilenir).
+
+Doğrulama: canlı sözlük testi gerçek servis koduyla (EMA modeli yerine sahte model): ekleme, dinleme, düzenleme, hazıra dönme, kaldırma, geri alma, yeniden yükleme, silme ve her adımda sunucudaki etkin sözlüğün doğrulanması; önceki tüm testler (paket kapısı).
+
+====================================================================================================
+
+Tarih: 2026-10-20
+Eski Versiyon: 17.10.0
+Yeni Versiyon: 17.10.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/tts/class-speech-script.php; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: HACCP "hasip" okunmalı (kullanıcı tercihi); istem "hasap" öneriyordu.
+
+Yapılanlar:
+- Okuma metni isteminde HACCP → hasip.
+- PROMPT_VERSION v1 → v2: önbellek anahtarı değiştiği için eski "hasap" içeren bölümler yeniden hazırlanır.
+- AGFO TTS Service 1.0.9 sözlüğünde de HACCP → hasip.
+
+Geriye Uyumluluk: Tam.
+
+Migration: Gerekmiyor.
+
+Doğrulama: ema-script ve tüm önceki testler; paket kapısı.
+
+====================================================================================================
+
+Tarih: 2026-10-20
+Eski Versiyon: 17.9.1
+Yeni Versiyon: 17.10.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/tts/class-speech-script.php (yeni); includes/adapters/class-adapter-ema.php; includes/content/class-content-transformer.php; includes/jobs/class-job-api.php; admin/class-operations.php; includes/editor/class-classic-editor-tts.php; assets/js/tts-studio.js; assets/js/classic-editor-tts.js; tests/ema-script-tests.php (yeni); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: EMA, yabancı adları ve rakamları yanlış okuyordu (Chicago → "şikocu"). Seslendirmeden önce metin AI ile okuma metnine çevriliyor.
+
+Yapılanlar:
+- AGFO_AIM_Speech_Script: Türkçe TTS için okuma metni sistem istemi (sadakat kuralları; yabancı ad, sayı, tarih, saat, yüzde, birim, para, sembol, adres, kısaltma kuralları; örnek), paragraf hizalı bölümleme, bölüm başına denetim (satır sayısı, uzunluk oranı, Türkçe kelime koruma ≥%85, kesik yanıt, biçim), denetimden geçmeyen bölümde özgün metin, 30 gün önbellek, süre sınırında kalan metni özgün okuma.
+- AGFO_AIM_Content_Transformer::complete(): diğer özelliklerin kullanabileceği sistem+kullanıcı tamamlama (sitenin metin modeli veya seçili model).
+- EMA adaptörü: sözlük (/lexicon/apply) → okuma metni → apply_lexicon=false ile seslendirme; metin modeli yoksa iş başarısız olmaz, metin olduğu gibi okunur. İş meta verisine script durumu yazılır.
+- İş verisi: reading_script ve script_ready alanları korunur.
+- Ses Stüdyosu ve klasik editör: "Okuma metnini AI ile hazırla" (site varsayılanı), "Okuma metnini önizle", "Özgün metne dön"; önizlenen metin düzeltilip aynen seslendirilir. EMA servis ayarlarına okuma metni modeli seçimi eklendi.
+- Yeni AJAX eylemi: agfo_ai_ema_script_preview (manage_options + nonce).
+- HATA DÜZELTMESİ (tüm TTS sağlayıcıları): iş metni sanitize_textarea_field() ile temizlendiği için "%" ve ardından iki onaltılık rakam (%45, %92, %12) URL kodlaması sanılıp siliniyordu; yüzdeler seslendirmede kayboluyordu. Yeni AGFO_AIM_Job_API::sanitize_speech_text() aynı korumaları (UTF-8, etiket, kontrol karakteri) uygular ama yüzdeleri korur. Canlı Stüdyo testi bu hatayı yakaladı.
+
+Geriye Uyumluluk: Tam. Diğer sağlayıcılar etkilenmez. Seçenek kapatılırsa 17.9.1 davranışı. Eski TTS servisiyle (1.0.7 ve öncesi) sözlük seslendirme sırasında uygulanmaya devam eder.
+
+Migration: Gerekmiyor. Önerilen: AGFO TTS Service 1.0.8.
+
+Doğrulama: ema-script 25/25 (yeni), ema-adapter 33/33 ve önceki tüm testler; küçük bir modelle istem denemesi (zor örnek metin denetimden geçti); canlı Stüdyo önizleme/geri alma/üretim ve klasik editör iş hattı testleri (paket kapısı).
+
+====================================================================================================
+
+Tarih: 2026-10-20
+Eski Versiyon: 17.9.0
+Yeni Versiyon: 17.9.1
+Değişiklik Tipi: PATCH
+Değişen Dosyalar: agfo-ai-manager.php; includes/editor/class-classic-editor-tts.php; assets/js/classic-editor-tts.js; revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Klasik editördeki "Sayfayı Seslendir" penceresinde EMA Lightning görünmüyordu.
+
+Kök neden: Pencere yalnız anahtarı kayıtlı sağlayıcıları listeliyor; EMA token'ı henüz girilmemiş sitelerde seçenek hiç basılmıyordu ve kullanıcıya neden olmadığı söylenmiyordu.
+
+Yapılanlar:
+- EMA her zaman listelenir; token yoksa etiket "— token gerekli" olur.
+- EMA seçilince panel, token'ın AGFO AI › Sağlayıcılar › "EMA Lightning (yerel TTS)" alanına (veya wp-config AGFO_TTS_TOKEN) girileceğini bağlantıyla gösterir; "Sesi Üret" kapalı kalır, gönderim de istemci tarafında engellenir.
+
+Geriye Uyumluluk: Tam. Token tanımlı sitelerde davranış 17.9.0 ile aynı.
+
+Migration: Gerekmiyor.
+
+Doğrulama: yeni canlı test tts.ema.classic_editor.no_token_visible ve tüm önceki testler (paket kapısı).
+
+====================================================================================================
+
+Tarih: 2026-10-20
+Eski Versiyon: 17.8.0
+Yeni Versiyon: 17.9.0
+Değişiklik Tipi: MINOR
+Değişen Dosyalar: agfo-ai-manager.php; includes/functions.php; includes/adapters/class-adapter-ema.php (yeni); includes/adapters/class-adapter-registry.php; includes/tts/class-tts-catalog.php; includes/jobs/class-job-api.php; admin/class-operations.php; includes/editor/class-classic-editor-tts.php; assets/js/tts-studio.js; assets/js/classic-editor-tts.js; tests/ema-adapter-tests.php (yeni); revision.txt; revision.json; tracker.json; readme.txt; README.md; regression.json; regression-report.json
+
+Özet: Sunucuda çalışan EMA Lightning (AGFO TTS Service) Türkçe TTS sağlayıcısı olarak eklendi.
+
+Yapılanlar:
+- Yeni sağlayıcı "ema" (EMA Lightning, yerel TTS): agfo_api_registry kaydı, AGFO_AIM_Adapter_EMA adaptörü (speech_synthesize). POST {servis}/tts, X-AGFO-Token başlığı, MP3/WAV, maliyet 0.
+- Token: Sağlayıcılar ekranındaki EMA alanı (şifreli) veya wp-config.php AGFO_TTS_TOKEN. Servis adresi: Ses Stüdyosu ayarı, AGFO_TTS_ENDPOINT veya varsayılan http://127.0.0.1:8765.
+- Ses Stüdyosu: EMA paneli; bağlantı testi (GET /health), servis adresi, telaffuz sözlüğü ("Kelime = okunuş"), cümle/paragraf duraklaması; kaydetme yeni AJAX eylemi agfo_ai_ema_settings (manage_options + nonce). Hız 0.7–1.4, biçim MP3/WAV, sınır 60.000 karakter.
+- Klasik editör "Sayfayı Seslendir": EMA seçeneği, bağlantı testi ve duraklama alanları; paragraflar korunarak gönderilir.
+- İş kuyruğu: speech payload'ında pause_ms ve paragraph_pause_ms korunur. EMA, dil işareti Türkçe değilse veya uzun metin Türkçe görünmüyorsa agfo_ema_language ile doğrulamada reddeder; işçi bu rotayı atlar, yabancı dilde yanlış ses üretilmez.
+- Katalog EMA'yı tanır (uzun metin bölme sınırı 60.000); sayfa yüklemede servise istek atılmaz, yalnız "Bağlantıyı test et" ile yoklanır.
+- Uzun makalelerde işçi PHP süresi istek süresine göre uzatılır.
+
+Geriye Uyumluluk: Tam. EMA anahtarı/token tanımlı değilse hiçbir ekran ve yönlendirme değişmez. Mevcut fonksiyonların tamamı korundu (17.8.0 envanteriyle karşılaştırıldı; yalnız ekleme var).
+
+Migration: Gerekmiyor.
+
+Doğrulama: ema-adapter 33/33 (yeni); diğer tüm test dosyaları geçti; php -l ve node --check temiz. Yerel WordPress + sahte EMA servisiyle Chromium uçtan uca 28/28: Sağlayıcılar kaydı, Stüdyo paneli, bağlantı testi, ayar kaydı, açık ve otomatik EMA işi, İngilizce metnin reddi, klasik editörde üretim ve Medya Kütüphanesi kopyası.
+
+====================================================================================================
+
 Tarih: 2026-10-19
 Eski Versiyon: 17.7.0
 Yeni Versiyon: 17.8.0

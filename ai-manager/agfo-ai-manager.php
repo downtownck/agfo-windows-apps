@@ -3,7 +3,7 @@
  * Plugin Name: AGFO AI Manager
  * Plugin URI: https://agfocert.com/
  * Description: AI Model Yönetimi + Multi-Source Benchmark
- * Version: 17.8.0
+ * Version: 17.12.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AGFOCERT
@@ -12,11 +12,11 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: agfo-ai-manager
  * Domain Path: /languages
- * Revision: 17.8.0 - AI Editor per-job translation model: GET /editor/models (quality, cost, speed class) and /editor/transform model="provider|model", validated against keyed providers.
+ * Revision: 17.12.0 - AI Editor speech API: EMA narration jobs, audio download, reading-script preview and shared lexicon over /editor routes. 17.11.0 - Telaffuz Sözlüğü: add, edit, remove, restore and listen to words of the shared EMA lexicon on the TTS server from WordPress. 17.10.1 - Reading script reads HACCP as "hasip". 17.10.0 - EMA reading script: the site text model rewrites the text into exactly what should be heard (foreign names, numbers, dates, units, abbreviations) with per-chunk fidelity checks, preview and cache. 17.9.1 - Classic editor always lists EMA Lightning and explains a missing token. 17.9.0 - EMA Lightning provider: self-hosted Turkish TTS (AGFO TTS Service) in Ses Stüdyosu and the classic editor, with pronunciation lexicon, pauses and a Turkish-only failover guard.
  */
 if (!defined('ABSPATH')) exit;
 
-define('AGFO_AIM_VERSION',    '17.8.0');
+define('AGFO_AIM_VERSION',    '17.12.0');
 define('AGFO_AIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AGFO_AIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AGFO_AIM_DATA_DIR',   AGFO_AIM_PLUGIN_DIR . 'data/');
@@ -40,6 +40,7 @@ require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-ai-image.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-model-catalog.php'; // NEW 17.1.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-code-review.php'; // NEW 17.2.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-api.php'; // NEW 17.4.0
+require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-speech-api.php'; // NEW 17.12.0: AI Editor seslendirme + sözlük
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-tokens.php'; // NEW 17.5.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/core/class-github-updater.php'; // NEW 17.4.0
 
@@ -54,6 +55,12 @@ require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-elevenlabs.p
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-minimax.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-gemini.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-image.php';
+// NEW 17.9.0: self-hosted Turkish TTS (EMA Lightning service on the same server).
+require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-ema.php';
+add_action( 'wp_ajax_agfo_ai_ema_settings', [ 'AGFO_AIM_Adapter_EMA', 'ajax_save_settings' ] );
+// NEW 17.10.0: AI reading script for EMA (foreign names, numbers, abbreviations written out).
+require_once AGFO_AIM_PLUGIN_DIR . 'includes/tts/class-speech-script.php';
+AGFO_AIM_Speech_Script::register_hooks();
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-registry.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/tts/class-tts-catalog.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/tts/class-speech-long.php';
@@ -77,6 +84,8 @@ require_once AGFO_AIM_PLUGIN_DIR . 'includes/tracker/class-native-tracker.php';
 
 require_once AGFO_AIM_PLUGIN_DIR . 'admin/class-admin.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'admin/class-operations.php';
+// NEW 17.11.0: shared EMA pronunciation lexicon editor (writes to the TTS server).
+require_once AGFO_AIM_PLUGIN_DIR . 'admin/class-ema-lexicon.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/AGFO-AI-Spec-Class.php';
 
 // CHANGED 16.17.1: AGFO_Admin, AGFO_Ajax_Data and AGFO_Encryptor were renamed to the
@@ -116,6 +125,7 @@ add_action('plugins_loaded', function () {
     }
     if (class_exists('AGFO_AIM_Operations_Admin')) {
         AGFO_AIM_Operations_Admin::register_hooks();
+        AGFO_AIM_EMA_Lexicon_Admin::register_hooks();
     }
     if (class_exists('AGFO_AIM_TTS_Catalog')) {
         AGFO_AIM_TTS_Catalog::register_hooks();
@@ -158,6 +168,9 @@ add_action('plugins_loaded', function () {
     }
     if (class_exists('AGFO_AIM_Editor_API')) {
         AGFO_AIM_Editor_API::register_hooks(); // NEW 17.4.0
+        if ( class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
+            AGFO_AIM_Editor_Speech_API::register_hooks(); // NEW 17.12.0
+        }
     }
     if (class_exists('AGFO_AIM_Editor_Tokens')) {
         AGFO_AIM_Editor_Tokens::register_hooks(); // NEW 17.5.0
