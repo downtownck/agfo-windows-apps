@@ -2,7 +2,7 @@
   "schema_version": 2,
   "project": {
     "slug": "agfo-ai-manager",
-    "version": "17.8.0",
+    "version": "17.12.0",
     "kind": "wordpress-plugin"
   },
   "inventory": {
@@ -14,6 +14,8 @@
       "agfo_",
       "agfo_ai_budget_warning",
       "agfo_ai_capability_routing",
+      "agfo_ai_ema_lexicon",
+      "agfo_ai_ema_pauses",
       "agfo_ai_manager_transport_log",
       "agfo_ai_minimax_audio_monthly_quota",
       "agfo_ai_minimax_audio_reset_day",
@@ -51,6 +53,9 @@
     "ajax_actions": [
       "a",
       "agfo_ai_content_transform",
+      "agfo_ai_ema_lexicon",
+      "agfo_ai_ema_script_preview",
+      "agfo_ai_ema_settings",
       "agfo_ai_image_generate",
       "agfo_ai_image_preview_prompt",
       "agfo_ai_image_set_featured",
@@ -333,7 +338,7 @@
     },
     {
       "id": "modal.browser",
-      "title": "AI Kontrol Merkezi opens, lists models, selects with click and keyboard, saves (live)",
+      "title": "AI Kontrol Merkezi opens from the admin bar, lists models, selects with click, saves (live)",
       "type": "browser",
       "required_for_package": false,
       "covers": [
@@ -345,31 +350,80 @@
       "steps": [
         {
           "action": "goto",
-          "url": "${AGFO_TEST_BASE_URL}/wp-admin/"
+          "url": "/wp-login.php"
         },
         {
-          "action": "eval",
-          "script": "agfoOpenSwitcher()"
+          "action": "fill",
+          "selector": "#user_login",
+          "value": "${AGFO_TEST_USER}"
         },
         {
-          "action": "wait_for",
-          "selector": "#qs-model-list .ax-row"
+          "action": "fill",
+          "selector": "#user_pass",
+          "value": "${AGFO_TEST_PASSWORD}"
         },
         {
           "action": "click",
-          "selector": "#qs-model-list .ax-row:not([hidden])"
+          "selector": "#wp-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#wpadminbar"
+        },
+        {
+          "action": "click",
+          "selector": "#wp-admin-bar-agfo-quick-switch > a"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#qs-model-list .ax-row >> nth=0"
+        },
+        {
+          "action": "click",
+          "selector": "#qs-model-list .ax-row:not([hidden]) >> nth=0"
         },
         {
           "action": "click",
           "selector": "#qs-save-btn"
         },
         {
-          "action": "expect_text",
-          "selector": "#qs-status-indicator",
-          "text": "Kaydedildi"
+          "action": "wait_for",
+          "selector": "#qs-status-indicator:has-text(\"Kaydedildi\")",
+          "timeout": 15000
+        },
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; echo 'model=' . get_option('agfo_global_preferred_model', '');"
+          ],
+          "stdout_regex": "model=\\S+"
         }
       ],
-      "since": "17.0.0"
+      "since": "17.0.0",
+      "setup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; if ( ! get_option('agfo_openai_api_key') ) { update_option('agfo_openai_api_key', $GLOBALS['AGFO_ENC'] ? $GLOBALS['AGFO_ENC']->encrypt('sk-AGFO_REGRESSION') : 'sk-AGFO_REGRESSION'); update_option('agfo_regression_seeded_openai', 1); } update_option('agfo_selected_provider', 'openai'); echo 'ready';"
+          ],
+          "stdout_contains": "ready"
+        }
+      ],
+      "cleanup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; if ( get_option('agfo_regression_seeded_openai') ) { delete_option('agfo_openai_api_key'); delete_option('agfo_regression_seeded_openai'); } echo 'clean';"
+          ],
+          "stdout_contains": "clean"
+        }
+      ]
     },
     {
       "id": "image.studio.model_select",
@@ -582,6 +636,952 @@
       "target": "includes/class-code-review.php",
       "text": "if ( self::contradicted( $r, $context, $resolver ) ) {",
       "since": "17.3.1"
+    },
+    {
+      "id": "tts.ema.adapter",
+      "title": "EMA adapter: registry entry, Turkish-only guard, request shape, lexicon, pauses, error codes, token resolution",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/ema-adapter-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "covers": [
+        "ajax:agfo_ai_tts_catalog"
+      ],
+      "since": "17.9.0"
+    },
+    {
+      "id": "tts.ema.registry_entry",
+      "title": "agfo_api_registry exposes the ema speech provider",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/functions.php",
+      "text": "'label'          => 'EMA Lightning (yerel TTS)'",
+      "since": "17.9.0"
+    },
+    {
+      "id": "tts.ema.adapter_registered",
+      "title": "Adapter registry boots the EMA adapter",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/adapters/class-adapter-registry.php",
+      "text": "self::register( new AGFO_AIM_Adapter_EMA() );",
+      "since": "17.9.0"
+    },
+    {
+      "id": "tts.ema.payload_pauses_kept",
+      "title": "Job payload sanitizer keeps EMA pause fields",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/jobs/class-job-api.php",
+      "text": "'paragraph_pause_ms'       => isset( $payload['paragraph_pause_ms'] )",
+      "since": "17.9.0"
+    },
+    {
+      "id": "tts.ema.studio.settings_and_generate",
+      "title": "Live: Studio EMA settings save persists, connection test, and an EMA job completes with the saved lexicon",
+      "type": "browser",
+      "evidence_level": "live_runtime",
+      "required_for_package": true,
+      "covers": [
+        "ajax:agfo_ai_ema_settings",
+        "button:#agfo-ema-save",
+        "button:#agfo-ema-refresh",
+        "ajax:agfo_job_submit",
+        "ajax:agfo_job_status"
+      ],
+      "setup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; update_option('agfo_ema_api_key', $GLOBALS['AGFO_ENC'] ? $GLOBALS['AGFO_ENC']->encrypt(getenv('AGFO_TEST_EMA_TOKEN')) : getenv('AGFO_TEST_EMA_TOKEN')); echo 'ready';"
+          ],
+          "stdout_contains": "ready"
+        }
+      ],
+      "steps": [
+        {
+          "action": "goto",
+          "url": "/wp-login.php"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_login",
+          "value": "${AGFO_TEST_USER}"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_pass",
+          "value": "${AGFO_TEST_PASSWORD}"
+        },
+        {
+          "action": "click",
+          "selector": "#wp-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#wpadminbar"
+        },
+        {
+          "action": "goto",
+          "url": "/wp-admin/admin.php?page=agfo-ai-tts-studio"
+        },
+        {
+          "action": "select_option",
+          "selector": "#agfo-tts-provider",
+          "value": "ema"
+        },
+        {
+          "action": "expect_visible",
+          "selector": "[data-provider-panel=ema]"
+        },
+        {
+          "action": "click",
+          "selector": "details:has(#agfo-ema-endpoint) summary"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-ema-endpoint",
+          "value": "${AGFO_TEST_EMA_ENDPOINT}"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-ema-lexicon",
+          "value": "AGFO_REGRESSION = Ey Ci Ef O"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-ema-paragraph-pause",
+          "value": "850"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-ema-save"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-ema-save-status[data-state=saved]",
+          "timeout": 20000
+        },
+        {
+          "action": "expect_text",
+          "selector": "#agfo-ema-save-status",
+          "text": "1 girdi"
+        },
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; $p = get_option('agfo_ai_ema_pauses'); echo get_option('agfo_ai_ema_lexicon') . '|' . $p['paragraph'];"
+          ],
+          "stdout_contains": "AGFO_REGRESSION = Ey Ci Ef O|850"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-ema-refresh"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-ema-catalog-status.is-ready",
+          "timeout": 20000
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-tts-text",
+          "value": "Bu bir AGFO_REGRESSION denemesidir; ağaçların gölgesinde öğle güneşi ışıldıyor."
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-tts-form button[type=submit]"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-tts-status.is-complete",
+          "timeout": 90000
+        },
+        {
+          "action": "expect_text",
+          "selector": "#agfo-tts-job-provider",
+          "text": "ema",
+          "exact": true
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "expect_value",
+          "selector": "#agfo-ema-paragraph-pause",
+          "value": "850"
+        }
+      ],
+      "cleanup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; delete_option('agfo_ai_ema_lexicon'); delete_option('agfo_ai_ema_pauses'); delete_option('agfo_ai_ema_endpoint'); echo 'clean';"
+          ],
+          "stdout_contains": "clean"
+        }
+      ],
+      "since": "17.9.0"
+    },
+    {
+      "id": "tts.ema.classic_editor.generate",
+      "title": "Live: classic editor modal offers EMA and completes an EMA job with a Media Library copy",
+      "type": "browser",
+      "evidence_level": "live_runtime",
+      "required_for_package": true,
+      "covers": [
+        "button:#agfo-classic-tts-submit",
+        "button:#agfo-classic-tts-refresh-ema"
+      ],
+      "setup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; update_option('agfo_ema_api_key', $GLOBALS['AGFO_ENC'] ? $GLOBALS['AGFO_ENC']->encrypt(getenv('AGFO_TEST_EMA_TOKEN')) : getenv('AGFO_TEST_EMA_TOKEN')); update_option('agfo_ai_ema_endpoint', getenv('AGFO_TEST_EMA_ENDPOINT')); echo 'ready';"
+          ],
+          "stdout_contains": "ready"
+        }
+      ],
+      "steps": [
+        {
+          "action": "goto",
+          "url": "/wp-login.php"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_login",
+          "value": "${AGFO_TEST_USER}"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_pass",
+          "value": "${AGFO_TEST_PASSWORD}"
+        },
+        {
+          "action": "click",
+          "selector": "#wp-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#wpadminbar"
+        },
+        {
+          "action": "goto",
+          "url": "/wp-admin/post-new.php"
+        },
+        {
+          "action": "click",
+          "selector": ".agfo-classic-tts-open:visible >> nth=0"
+        },
+        {
+          "action": "select_option",
+          "selector": "#agfo-classic-tts-provider",
+          "value": "ema"
+        },
+        {
+          "action": "expect_visible",
+          "selector": "#agfo-classic-tts-modal [data-provider-panel=ema]"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-classic-tts-text",
+          "value": "AGFO_REGRESSION: Ankara’da sabah güneşi ışıldıyor; çocuklar okula gidiyor."
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-classic-tts-refresh-ema"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-classic-tts-ema-status.is-ready",
+          "timeout": 20000
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-classic-tts-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-classic-tts-status.is-complete",
+          "timeout": 90000
+        },
+        {
+          "action": "expect_visible",
+          "selector": "#agfo-classic-tts-insert"
+        }
+      ],
+      "cleanup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; delete_option('agfo_ai_ema_endpoint'); echo 'clean';"
+          ],
+          "stdout_contains": "clean"
+        }
+      ],
+      "since": "17.9.0"
+    },
+    {
+      "id": "tts.ema.classic_editor.no_token_visible",
+      "title": "Live: without a token the classic editor still lists EMA, shows where to enter it and keeps Sesi Üret disabled",
+      "type": "browser",
+      "evidence_level": "live_runtime",
+      "required_for_package": true,
+      "covers": [
+        "button:#agfo-classic-tts-submit"
+      ],
+      "setup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; update_option('agfo_regression_ema_key_backup', get_option('agfo_ema_api_key', '')); delete_option('agfo_ema_api_key'); echo 'ready';"
+          ],
+          "stdout_contains": "ready"
+        }
+      ],
+      "steps": [
+        {
+          "action": "goto",
+          "url": "/wp-login.php"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_login",
+          "value": "${AGFO_TEST_USER}"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_pass",
+          "value": "${AGFO_TEST_PASSWORD}"
+        },
+        {
+          "action": "click",
+          "selector": "#wp-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#wpadminbar"
+        },
+        {
+          "action": "goto",
+          "url": "/wp-admin/post-new.php"
+        },
+        {
+          "action": "click",
+          "selector": ".agfo-classic-tts-open:visible >> nth=0"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-classic-tts-provider option[value=ema]",
+          "state": "attached"
+        },
+        {
+          "action": "select_option",
+          "selector": "#agfo-classic-tts-provider",
+          "value": "ema"
+        },
+        {
+          "action": "expect_text",
+          "selector": "#agfo-classic-tts-modal [data-provider-panel=ema]",
+          "text": "token’ı tanımlı değil"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-classic-tts-submit:disabled",
+          "state": "attached"
+        }
+      ],
+      "cleanup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; $b = get_option('agfo_regression_ema_key_backup', ''); if ($b !== '') { update_option('agfo_ema_api_key', $b); } delete_option('agfo_regression_ema_key_backup'); echo 'clean';"
+          ],
+          "stdout_contains": "clean"
+        }
+      ],
+      "since": "17.9.1"
+    },
+    {
+      "id": "tts.ema.script.unit",
+      "title": "Reading script: prompt rules, verify guards (summary, translation, merged lines, truncation), chunking, cache, fallbacks",
+      "type": "command",
+      "evidence_level": "local_behaviour",
+      "required_for_package": true,
+      "command": [
+        "php",
+        "tests/ema-script-tests.php"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "since": "17.10.0"
+    },
+    {
+      "id": "tts.ema.script.studio_preview_generate",
+      "title": "Live: Studio preview turns the text into a reading script; generating speaks it as-is without re-applying the lexicon",
+      "type": "browser",
+      "evidence_level": "live_runtime",
+      "required_for_package": true,
+      "covers": [
+        "ajax:agfo_ai_ema_script_preview",
+        "button:#agfo-ema-script-preview",
+        "button:#agfo-ema-script-undo"
+      ],
+      "setup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; $e = $GLOBALS['AGFO_ENC']; if ( ! get_option('agfo_openai_api_key') ) { update_option('agfo_openai_api_key', $e ? $e->encrypt('sk-AGFO_REGRESSION') : 'sk-AGFO_REGRESSION'); update_option('agfo_regression_seeded_openai', 1); } update_option('agfo_selected_provider', 'openai'); update_option('agfo_ema_api_key', $e ? $e->encrypt(getenv('AGFO_TEST_EMA_TOKEN')) : getenv('AGFO_TEST_EMA_TOKEN')); update_option('agfo_ai_ema_endpoint', getenv('AGFO_TEST_EMA_ENDPOINT')); update_option('agfo_ai_ema_script', '1'); global $wpdb; $wpdb->query(\"DELETE FROM {$wpdb->options} WHERE option_name LIKE '%agfo_ema_scr_%'\"); echo 'ready';"
+          ],
+          "stdout_contains": "ready"
+        }
+      ],
+      "steps": [
+        {
+          "action": "goto",
+          "url": "/wp-login.php"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_login",
+          "value": "${AGFO_TEST_USER}"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_pass",
+          "value": "${AGFO_TEST_PASSWORD}"
+        },
+        {
+          "action": "click",
+          "selector": "#wp-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#wpadminbar"
+        },
+        {
+          "action": "goto",
+          "url": "/wp-admin/admin.php?page=agfo-ai-tts-studio"
+        },
+        {
+          "action": "select_option",
+          "selector": "#agfo-tts-provider",
+          "value": "ema"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-tts-text",
+          "value": "AGFO_REGRESSION: Chicago'daki fabrika denetimde %92 puan aldı.\n\nGıda güvenliği kültürü güçlü bulundu."
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-ema-script-preview"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-ema-script-status[data-state=done]",
+          "timeout": 60000
+        },
+        {
+          "action": "expect_value",
+          "selector": "#agfo-tts-text",
+          "value": "AGFO_REGRESSION: Şikago'daki fabrika denetimde yüzde doksan iki puan aldı.\n\nGıda güvenliği kültürü güçlü bulundu."
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-ema-script-undo"
+        },
+        {
+          "action": "expect_value",
+          "selector": "#agfo-tts-text",
+          "value": "AGFO_REGRESSION: Chicago'daki fabrika denetimde %92 puan aldı.\n\nGıda güvenliği kültürü güçlü bulundu."
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-ema-script-preview"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-ema-script-status[data-state=done]",
+          "timeout": 60000
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-tts-form button[type=submit]"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-tts-status.is-complete",
+          "timeout": 90000
+        },
+        {
+          "action": "command",
+          "command": [
+            "python3",
+            "-c",
+            "import json,os;print(open(os.environ['AGFO_TEST_EMA_LOG']).read().strip().split('\\n')[-1])"
+          ],
+          "stdout_contains": "\"apply_lexicon\": false"
+        },
+        {
+          "action": "command",
+          "command": [
+            "python3",
+            "-c",
+            "import json,os;print(open(os.environ['AGFO_TEST_EMA_LOG']).read().strip().split('\\n')[-1])"
+          ],
+          "stdout_contains": "Şikago'daki fabrika denetimde yüzde doksan iki"
+        }
+      ],
+      "cleanup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; if ( get_option('agfo_regression_seeded_openai') ) { delete_option('agfo_openai_api_key'); delete_option('agfo_regression_seeded_openai'); } delete_option('agfo_ai_ema_endpoint'); delete_option('agfo_ai_ema_script'); echo 'clean';"
+          ],
+          "stdout_contains": "clean"
+        }
+      ],
+      "since": "17.10.0"
+    },
+    {
+      "id": "tts.ema.script.classic_job_pipeline",
+      "title": "Live: classic editor EMA job with 'Okuma metnini AI ile hazırla' runs lexicon → script → TTS in the worker",
+      "type": "browser",
+      "evidence_level": "live_runtime",
+      "required_for_package": true,
+      "covers": [
+        "button:#agfo-classic-tts-submit"
+      ],
+      "setup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; $e = $GLOBALS['AGFO_ENC']; if ( ! get_option('agfo_openai_api_key') ) { update_option('agfo_openai_api_key', $e ? $e->encrypt('sk-AGFO_REGRESSION') : 'sk-AGFO_REGRESSION'); update_option('agfo_regression_seeded_openai', 1); } update_option('agfo_selected_provider', 'openai'); update_option('agfo_ema_api_key', $e ? $e->encrypt(getenv('AGFO_TEST_EMA_TOKEN')) : getenv('AGFO_TEST_EMA_TOKEN')); update_option('agfo_ai_ema_endpoint', getenv('AGFO_TEST_EMA_ENDPOINT')); update_option('agfo_ai_ema_script', '1'); global $wpdb; $wpdb->query(\"DELETE FROM {$wpdb->options} WHERE option_name LIKE '%agfo_ema_scr_%'\"); echo 'ready';"
+          ],
+          "stdout_contains": "ready"
+        }
+      ],
+      "steps": [
+        {
+          "action": "goto",
+          "url": "/wp-login.php"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_login",
+          "value": "${AGFO_TEST_USER}"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_pass",
+          "value": "${AGFO_TEST_PASSWORD}"
+        },
+        {
+          "action": "click",
+          "selector": "#wp-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#wpadminbar"
+        },
+        {
+          "action": "goto",
+          "url": "/wp-admin/post-new.php"
+        },
+        {
+          "action": "click",
+          "selector": ".agfo-classic-tts-open:visible >> nth=0"
+        },
+        {
+          "action": "select_option",
+          "selector": "#agfo-classic-tts-provider",
+          "value": "ema"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-classic-tts-text",
+          "value": "AGFO_REGRESSION: Nietzsche Chicago'da 2024 yılında konuştu.\n\nGıda güvenliği kültürü güçlü bulundu."
+        },
+        {
+          "action": "check",
+          "selector": "#agfo-classic-tts-ema-script"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-classic-tts-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-classic-tts-status.is-complete",
+          "timeout": 120000
+        },
+        {
+          "action": "command",
+          "command": [
+            "python3",
+            "-c",
+            "import json,os;print(open(os.environ['AGFO_TEST_EMA_LOG']).read().strip().split('\\n')[-1])"
+          ],
+          "stdout_contains": "Niçe Şikago'da iki bin yirmi dört"
+        },
+        {
+          "action": "command",
+          "command": [
+            "python3",
+            "-c",
+            "import json,os;print(open(os.environ['AGFO_TEST_EMA_LOG']).read().strip().split('\\n')[-1])"
+          ],
+          "stdout_contains": "\"apply_lexicon\": false"
+        }
+      ],
+      "cleanup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; if ( get_option('agfo_regression_seeded_openai') ) { delete_option('agfo_openai_api_key'); delete_option('agfo_regression_seeded_openai'); } delete_option('agfo_ai_ema_endpoint'); delete_option('agfo_ai_ema_script'); echo 'clean';"
+          ],
+          "stdout_contains": "clean"
+        }
+      ],
+      "since": "17.10.0"
+    },
+    {
+      "id": "tts.payload.percent_kept",
+      "title": "Speech text sanitiser keeps %45-style percentages (sanitize_textarea_field deleted them)",
+      "type": "contains",
+      "required_for_package": true,
+      "target": "includes/jobs/class-job-api.php",
+      "text": "'text'                     => self::sanitize_speech_text(",
+      "since": "17.10.0"
+    },
+    {
+      "id": "tts.ema.lexicon_page.crud",
+      "title": "Live: Telaffuz Sözlüğü adds, edits, removes and restores words on the TTS server (real service code); changes are live and survive reload",
+      "type": "browser",
+      "evidence_level": "live_runtime",
+      "required_for_package": true,
+      "covers": [
+        "ajax:agfo_ai_ema_lexicon",
+        "button:#agfo-lex-save",
+        "button:#agfo-lex-listen",
+        ".agfo-lex-row-save",
+        ".agfo-lex-row-delete",
+        ".agfo-lex-row-restore"
+      ],
+      "setup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; $e = $GLOBALS['AGFO_ENC']; update_option('agfo_ema_api_key', $e ? $e->encrypt(getenv('AGFO_TEST_EMA_TOKEN')) : getenv('AGFO_TEST_EMA_TOKEN')); update_option('agfo_ai_ema_endpoint', getenv('AGFO_TEST_EMA_LEXICON_ENDPOINT')); echo 'ready';"
+          ],
+          "stdout_contains": "ready"
+        }
+      ],
+      "steps": [
+        {
+          "action": "goto",
+          "url": "/wp-login.php"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_login",
+          "value": "${AGFO_TEST_USER}"
+        },
+        {
+          "action": "fill",
+          "selector": "#user_pass",
+          "value": "${AGFO_TEST_PASSWORD}"
+        },
+        {
+          "action": "click",
+          "selector": "#wp-submit"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#wpadminbar"
+        },
+        {
+          "action": "goto",
+          "url": "/wp-admin/admin.php?page=agfo-ai-ema-lexicon"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-counts:has-text(\"etkin kayıt\")",
+          "timeout": 20000
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-lex-word",
+          "value": "AGFO_REGRESSION_Kaya"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-lex-reading",
+          "value": "Kaya regresyon"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-lex-listen"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-player[src^=\"data:audio/mpeg\"]",
+          "state": "attached",
+          "timeout": 30000
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-lex-save"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-rows tr[data-word=\"AGFO_REGRESSION_Kaya\"] .agfo-lex-badge.is-added",
+          "timeout": 20000
+        },
+        {
+          "action": "command",
+          "command": [
+            "curl",
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "X-AGFO-Token: ${AGFO_TEST_EMA_TOKEN}",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            "{\"text\": \"AGFO_REGRESSION_Kaya'da\"}",
+            "${AGFO_TEST_EMA_LEXICON_ENDPOINT}/lexicon/apply"
+          ],
+          "stdout_contains": "Kaya regresyon'da"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-lex-search",
+          "value": "HACCP"
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-lex-rows tr[data-word=\"HACCP\"] .agfo-lex-row-reading",
+          "value": "hasip regresyon"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-lex-rows tr[data-word=\"HACCP\"] .agfo-lex-row-save"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-rows tr[data-word=\"HACCP\"] .agfo-lex-badge.is-edited",
+          "timeout": 20000
+        },
+        {
+          "action": "command",
+          "command": [
+            "curl",
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "X-AGFO-Token: ${AGFO_TEST_EMA_TOKEN}",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            "{\"text\": \"HACCP plan\\u0131\"}",
+            "${AGFO_TEST_EMA_LEXICON_ENDPOINT}/lexicon/apply"
+          ],
+          "stdout_contains": "hasip regresyon planı"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-lex-rows tr[data-word=\"HACCP\"] .agfo-lex-row-restore"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-rows tr[data-word=\"HACCP\"] .agfo-lex-badge.is-base",
+          "timeout": 20000
+        },
+        {
+          "action": "command",
+          "command": [
+            "curl",
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "X-AGFO-Token: ${AGFO_TEST_EMA_TOKEN}",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            "{\"text\": \"HACCP plan\\u0131\"}",
+            "${AGFO_TEST_EMA_LEXICON_ENDPOINT}/lexicon/apply"
+          ],
+          "stdout_contains": "\"hasip planı\""
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-lex-search",
+          "value": "Chicago"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-lex-rows tr[data-word=\"Chicago\"] .agfo-lex-row-delete"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-rows tr[data-word=\"Chicago\"] .agfo-lex-badge.is-removed",
+          "timeout": 20000
+        },
+        {
+          "action": "command",
+          "command": [
+            "curl",
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "X-AGFO-Token: ${AGFO_TEST_EMA_TOKEN}",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            "{\"text\": \"Chicago'da\"}",
+            "${AGFO_TEST_EMA_LEXICON_ENDPOINT}/lexicon/apply"
+          ],
+          "stdout_contains": "\"Chicago'da\""
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-lex-rows tr[data-word=\"Chicago\"] .agfo-lex-row-restore"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-rows tr[data-word=\"Chicago\"] .agfo-lex-badge.is-base",
+          "timeout": 20000
+        },
+        {
+          "action": "command",
+          "command": [
+            "curl",
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "X-AGFO-Token: ${AGFO_TEST_EMA_TOKEN}",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            "{\"text\": \"Chicago'da\"}",
+            "${AGFO_TEST_EMA_LEXICON_ENDPOINT}/lexicon/apply"
+          ],
+          "stdout_contains": "Şikago'da"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-counts:has-text(\"etkin kayıt\")",
+          "timeout": 20000
+        },
+        {
+          "action": "fill",
+          "selector": "#agfo-lex-search",
+          "value": "AGFO_REGRESSION"
+        },
+        {
+          "action": "expect_value",
+          "selector": "#agfo-lex-rows tr[data-word=\"AGFO_REGRESSION_Kaya\"] .agfo-lex-row-reading",
+          "value": "Kaya regresyon"
+        },
+        {
+          "action": "click",
+          "selector": "#agfo-lex-rows tr[data-word=\"AGFO_REGRESSION_Kaya\"] .agfo-lex-row-delete"
+        },
+        {
+          "action": "wait_for",
+          "selector": "#agfo-lex-rows:has-text(\"Eşleşen kayıt yok\")",
+          "timeout": 20000
+        },
+        {
+          "action": "command",
+          "command": [
+            "curl",
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "X-AGFO-Token: ${AGFO_TEST_EMA_TOKEN}",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            "{\"text\": \"AGFO_REGRESSION_Kaya\"}",
+            "${AGFO_TEST_EMA_LEXICON_ENDPOINT}/lexicon/apply"
+          ],
+          "stdout_contains": "\"AGFO_REGRESSION_Kaya\""
+        }
+      ],
+      "cleanup_steps": [
+        {
+          "action": "command",
+          "command": [
+            "php",
+            "-r",
+            "require getenv('AGFO_TEST_WP_PATH') . '/wp-load.php'; delete_option('agfo_ai_ema_endpoint'); echo 'clean';"
+          ],
+          "stdout_contains": "clean"
+        }
+      ],
+      "since": "17.11.0"
+    },
+    {
+      "id": "editor.speech.live_api",
+      "title": "Live: AI Editor speech API — info, auth, reading script, job submit/poll, audio stream, lexicon list/save/delete/listen, reading_script=false kept",
+      "type": "command",
+      "evidence_level": "live_runtime",
+      "required_for_package": true,
+      "command": [
+        "python3",
+        "tests/live/editor-speech-live.py"
+      ],
+      "exit_code": 0,
+      "stdout_contains": "0 fail",
+      "timeout": 300,
+      "covers": [
+        "rest:agfo-ai/v1/editor/speech",
+        "rest:agfo-ai/v1/editor/speech-script",
+        "rest:agfo-ai/v1/editor/lexicon",
+        "rest:agfo-ai/v1/editor/lexicon/listen"
+      ],
+      "since": "17.12.0"
     }
   ]
 }

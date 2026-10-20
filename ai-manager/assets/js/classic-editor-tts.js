@@ -71,6 +71,8 @@
             voiceOpenai: providerVoice('openai'),
             voiceElevenlabs: providerVoice('elevenlabs'),
             voiceMinimax: providerVoice('minimax'),
+            emaPause: $('#agfo-classic-tts-ema-pause').val() || '',
+            emaParagraphPause: $('#agfo-classic-tts-ema-paragraph-pause').val() || '',
             format: $('#agfo-classic-tts-format').val() || 'mp3',
             speed: $('#agfo-classic-tts-speed').val() || '1',
             instructions: $('#agfo-classic-tts-instructions').val() || '',
@@ -113,6 +115,24 @@
         if (preferences.minimaxChannel !== undefined) $('#agfo-classic-tts-minimax-channel').val(preferences.minimaxChannel);
         if (preferences.audioEffect !== undefined) $('#agfo-classic-tts-audio-effect').val(preferences.audioEffect);
         if (preferences.effectAmount !== undefined) $('#agfo-classic-tts-effect-amount').val(preferences.effectAmount);
+        if (preferences.emaPause) $('#agfo-classic-tts-ema-pause').val(preferences.emaPause);
+        if (preferences.emaParagraphPause) $('#agfo-classic-tts-ema-paragraph-pause').val(preferences.emaParagraphPause);
+    }
+
+    var emaScript = { ready: false, original: '' };
+
+    function resetEmaScript() {
+        emaScript.ready = false;
+        emaScript.original = '';
+        $('#agfo-classic-tts-ema-script-undo').prop('hidden', true);
+        $('#agfo-classic-tts-ema-script-status').attr('data-state', '').text('');
+    }
+
+    var PROVIDER_LABELS = { openai: 'OpenAI', elevenlabs: 'ElevenLabs', minimax: 'MiniMax', ema: 'EMA Lightning' };
+    var SPEECH_PROVIDERS = ['openai', 'elevenlabs', 'minimax', 'ema'];
+
+    function providerLabel(provider) {
+        return PROVIDER_LABELS[provider] || provider;
     }
 
     function setStatus(text, state) {
@@ -146,7 +166,7 @@
 
     function loadCompactQuota(provider, force) {
         if (!cfg.hasKeys || !cfg.hasKeys[provider]) {
-            compactQuotaError(provider, (provider === 'minimax' ? 'MiniMax' : 'ElevenLabs') + ' anahtarı yok.');
+            compactQuotaError(provider, providerLabel(provider) + ' anahtarı yok.');
             return $.Deferred().resolve().promise();
         }
         return post('agfo_ai_provider_quota', { provider: provider, force: force ? 1 : 0 })
@@ -192,18 +212,21 @@
     function preferenceModel(provider) {
         if (provider === 'openai') return preferences.modelOpenai || 'gpt-4o-mini-tts';
         if (provider === 'elevenlabs') return preferences.modelElevenlabs || 'eleven_multilingual_v2';
+        if (provider === 'ema') return 'ema-lightning';
         return preferences.modelMinimax || 'speech-2.8-hd';
     }
 
     function defaultModel(provider) {
         if (provider === 'openai') return 'gpt-4o-mini-tts';
         if (provider === 'elevenlabs') return 'eleven_multilingual_v2';
+        if (provider === 'ema') return 'ema-lightning';
         return 'speech-2.8-hd';
     }
 
     function populateModels(provider, catalog) {
         var $select = $('#agfo-classic-tts-model-' + provider);
         if (!$select.length) return;
+        if (provider === 'ema') return; // Single fixed model rendered server-side.
         var preferred = preferenceModel(provider);
         $select.empty();
         (catalog.models || []).forEach(function (model) {
@@ -366,6 +389,7 @@
         if (enabled) help = 'Ton, duygu, aksan ve okuma biçimini doğal dille tarif edebilirsiniz.';
         else if (provider === 'elevenlabs') help = 'ElevenLabs okuma biçimi ses seçimi ve gelişmiş ses ayarlarıyla belirlenir.';
         else if (provider === 'minimax') help = 'MiniMax okuma biçimi ses, duygu, perde, ses düzeyi ve hız ayarlarıyla belirlenir.';
+        else if (provider === 'ema') help = 'EMA Lightning talimat almaz; okumayı hız, duraklama ve telaffuz sözlüğüyle ayarlayın.';
         else help = 'Seçilen OpenAI modeli okuma talimatını desteklemiyor.';
         $('#agfo-classic-tts-instructions-help').text(help);
     }
@@ -374,7 +398,8 @@
         var defaults = {
             openai: ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'],
             elevenlabs: ['mp3', 'wav', 'pcm', 'ulaw', 'alaw', 'opus'],
-            minimax: ['mp3', 'wav', 'flac']
+            minimax: ['mp3', 'wav', 'flac'],
+            ema: ['mp3', 'wav']
         };
         return (catalogs[provider] && catalogs[provider].formats) || defaults[provider] || ['mp3'];
     }
@@ -393,13 +418,14 @@
 
     function modelLimit(provider) {
         var model = findModel(provider, providerModel(provider));
-        var fallback = provider === 'openai' ? 4096 : (provider === 'minimax' ? 9999 : 40000);
+        var fallback = provider === 'openai' ? 4096 : (provider === 'minimax' ? 9999 : (provider === 'ema' ? 60000 : 40000));
         return model && Number(model.max_characters) > 0 ? Number(model.max_characters) : fallback;
     }
 
     function updateTextLimit() {
         var provider = $('#agfo-classic-tts-provider').val() || cfg.defaultProvider || 'elevenlabs';
-        var limit = Math.max(1, Math.min(40000, modelLimit(provider)));
+        var cap = provider === 'ema' ? 60000 : 40000;
+        var limit = Math.max(1, Math.min(cap, modelLimit(provider)));
         $('#agfo-classic-tts-text').attr('maxlength', limit);
         $('#agfo-classic-tts-char-limit').text(limit);
         $('#agfo-classic-tts-char-count').text($('#agfo-classic-tts-text').val().length);
@@ -408,8 +434,8 @@
     function updateSpeedRange() {
         var provider = $('#agfo-classic-tts-provider').val();
         var $speed = $('#agfo-classic-tts-speed');
-        var min = provider === 'minimax' ? 0.5 : 0.25;
-        var max = provider === 'minimax' ? 2 : 4;
+        var min = provider === 'minimax' ? 0.5 : (provider === 'ema' ? 0.7 : 0.25);
+        var max = provider === 'minimax' ? 2 : (provider === 'ema' ? 1.4 : 4);
         var value = parseFloat($speed.val() || '1');
         if (value < min) value = min;
         if (value > max) value = max;
@@ -453,6 +479,8 @@
         });
         $('#agfo-classic-tts-refresh-eleven').prop('disabled', !(cfg.hasKeys && cfg.hasKeys.elevenlabs));
         $('#agfo-classic-tts-refresh-minimax').prop('disabled', !(cfg.hasKeys && cfg.hasKeys.minimax));
+        $('#agfo-classic-tts-refresh-ema').prop('disabled', !(cfg.hasKeys && cfg.hasKeys.ema));
+        if ($('#agfo-classic-tts-model-ema').length) $('#agfo-classic-tts-submit').prop('disabled', provider === 'ema' && !(cfg.hasKeys && cfg.hasKeys.ema));
         updateSpeedRange();
         updateFormats();
         updateAudioEffect();
@@ -462,13 +490,28 @@
         updateTextLimit();
     }
 
+    function statusSelector(provider) {
+        if (provider === 'elevenlabs') return '#agfo-classic-tts-eleven-status';
+        return '#agfo-classic-tts-' + provider + '-status';
+    }
+
+    function refreshSelector(provider) {
+        if (provider === 'elevenlabs') return '#agfo-classic-tts-refresh-eleven';
+        return '#agfo-classic-tts-refresh-' + provider;
+    }
+
     function catalogStatus(provider) {
-        var id = provider === 'elevenlabs' ? '#agfo-classic-tts-eleven-status' : '#agfo-classic-tts-minimax-status';
+        var id = statusSelector(provider);
         var catalog = catalogs[provider] || {};
         var count = (catalog.voices || []).length;
         var hasKey = cfg.hasKeys && cfg.hasKeys[provider];
         var text = catalog.notice || (count ? cfg.messages.catalogReady : cfg.messages.catalogEmpty);
-        if (!hasKey) text = (provider === 'elevenlabs' ? 'ElevenLabs' : 'MiniMax') + ' API anahtarı bulunamadı.';
+        if (!hasKey) text = providerLabel(provider) + (provider === 'ema' ? ' servis token’ı bulunamadı.' : ' API anahtarı bulunamadı.');
+        if (provider === 'ema') {
+            var state = catalog.healthy === true ? 'is-ready' : (catalog.healthy === false ? 'is-error' : '');
+            $(id).attr('class', 'agfo-classic-tts-catalog-status ' + state).text(text);
+            return;
+        }
         $(id).attr('class', 'agfo-classic-tts-catalog-status ' + (hasKey && count ? 'is-ready' : '')).text(text + (count ? ' (' + count + ' ses)' : ''));
     }
 
@@ -477,6 +520,8 @@
         populateModels(provider, catalogs[provider]);
         if (provider === 'openai') {
             populateOpenAiVoices(catalogs[provider]);
+        } else if (provider === 'ema') {
+            catalogStatus('ema');
         } else {
             var searchId = provider === 'elevenlabs' ? '#agfo-classic-tts-voice-search' : '#agfo-classic-tts-voice-minimax-search';
             populateProviderVoices(provider, catalogs[provider], $(searchId).val());
@@ -491,12 +536,12 @@
             catalogStatus(provider);
             return;
         }
-        var statusId = provider === 'elevenlabs' ? '#agfo-classic-tts-eleven-status' : '#agfo-classic-tts-minimax-status';
-        var buttonId = provider === 'elevenlabs' ? '#agfo-classic-tts-refresh-eleven' : '#agfo-classic-tts-refresh-minimax';
-        var label = provider === 'elevenlabs' ? 'ElevenLabs' : 'MiniMax';
+        var statusId = statusSelector(provider);
+        var buttonId = refreshSelector(provider);
+        var label = providerLabel(provider);
         var $button = $(buttonId);
         $button.prop('disabled', true);
-        $(statusId).attr('class', 'agfo-classic-tts-catalog-status is-loading').text(cfg.messages.catalogLoading || 'Seçenekler yükleniyor…');
+        $(statusId).attr('class', 'agfo-classic-tts-catalog-status is-loading').text(provider === 'ema' ? 'EMA servisine bağlanılıyor…' : (cfg.messages.catalogLoading || 'Seçenekler yükleniyor…'));
         post('agfo_ai_tts_catalog', { provider: provider, force: force ? 1 : 0 })
             .done(function (response) {
                 if (!response || !response.success) {
@@ -549,6 +594,7 @@
     function openModal(editorId) {
         activeEditor = editorId || 'content';
         $('#agfo-classic-tts-editor-id').val(activeEditor);
+        resetEmaScript();
         output = { url: '', downloadUrl: '', attachmentId: 0 };
         $('#agfo-classic-tts-player').prop('hidden', true).attr('src', '');
         $('#agfo-classic-tts-download, #agfo-classic-tts-insert, #agfo-classic-tts-cancel').prop('hidden', true);
@@ -715,6 +761,41 @@
         });
         $('#agfo-classic-tts-refresh-eleven').on('click', function () { loadProviderCatalog('elevenlabs', true); });
         $('#agfo-classic-tts-refresh-minimax').on('click', function () { loadProviderCatalog('minimax', true); });
+        $('#agfo-classic-tts-refresh-ema').on('click', function () { loadProviderCatalog('ema', true); });
+        $('#agfo-classic-tts-ema-script-preview').on('click', function () {
+            var $button = $(this);
+            var $status = $('#agfo-classic-tts-ema-script-status');
+            var text = $('#agfo-classic-tts-text').val() || '';
+            if (!$.trim(text)) { $status.attr('data-state', 'error').text('Önce metni alın.'); return; }
+            if (!(cfg.hasKeys && cfg.hasKeys.ema)) { $status.attr('data-state', 'error').text('EMA servis token’ı tanımlı değil.'); return; }
+            var original = emaScript.ready ? emaScript.original : text;
+            $button.prop('disabled', true);
+            $status.attr('data-state', 'working').text('Okuma metni hazırlanıyor… Uzun metinlerde birkaç dakika sürebilir.');
+            $.ajax({
+                url: cfg.ajaxUrl, method: 'POST', dataType: 'json', timeout: 600000,
+                data: { action: 'agfo_ai_ema_script_preview', nonce: cfg.nonce, text: original }
+            }).done(function (response) {
+                if (!response || !response.success) {
+                    $status.attr('data-state', 'error').text(response && response.data && response.data.message ? response.data.message : 'Okuma metni hazırlanamadı.');
+                    return;
+                }
+                var d = response.data;
+                emaScript.ready = true;
+                emaScript.original = original;
+                $('#agfo-classic-tts-text').val(d.text).trigger('input');
+                $('#agfo-classic-tts-ema-script-undo').prop('hidden', false);
+                var note = d.rewritten + '/' + d.chunks + ' bölüm hazırlandı';
+                if (d.kept_original) note += '; ' + d.kept_original + ' bölüm özgün bırakıldı';
+                $status.attr('data-state', 'done').text(note + '. Metni kontrol edip düzeltebilirsiniz.');
+            }).fail(function (xhr) {
+                $status.attr('data-state', 'error').text(responseMessage(xhr, 'Okuma metni hazırlanamadı.'));
+            }).always(function () { $button.prop('disabled', false); });
+        });
+        $('#agfo-classic-tts-ema-script-undo').on('click', function () {
+            if (emaScript.original) $('#agfo-classic-tts-text').val(emaScript.original).trigger('input');
+            resetEmaScript();
+        });
+        $('#agfo-classic-tts-use-selection, #agfo-classic-tts-use-all').on('click', resetEmaScript);
         $('#agfo-classic-tts-refresh-quota').on('click', function () {
             var $button = $(this).prop('disabled', true);
             $.when(loadCompactQuota('elevenlabs', true), loadCompactQuota('minimax', true)).always(function () { $button.prop('disabled', false); });
@@ -725,13 +806,19 @@
             event.preventDefault();
             window.clearTimeout(timer);
             var provider = $('#agfo-classic-tts-provider').val() || '';
-            var models = { openai: providerModel('openai'), elevenlabs: providerModel('elevenlabs'), minimax: providerModel('minimax') };
-            var voices = { openai: providerVoice('openai'), elevenlabs: providerVoice('elevenlabs'), minimax: providerVoice('minimax') };
+            var models = {};
+            var voices = {};
+            SPEECH_PROVIDERS.forEach(function (code) {
+                if (!$('#agfo-classic-tts-model-' + code).length) return;
+                models[code] = providerModel(code);
+                voices[code] = code === 'ema' ? ($('#agfo-classic-tts-voice-ema').val() || 'ema') : providerVoice(code);
+            });
             var text = $('#agfo-classic-tts-text').val() || '';
             var publish = $('#agfo-classic-tts-publish').prop('checked');
             if (!provider) { setStatus('Kullanılabilir TTS sağlayıcısı bulunamadı.', 'failed'); return; }
             if (!$.trim(text)) { setStatus('Seslendirilecek metin boş olamaz.', 'failed'); return; }
-            if (!voices[provider]) { setStatus((provider === 'minimax' ? 'MiniMax' : provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI') + ' için bir ses seçin veya Voice ID girin.', 'failed'); return; }
+            if (provider === 'ema' && !(cfg.hasKeys && cfg.hasKeys.ema)) { setStatus('EMA servis token’ı tanımlı değil: AGFO AI › Sağlayıcılar › EMA Lightning (yerel TTS) alanına token girin.', 'failed'); return; }
+            if (!voices[provider]) { setStatus(providerLabel(provider) + ' için bir ses seçin veya Voice ID girin.', 'failed'); return; }
 
             savePreferences();
             output = { url: '', downloadUrl: '', attachmentId: 0 };
@@ -752,12 +839,24 @@
                 visibility: publish ? 'public' : 'private',
                 title: title
             };
-            ['language', 'stability', 'similarity_boost', 'style', 'use_speaker_boost'].forEach(function (field) {
+            // EMA ignores the other providers' tuning; a hidden ElevenLabs language or
+            // MiniMax language boost must not make a Turkish job look foreign.
+            if (provider === 'ema') {
+                payload.language = 'tr';
+                payload.pause_ms = $('#agfo-classic-tts-ema-pause').val() || '';
+                payload.paragraph_pause_ms = $('#agfo-classic-tts-ema-paragraph-pause').val() || '';
+                if (emaScript.ready) {
+                    payload.script_ready = 1;
+                    payload.reading_script = 0;
+                } else if ($('#agfo-classic-tts-ema-script').length) {
+                    payload.reading_script = $('#agfo-classic-tts-ema-script').prop('checked') ? 1 : 0;
+                }
+            } else ['language', 'stability', 'similarity_boost', 'style', 'use_speaker_boost'].forEach(function (field) {
                 var id = field === 'similarity_boost' ? 'similarity' : (field === 'use_speaker_boost' ? 'speaker-boost' : field);
                 var $input = $('#agfo-classic-tts-' + id);
                 if ($input.length && !$input.prop('disabled') && $input.val() !== '') payload[field] = $input.val();
             });
-            var minimaxFields = {
+            var minimaxFields = provider === 'ema' ? {} : {
                 language_boost: '#agfo-classic-tts-minimax-language', volume: '#agfo-classic-tts-minimax-volume',
                 pitch: '#agfo-classic-tts-minimax-pitch', emotion: '#agfo-classic-tts-minimax-emotion',
                 sample_rate: '#agfo-classic-tts-minimax-sample-rate', bitrate: '#agfo-classic-tts-minimax-bitrate',
@@ -808,6 +907,7 @@
         applyCatalog('openai', catalogs.openai || {});
         applyCatalog('elevenlabs', catalogs.elevenlabs || {});
         applyCatalog('minimax', catalogs.minimax || {});
+        if ($('#agfo-classic-tts-model-ema').length) applyCatalog('ema', catalogs.ema || {});
         updateProviderPanels();
     });
 })(jQuery);

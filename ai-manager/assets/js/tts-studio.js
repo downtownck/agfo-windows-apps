@@ -108,12 +108,21 @@
         if (provider === 'openai') return 'gpt-4o-mini-tts';
         if (provider === 'elevenlabs') return 'eleven_multilingual_v2';
         if (provider === 'minimax') return 'speech-2.8-hd';
+        if (provider === 'ema') return 'ema-lightning';
         return '';
+    }
+
+    var PROVIDER_LABELS = { openai: 'OpenAI', elevenlabs: 'ElevenLabs', minimax: 'MiniMax', ema: 'EMA Lightning' };
+    var SPEECH_PROVIDERS = ['openai', 'elevenlabs', 'minimax', 'ema'];
+
+    function providerLabel(provider) {
+        return PROVIDER_LABELS[provider] || provider;
     }
 
     function populateModels(provider, catalog) {
         var $select = $('#agfo-tts-model-' + provider);
         if (!$select.length) return;
+        if (provider === 'ema') return; // Single fixed model rendered server-side.
         var previous = providerModel(provider);
         var defaultId = defaultModel(provider);
         $select.empty();
@@ -274,7 +283,7 @@
         var $selected = $('#agfo-tts-voice-' + provider + ' option:selected');
         var text = $selected.attr('data-description') || 'Ses adı gösterilir; API çağrısında gerçek Voice ID kullanılır.';
         if ($selected.val() && $selected.val() !== '__manual__') text += ' Voice ID: ' + $selected.val();
-        $('#' + (provider === 'elevenlabs' ? 'agfo-elevenlabs-voice-help' : 'agfo-minimax-voice-help')).text(text);
+        $('#agfo-' + provider + '-voice-help').text(text);
     }
 
     function updateInstructionsState() {
@@ -288,6 +297,7 @@
         if (enabled) help = 'Seçilen OpenAI modeli aksan, ton, duygu, hız ve fısıltı gibi talimatları yorumlayabilir.';
         else if (provider === 'elevenlabs') help = 'ElevenLabs için okuma biçimini ses seçimi ve gelişmiş ses ayarlarıyla belirleyin.';
         else if (provider === 'minimax') help = 'MiniMax için okuma biçimini ses, duygu, perde, ses düzeyi ve hız ayarlarıyla belirleyin.';
+        else if (provider === 'ema') help = 'EMA Lightning talimat almaz; okumayı hız, duraklama ve telaffuz sözlüğüyle ayarlayın.';
         else help = 'Okuma talimatı yalnız talimat destekleyen OpenAI modeli açıkça seçildiğinde gönderilir.';
         $('#agfo-instructions-help').text(help);
     }
@@ -296,7 +306,8 @@
         var defaults = {
             openai: ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'],
             elevenlabs: ['mp3', 'wav', 'pcm', 'ulaw', 'alaw', 'opus'],
-            minimax: ['mp3', 'wav', 'flac']
+            minimax: ['mp3', 'wav', 'flac'],
+            ema: ['mp3', 'wav']
         };
         return (catalogs[provider] && catalogs[provider].formats) || defaults[provider] || ['mp3'];
     }
@@ -311,9 +322,12 @@
     function availableFormats() {
         var provider = $('#agfo-tts-provider').val();
         if (provider) return providerFormats(provider);
+        // EMA is left out of the auto intersection: it is a Turkish-only fallback
+        // and must not narrow the formats the paid providers can deliver.
         var active = ['openai', 'elevenlabs', 'minimax'].filter(function (code) {
             return agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys[code];
         }).map(providerFormats);
+        if (!active.length && agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.ema) active = [providerFormats('ema')];
         return intersection(active.length ? active : [providerFormats('openai'), providerFormats('elevenlabs'), providerFormats('minimax')]);
     }
 
@@ -333,7 +347,7 @@
 
     function modelLimit(provider) {
         var model = findModel(provider, providerModel(provider));
-        var fallback = provider === 'openai' ? 4096 : (provider === 'minimax' ? 9999 : 40000);
+        var fallback = provider === 'openai' ? 4096 : (provider === 'minimax' ? 9999 : (provider === 'ema' ? 60000 : 40000));
         return model && Number(model.max_characters) > 0 ? Number(model.max_characters) : fallback;
     }
 
@@ -346,10 +360,12 @@
             var active = ['openai', 'elevenlabs', 'minimax'].filter(function (code) {
                 return agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys[code];
             });
+            if (!active.length && agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.ema) active = ['ema'];
             if (!active.length) active = ['openai', 'elevenlabs', 'minimax'];
             limit = Math.min.apply(Math, active.map(modelLimit));
         }
-        limit = Math.max(1, Math.min(40000, limit || 40000));
+        var cap = provider === 'ema' ? 60000 : 40000;
+        limit = Math.max(1, Math.min(cap, limit || cap));
         $('#agfo-tts-text').attr('maxlength', limit);
         $('#agfo-tts-char-limit').text(limit);
         $('#agfo-tts-char-count').text($('#agfo-tts-text').val().length);
@@ -361,6 +377,7 @@
         var $speed = $('#agfo-tts-speed');
         var min = usesMiniMax ? 0.5 : 0.25;
         var max = usesMiniMax ? 2 : 4;
+        if (provider === 'ema') { min = 0.7; max = 1.4; }
         var value = parseFloat($speed.val() || '1');
         if (value < min) value = min;
         if (value > max) value = max;
@@ -375,6 +392,7 @@
         });
         $('#agfo-elevenlabs-refresh').prop('disabled', !(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.elevenlabs));
         $('#agfo-minimax-refresh').prop('disabled', !(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.minimax));
+        $('#agfo-ema-refresh').prop('disabled', !(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.ema));
         updateSpeedRange();
         updateFormats();
         updateInstructionsState();
@@ -384,14 +402,21 @@
     }
 
     function catalogStatus(provider) {
-        var id = provider === 'elevenlabs' ? '#agfo-elevenlabs-catalog-status' : '#agfo-minimax-catalog-status';
+        var id = '#agfo-' + provider + '-catalog-status';
         var catalog = catalogs[provider] || {};
         var count = (catalog.voices || []).length;
         var hasKey = agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys[provider];
         var notice = catalog.notice || (count ? agfoTtsStudio.messages.catalogReady : agfoTtsStudio.messages.catalogEmpty);
-        if (!hasKey) notice = provider === 'elevenlabs'
-            ? 'ElevenLabs API anahtarı eklendiğinde hesabınızdaki sesler otomatik yüklenecek.'
-            : 'MiniMax API anahtarı eklendiğinde hesabınızdaki sistem ve özel sesler otomatik yüklenecek.';
+        if (!hasKey) {
+            if (provider === 'elevenlabs') notice = 'ElevenLabs API anahtarı eklendiğinde hesabınızdaki sesler otomatik yüklenecek.';
+            else if (provider === 'ema') notice = 'EMA servis token’ı Sağlayıcılar ekranında “EMA Lightning (yerel TTS)” alanına girildiğinde kullanılabilir.';
+            else notice = 'MiniMax API anahtarı eklendiğinde hesabınızdaki sistem ve özel sesler otomatik yüklenecek.';
+        }
+        if (provider === 'ema') {
+            var state = catalog.healthy === true ? 'is-ready' : (catalog.healthy === false ? 'is-error' : '');
+            $(id).attr('class', 'agfo-catalog-status ' + state).text(notice);
+            return;
+        }
         $(id).attr('class', 'agfo-catalog-status ' + (hasKey && count ? 'is-ready' : '')).text(notice + (count ? ' (' + count + ' ses)' : ''));
     }
 
@@ -400,6 +425,8 @@
         populateModels(provider, catalogs[provider]);
         if (provider === 'openai') {
             populateOpenAiVoices(catalogs[provider]);
+        } else if (provider === 'ema') {
+            catalogStatus('ema');
         } else {
             var searchId = provider === 'elevenlabs' ? '#agfo-tts-voice-elevenlabs-search' : '#agfo-tts-voice-minimax-search';
             populateProviderVoices(provider, catalogs[provider], $(searchId).val());
@@ -416,12 +443,12 @@
             applyCatalog(provider, catalogs[provider] || {});
             return;
         }
-        var buttonId = provider === 'elevenlabs' ? '#agfo-elevenlabs-refresh' : '#agfo-minimax-refresh';
-        var statusId = provider === 'elevenlabs' ? '#agfo-elevenlabs-catalog-status' : '#agfo-minimax-catalog-status';
-        var label = provider === 'elevenlabs' ? 'ElevenLabs' : 'MiniMax';
+        var buttonId = '#agfo-' + provider + '-refresh';
+        var statusId = '#agfo-' + provider + '-catalog-status';
+        var label = providerLabel(provider);
         var $button = $(buttonId);
         $button.prop('disabled', true);
-        $(statusId).attr('class', 'agfo-catalog-status is-loading').text(agfoTtsStudio.messages.catalogLoading);
+        $(statusId).attr('class', 'agfo-catalog-status is-loading').text(provider === 'ema' ? 'EMA servisine bağlanılıyor…' : agfoTtsStudio.messages.catalogLoading);
         post('agfo_ai_tts_catalog', { provider: provider, force: force ? 1 : 0 })
             .done(function (response) {
                 if (!response || !response.success) {
@@ -522,6 +549,28 @@
 
     $('#agfo-elevenlabs-refresh').on('click', function () { loadProviderCatalog('elevenlabs', true); });
     $('#agfo-minimax-refresh').on('click', function () { loadProviderCatalog('minimax', true); });
+    $('#agfo-ema-refresh').on('click', function () { loadProviderCatalog('ema', true); });
+    $('#agfo-ema-save').on('click', function () {
+        var $button = $(this).prop('disabled', true);
+        var $status = $('#agfo-ema-save-status').attr('data-state', 'saving').text('Kaydediliyor…');
+        post('agfo_ai_ema_settings', {
+            endpoint: $.trim($('#agfo-ema-endpoint').val() || ''),
+            lexicon: $('#agfo-ema-lexicon').val() || '',
+            pause_ms: $('#agfo-ema-pause').val(),
+            paragraph_pause_ms: $('#agfo-ema-paragraph-pause').val(),
+            script_enabled: $('#agfo-ema-script').length ? ($('#agfo-ema-script').prop('checked') ? 1 : 0) : '',
+            script_model: $('#agfo-ema-script-model').length ? ($('#agfo-ema-script-model').val() || '') : ''
+        }).done(function (response) {
+            if (!response || !response.success) {
+                $status.attr('data-state', 'error').text(response && response.data && response.data.message ? response.data.message : 'EMA ayarları kaydedilemedi.');
+                return;
+            }
+            $status.attr('data-state', 'saved').text(response.data.message + ' Servis: ' + response.data.endpoint + ', sözlük: ' + response.data.lexicon_entries + ' girdi.');
+            if (agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.ema) loadProviderCatalog('ema', true);
+        }).fail(function (xhr) {
+            $status.attr('data-state', 'error').text(xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message ? xhr.responseJSON.data.message : 'EMA ayarları kaydedilemedi.');
+        }).always(function () { $button.prop('disabled', false); });
+    });
     $('.agfo-quota-refresh').on('click', function () { loadQuota($(this).data('provider'), true); });
     $('#agfo-quota-refresh-all').on('click', function () {
         var $button = $(this).prop('disabled', true);
@@ -530,24 +579,68 @@
         });
     });
 
+    // NEW 17.10.0: EMA reading script preview. The prepared script replaces the text;
+    // it is then spoken as-is (script_ready) and can be edited or undone first.
+    var emaScript = { ready: false, original: '' };
+
+    function resetEmaScript() {
+        emaScript.ready = false;
+        emaScript.original = '';
+        $('#agfo-ema-script-undo').prop('hidden', true);
+        $('#agfo-ema-script-status').attr('data-state', '').text('');
+    }
+
+    $('#agfo-ema-script-preview').on('click', function () {
+        var text = $('#agfo-tts-text').val() || '';
+        var $button = $(this);
+        var $status = $('#agfo-ema-script-status');
+        if (!$.trim(text)) { $status.attr('data-state', 'error').text('Önce metni yazın.'); return; }
+        if (!(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.ema)) { $status.attr('data-state', 'error').text('EMA servis token’ı tanımlı değil.'); return; }
+        var original = emaScript.ready ? emaScript.original : text;
+        $button.prop('disabled', true);
+        $status.attr('data-state', 'working').text('Okuma metni hazırlanıyor… Uzun metinlerde birkaç dakika sürebilir.');
+        $.ajax({
+            url: agfoTtsStudio.ajaxUrl, method: 'POST', dataType: 'json', timeout: 600000,
+            data: { action: 'agfo_ai_ema_script_preview', nonce: agfoTtsStudio.nonce, text: original }
+        }).done(function (response) {
+            if (!response || !response.success) {
+                $status.attr('data-state', 'error').text(response && response.data && response.data.message ? response.data.message : 'Okuma metni hazırlanamadı.');
+                return;
+            }
+            var d = response.data;
+            emaScript.ready = true;
+            emaScript.original = original;
+            $('#agfo-tts-text').val(d.text).trigger('input');
+            updateTextLimit();
+            $('#agfo-ema-script-undo').prop('hidden', false);
+            var note = d.rewritten + '/' + d.chunks + ' bölüm hazırlandı (' + d.model + ')';
+            if (d.kept_original) note += '; ' + d.kept_original + ' bölüm denetimden geçmediği için özgün bırakıldı';
+            $status.attr('data-state', 'done').text(note + '. Metni kontrol edip düzeltebilir, sonra “Sesi Üret”e basabilirsiniz.');
+        }).fail(function (xhr) {
+            $status.attr('data-state', 'error').text(xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message ? xhr.responseJSON.data.message : 'Okuma metni hazırlanamadı.');
+        }).always(function () { $button.prop('disabled', false); });
+    });
+
+    $('#agfo-ema-script-undo').on('click', function () {
+        if (emaScript.original) $('#agfo-tts-text').val(emaScript.original).trigger('input');
+        resetEmaScript();
+    });
+
     $('#agfo-tts-form').on('submit', function (event) {
         event.preventDefault();
         clearTimeout(timer);
         $('#agfo-tts-output').prop('hidden', true);
         var form = this;
         var provider = form.provider.value;
-        var models = {
-            openai: providerModel('openai'),
-            elevenlabs: providerModel('elevenlabs'),
-            minimax: providerModel('minimax')
-        };
-        var voices = {
-            openai: providerVoice('openai'),
-            elevenlabs: providerVoice('elevenlabs'),
-            minimax: providerVoice('minimax')
-        };
+        var models = {};
+        var voices = {};
+        SPEECH_PROVIDERS.forEach(function (code) {
+            if (!$('#agfo-tts-model-' + code).length) return;
+            models[code] = providerModel(code);
+            voices[code] = providerVoice(code);
+        });
         if (provider && !voices[provider]) {
-            setStatus((provider === 'minimax' ? 'MiniMax' : provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI') + ' için bir ses seçin veya Voice ID girin.', 'failed');
+            setStatus(providerLabel(provider) + ' için bir ses seçin veya Voice ID girin.', 'failed');
             return;
         }
 
@@ -579,6 +672,21 @@
             var value = $(minimaxFields[field]).val();
             if (value !== '') payload[field] = value;
         });
+        if (provider === 'ema') {
+            // Explicit EMA choice: the other panels' language hints do not apply.
+            payload.language = 'tr';
+            delete payload.language_boost;
+        }
+        if ($('#agfo-ema-pause').length && (provider === 'ema' || (!provider && agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.ema))) {
+            payload.pause_ms = $('#agfo-ema-pause').val();
+            payload.paragraph_pause_ms = $('#agfo-ema-paragraph-pause').val();
+            if (emaScript.ready && provider === 'ema') {
+                payload.script_ready = 1;
+                payload.reading_script = 0;
+            } else if ($('#agfo-ema-script').length) {
+                payload.reading_script = $('#agfo-ema-script').prop('checked') ? 1 : 0;
+            }
+        }
 
         setStatus('İş hazırlanıyor…', 'queued');
         $(form).find(':input').prop('disabled', true);
@@ -623,6 +731,7 @@
     applyCatalog('openai', catalogs.openai || {});
     applyCatalog('elevenlabs', catalogs.elevenlabs || {});
     applyCatalog('minimax', catalogs.minimax || {});
+    if ($('#agfo-tts-model-ema').length) applyCatalog('ema', catalogs.ema || {});
     updateProviderPanels();
     loadProviderCatalog('elevenlabs', false);
     loadProviderCatalog('minimax', false);

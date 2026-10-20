@@ -1,6 +1,92 @@
 {
-  "current_version": "17.8.0",
+  "current_version": "17.12.0",
   "releases": [
+    {
+      "version": "17.12.0",
+      "date": "2026-10-20",
+      "type": "MINOR",
+      "summary": "AI Editor seslendirme REST uçları (iş, durum, MP3 akışı, okuma metni önizlemesi, ortak sözlük); reading_script=false düzeltmesi.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/api/class-editor-speech-api.php",
+        "includes/api/class-editor-api.php",
+        "includes/jobs/class-job-api.php",
+        "includes/adapters/class-adapter-ema.php",
+        "tests/live/editor-speech-live.py"
+      ]
+    },
+    {
+      "version": "17.11.0",
+      "date": "2026-10-20",
+      "type": "MINOR",
+      "summary": "Telaffuz Sözlüğü sayfası: ortak EMA sözlüğünü WordPress'ten yönetme (ekle, değiştir, kaldır, geri al, dinle); değişiklikler sunucuya yazılır ve bütün sitelerde hemen geçerli olur.",
+      "files": [
+        "agfo-ai-manager.php",
+        "admin/class-ema-lexicon.php",
+        "assets/js/ema-lexicon.js",
+        "assets/css/operations.css",
+        "includes/adapters/class-adapter-ema.php",
+        "admin/class-operations.php"
+      ]
+    },
+    {
+      "version": "17.10.1",
+      "date": "2026-10-20",
+      "type": "PATCH",
+      "summary": "Okuma metni isteminde HACCP okunuşu \"hasip\" yapıldı; istem sürümü v2 olduğundan eski önbellekli bölümler yeniden hazırlanır.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/tts/class-speech-script.php"
+      ]
+    },
+    {
+      "version": "17.10.0",
+      "date": "2026-10-20",
+      "type": "MINOR",
+      "summary": "EMA okuma metni: sözlük → AI okuma metni → seslendirme hattı, bölüm bazlı sadakat denetimi ve özgün metne geri dönüş, Stüdyo/editör önizlemesi, model seçimi, 30 gün önbellek.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/tts/class-speech-script.php",
+        "includes/adapters/class-adapter-ema.php",
+        "includes/content/class-content-transformer.php",
+        "includes/jobs/class-job-api.php",
+        "admin/class-operations.php",
+        "includes/editor/class-classic-editor-tts.php",
+        "assets/js/tts-studio.js",
+        "assets/js/classic-editor-tts.js",
+        "tests/ema-script-tests.php"
+      ]
+    },
+    {
+      "version": "17.9.1",
+      "date": "2026-10-20",
+      "type": "PATCH",
+      "summary": "Klasik editörde EMA Lightning token yokken de listelenir; seçilince token'ın girileceği yeri gösterir ve üretimi engeller.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/editor/class-classic-editor-tts.php",
+        "assets/js/classic-editor-tts.js"
+      ]
+    },
+    {
+      "version": "17.9.0",
+      "date": "2026-10-20",
+      "type": "MINOR",
+      "summary": "EMA Lightning (yerel, Türkçe, ücretsiz) TTS sağlayıcısı: AGFO TTS Service adaptörü, Ses Stüdyosu ve klasik editörde EMA paneli (bağlantı testi, telaffuz sözlüğü, cümle/paragraf duraklaması, servis adresi), wp-config AGFO_TTS_TOKEN/AGFO_TTS_ENDPOINT desteği, Türkçe olmayan metinlerde EMA'yı atlayan doğrulama.",
+      "files": [
+        "agfo-ai-manager.php",
+        "includes/functions.php",
+        "includes/adapters/class-adapter-ema.php",
+        "includes/adapters/class-adapter-registry.php",
+        "includes/tts/class-tts-catalog.php",
+        "includes/jobs/class-job-api.php",
+        "admin/class-operations.php",
+        "includes/editor/class-classic-editor-tts.php",
+        "assets/js/tts-studio.js",
+        "assets/js/classic-editor-tts.js",
+        "tests/ema-adapter-tests.php"
+      ]
+    },
     {
       "version": "17.8.0",
       "date": "2026-10-19",

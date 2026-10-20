@@ -287,7 +287,7 @@ if ( ! class_exists( 'AGFO_AIM_Job_API' ) ) {
                 return $payload;
             }
             $clean = [
-                'text'                     => sanitize_textarea_field( (string) ( $payload['text'] ?? '' ) ),
+                'text'                     => self::sanitize_speech_text( (string) ( $payload['text'] ?? '' ) ), // CHANGED 17.10.0: keeps %45 etc.
                 'voice'                    => sanitize_text_field( (string) ( $payload['voice'] ?? '' ) ),
                 'provider_voices'          => self::sanitize_provider_voices( $payload['provider_voices'] ?? [] ),
                 'language'                 => sanitize_key( (string) ( $payload['language'] ?? '' ) ),
@@ -307,6 +307,10 @@ if ( ! class_exists( 'AGFO_AIM_Job_API' ) ) {
                 'sample_rate'              => isset( $payload['sample_rate'] ) && '' !== (string) $payload['sample_rate'] ? absint( $payload['sample_rate'] ) : null,
                 'bitrate'                  => isset( $payload['bitrate'] ) && '' !== (string) $payload['bitrate'] ? absint( $payload['bitrate'] ) : null,
                 'channel'                  => isset( $payload['channel'] ) && '' !== (string) $payload['channel'] ? absint( $payload['channel'] ) : null,
+                'pause_ms'                 => isset( $payload['pause_ms'] ) && '' !== (string) $payload['pause_ms'] ? min( 2000, absint( $payload['pause_ms'] ) ) : null,
+                'reading_script'           => isset( $payload['reading_script'] ) && '' !== $payload['reading_script'] ? filter_var( $payload['reading_script'], FILTER_VALIDATE_BOOLEAN ) : null, // CHANGED 17.12.0: PHP false kept
+                'script_ready'             => ! empty( $payload['script_ready'] ) && filter_var( $payload['script_ready'], FILTER_VALIDATE_BOOLEAN ) ? true : null,
+                'paragraph_pause_ms'       => isset( $payload['paragraph_pause_ms'] ) && '' !== (string) $payload['paragraph_pause_ms'] ? min( 3000, absint( $payload['paragraph_pause_ms'] ) ) : null,
                 'visibility'               => 'public' === (string) ( $payload['visibility'] ?? 'private' ) ? 'public' : 'private',
                 'publish_to_media_library' => ! empty( $payload['publish_to_media_library'] ),
                 'retention_days'           => max( 1, min( 3650, absint( $payload['retention_days'] ?? 30 ) ) ),
@@ -319,6 +323,21 @@ if ( ! class_exists( 'AGFO_AIM_Job_API' ) ) {
                 $clean['use_speaker_boost'] = filter_var( $payload['use_speaker_boost'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
             }
             return array_filter( $clean, static function ( $value ) { return null !== $value; } );
+        }
+
+        /**
+         * NEW 17.10.0: plain-text sanitiser for speech. sanitize_textarea_field() deletes
+         * "%" followed by two hex digits as if it were URL encoding, so "%45" and "%92"
+         * vanished from narrated text. Same protections otherwise: valid UTF-8, no tags,
+         * no control characters; line breaks are kept.
+         */
+        public static function sanitize_speech_text( string $text ): string {
+            $text = wp_check_invalid_utf8( $text );
+            $text = str_replace( [ "\r\n", "\r" ], "\n", $text );
+            $text = wp_strip_all_tags( $text, false );
+            $text = (string) preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text );
+            $text = (string) preg_replace( '/[ \t]+\n/u', "\n", $text );
+            return trim( $text );
         }
 
         public static function payload_for_provider( array $payload, string $provider ): array {

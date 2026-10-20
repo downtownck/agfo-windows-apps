@@ -342,8 +342,11 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'translation_provider' => self::config_name( $trans ),
                 'translation_model' => self::config_model( $trans ),
                 'max_chars'         => self::MAX_CHARS,
-                'features'          => [ 'transform', 'chat', 'translate', 'markdown', 'route_fallback', 'model_choice' ],
+                'features'          => [ 'transform', 'chat', 'translate', 'markdown', 'route_fallback', 'model_choice', 'speech', 'reading_script', 'lexicon' ],
             ];
+            if ( class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
+                $data['speech'] = AGFO_AIM_Editor_Speech_API::info(); // NEW 17.12.0
+            }
             return self::response( $data, 200 );
         }
 
