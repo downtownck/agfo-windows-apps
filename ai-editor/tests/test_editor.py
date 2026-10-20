@@ -557,7 +557,7 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(d.text.get('1.0', 'end-1c'), 'Giriş cümlesi. Devam cümlesi.\n' + 'Giriş cümlesi. Devam cümlesi.'.upper())
         self.assertEqual(len(d.text.get_blocks()), 2)                             # ceviri ayri paragraf
         tr = [f for f in self.fake if f[1][1].get('template') == 'translate_polish'][0]
-        self.assertEqual(tr[1][2]['language'], 'English')
+        self.assertEqual(tr[1][2]['language'], 'Türkçe')     # 1.4.15: varsayılan hedef dil isteğe taşınır
 
     def test_chat_and_critique(self):
         d = self.app.cur()
