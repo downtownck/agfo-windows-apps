@@ -6,7 +6,7 @@ name: Release
 #   supertools-vX.Y.Z   -> AGFO-SuperTools-vX.Y.Z.update.zip (Guncelleme Merkezi paketi) + tam kurulum ZIP'i
 #   backupsync-vX.Y.Z   -> AGFO-BackupSync-Setup.exe + AGFO-BackupSync.exe (Windows'ta derlenir) + kaynak ZIP
 #   ai-manager-vX.Y.Z   -> agfo-ai-manager-X.Y.Z.zip (WordPress eklentisi; siteler GitHub'dan gunceller)
-#   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + ekran goruntusu
+#   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + AGFO-AI-Editor-Kur.cmd (yoneticisiz kurulum) + ekran goruntusu
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -279,6 +279,7 @@ jobs:
       - name: Paketle
         run: |
           Copy-Item ai-editor/dist/AGFO-AI-Editor.exe out/
+          Copy-Item ai-editor/packaging/AGFO-AI-Editor-Kur.cmd out/
           Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
             '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
           Get-Content out/SHA256SUMS.txt

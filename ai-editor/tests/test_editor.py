@@ -394,6 +394,22 @@ class SecretsAndUpdateTests(unittest.TestCase):
         r = upd.check(force=True, releases=rels)
         self.assertEqual((r['status'], r['version']), ('update', '9.9.9'))
 
+    def test_check_requires_ready_package(self):
+        # 1.4.15: EXE var ama ne GitHub ozeti ne SHA256SUMS.txt var -> guncelleme dugmesi gosterilmez
+        base = {'tag_name': 'ai-editor-v9.9.8', 'draft': False, 'prerelease': False}
+        no_sha = [dict(base, assets=[{'name': 'AGFO-AI-Editor.exe', 'browser_download_url': 'https://github.com/x/a.exe', 'size': 3}])]
+        r = upd.check(force=True, releases=no_sha)
+        self.assertEqual(r['status'], 'error')
+        self.assertIn('henüz hazır değil', r['message'])
+        no_exe = [dict(base, assets=[{'name': 'SHA256SUMS.txt', 'browser_download_url': 'https://github.com/x/s.txt', 'size': 3}])]
+        self.assertEqual(upd.check(force=True, releases=no_exe)['status'], 'error')
+        with_sums = [dict(base, assets=[{'name': 'AGFO-AI-Editor.exe', 'browser_download_url': 'https://github.com/x/a.exe', 'size': 3},
+                                        {'name': 'SHA256SUMS.txt', 'browser_download_url': 'https://github.com/x/s.txt', 'size': 3}])]
+        self.assertEqual(upd.check(force=True, releases=with_sums)['status'], 'update')
+        self.assertTrue(upd.package_ready({'assets': []}, {'url': 'u', 'sha256': 'a' * 64}))
+        self.assertFalse(upd.package_ready({'assets': []}, {}))
+        self.assertEqual(upd.CHECK_INTERVAL, 1800)
+
     def test_apply_requires_frozen(self):
         with self.assertRaises(OSError):
             upd.apply_update('x.exe', popen=lambda *a, **k: None)   # kaynak koddan: hedef yok
@@ -451,6 +467,47 @@ class GuiTests(unittest.TestCase):
                 return True
             time.sleep(0.01)
         return False
+
+    def test_update_button_appears_and_hides_automatically(self):
+        app = self.app
+        app.deiconify()
+        self.pump(lambda: app.winfo_ismapped())
+        self.assertFalse(app.update_btn.winfo_ismapped())
+        rel = {'version': '9.9.9', 'notes': 'n', 'assets': []}
+        res = {'status': 'update', 'version': '9.9.9', 'release': rel, 'asset': {'name': 'AGFO-AI-Editor.exe', 'url': 'u', 'sha256': 'a' * 64}}
+        self.assertTrue(app._apply_update_result(res))
+        self.assertTrue(self.pump(lambda: app.update_btn.winfo_ismapped()))
+        self.assertIn('Güncelleme var: v9.9.9', app.update_btn.cget('text'))
+        self.assertIn('güncelleme var: v9.9.9', app.title())
+        self.assertIn('v9.9.9', app.ai_var.get())
+        # throttled / error: gosterilen dugme kaybolmaz
+        app._apply_update_result({'status': 'throttled'})
+        app._apply_update_result({'status': 'error', 'message': 'ag yok'})
+        self.app.update()
+        self.assertTrue(app.update_btn.winfo_ismapped())
+        # guncel: dugme ve baslik notu kalkar
+        app._apply_update_result({'status': 'current', 'version': self.m.core.VERSION})
+        self.assertTrue(self.pump(lambda: not app.update_btn.winfo_ismapped()))
+        self.assertIsNone(app.update_result)
+        self.assertEqual(app.title(), 'AGFO AI Editor %s' % self.m.core.VERSION)
+
+    def test_background_check_is_silent_and_reschedules(self):
+        app = self.app
+        rel = {'version': '9.9.9', 'notes': '', 'assets': []}
+        fake = {'status': 'update', 'version': '9.9.9', 'release': rel, 'asset': {'name': 'AGFO-AI-Editor.exe', 'url': 'u', 'sha256': 'a' * 64}}
+        app.settings['auto_update'] = True
+        with mock.patch.object(self.m.upd, 'check', return_value=fake) as chk:
+            app._auto_update_tick()
+            self.assertFalse(app.busy.winfo_ismapped())          # is gostergesi acilmaz
+            self.assertFalse(app.cancel_btn.winfo_ismapped())
+            self.assertTrue(self.pump(lambda: app.update_result is not None))
+        chk.assert_called_once_with(force=False)
+        self.assertIn('update', app._timers)                    # bir sonraki denetim planlandi
+        app.settings['auto_update'] = False
+        with mock.patch.object(self.m.upd, 'check') as chk2:
+            app._auto_update_tick()
+            self.pump(lambda: False, n=20)
+        chk2.assert_not_called()
 
     def test_action_review_apply_undo(self):
         d = self.app.cur()
