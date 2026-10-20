@@ -100,9 +100,10 @@ class Cancelled(Exception):
 
 
 def narrate(backend, text: str, dest: str, *, reading_script=True, script_ready=False, speed=1.0, pause_ms=None,
-            paragraph_pause_ms=None, title='', progress=None, cancel=None, sleep=time.sleep, poll=POLL_SECONDS) -> dict:
+            paragraph_pause_ms=None, title='', progress=None, cancel=None, sleep=time.sleep, poll=None) -> dict:
     """Metni seslendirir ve MP3'u `dest`e yazar. Uzun metin birden cok ise bolunur, parcalar sirayla birlestirilir.
     progress(mesaj) ilerleme bildirir; cancel() True donerse durur. Donus: {'path', 'parts', 'duration_ms', 'scripts'}."""
+    poll = POLL_SECONDS if poll is None else poll
     parts = split_parts(text)
     if not parts:
         raise ValueError('Seslendirilecek metin boş.')

@@ -205,15 +205,18 @@ class SpeechGuiTests(unittest.TestCase):
         self.backend.lexicon_listen = lambda r: b'ID3'
         self.p = mock.patch.object(self.m.App, 'backends', lambda _self: [self.backend])
         self.p.start()
+        self.p_poll = mock.patch.object(self.m.speech, 'POLL_SECONDS', 0.01)   # yavas CI'da da hizli
+        self.p_poll.start()
 
     def tearDown(self):
         self.p.stop()
+        self.p_poll.stop()
         for w in list(self.app.winfo_children()):
             if isinstance(w, self.m.tk.Toplevel):
                 w.destroy()
         self.app.destroy()
 
-    def pump(self, until, n=400):
+    def pump(self, until, n=3000):
         import time
         for _ in range(n):
             self.app.update()
