@@ -742,7 +742,7 @@ class App(tk.Tk):
         self.tr_choice_combo.bind('<<ComboboxSelected>>', lambda e: self._tr_choice_selected())
         self.btn(mrow, '↻', lambda: self.load_translation_models(force=True), 'ghost', padx=8).pack(side='left', padx=(4, 0))
         self._set_tr_choices([])
-        self.tr_lang = tk.StringVar(value='English')
+        self.tr_lang = tk.StringVar(value='Türkçe')   # 1.4.15: çeviri hedefi varsayılan Türkçe
         lrow = tk.Frame(f, bg=PANEL)
         lrow.pack(fill='x', pady=(0, 6))
         self.lbl(lrow, 'Hedef dil', muted=True).pack(side='left')
@@ -2107,7 +2107,7 @@ class App(tk.Tk):
 
     def run_translate(self):
         opts = self._ai_options()
-        opts['language'] = self.tr_lang.get() or 'English'
+        opts['language'] = self.tr_lang.get() or 'Türkçe'
         opts['user_extra'] = self.tr_extra.get('1.0', 'end-1c').strip()
         opts['from_scratch'] = False
         opts['model_choice'] = self.translation_choice()
@@ -2117,7 +2117,7 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------------ belge cevirisi (1.4)
     def translate_document(self):
-        lang = (self.tr_lang.get() or 'English').strip()
+        lang = (self.tr_lang.get() or 'Türkçe').strip()
         out = self.doc_tr_out.get() if hasattr(self, 'doc_tr_out') else 'both'
         self.settings['doc_translate_output'] = out
         v, d = self.cur_pdf(), self.cur()

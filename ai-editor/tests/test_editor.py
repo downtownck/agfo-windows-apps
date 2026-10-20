@@ -491,6 +491,9 @@ class GuiTests(unittest.TestCase):
         self.assertIsNone(app.update_result)
         self.assertEqual(app.title(), 'AGFO AI Editor %s' % self.m.core.VERSION)
 
+    def test_translation_target_defaults_to_turkish(self):
+        self.assertEqual(self.app.tr_lang.get(), 'Türkçe')     # 1.4.15
+
     def test_background_check_is_silent_and_reschedules(self):
         app = self.app
         rel = {'version': '9.9.9', 'notes': '', 'assets': []}
