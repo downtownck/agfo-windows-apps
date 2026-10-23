@@ -75,7 +75,9 @@ DEFAULT_SETTINGS = {
     'page_zoom': 1.0,
     'rich_font': '',
     'rich_size': 11,
-    'wordcraft_track': True,           # 1.8: AI sonucunu WordCraft'ta izlenen degisiklik olarak uygula
+    'ui_theme': 'dark',                # 2.0: 'dark' | 'light' (yeniden baslatinca)
+    'ribbon_tab': 'home',              # 2.0: son acik serit sekmesi
+    'spellcheck': True,                # 2.0: Turkce yazim denetimi (Windows yazim denetleyicisi)
     'install_declined': False,         # 1.4.8: is basina ceviri modeli {'kind', 'provider', 'model'}; bos = varsayilan
 }
 
@@ -504,12 +506,14 @@ def write_document(path: str, text: str, doc: DocFile = None) -> DocFile:
 
 
 # --------------------------------------------------------------------------- kurtarma
-def save_recovery(doc_id: str, title: str, text: str, path=None, blocks=None) -> pathlib.Path:
+def save_recovery(doc_id: str, title: str, text: str, path=None, blocks=None, page=None) -> pathlib.Path:
     safe = re.sub(r'[^A-Za-z0-9_-]', '', doc_id)[:40] or 'doc'
     target = recovery_dir() / (safe + '.json')
     data = {'id': safe, 'title': title, 'path': path, 'text': text, 'saved': datetime.datetime.now().isoformat(timespec='seconds')}
     if blocks is not None:
         data['blocks'] = blocks
+    if page is not None:
+        data['page'] = page                 # 2.0: sayfa yapisi / ust-alt bilgi
     payload = json.dumps(data, ensure_ascii=False)
     _atomic_write(str(target), lambda f: f.write(payload.encode('utf-8')))
     return target

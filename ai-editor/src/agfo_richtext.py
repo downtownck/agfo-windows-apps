@@ -1310,6 +1310,12 @@ class RichText(tk.Text):
         return bool(txt) and all(tag in it[2] for it in txt)
 
     def current_format(self):
+        rng = self.selection_or_word()
+        if rng and self.compare(rng[0], '<', rng[1]):           # 2.0: secim varsa secimin basindaki bicim (Word gibi)
+            src = rng[0] if self.get(rng[0]) != '\n' else rng[0] + '+1c'
+            fmt = self.char_fmt_at(src)
+            fmt.update(self.para_props(int(self.index(src).split('.')[0])))
+            return fmt
         idx = self.index('insert')
         if self.typing_fmt and self.compare(self.typing_fmt[0], '==', idx):
             fmt = dict(self.typing_fmt[1])

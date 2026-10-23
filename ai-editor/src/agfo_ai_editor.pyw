@@ -15,6 +15,7 @@ import os
 import pathlib
 import queue
 import re
+import subprocess
 import sys
 import threading
 import traceback
@@ -50,7 +51,7 @@ import agfo_trlive as trlive  # noqa: E402
 import agfo_speech as speech  # noqa: E402  # 1.5: seslendirme
 import agfo_readaloud as readaloud  # noqa: E402  # 1.6: sesli oku
 import agfo_localtts as localtts  # noqa: E402  # 1.7: bu bilgisayardaki ses servisi
-import agfo_wordcraft as wcb  # noqa: E402  # 1.8: WordCraft belge duzenleyici koprusu
+import agfo_spell as spell  # noqa: E402  # 2.0: yazim denetimi
 
 
 def selftest(out_path: str) -> int:
@@ -145,12 +146,6 @@ def selftest(out_path: str) -> int:
         res['speech'] = res['speech'] and _ra.group_paragraphs(['a', '', 'b'], False) == [(0, 0), (2, 2)] and \
             [x['title'] for x in _sp.plan_sections('## A\n\n' + 'x. ' * 200 + '\n\n## B\n\n' + 'y. ' * 200)] == ['A', 'B']
         res['ok'] = res['ok'] and res['speech']
-        import agfo_wordcraft as _wc   # 1.8: WordCraft koprusu EXE'de
-        _info = {'selection': {'anchor': {'story': 'body', 'path': [0], 'off': 0}, 'focus': {'story': 'body', 'path': [0], 'off': 12}},
-                 'blocks': [{'index': 0, 'type': 'paragraph', 'style': 'Normal', 'text': 'Gıda güvenliği',
-                             'runs': [{'start': 0, 'end': 5, 'props': {'bold': True}}]}]}
-        res['wordcraft'] = _wc.selection_markdown(_info) == '**Gıda** güven' and _wc.windows_arch() in _wc.PORTABLE
-        res['ok'] = res['ok'] and res['wordcraft']
         pr2 = _p.PdfProject(pp)
         lays = pr2.layouts()
         tdata, _tst = pr2.translated_pdf(lays, ['Line one', 'Old text'][:sum(len(x['paras']) for x in lays)] or ['Line one'])
@@ -247,9 +242,33 @@ from tkinter import colorchooser, filedialog, messagebox, ttk  # noqa: E402
 
 import agfo_richtext as rtext  # noqa: E402
 
-BG, PANEL, PANEL2, FG, MUTED, ACCENT = '#0a1425', '#12243b', '#192e48', '#ecf3ff', '#a5b6ce', '#49b3ef'
-WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
-EDIT_BG, SEL_BG, PRIMARY = '#0e1b2e', '#285475', '#1f6fa3'
+# 2.0: iki tema. Renkler modul degiskenidir; tema acilista (ayarlardan) uygulanir, degisiklik yeniden baslatinca gecer.
+THEMES = {
+    'dark': dict(BG='#0a1425', PANEL='#12243b', PANEL2='#192e48', FG='#ecf3ff', MUTED='#a5b6ce', ACCENT='#49b3ef',
+                 WARN='#e2b356', OK_C='#6fd39b', BAD_C='#ff8a80', EDIT_BG='#0e1b2e', SEL_BG='#285475', PRIMARY='#1f6fa3',
+                 LINE='#2d4a6c', SEL_FG='#ffffff', BTN_FG='#ffffff', HOVER='#22405f', INACTIVE_SEL='#1d3b57',
+                 FOUND='#5a4a1c', NEW_BG='#173a2a', WORK_BG='#4a3f12', READ_BG='#24452c', DEL_BG='#3a1d22', INS_FG='#b9f5cf',
+                 HEAD_FG='#ffffff', DESK='#5c6676', RIBBON='#12243b', TITLE_BG='#0a1425'),
+    'light': dict(BG='#eef1f5', PANEL='#ffffff', PANEL2='#eef2f7', FG='#1b2430', MUTED='#5b6b80', ACCENT='#1f6fa3',
+                  WARN='#9a6b00', OK_C='#1f7a4a', BAD_C='#c0392b', EDIT_BG='#ffffff', SEL_BG='#cfe3f7', PRIMARY='#1f6fa3',
+                  LINE='#d5dde8', SEL_FG='#0b2540', BTN_FG='#1b2430', HOVER='#e2ebf5', INACTIVE_SEL='#dfe8f2',
+                  FOUND='#ffe58f', NEW_BG='#c9f2d6', WORK_BG='#fff1b8', READ_BG='#d3f5dd', DEL_BG='#fde2e2', INS_FG='#145a32',
+                  HEAD_FG='#1f3864', DESK='#dfe4ea', RIBBON='#ffffff', TITLE_BG='#1f4e79'),
+}
+THEME_LABELS = {'dark': 'Koyu', 'light': 'Açık'}
+
+
+def apply_theme(name):
+    """Renk degiskenlerini temaya gore ayarlar (pencere kurulmadan once cagrilir)."""
+    name = name if name in THEMES else 'dark'
+    globals().update(THEMES[name])
+    globals()['THEME'] = name
+    rtext.PAGE_COLORS['desk'] = THEMES[name]['DESK']
+    return name
+
+
+THEME = 'dark'
+apply_theme('dark')
 POLL_MS = 80
 AUTOSAVE_MS = 45000
 UPDATE_CHECK_MS = 30 * 60 * 1000   # 1.4.15: acik kaldikca 30 dk'da bir sessiz guncelleme denetimi
@@ -260,6 +279,56 @@ SAVE_FILETYPES = [('Word belgesi', '*.docx'), ('Markdown', '*.md'), ('Metin', '*
 TEXT_COLORS = (('Otomatik', None), ('Kırmızı', 'C00000'), ('Koyu mavi', '1F4E79'), ('Mavi', '2E75B6'), ('Yeşil', '2E7D32'),
                ('Turuncu', 'C55A11'), ('Mor', '7030A0'), ('Gri', '595959'))
 READ_ONLY_KINDS = ('.xlsx', '.xlsm', '.pptx', '.eml')
+FONT_SIZES = ('8', '9', '10', '10,5', '11', '12', '14', '16', '18', '20', '22', '24', '26', '28', '36', '48', '72')
+HIGHLIGHT_COLORS = (('Sarı', 'FFFF00'), ('Parlak yeşil', '00FF00'), ('Turkuaz', '00FFFF'), ('Pembe', 'FF00FF'), ('Açık gri', 'C0C0C0'),
+                    ('Kırmızı', 'FF0000'), ('Koyu sarı', '808000'))
+SYMBOLS = (('©', 'Telif'), ('®', 'Tescilli'), ('™', 'Ticari marka'), ('€', 'Avro'), ('₺', 'Türk lirası'), ('°', 'Derece'),
+           ('±', 'Artı eksi'), ('×', 'Çarpı'), ('÷', 'Bölü'), ('≤', 'Küçük eşit'), ('≥', 'Büyük eşit'), ('≈', 'Yaklaşık'),
+           ('—', 'Uzun tire'), ('–', 'Kısa tire'), ('…', 'Üç nokta'), ('“”', 'Tırnak'), ('‘’', 'Tek tırnak'), ('§', 'Paragraf'),
+           ('•', 'Madde işareti'), ('→', 'Ok'), ('✓', 'Onay'), ('µ', 'Mikro'))
+CM = 28.3465                       # 1 cm = 28,3465 pt
+
+
+class Tooltip:
+    """Fareyle uzerine gelince kisa aciklama (600 ms)."""
+    def __init__(self, widget, text):
+        self.w, self.text, self.tip, self.job = widget, text, None, None
+        widget.bind('<Enter>', self._schedule, add='+')
+        widget.bind('<Leave>', self._hide, add='+')
+        widget.bind('<ButtonPress>', self._hide, add='+')
+
+    def _schedule(self, _e=None):
+        self._cancel()
+        self.job = self.w.after(600, self._show)
+
+    def _cancel(self):
+        if self.job:
+            try:
+                self.w.after_cancel(self.job)
+            except (tk.TclError, ValueError):
+                pass
+            self.job = None
+
+    def _show(self):
+        self.job = None
+        try:
+            x, y = self.w.winfo_rootx() + 8, self.w.winfo_rooty() + self.w.winfo_height() + 4
+            self.tip = tk.Toplevel(self.w)
+            self.tip.wm_overrideredirect(True)
+            self.tip.wm_geometry('+%d+%d' % (x, y))
+            tk.Label(self.tip, text=self.text, bg='#ffffe1', fg='#1b1b1b', relief='solid', bd=1, font=('Segoe UI', 9),
+                     padx=6, pady=2, wraplength=360, justify='left').pack()
+        except tk.TclError:
+            self.tip = None
+
+    def _hide(self, _e=None):
+        self._cancel()
+        if self.tip:
+            try:
+                self.tip.destroy()
+            except tk.TclError:
+                pass
+            self.tip = None
 
 
 class Doc:
@@ -643,12 +712,15 @@ class App(tk.Tk):
         super().__init__()
         self.smoke = smoke
         self.settings = core.load_settings()
+        apply_theme(self.settings.get('ui_theme'))          # 2.0: tema renkleri pencere kurulmadan once
+        self.speller = None                                  # 2.0: yazim denetimi (agfo_spell)
+        self._painter = None
         self.q = queue.Queue()
         self.jobs = {}
         self.docs = []
         self.pdf_views = {}           # 1.3: PDF duzenleyici sekmeleri (cerceve -> PdfView)
         self.colors = {'BG': BG, 'PANEL': PANEL, 'PANEL2': PANEL2, 'FG': FG, 'MUTED': MUTED, 'ACCENT': ACCENT,
-                       'EDIT_BG': EDIT_BG, 'SEL_BG': SEL_BG}
+                       'EDIT_BG': EDIT_BG, 'SEL_BG': SEL_BG, 'LINE': LINE, 'SEL_FG': SEL_FG, 'THEME': THEME}
         self.chat_messages = []
         self.manager_info = None
         self.update_result = None
@@ -691,11 +763,11 @@ class App(tk.Tk):
     def _style(self):
         s = ttk.Style(self)
         s.theme_use('clam')
-        s.configure('.', background=PANEL, foreground=FG, fieldbackground=PANEL2, font=('Segoe UI', 10), bordercolor='#2d4a6c',
+        s.configure('.', background=PANEL, foreground=FG, fieldbackground=PANEL2, font=('Segoe UI', 10), bordercolor=LINE,
                     lightcolor=PANEL2, darkcolor=PANEL2)
         s.configure('TNotebook', background=BG, borderwidth=0, tabmargins=(0, 4, 0, 0))
         s.configure('TNotebook.Tab', background=PANEL2, foreground=MUTED, padding=(11, 7), font=('Segoe UI', 10), borderwidth=0)
-        s.map('TNotebook.Tab', background=[('selected', SEL_BG)], foreground=[('selected', '#ffffff')])
+        s.map('TNotebook.Tab', background=[('selected', SEL_BG)], foreground=[('selected', SEL_FG)])
         s.configure('Panel.TNotebook', background=PANEL)
         s.configure('TFrame', background=PANEL)
         s.configure('Bg.TFrame', background=BG)
@@ -721,79 +793,98 @@ class App(tk.Tk):
         s.configure('Horizontal.TProgressbar', background=ACCENT, troughcolor=PANEL2, bordercolor=PANEL2)
         s.configure('Treeview', background=EDIT_BG, fieldbackground=EDIT_BG, foreground=FG, rowheight=int(22 * self.scale), borderwidth=0)
         s.configure('Treeview.Heading', background=PANEL2, foreground=FG, font=('Segoe UI', 9, 'bold'), relief='flat')
-        s.map('Treeview', background=[('selected', SEL_BG)], foreground=[('selected', '#ffffff')])
+        s.map('Treeview', background=[('selected', SEL_BG)], foreground=[('selected', SEL_FG)])
         s.map('Treeview.Heading', background=[('active', SEL_BG)])
         s.configure('TPanedwindow', background=BG)
         s.configure('Sash', background=BG, sashthickness=6)
 
     def btn(self, parent, text, cmd, kind='normal', side='left', **kw):
         colors = {'normal': SEL_BG, 'primary': PRIMARY, 'ghost': PANEL2, 'go': '#1f6a4a', 'danger': '#6b2f2f'}
-        b = tk.Button(parent, text=text, command=cmd, bg=colors[kind], fg='#ffffff', activebackground=ACCENT, activeforeground='#06111f',
+        fgs = {'normal': SEL_FG, 'ghost': BTN_FG}
+        b = tk.Button(parent, text=text, command=cmd, bg=colors[kind], fg=fgs.get(kind, '#ffffff'), activebackground=ACCENT,
+                      activeforeground='#06111f' if THEME == 'dark' else '#ffffff',
                       relief='flat', cursor='hand2', padx=kw.pop('padx', 11), pady=kw.pop('pady', 5), font=kw.pop('font', ('Segoe UI', 9, 'bold')),
                       disabledforeground='#7f8ea3', bd=0, highlightthickness=0, **kw)
         if side:
             b.pack(side=side, padx=(0, 6), pady=2)
         return b
 
-    def lbl(self, parent, text, muted=False, bg=PANEL, **kw):
-        return tk.Label(parent, text=text, fg=MUTED if muted else FG, bg=bg, font=kw.pop('font', ('Segoe UI', 9)),
+    def lbl(self, parent, text, muted=False, bg=None, **kw):
+        return tk.Label(parent, text=text, fg=MUTED if muted else FG, bg=PANEL if bg is None else bg, font=kw.pop('font', ('Segoe UI', 9)),
                         justify='left', anchor='w', **kw)
 
+    # ------------------------------------------------------------------ 2.0: baslik cubugu + serit (Giris / Ekle / Duzen / Gorunum / AI)
+    RIBBON_TABS = (('home', 'Giriş'), ('insert', 'Ekle'), ('layout', 'Düzen'), ('view', 'Görünüm'), ('ai', 'Yapay zekâ'))
+
     def _build(self):
-        top = tk.Frame(self, bg=BG)
-        top.pack(fill='x', padx=18, pady=(12, 4))
-        left = tk.Frame(top, bg=BG)
-        left.pack(side='left')
-        tk.Label(left, text='AGFO  /  SUPERTOOLS', fg=ACCENT, bg=BG, font=('Segoe UI', 9, 'bold')).pack(anchor='w')
-        tk.Label(left, text='AI Editor', fg=FG, bg=BG, font=('Segoe UI', 20, 'bold')).pack(anchor='w')
-        tk.Label(left, text='Yazdıklarınızın içeriğini yapay zekâyla düzenleyin · AGFO AI Manager bağlantılı',
-                 fg=MUTED, bg=BG, font=('Segoe UI', 9)).pack(anchor='w')
-        right = tk.Frame(top, bg=BG)
-        right.pack(side='right', anchor='e')
+        top = tk.Frame(self, bg=TITLE_BG)
+        top.pack(fill='x')
+        self.title_bar = top
+        tfg = '#ffffff'
+        tk.Label(top, text='AGFO', fg='#7fd1ff' if THEME == 'dark' else '#cfe8ff', bg=TITLE_BG,
+                 font=('Segoe UI', 10, 'bold')).pack(side='left', padx=(14, 4), pady=6)
+        tk.Label(top, text='AI Editor', fg=tfg, bg=TITLE_BG, font=('Segoe UI', 10)).pack(side='left', padx=(0, 14))
+
+        def qbtn(text, cmd, tip):
+            b = tk.Button(top, text=text, command=cmd, bg=TITLE_BG, fg=tfg, activebackground=ACCENT, activeforeground='#ffffff',
+                          relief='flat', bd=0, highlightthickness=0, cursor='hand2', font=('Segoe UI', 11), padx=7, pady=1)
+            b.pack(side='left')
+            Tooltip(b, tip)
+            return b
+        qbtn('💾', self.save, 'Kaydet (Ctrl+S)')
+        qbtn('↶', lambda: self._text_cmd('edit_undo'), 'Geri al (Ctrl+Z)')
+        qbtn('↷', lambda: self._text_cmd('edit_redo'), 'Yinele (Ctrl+Y)')
+        tk.Frame(top, bg='#3d5f86' if THEME == 'dark' else '#4a76a3', width=1, height=20).pack(side='left', padx=10)
+        # serit sekmeleri: Dosya menu acar, digerleri serit sayfasini degistirir
+        self.more_btn = tk.Button(top, text='Dosya', command=self.show_more_menu, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
+                                  highlightthickness=0, activebackground=ACCENT, activeforeground='#ffffff', cursor='hand2',
+                                  font=('Segoe UI', 10), padx=12, pady=6)
+        self.more_btn.pack(side='left')
+        self.rtab_btns = {}
+        for key, label in self.RIBBON_TABS:
+            b = tk.Button(top, text=label, command=lambda k=key: self.select_ribbon(k), bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
+                          highlightthickness=0, activebackground=ACCENT, activeforeground='#ffffff', cursor='hand2',
+                          font=('Segoe UI', 10), padx=12, pady=6)
+            b.pack(side='left')
+            self.rtab_btns[key] = b
+        right = tk.Frame(top, bg=TITLE_BG)
+        right.pack(side='right', padx=(0, 10))
+        self.settings_btn = tk.Button(right, text='⚙', command=self.open_settings, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
+                                      highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 12), padx=8)
+        self.settings_btn.pack(side='right')
+        Tooltip(self.settings_btn, 'Ayarlar')
+        self.panel_btn = tk.Button(right, text='AI paneli ⇥', command=self.toggle_ai_panel, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
+                                   highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 9), padx=8)
+        self.panel_btn.pack(side='right')
         self.conn_var = tk.StringVar(value='Bağlantı denetleniyor…')
-        self.conn_lbl = tk.Label(right, textvariable=self.conn_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), padx=10, pady=5)
-        self.conn_lbl.pack(side='right')
+        self.conn_lbl = tk.Label(right, textvariable=self.conn_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), padx=10, pady=3)
+        self.conn_lbl.pack(side='right', padx=8, pady=4)
         self.update_btn = tk.Button(right, text='', command=self.do_update, bg='#1f6a4a', fg='#ffffff', relief='flat', bd=0,
-                                    font=('Segoe UI', 9, 'bold'), padx=10, pady=5, cursor='hand2', activebackground=ACCENT,
+                                    font=('Segoe UI', 9, 'bold'), padx=10, pady=3, cursor='hand2', activebackground=ACCENT,
                                     activeforeground='#ffffff')
         self._update_shown = None      # 1.4.15: dugmesi gosterilen surum (ayni surum icin tekrar bildirim yok)
 
-        bar = tk.Frame(self, bg=PANEL, padx=10, pady=6)
-        bar.pack(fill='x', padx=18, pady=(6, 0))
-        self.btn(bar, 'Yeni', self.new_doc, 'ghost')
-        self.btn(bar, 'Aç', self.open_dialog, 'ghost')
-        self.btn(bar, 'Kaydet', self.save, 'ghost')
-        self.btn(bar, 'Farklı kaydet', self.save_as, 'ghost')
-        tk.Frame(bar, bg='#2d4a6c', width=1, height=24).pack(side='left', padx=6)
-        self.btn(bar, '↶ Geri al', lambda: self._text_cmd('edit_undo'), 'ghost')
-        self.btn(bar, '↷ Yinele', lambda: self._text_cmd('edit_redo'), 'ghost')
-        self.btn(bar, 'Bul / Değiştir', self.toggle_find, 'ghost')
-        tk.Frame(bar, bg='#2d4a6c', width=1, height=24).pack(side='left', padx=6)
-        self.btn(bar, 'A−', lambda: self.zoom(-1), 'ghost')
-        self.btn(bar, 'A+', lambda: self.zoom(1), 'ghost')
-        self.btn(bar, 'Ayarlar', self.open_settings, 'normal', side='right')
-        self.panel_btn = self.btn(bar, 'AI paneli ⇥', self.toggle_ai_panel, 'ghost', side='right')
-        self.more_btn = self.btn(bar, 'Diğer ▾', self.show_more_menu, 'ghost', side='right')
-
-        self.fmt_bar = tk.Frame(self, bg=PANEL, padx=10, pady=4)
+        self.fmt_bar = tk.Frame(self, bg=RIBBON, highlightthickness=1, highlightbackground=LINE)
         self._build_fmt_bar(self.fmt_bar)
-        self.fmt_bar.pack(fill='x', padx=18, pady=(2, 0))
+        self.fmt_bar.pack(fill='x')
 
         self.find_bar = tk.Frame(self, bg=PANEL2, padx=10, pady=6)
         self._build_find(self.find_bar)
 
-        st = tk.Frame(self, bg=PANEL, padx=10, pady=4)
-        st.pack(fill='x', side='bottom', padx=18, pady=(0, 10))
+        st = tk.Frame(self, bg=PANEL, padx=10, pady=3)
+        st.pack(fill='x', side='bottom')
         self.status_var = tk.StringVar(value='')
         tk.Label(st, textvariable=self.status_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9)).pack(side='left')
         self.cancel_btn = tk.Button(st, text='Durdur', command=self.cancel_jobs, bg='#6b2f2f', fg='#ffffff', relief='flat', bd=0,
                                     font=('Segoe UI', 8, 'bold'), padx=8, pady=1, cursor='hand2')
         self.busy = ttk.Progressbar(st, mode='indeterminate', length=140)
+        self.zoom_lbl = tk.Label(st, text='', fg=MUTED, bg=PANEL, font=('Segoe UI', 9))
+        self.zoom_lbl.pack(side='right', padx=(8, 0))
         self.ai_var = tk.StringVar(value='')
         tk.Label(st, textvariable=self.ai_var, fg=FG, bg=PANEL, font=('Segoe UI', 9)).pack(side='right', padx=(8, 0))
 
         self.paned = ttk.PanedWindow(self, orient='horizontal')
-        self.paned.pack(fill='both', expand=True, padx=18, pady=8)
+        self.paned.pack(fill='both', expand=True, padx=8, pady=(6, 4))
         self.nb = ttk.Notebook(self.paned)
         self.nb.bind('<<NotebookTabChanged>>', lambda e: (self._update_status(), self._sync_fmt_bar()))
         self.nb.bind('<Button-2>', self._middle_close)
@@ -802,65 +893,319 @@ class App(tk.Tk):
         self.paned.add(side, weight=2)
         self.side_panel = side
         self._build_ai_panel(side)
+        self.select_ribbon(self.settings.get('ribbon_tab') or 'home', save=False)
+        self._sync_zoom_label()
 
-    # ------------------------------------------------------------------ bicim cubugu (1.4)
+    def select_ribbon(self, key, save=True):
+        if key not in self.ribbon_pages:
+            key = 'home'
+        self.ribbon_tab = key
+        for k, page in self.ribbon_pages.items():
+            if k == key:
+                page.pack(fill='x', padx=6, pady=(4, 2))
+            else:
+                page.pack_forget()
+        for k, b in self.rtab_btns.items():
+            on = k == key
+            b.configure(bg=RIBBON if on else TITLE_BG, fg=(ACCENT if THEME == 'dark' else '#1f4e79') if on else '#ffffff',
+                        font=('Segoe UI', 10, 'bold' if on else 'normal'))
+        if save and self.settings.get('ribbon_tab') != key:
+            self.settings['ribbon_tab'] = key
+            core.save_settings(self.settings)
+
+    # ---- serit yardimcilari
+    def _group(self, page, title):
+        outer = tk.Frame(page, bg=RIBBON)
+        outer.pack(side='left', fill='y', padx=(0, 2))
+        body = tk.Frame(outer, bg=RIBBON)
+        body.pack(side='top', fill='both', expand=True, padx=6)
+        tk.Label(outer, text=title, fg=MUTED, bg=RIBBON, font=('Segoe UI', 8)).pack(side='bottom', pady=(1, 0))
+        tk.Frame(page, bg=LINE, width=1).pack(side='left', fill='y', pady=4, padx=4)
+        return body
+
+    def _rrow(self, body):
+        r = tk.Frame(body, bg=RIBBON)
+        r.pack(side='top', anchor='w', pady=1)
+        return r
+
+    def rbtn(self, parent, text, cmd, key=None, tip=None, font=None, big=False, width=None):
+        b = tk.Button(parent, text=text, command=cmd, bg=RIBBON, fg=FG, activebackground=HOVER, activeforeground=FG, relief='flat',
+                      bd=0, highlightthickness=0, cursor='hand2', font=font or ('Segoe UI', 9), padx=6 if not big else 8,
+                      pady=2 if not big else 6, compound='top' if big else None, width=width)
+        b.pack(side='left', padx=1)
+        b.bind('<Enter>', lambda e, w=b: w.configure(bg=HOVER) if not getattr(w, '_on', False) else None)
+        b.bind('<Leave>', lambda e, w=b: w.configure(bg=SEL_BG if getattr(w, '_on', False) else RIBBON))
+        if tip:
+            Tooltip(b, tip)
+        if key:
+            self.fmt_btns[key] = b
+        return b
+
+    def _set_on(self, b, on):
+        b._on = bool(on)
+        b.configure(bg=SEL_BG if on else RIBBON, fg=SEL_FG if on else FG)
+
+    def _popup(self, m, widget):
+        m.tk_popup(widget.winfo_rootx(), widget.winfo_rooty() + widget.winfo_height())
+
+    # ------------------------------------------------------------------ serit sayfalari
     def _build_fmt_bar(self, f):
+        self.fmt_btns = {}
         self.style_var = tk.StringVar(value=rdoc.STYLE_LABELS['normal'])
         self._style_keys = {v: k for k, v in rdoc.STYLE_LABELS.items()}
-        cb = ttk.Combobox(f, textvariable=self.style_var, values=list(rdoc.STYLE_LABELS.values()), width=13, state='readonly')
-        cb.pack(side='left', padx=(0, 8))
-        cb.bind('<<ComboboxSelected>>', lambda e: self._fmt('style', self._style_keys.get(self.style_var.get(), 'normal')))
-        self.fmt_btns = {}
+        self.ribbon_pages = {}
+        for key, _label in self.RIBBON_TABS:
+            self.ribbon_pages[key] = tk.Frame(f, bg=RIBBON)
+        self._page_home(self.ribbon_pages['home'])
+        self._page_insert(self.ribbon_pages['insert'])
+        self._page_layout(self.ribbon_pages['layout'])
+        self._page_view(self.ribbon_pages['view'])
+        self._page_ai(self.ribbon_pages['ai'])
+        self.fmt_hint = tk.Label(f, text='', fg=WARN, bg=RIBBON, font=('Segoe UI', 8))
 
-        def fb(key, text, cmd, font=('Segoe UI', 9, 'bold'), tip=None):
-            b = self.btn(f, text, cmd, 'ghost', padx=7, pady=3, font=font)
-            self.fmt_btns[key] = b
-            return b
-        fb('b', 'K', lambda: self._fmt('b'), ('Segoe UI', 10, 'bold'))
-        fb('i', 'İ', lambda: self._fmt('i'), ('Segoe UI', 10, 'italic'))
-        fb('u', 'A', lambda: self._fmt('u'), ('Segoe UI', 10, 'underline'))
-        fb('color', 'Renk ▾', self._color_menu)
-        tk.Frame(f, bg='#2d4a6c', width=1, height=22).pack(side='left', padx=5)
-        fb('bullet', '• Liste', lambda: self._fmt('list', 'bullet'))
-        fb('number', '1. Liste', lambda: self._fmt('list', 'number'))
-        fb('outdent', '⇤', lambda: self._fmt('level', -1))
-        fb('indent', '⇥', lambda: self._fmt('level', 1))
-        tk.Frame(f, bg='#2d4a6c', width=1, height=22).pack(side='left', padx=5)
-        fb('left', 'Sola', lambda: self._fmt('align', 'left'), ('Segoe UI', 8, 'bold'))
-        fb('center', 'Ortala', lambda: self._fmt('align', 'center'), ('Segoe UI', 8, 'bold'))
-        fb('right', 'Sağa', lambda: self._fmt('align', 'right'), ('Segoe UI', 8, 'bold'))
-        tk.Frame(f, bg='#2d4a6c', width=1, height=22).pack(side='left', padx=5)
-        fb('image', '🖼 Resim', self.insert_image)
-        fb('table', '▦ Tablo', self.insert_table)
-        self.wc_btn = self.btn(f, '📝 WordCraft ▾', self.wordcraft_menu, 'ghost', side='right', padx=8, pady=3)   # 1.8
-        self.page_btn = self.btn(f, '📄 Sayfa görünümü', self.toggle_page_view, 'ghost', side='right', padx=8, pady=3)
-        self.btn(f, '🌐 Belgeyi çevir', self.translate_document, 'ghost', side='right', padx=8, pady=3)
-        self.fmt_hint = tk.Label(f, text='', fg=MUTED, bg=PANEL, font=('Segoe UI', 8))
-        self.fmt_hint.pack(side='left', padx=8)
+    def _page_home(self, pg):
+        g = self._group(pg, 'Pano')
+        r = self._rrow(g)
+        self.rbtn(r, '📋\nYapıştır', lambda: self._edit_event('<<Paste>>'), tip='Yapıştır (Ctrl+V)', big=True).configure(padx=4)
+        col = tk.Frame(r, bg=RIBBON)
+        col.pack(side='left')
+        for text, ev, tip in (('✂ Kes', '<<Cut>>', 'Kes (Ctrl+X)'), ('⧉ Kopyala', '<<Copy>>', 'Kopyala (Ctrl+C)')):
+            b = tk.Button(col, text=text, command=lambda e=ev: self._edit_event(e), bg=RIBBON, fg=FG, relief='flat', bd=0,
+                          highlightthickness=0, activebackground=HOVER, cursor='hand2', font=('Segoe UI', 9), anchor='w', padx=6)
+            b.pack(side='top', fill='x')
+            Tooltip(b, tip)
+        fp = tk.Button(col, text='🖌 Biçim boyacısı', command=self.format_painter, bg=RIBBON, fg=FG, relief='flat', bd=0,
+                       highlightthickness=0, activebackground=HOVER, cursor='hand2', font=('Segoe UI', 9), anchor='w', padx=6)
+        fp.pack(side='top', fill='x')
+        Tooltip(fp, 'Biçimi kopyala: imleçteki biçimi alır, sonra seçtiğiniz metne uygular (çift tık: birden çok kez)')
+        fp.bind('<Double-Button-1>', lambda e: (self.format_painter(sticky=True), 'break')[1])
+        self.fmt_btns['painter'] = fp
+
+        g = self._group(pg, 'Yazı tipi')
+        r = self._rrow(g)
+        self.font_var = tk.StringVar(value='')
+        self.font_cb = ttk.Combobox(r, textvariable=self.font_var, values=self._font_families(), width=16)
+        self.font_cb.pack(side='left', padx=(2, 4))
+        self.font_cb.bind('<<ComboboxSelected>>', lambda e: self._fmt('font', self.font_var.get()))
+        self.font_cb.bind('<Return>', lambda e: (self._fmt('font', self.font_var.get()), 'break')[1])
+        self.size_var = tk.StringVar(value='11')
+        self.size_cb = ttk.Combobox(r, textvariable=self.size_var, values=FONT_SIZES, width=4)
+        self.size_cb.pack(side='left', padx=(0, 2))
+        self.size_cb.bind('<<ComboboxSelected>>', lambda e: self._fmt('size', self.size_var.get()))
+        self.size_cb.bind('<Return>', lambda e: (self._fmt('size', self.size_var.get()), 'break')[1])
+        self.rbtn(r, 'A⁺', lambda: self._fmt('grow', 1), tip='Yazı tipini büyüt')
+        self.rbtn(r, 'A⁻', lambda: self._fmt('grow', -1), tip='Yazı tipini küçült')
+        r = self._rrow(g)
+        self.rbtn(r, 'K', lambda: self._fmt('b'), 'b', 'Kalın (Ctrl+B)', ('Segoe UI', 10, 'bold'), width=2)
+        self.rbtn(r, 'İ', lambda: self._fmt('i'), 'i', 'İtalik (Ctrl+I)', ('Segoe UI', 10, 'italic'), width=2)
+        self.rbtn(r, 'A', lambda: self._fmt('u'), 'u', 'Altı çizili (Ctrl+U)', ('Segoe UI', 10, 'underline'), width=2)
+        self.rbtn(r, 'abc', lambda: self._fmt('s'), 's', 'Üstü çizili', ('Segoe UI', 9, 'overstrike'))
+        self.rbtn(r, 'x₂', lambda: self._fmt('sub'), 'sub', 'Alt simge (Ctrl+=)', ('Segoe UI', 10))
+        self.rbtn(r, 'x²', lambda: self._fmt('sup'), 'sup', 'Üst simge', ('Segoe UI', 10))
+        self.rbtn(r, '🖍 ▾', self._highlight_menu, 'hl', 'Metin vurgu rengi')
+        self.rbtn(r, 'A ▾', self._color_menu, 'color', 'Yazı rengi', ('Segoe UI', 10, 'bold'))
+        self.rbtn(r, '⌫ Temizle', lambda: self._fmt('clear'), 'clear', 'Tüm biçimi temizle (karakter + paragraf). Ctrl+Boşluk: yalnız karakter')
+
+        g = self._group(pg, 'Paragraf')
+        r = self._rrow(g)
+        self.rbtn(r, '• ≡', lambda: self._fmt('list', 'bullet'), 'bullet', 'Madde işaretleri')
+        self.rbtn(r, '1. ≡', lambda: self._fmt('list', 'number'), 'number', 'Numaralandırma')
+        self.rbtn(r, '⇤', lambda: self._fmt('indent', -1), 'outdent', 'Girintiyi azalt (Shift+Tab listede)')
+        self.rbtn(r, '⇥', lambda: self._fmt('indent', 1), 'indent', 'Girintiyi artır (Tab listede)')
+        self.rbtn(r, '¶ Paragraf…', self.paragraph_dialog, tip='Girintiler ve aralıklar')
+        r = self._rrow(g)
+        self.rbtn(r, '⯇≡', lambda: self._fmt('align', 'left'), 'left', 'Sola hizala (Ctrl+L)')
+        self.rbtn(r, '≡', lambda: self._fmt('align', 'center'), 'center', 'Ortala', ('Segoe UI', 11))
+        self.rbtn(r, '≡⯈', lambda: self._fmt('align', 'right'), 'right', 'Sağa hizala (Ctrl+R)')
+        self.rbtn(r, '☰', lambda: self._fmt('align', 'justify'), 'justify', 'İki yana yasla (Ctrl+J)', ('Segoe UI', 11))
+        self.rbtn(r, '↕ ▾', self._spacing_menu, 'spacing', 'Satır ve paragraf aralığı')
+
+        g = self._group(pg, 'Stiller')
+        r = self._rrow(g)
+        self.style_btns = {}
+        gallery = (('normal', 'Normal', ('Segoe UI', 9)), ('h1', 'Başlık 1', ('Segoe UI', 11, 'bold')),
+                   ('h2', 'Başlık 2', ('Segoe UI', 10, 'bold')), ('h3', 'Başlık 3', ('Segoe UI', 9, 'bold')),
+                   ('quote', 'Alıntı', ('Segoe UI', 9, 'italic')))
+        for key, label, font in gallery:
+            b = tk.Button(r, text=label, command=lambda k=key: self._fmt('style', k), bg=PANEL2, fg=FG, relief='flat', bd=0,
+                          highlightthickness=1, highlightbackground=LINE, activebackground=HOVER, cursor='hand2', font=font,
+                          padx=4, pady=10)
+            b.pack(side='left', padx=1, pady=2)
+            self.style_btns[key] = b
+
+        g = self._group(pg, 'Düzenleme')
+        r = self._rrow(g)
+        self.rbtn(r, '🔍 Bul', self.toggle_find, tip='Bul (Ctrl+F)')
+        r = self._rrow(g)
+        self.rbtn(r, '⇄ Değiştir', lambda: self.toggle_find(replace=True), tip='Değiştir (Ctrl+H)')
+        r = self._rrow(g)
+        self.rbtn(r, '▭ Tümünü seç', self.select_all, tip='Tümünü seç (Ctrl+A)')
+
+    def _page_insert(self, pg):
+        g = self._group(pg, 'Tablolar ve görseller')
+        r = self._rrow(g)
+        self.rbtn(r, '▦\nTablo', self.insert_table, 'table', 'Tablo ekle', big=True)
+        self.rbtn(r, '🖼\nResim', self.insert_image, 'image', 'Resim ekle', big=True)
+        g = self._group(pg, 'Bağlantılar')
+        r = self._rrow(g)
+        self.rbtn(r, '🔗\nBağlantı', self.insert_link, 'link', 'Bağlantı ekle (Ctrl+K). Ctrl+tık bağlantıyı açar', big=True)
+        g = self._group(pg, 'Sayfalar')
+        r = self._rrow(g)
+        self.rbtn(r, '⤓\nSayfa sonu', lambda: self._fmt('pagebreak'), 'pagebreak', 'Sayfa sonu (Ctrl+Enter)', big=True)
+        g = self._group(pg, 'Üst bilgi ve alt bilgi')
+        r = self._rrow(g)
+        self.rbtn(r, '▔\nÜst bilgi', lambda: self.header_footer_dialog('header'), tip='Her sayfanın üstündeki metin', big=True)
+        self.rbtn(r, '▁\nAlt bilgi', lambda: self.header_footer_dialog('footer'), tip='Her sayfanın altındaki metin', big=True)
+        self.rbtn(r, '#\nSayfa numarası ▾', self._page_number_menu, 'pnum', 'Sayfa numarası ekle', big=True)
+        g = self._group(pg, 'Simgeler')
+        r = self._rrow(g)
+        self.rbtn(r, 'Ω\nSimge ▾', self._symbol_menu, 'symbol', 'Özel karakter ekle', big=True)
+
+    def _page_layout(self, pg):
+        g = self._group(pg, 'Sayfa yapısı')
+        r = self._rrow(g)
+        self.rbtn(r, '▣\nKenar boşlukları ▾', self._margins_menu, 'margins', 'Kenar boşlukları', big=True)
+        self.rbtn(r, '⇅\nYönlendirme ▾', self._orient_menu, 'orient', 'Dikey / yatay', big=True)
+        self.rbtn(r, '▯\nBoyut ▾', self._size_menu, 'psize', 'Kâğıt boyutu', big=True)
+        g = self._group(pg, 'Paragraf')
+        r = self._rrow(g)
+        self.rbtn(r, '⇤ Girinti azalt', lambda: self._fmt('indent', -1))
+        self.rbtn(r, '⇥ Girinti artır', lambda: self._fmt('indent', 1))
+        r = self._rrow(g)
+        self.rbtn(r, '¶ Girintiler ve aralıklar…', self.paragraph_dialog)
+        self.rbtn(r, '↕ Aralık ▾', self._spacing_menu)
+        self.page_info = tk.Label(pg, text='', fg=MUTED, bg=RIBBON, font=('Segoe UI', 9), justify='left')
+        self.page_info.pack(side='left', padx=10)
+
+    def _page_view(self, pg):
+        g = self._group(pg, 'Görünüm')
+        r = self._rrow(g)
+        self.page_btn = self.rbtn(r, '📄\nSayfa görünümü', self.toggle_page_view, tip='Sayfa genişliğinde beyaz sayfa', big=True)
+        g = self._group(pg, 'Yakınlaştır')
+        r = self._rrow(g)
+        self.rbtn(r, '🔍−', lambda: self.zoom(-1), tip='Uzaklaştır (Ctrl+-)')
+        self.rbtn(r, '🔍+', lambda: self.zoom(1), tip='Yakınlaştır (Ctrl++)')
+        r = self._rrow(g)
+        self.rbtn(r, '%100', self.zoom_reset, tip='Yakınlaştırmayı sıfırla')
+        g = self._group(pg, 'Yazım')
+        r = self._rrow(g)
+        self.spell_btn = self.rbtn(r, 'abc✓\nYazım denetimi', self.toggle_spell, tip='Türkçe yazım denetimi (kırmızı işaret, sağ tık öneriler)',
+                                   big=True)
+        g = self._group(pg, 'Pencere')
+        r = self._rrow(g)
+        self.rbtn(r, '⇥\nAI paneli', self.toggle_ai_panel, tip='Yapay zekâ panelini göster / gizle', big=True)
+        self.rbtn(r, '◐\nTema ▾', self._theme_menu, tip='Koyu / açık tema', big=True)
+
+    def _page_ai(self, pg):
+        g = self._group(pg, 'Metin')
+        r = self._rrow(g)
+        for key in ('content_strengthen', 'proofread', 'shorten'):
+            a = core.action_by_key(key)
+            if a:
+                self.rbtn(r, a['label'], lambda k=key: self.run_action_key(k), tip='Seçili metin (yoksa paragraf)')
+        r = self._rrow(g)
+        for key in ('content_flow', 'expand', 'critique'):
+            a = core.action_by_key(key)
+            if a:
+                self.rbtn(r, a['label'], lambda k=key: self.run_action_key(k), tip='Seçili metin (yoksa paragraf)')
+        g = self._group(pg, 'Çeviri')
+        r = self._rrow(g)
+        self.rbtn(r, '🌐\nBelgeyi çevir', self.translate_document, tip='Tüm belgeyi yan yana karşılaştırmalı çevir', big=True)
+        self.rbtn(r, 'Aあ\nSeçimi çevir', self.run_translate, tip='Seçili metni çevir', big=True)
+        g = self._group(pg, 'Ses')
+        r = self._rrow(g)
+        self.rbtn(r, '🔊\nSesli oku', self.read_aloud, tip='Sesli oku / duraklat (F9)', big=True)
+        self.rbtn(r, '🎧\nSesli kitap', lambda: self._ai_panel_tab(5), tip='Ses sekmesi: MP3 / sesli kitap dışa aktarımı', big=True)
+        g = self._group(pg, 'Panel')
+        r = self._rrow(g)
+        for idx, (icon, label) in enumerate((('✨', 'İçerik'), ('🌐', 'Çeviri'), ('💬', 'Sohbet'), ('✔', 'Denetim'), ('📚', 'Kaynaklar'))):
+            self.rbtn(r, '%s\n%s' % (icon, label), lambda i=idx: self._ai_panel_tab(i), big=True)
+
+    def _ai_panel_tab(self, idx):
+        if str(self.side_panel) not in self.paned.panes():
+            self.toggle_ai_panel()
+        try:
+            self.ai_nb.select(idx)
+        except tk.TclError:
+            pass
+
+    def _edit_event(self, ev):
+        d = self.cur()
+        if d:
+            d.text.focus_set()
+            d.text.event_generate(ev)
+
+    def select_all(self):
+        d = self.cur()
+        if d:
+            d.text.tag_add('sel', '1.0', 'end-1c')
+            d.text.focus_set()
+
+    def _font_families(self):
+        try:
+            fams = sorted({f for f in tkfont.families(self) if not f.startswith('@')}, key=str.lower)
+        except tk.TclError:
+            fams = []
+        common = [f for f in ('Calibri', 'Cambria', 'Arial', 'Times New Roman', 'Georgia', 'Segoe UI', 'Verdana', 'Tahoma',
+                              'Garamond', 'Consolas', 'Courier New') if f in fams]
+        return common + ['—'] + [f for f in fams if f not in common] if common else fams
+
+    # ------------------------------------------------------------------ bicim komutlari
+    def _ensure_rich(self, d):
+        t = d.text
+        if t.rich:
+            return True
+        if not messagebox.askyesno('Biçimlendirme', 'Bu belge düz metin (.txt). Biçimlendirme için belge Word gibi düzenlenecek; '
+                                   'kaydederken .docx seçerseniz biçimler korunur.\n\nDevam edilsin mi?', parent=self):
+            return False
+        t.enable_rich()
+        self._place_text(d)
+        return True
 
     def _fmt(self, what, value=None):
         d = self.cur()
         if not d:
             return
         t = d.text
-        if not t.rich:
-            if not messagebox.askyesno('Biçimlendirme', 'Bu belge düz metin (.txt). Biçimlendirme için belge Word gibi düzenlenecek; '
-                                       'kaydederken .docx seçerseniz biçimler korunur.\n\nDevam edilsin mi?', parent=self):
-                return
-            t.enable_rich()
-            self._place_text(d)
-        if what in ('b', 'i', 'u'):
+        if not self._ensure_rich(d):
+            return
+        if what in ('b', 'i', 'u', 's', 'sup', 'sub'):
             t.toggle_char(what)
-        elif what == 'color':
-            t.toggle_char('color', value)
+        elif what in ('color', 'hl'):
+            t.toggle_char(what, value)
+        elif what == 'font':
+            value = (value or '').strip()
+            if value and value != '—':
+                t.toggle_char('font', value)
+        elif what == 'size':
+            try:
+                v = float(str(value).replace(',', '.'))
+            except (TypeError, ValueError):
+                return
+            v = max(1.0, min(400.0, v))
+            t.toggle_char('size', int(v) if v == int(v) else v)
+        elif what == 'grow':
+            cur = float(t.current_format().get('size') or 11)
+            sizes = [float(x.replace(',', '.')) for x in FONT_SIZES]
+            nxt = [x for x in sizes if x > cur] if value > 0 else [x for x in sizes if x < cur]
+            new = (nxt[0] if value > 0 else nxt[-1]) if nxt else cur
+            t.toggle_char('size', int(new) if new == int(new) else new)
+        elif what == 'clear':
+            t.clear_formatting()
         elif what == 'style':
             t.set_style(value)
         elif what == 'list':
             t.toggle_list(value)
         elif what == 'level':
             t.change_level(value)
+        elif what == 'indent':
+            t.indent(value)
         elif what == 'align':
             t.set_align(value)
+        elif what == 'spacing':
+            t.set_para_extra(**value)
+        elif what == 'pagebreak':
+            t.insert_page_break()
         t.focus_set()
         self._sync_fmt_bar()
 
@@ -875,8 +1220,100 @@ class App(tk.Tk):
             if c and c[1]:
                 self._fmt('color', c[1].lstrip('#').upper())
         m.add_command(label='Diğer renk…', command=other)
-        b = self.fmt_btns['color']
-        m.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
+        self._popup(m, self.fmt_btns['color'])
+
+    def _highlight_menu(self):
+        m = tk.Menu(self, tearoff=0)
+        for label, val in HIGHLIGHT_COLORS:
+            m.add_command(label=label, command=lambda v=val: self._fmt('hl', v))
+        m.add_separator()
+        m.add_command(label='Vurgu yok', command=lambda: self._fmt('hl', None))
+        self._popup(m, self.fmt_btns['hl'])
+
+    def _spacing_menu(self):
+        d = self.cur()
+        if not d or not self._ensure_rich(d):
+            return
+        fmt = d.text.current_format()
+        cur = float(fmt.get('ls') or 1.15)
+        m = tk.Menu(self, tearoff=0)
+        for v in rdoc.LINE_SPACINGS:
+            m.add_command(label=('✓ ' if abs(v - cur) < 0.01 else '    ') + ('%g' % v).replace('.', ','),
+                          command=lambda x=v: self._fmt('spacing', {'ls': None if abs(x - 1.15) < 0.001 else x}))
+        m.add_separator()
+        sb, sa = fmt.get('sb'), fmt.get('sa')
+        if sb:
+            m.add_command(label='Paragraftan önceki boşluğu kaldır', command=lambda: self._fmt('spacing', {'sb': None}))
+        else:
+            m.add_command(label='Paragraftan önce boşluk ekle (12 nk)', command=lambda: self._fmt('spacing', {'sb': 12}))
+        if sa is not None and sa == 0:
+            m.add_command(label='Paragraftan sonra boşluk ekle (8 nk)', command=lambda: self._fmt('spacing', {'sa': None}))
+        else:
+            m.add_command(label='Paragraftan sonraki boşluğu kaldır', command=lambda: self._fmt('spacing', {'sa': 0}))
+        m.add_separator()
+        m.add_command(label='Satır aralığı seçenekleri…', command=self.paragraph_dialog)
+        self._popup(m, self.fmt_btns.get('spacing') or self.fmt_bar)
+
+    def _symbol_menu(self):
+        d = self.cur()
+        if not d:
+            return
+        m = tk.Menu(self, tearoff=0)
+        for ch, name in SYMBOLS:
+            m.add_command(label='%s   %s' % (ch, name), command=lambda c=ch: self._insert_symbol(c))
+        self._popup(m, self.fmt_btns['symbol'])
+
+    def _insert_symbol(self, ch):
+        d = self.cur()
+        if not d:
+            return
+        t = d.text
+        if t.rich:
+            t._type_text(ch)
+        else:
+            t.insert('insert', ch)
+        t.focus_set()
+
+    def format_painter(self, sticky=False):
+        """Bicim boyacisi: ilk tik imlecteki bicimi alir; sonraki fare birakisinda secime uygular."""
+        d = self.cur()
+        if not d or not d.text.rich:
+            return
+        b = self.fmt_btns.get('painter')
+        if getattr(self, '_painter', None):
+            self._painter = None
+            if b:
+                self._set_on(b, False)
+            self.flash('Biçim boyacısı kapatıldı.')
+            return
+        self._painter = {'fmt': d.text.copy_format(), 'sticky': sticky}
+        if b:
+            self._set_on(b, True)
+        d.text.configure(cursor='pencil')
+        self.flash('Biçim alındı. Uygulamak için metni fareyle seçin%s.' % (' (Esc ile bitir)' if sticky else ''), 9000)
+
+    def _painter_release(self, d):
+        p = getattr(self, '_painter', None)
+        if not p or d is not self.cur():
+            return
+        if d.text.apply_format(p['fmt']):
+            if not p['sticky']:
+                self._painter = None
+                d.text.configure(cursor='xterm')
+                b = self.fmt_btns.get('painter')
+                if b:
+                    self._set_on(b, False)
+            self._sync_fmt_bar()
+
+    def _painter_cancel(self, e=None):
+        if getattr(self, '_painter', None):
+            self._painter = None
+            b = self.fmt_btns.get('painter')
+            if b:
+                self._set_on(b, False)
+            d = self.cur()
+            if d:
+                d.text.configure(cursor='xterm')
 
     def _sync_fmt_bar(self):
         d = self.cur()
@@ -888,21 +1325,56 @@ class App(tk.Tk):
                 bar.pack_forget()
             return
         if not bar.winfo_manager():
-            bar.pack(fill='x', padx=18, pady=(2, 0), before=self.paned)
+            bar.pack(fill='x', before=self.paned)
         t = d.text
         try:
             fmt = t.current_format()
         except tk.TclError:
             return
-        self.style_var.set(rdoc.STYLE_LABELS.get(fmt.get('style', 'normal'), rdoc.STYLE_LABELS['normal']))
-        on = {'b': fmt.get('b'), 'i': fmt.get('i'), 'u': fmt.get('u'), 'bullet': fmt.get('list') == 'bullet',
+        style = fmt.get('style', 'normal')
+        self.style_var.set(rdoc.STYLE_LABELS.get(style, rdoc.STYLE_LABELS['normal']))
+        for k, b in self.style_btns.items():
+            on = k == style and t.rich
+            b.configure(bg=SEL_BG if on else PANEL2, fg=SEL_FG if on else FG, highlightbackground=ACCENT if on else LINE)
+        on = {'b': fmt.get('b'), 'i': fmt.get('i'), 'u': fmt.get('u'), 's': fmt.get('s'), 'sup': fmt.get('va') == 'sup',
+              'sub': fmt.get('va') == 'sub', 'bullet': fmt.get('list') == 'bullet',
               'number': fmt.get('list') == 'number', 'left': not fmt.get('align'), 'center': fmt.get('align') == 'center',
-              'right': fmt.get('align') == 'right'}
+              'right': fmt.get('align') == 'right', 'justify': fmt.get('align') == 'justify'}
         for k, b in self.fmt_btns.items():
             if k in on:
-                b.configure(bg=SEL_BG if on[k] and t.rich else PANEL2)
-        self.page_btn.configure(bg=SEL_BG if t.page_mode else PANEL2)
-        self.fmt_hint.configure(text='' if t.rich else 'Düz metin (.txt)')
+                self._set_on(b, on[k] and t.rich)
+        if self.focus_get() not in (self.font_cb, self.size_cb):
+            self.font_var.set(fmt.get('font') or t.family)
+            sz = fmt.get('size') or 11
+            self.size_var.set(('%g' % sz).replace('.', ','))
+        self._set_on(self.page_btn, t.page_mode)
+        self._set_on(self.spell_btn, bool(self.settings.get('spellcheck', True)) and getattr(self, 'speller', None) is not None
+                     and self.speller.available)
+        self.fmt_hint.configure(text='' if t.rich else 'Düz metin (.txt) — biçimlendirme için bir düğmeye basın')
+        if t.rich:
+            self.fmt_hint.place_forget()
+        else:
+            self.fmt_hint.place(relx=1.0, rely=1.0, anchor='se', x=-8, y=-2)
+        self._sync_page_info(d)
+
+    def _sync_page_info(self, d):
+        if not getattr(self, 'page_info', None):
+            return
+        pg = d.text.page
+        m = pg['margins']
+        cm = lambda v: ('%.2f' % (v / CM)).rstrip('0').rstrip('.').replace('.', ',')  # noqa: E731
+        parts = ['%s · %s' % (pg['size'], 'Yatay' if pg['orient'] == 'landscape' else 'Dikey'),
+                 'Kenar: üst %s, alt %s, sol %s, sağ %s cm' % (cm(m['t']), cm(m['b']), cm(m['l']), cm(m['r']))]
+        extra = []
+        if pg['header'].strip():
+            extra.append('üst bilgi')
+        if pg['footer'].strip():
+            extra.append('alt bilgi')
+        if pg['pnum']:
+            extra.append('sayfa no.')
+        if extra:
+            parts.append('Var: ' + ', '.join(extra) + ' (Word / PDF çıktısında her sayfada)')
+        self.page_info.configure(text='\n'.join(parts))
 
     def toggle_page_view(self):
         on = not self.settings.get('page_view', True)
@@ -913,7 +1385,7 @@ class App(tk.Tk):
                 d.text.set_page_mode(on)
                 self._place_text(d)
         self._sync_fmt_bar()
-        self.flash('Sayfa görünümü açık: A4 sayfa genişliği ve kenar boşlukları.' if on else 'Sayfa görünümü kapalı (koyu tema).')
+        self.flash('Sayfa görünümü açık: sayfa genişliği ve kenar boşlukları.' if on else 'Sayfa görünümü kapalı (tam genişlik).')
 
     def _place_text(self, d):
         t, desk = d.text, d.desk
@@ -922,8 +1394,8 @@ class App(tk.Tk):
         except tk.TclError:
             return
         if t.page_mode:
-            w = int(t.px(rdoc.PAGE_W_PT))
-            full = int(t.px(rdoc.MARGIN_PT * 0.9))
+            w = int(t.px(rdoc.page_dims(t.page)[0]))
+            full = int(t.px(t.page['margins']['l'] * 0.9))
             if avail > w + 24:
                 if int(t.cget('padx')) != full:
                     t.configure(padx=full)
@@ -935,6 +1407,339 @@ class App(tk.Tk):
                 t.configure(padx=narrow)
         t.place_forget()
         t.place(x=0, y=0, relwidth=1, relheight=1)
+
+    # ------------------------------------------------------------------ 2.0: sayfa yapisi
+    def _page_changed(self, d, page, msg=None):
+        t = d.text
+        t.set_page_setup(page)
+        if t.page_mode:
+            t.set_page_mode(True)
+        self._place_text(d)
+        t.undo.saved = -1                       # sayfa ayari degisti: kaydedilmemis say
+        self._doc_changed(d)
+        self._sync_fmt_bar()
+        if msg:
+            self.flash(msg)
+
+    def set_page(self, **kw):
+        d = self.cur()
+        if not d or not self._ensure_rich(d):
+            return
+        page = rdoc.normalize_page(d.text.page)
+        for k, v in kw.items():
+            page[k] = v
+        self._page_changed(d, page)
+
+    def _margins_menu(self):
+        d = self.cur()
+        if not d:
+            return
+        m = tk.Menu(self, tearoff=0)
+        cur = tuple(round(v, 1) for v in (d.text.page['margins'][k] for k in 'tblr'))
+        for key, label in rdoc.MARGIN_LABELS.items():
+            t_, b_, l_, r_ = rdoc.MARGIN_PRESETS[key]
+            mark = '✓ ' if tuple(round(v, 1) for v in (t_, b_, l_, r_)) == cur else '    '
+            m.add_command(label=mark + label, command=lambda a=(t_, b_, l_, r_): self.set_page(
+                margins={'t': a[0], 'b': a[1], 'l': a[2], 'r': a[3]}))
+        m.add_separator()
+        m.add_command(label='Özel kenar boşlukları…', command=self.page_setup_dialog)
+        self._popup(m, self.fmt_btns['margins'])
+
+    def _orient_menu(self):
+        d = self.cur()
+        if not d:
+            return
+        m = tk.Menu(self, tearoff=0)
+        for key, label in (('portrait', 'Dikey'), ('landscape', 'Yatay')):
+            m.add_command(label=('✓ ' if d.text.page['orient'] == key else '    ') + label, command=lambda k=key: self.set_page(orient=k))
+        self._popup(m, self.fmt_btns['orient'])
+
+    def _size_menu(self):
+        d = self.cur()
+        if not d:
+            return
+        m = tk.Menu(self, tearoff=0)
+        for key, label in rdoc.PAGE_SIZE_LABELS.items():
+            m.add_command(label=('✓ ' if d.text.page['size'] == key else '    ') + label, command=lambda k=key: self.set_page(size=k))
+        m.add_separator()
+        m.add_command(label='Sayfa yapısı…', command=self.page_setup_dialog)
+        self._popup(m, self.fmt_btns['psize'])
+
+    def _page_number_menu(self):
+        d = self.cur()
+        if not d:
+            return
+        m = tk.Menu(self, tearoff=0)
+        pn = d.text.page.get('pnum')
+        opts = (('Sayfanın altı · ortada', {'pos': 'footer', 'align': 'center'}), ('Sayfanın altı · sağda', {'pos': 'footer', 'align': 'right'}),
+                ('Sayfanın altı · solda', {'pos': 'footer', 'align': 'left'}), ('Sayfanın üstü · sağda', {'pos': 'header', 'align': 'right'}),
+                ('Sayfanın üstü · ortada', {'pos': 'header', 'align': 'center'}))
+        fmt = (pn or {}).get('fmt', 'n')
+        for label, o in opts:
+            on = pn and pn['pos'] == o['pos'] and pn['align'] == o['align']
+            m.add_command(label=('✓ ' if on else '    ') + label, command=lambda x=o: self.set_page(pnum=dict(x, fmt=fmt)))
+        m.add_separator()
+        if pn:
+            m.add_command(label=('✓ ' if fmt == 'n_of_N' else '    ') + 'Biçim: "Sayfa 1 / 5"',
+                          command=lambda: self.set_page(pnum=dict(pn, fmt='n' if fmt == 'n_of_N' else 'n_of_N')))
+            m.add_command(label='Sayfa numarasını kaldır', command=lambda: self.set_page(pnum=None))
+        self._popup(m, self.fmt_btns['pnum'])
+
+    def _dialog(self, title):
+        win = tk.Toplevel(self)
+        win.title(title)
+        win.configure(bg=PANEL, padx=16, pady=12)
+        win.transient(self)
+        win.resizable(False, False)
+        win.bind('<Escape>', lambda e: win.destroy())
+        self.last_dialog = win
+        return win
+
+    def page_setup_dialog(self):
+        d = self.cur()
+        if not d or not self._ensure_rich(d):
+            return
+        page = rdoc.normalize_page(d.text.page)
+        win = self._dialog('Sayfa yapısı')
+        vars_ = {}
+        self.lbl(win, 'Kenar boşlukları (cm)', font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, columnspan=4, sticky='w', pady=(0, 6))
+        for k, (key, label) in enumerate((('t', 'Üst'), ('b', 'Alt'), ('l', 'Sol'), ('r', 'Sağ'))):
+            v = tk.StringVar(value=('%.2f' % (page['margins'][key] / CM)).replace('.', ','))
+            vars_[key] = v
+            self.lbl(win, label).grid(row=1 + k // 2, column=(k % 2) * 2, sticky='w', pady=3)
+            ttk.Spinbox(win, from_=0, to=10, increment=0.1, textvariable=v, width=7).grid(row=1 + k // 2, column=(k % 2) * 2 + 1,
+                                                                                         sticky='w', padx=(6, 14), pady=3)
+        self.lbl(win, 'Yönlendirme').grid(row=3, column=0, sticky='w', pady=(10, 3))
+        ov = tk.StringVar(value=page['orient'])
+        of = tk.Frame(win, bg=PANEL)
+        of.grid(row=3, column=1, columnspan=3, sticky='w', pady=(10, 3))
+        ttk.Radiobutton(of, text='Dikey', value='portrait', variable=ov).pack(side='left', padx=(6, 10))
+        ttk.Radiobutton(of, text='Yatay', value='landscape', variable=ov).pack(side='left')
+        self.lbl(win, 'Kâğıt boyutu').grid(row=4, column=0, sticky='w', pady=3)
+        labels = list(rdoc.PAGE_SIZE_LABELS.values())
+        sv = tk.StringVar(value=rdoc.PAGE_SIZE_LABELS[page['size']])
+        ttk.Combobox(win, textvariable=sv, values=labels, state='readonly', width=24).grid(row=4, column=1, columnspan=3, sticky='w',
+                                                                                         padx=6, pady=3)
+
+        def ok():
+            try:
+                marg = {k: max(0.0, min(10.0, float(v.get().replace(',', '.')))) * CM for k, v in vars_.items()}
+            except ValueError:
+                messagebox.showerror('Sayfa yapısı', 'Kenar boşlukları sayı olmalı (ör. 2,5).', parent=win)
+                return
+            size = next((k for k, lab in rdoc.PAGE_SIZE_LABELS.items() if lab == sv.get()), 'A4')
+            win.destroy()
+            page.update(margins=marg, orient=ov.get(), size=size)
+            self._page_changed(d, page, 'Sayfa yapısı güncellendi.')
+        bf = tk.Frame(win, bg=PANEL)
+        bf.grid(row=5, column=0, columnspan=4, sticky='e', pady=(12, 0))
+        self.btn(bf, 'Tamam', ok, 'primary', side='right')
+        self.btn(bf, 'Vazgeç', win.destroy, 'ghost', side='right')
+        win.bind('<Return>', lambda e: ok())
+        return win
+
+    def header_footer_dialog(self, focus='header'):
+        d = self.cur()
+        if not d or not self._ensure_rich(d):
+            return
+        page = rdoc.normalize_page(d.text.page)
+        win = self._dialog('Üst bilgi ve alt bilgi')
+        boxes = {}
+        for r, (key, label) in enumerate((('header', 'Üst bilgi (her sayfanın üstü)'), ('footer', 'Alt bilgi (her sayfanın altı)'))):
+            self.lbl(win, label, font=('Segoe UI', 10, 'bold')).grid(row=r * 2, column=0, columnspan=3, sticky='w', pady=(6 if r else 0, 3))
+            tb = self._textbox(win, height=2, width=60)
+            tb.insert('1.0', page[key])
+            tb.grid(row=r * 2 + 1, column=0, columnspan=3, sticky='we')
+            boxes[key] = tb
+        self.lbl(win, 'Sayfa numarası', font=('Segoe UI', 10, 'bold')).grid(row=4, column=0, sticky='w', pady=(10, 3))
+        pn = page.get('pnum') or {}
+        pos = tk.StringVar(value=pn.get('pos', 'none'))
+        al = tk.StringVar(value=pn.get('align', 'center'))
+        nf = tk.BooleanVar(value=pn.get('fmt') == 'n_of_N')
+        f1 = tk.Frame(win, bg=PANEL)
+        f1.grid(row=5, column=0, columnspan=3, sticky='w')
+        for val, lab in (('none', 'Yok'), ('footer', 'Altta'), ('header', 'Üstte')):
+            ttk.Radiobutton(f1, text=lab, value=val, variable=pos).pack(side='left', padx=(0, 10))
+        tk.Frame(f1, bg=LINE, width=1, height=18).pack(side='left', padx=8)
+        for val, lab in (('left', 'Sol'), ('center', 'Orta'), ('right', 'Sağ')):
+            ttk.Radiobutton(f1, text=lab, value=val, variable=al).pack(side='left', padx=(0, 8))
+        ttk.Checkbutton(win, text='"1 / 5" biçiminde (toplam sayfa ile)', variable=nf).grid(row=6, column=0, columnspan=3, sticky='w', pady=4)
+        self.lbl(win, 'Üst/alt bilgi ve sayfa numarası, Word (.docx) dosyasında her sayfaya yazılır; editörde sayfa bölünmesi yaklaşıktır.',
+                 muted=True, wraplength=int(460 * self.scale)).grid(row=7, column=0, columnspan=3, sticky='w', pady=(6, 0))
+
+        def ok():
+            page['header'] = boxes['header'].get('1.0', 'end-1c').strip()
+            page['footer'] = boxes['footer'].get('1.0', 'end-1c').strip()
+            page['pnum'] = None if pos.get() == 'none' else {'pos': pos.get(), 'align': al.get(), 'fmt': 'n_of_N' if nf.get() else 'n'}
+            win.destroy()
+            self._page_changed(d, page, 'Üst / alt bilgi güncellendi.')
+        bf = tk.Frame(win, bg=PANEL)
+        bf.grid(row=8, column=0, columnspan=3, sticky='e', pady=(12, 0))
+        self.btn(bf, 'Tamam', ok, 'primary', side='right')
+        self.btn(bf, 'Vazgeç', win.destroy, 'ghost', side='right')
+        boxes.get(focus, boxes['header']).focus_set()
+        win.ok = ok
+        return win
+
+    def paragraph_dialog(self):
+        d = self.cur()
+        if not d or not self._ensure_rich(d):
+            return
+        t = d.text
+        fmt = t.current_format()
+        win = self._dialog('Paragraf')
+        cmf = lambda v: ('%.2f' % (float(v or 0) / CM)).rstrip('0').rstrip('.').replace('.', ',') or '0'  # noqa: E731
+        self.lbl(win, 'Genel', font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, sticky='w')
+        self.lbl(win, 'Hizalama').grid(row=1, column=0, sticky='w', pady=3)
+        align_labels = {'left': 'Sola', 'center': 'Ortala', 'right': 'Sağa', 'justify': 'İki yana yasla'}
+        av = tk.StringVar(value=align_labels.get(fmt.get('align') or 'left'))
+        ttk.Combobox(win, textvariable=av, values=list(align_labels.values()), state='readonly', width=16).grid(row=1, column=1, sticky='w',
+                                                                                                             padx=6)
+        self.lbl(win, 'Girinti', font=('Segoe UI', 10, 'bold')).grid(row=2, column=0, sticky='w', pady=(10, 0))
+        self.lbl(win, 'Sol (cm)').grid(row=3, column=0, sticky='w', pady=3)
+        ind = tk.StringVar(value=cmf(fmt.get('ind')))
+        ttk.Spinbox(win, from_=0, to=15, increment=0.25, textvariable=ind, width=7).grid(row=3, column=1, sticky='w', padx=6)
+        self.lbl(win, 'Özel').grid(row=4, column=0, sticky='w', pady=3)
+        fi_val = float(fmt.get('fi') or 0)
+        kinds = {'none': '(yok)', 'first': 'İlk satır', 'hang': 'Asılı'}
+        kv = tk.StringVar(value=kinds['first' if fi_val > 0 else 'hang' if fi_val < 0 else 'none'])
+        ttk.Combobox(win, textvariable=kv, values=list(kinds.values()), state='readonly', width=10).grid(row=4, column=1, sticky='w', padx=6)
+        fiv = tk.StringVar(value=cmf(abs(fi_val)) if fi_val else '1,25')
+        ttk.Spinbox(win, from_=0, to=10, increment=0.25, textvariable=fiv, width=7).grid(row=4, column=2, sticky='w')
+        self.lbl(win, 'Aralık', font=('Segoe UI', 10, 'bold')).grid(row=5, column=0, sticky='w', pady=(10, 0))
+        self.lbl(win, 'Önce (nk)').grid(row=6, column=0, sticky='w', pady=3)
+        sbv = tk.StringVar(value=('%g' % fmt['sb']) if fmt.get('sb') is not None else '0')
+        ttk.Spinbox(win, from_=0, to=200, increment=6, textvariable=sbv, width=7).grid(row=6, column=1, sticky='w', padx=6)
+        self.lbl(win, 'Sonra (nk)').grid(row=7, column=0, sticky='w', pady=3)
+        sav = tk.StringVar(value=('%g' % fmt['sa']) if fmt.get('sa') is not None else '8')
+        ttk.Spinbox(win, from_=0, to=200, increment=6, textvariable=sav, width=7).grid(row=7, column=1, sticky='w', padx=6)
+        self.lbl(win, 'Satır aralığı').grid(row=8, column=0, sticky='w', pady=3)
+        lsv = tk.StringVar(value=('%g' % float(fmt.get('ls') or 1.15)).replace('.', ','))
+        ttk.Combobox(win, textvariable=lsv, values=[('%g' % v).replace('.', ',') for v in rdoc.LINE_SPACINGS], width=7).grid(
+            row=8, column=1, sticky='w', padx=6)
+
+        def num(var, lo, hi):
+            v = float(var.get().replace(',', '.'))
+            return max(lo, min(hi, v))
+
+        def ok():
+            try:
+                left = num(ind, 0, 15) * CM
+                fi = num(fiv, 0, 10) * CM
+                sb, sa, ls = num(sbv, 0, 1584), num(sav, 0, 1584), num(lsv, 0.5, 5)
+            except ValueError:
+                messagebox.showerror('Paragraf', 'Değerler sayı olmalı (ör. 1,25).', parent=win)
+                return
+            kind = next((k for k, v in kinds.items() if v == kv.get()), 'none')
+            fi = fi if kind == 'first' else -fi if kind == 'hang' else 0
+            align = next((k for k, v in align_labels.items() if v == av.get()), 'left')
+            win.destroy()
+            t.undo.separator()
+            t.undo.begin()
+            try:
+                t.set_para_extra(ind=round(left, 1) or None, fi=round(fi, 1) or None, sb=(sb or None) if not fmt.get('sb') else sb,
+                                 sa=None if abs(sa - 8) < 0.01 else sa, ls=None if abs(ls - 1.15) < 0.001 else ls)
+                t.set_align(align)
+            finally:
+                t.undo.end()
+            t.focus_set()
+            self._sync_fmt_bar()
+        bf = tk.Frame(win, bg=PANEL)
+        bf.grid(row=9, column=0, columnspan=3, sticky='e', pady=(12, 0))
+        self.btn(bf, 'Tamam', ok, 'primary', side='right')
+        self.btn(bf, 'Vazgeç', win.destroy, 'ghost', side='right')
+        win.bind('<Return>', lambda e: ok())
+        win.ok = ok
+        return win
+
+    def insert_link(self):
+        d = self.cur()
+        if not d or not self._ensure_rich(d):
+            return
+        t = d.text
+        try:
+            sel = t.get('sel.first', 'sel.last')
+        except tk.TclError:
+            sel = ''
+        cur = t.link_at('insert')
+        win = self._dialog('Bağlantı')
+        self.lbl(win, 'Görüntülenecek metin').grid(row=0, column=0, sticky='w', pady=3)
+        tv = tk.StringVar(value=sel)
+        te = ttk.Entry(win, textvariable=tv, width=44, state='disabled' if sel else 'normal')
+        te.grid(row=0, column=1, padx=6, pady=3)
+        self.lbl(win, 'Adres').grid(row=1, column=0, sticky='w', pady=3)
+        uv = tk.StringVar(value=cur or ('' if not re.match(r'^(https?://|www\.)', sel) else sel))
+        ue = ttk.Entry(win, textvariable=uv, width=44)
+        ue.grid(row=1, column=1, padx=6, pady=3)
+
+        def ok():
+            url = uv.get().strip()
+            if not url:
+                return
+            win.destroy()
+            t.insert_link(url, None if sel else (tv.get().strip() or None))
+            t.focus_set()
+
+        def remove():
+            win.destroy()
+            t.remove_link()
+        bf = tk.Frame(win, bg=PANEL)
+        bf.grid(row=2, column=0, columnspan=2, sticky='e', pady=(10, 0))
+        self.btn(bf, 'Tamam', ok, 'primary', side='right')
+        self.btn(bf, 'Vazgeç', win.destroy, 'ghost', side='right')
+        if cur:
+            self.btn(bf, 'Bağlantıyı kaldır', remove, 'danger', side='left')
+        win.bind('<Return>', lambda e: ok())
+        ue.focus_set()
+        win.ok = ok
+        return win
+
+    def open_link(self, url):
+        import webbrowser
+        if re.match(r'^(https?://|mailto:)', url or '', re.I):
+            webbrowser.open(url)
+
+    def _theme_menu(self):
+        m = tk.Menu(self, tearoff=0)
+        cur = self.settings.get('ui_theme', 'dark')
+        for key, label in THEME_LABELS.items():
+            m.add_command(label=('✓ ' if cur == key else '    ') + label, command=lambda k=key: self.set_theme(k))
+        m.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
+
+    def set_theme(self, key):
+        if self.settings.get('ui_theme', 'dark') == key:
+            return
+        self.settings['ui_theme'] = key
+        core.save_settings(self.settings)
+        if messagebox.askyesno('Tema', '%s tema bir sonraki açılışta uygulanır.\n\nŞimdi yeniden başlatılsın mı? '
+                               '(Kaydedilmemiş belgeler için sorulur.)' % THEME_LABELS[key], parent=self):
+            self.restart()
+
+    def restart(self):
+        files = [d.path for d in self.docs if d.path]
+        self.on_close()
+        try:
+            if self.winfo_exists():
+                return                          # kullanici kapatmayi iptal etti
+        except tk.TclError:
+            pass
+        args = [sys.executable] + ([] if upd.is_frozen() else [os.path.abspath(sys.argv[0])]) + files
+        subprocess.Popen(args, close_fds=True)
+
+    def zoom_reset(self):
+        self.settings['page_zoom'] = 1.0
+        for d in self.docs:
+            if d.text.rich:
+                d.text.set_font(zoom=1.0)
+                self._place_text(d)
+        core.save_settings(self.settings)
+        self._sync_zoom_label()
+
+    def _sync_zoom_label(self):
+        try:
+            self.zoom_lbl.configure(text='%%%d' % round(float(self.settings.get('page_zoom', 1.0)) * 100))
+        except (tk.TclError, AttributeError):
+            pass
 
     def insert_image(self):
         d = self.cur()
@@ -1022,17 +1827,6 @@ class App(tk.Tk):
         self.lbl(sc, 'Kapsam:', muted=True).pack(side='left')
         ttk.Radiobutton(sc, text='Seçili metin (yoksa paragraf)', value='selection', variable=self.scope_var).pack(side='left', padx=6)
         ttk.Radiobutton(sc, text='Tüm belge', value='all', variable=self.scope_var).pack(side='left')
-        # 1.8: hedef belge: bu editordeki sekme ya da WordCraft penceresindeki belge
-        self.wc = None
-        self.wc_target = tk.StringVar(value='editor')
-        tg = tk.Frame(side, bg=PANEL)
-        tg.pack(fill='x', pady=(0, 4))
-        self.lbl(tg, 'Hedef:', muted=True).pack(side='left')
-        ttk.Radiobutton(tg, text='Bu editör', value='editor', variable=self.wc_target).pack(side='left', padx=6)
-        ttk.Radiobutton(tg, text='WordCraft', value='wordcraft', variable=self.wc_target,
-                        command=self._wc_target_chosen).pack(side='left')
-        self.wc_status = tk.StringVar(value='')
-        tk.Label(tg, textvariable=self.wc_status, fg=MUTED, bg=PANEL, font=('Segoe UI', 8)).pack(side='left', padx=8)
         self.ai_nb = ttk.Notebook(side, style='Panel.TNotebook')
         self.ai_nb.pack(fill='both', expand=True, pady=(4, 0))
         self._tab_content(self._ai_tab('İçerik'))
@@ -1367,7 +2161,7 @@ class App(tk.Tk):
         key = '%s-%.2f' % ('hazir' if ready else ('ai' if opts['reading_script'] else 'sozluk'), opts['speed'])
         cache = core.data_dir() / 'readaloud' / key
         self._prune_readaloud_cache()
-        t.tag_configure('readaloud', background='#24452c', foreground=FG)
+        t.tag_configure('readaloud', background=READ_BG, foreground=FG)
         self.ra_doc = d
         self.ra_count = len(segments)
         self.ra_session = readaloud.ReadAloud(segments, lambda text: b.speech_quick(text, **opts), str(cache),
@@ -1542,8 +2336,8 @@ class App(tk.Tk):
 
     def _textbox(self, parent, height=4, **kw):
         t = tk.Text(parent, height=height, wrap='word', bg=EDIT_BG, fg=FG, insertbackground=FG, relief='flat', bd=0,
-                    highlightthickness=1, highlightbackground='#2d4a6c', highlightcolor=ACCENT, font=('Segoe UI', 10),
-                    selectbackground=SEL_BG, selectforeground='#ffffff', padx=6, pady=4, undo=True, **kw)
+                    highlightthickness=1, highlightbackground=LINE, highlightcolor=ACCENT, font=('Segoe UI', 10),
+                    selectbackground=SEL_BG, selectforeground=SEL_FG, padx=6, pady=4, undo=True, **kw)
         return t
 
     def _action_changed(self):
@@ -1990,7 +2784,7 @@ class App(tk.Tk):
             fam = next((f for f in ('Calibri', 'Segoe UI', 'Carlito', 'DejaVu Sans') if f.lower() in fams), 'Segoe UI')
         return fam, int(self.settings.get('rich_size', 11))
 
-    def new_doc(self, text='', title=None, path=None, docfile=None, blocks=None, rich=None):
+    def new_doc(self, text='', title=None, path=None, docfile=None, blocks=None, rich=None, page=None):
         """rich=None: .txt disindaki her belge bicimli (Word gibi). text bicimli belgede Markdown olarak okunur."""
         if rich is None:
             rich = not (docfile is not None and docfile.kind == 'txt')
@@ -2005,17 +2799,20 @@ class App(tk.Tk):
                            wrap='word' if self.settings.get('wrap', True) or rich else 'none', bg=EDIT_BG, fg=FG,
                            insertbackground=ACCENT, insertwidth=2, relief='flat', bd=0, highlightthickness=0,
                            font=(fam, size), padx=int(28 * self.scale), pady=int(18 * self.scale), spacing1=2, spacing3=6,
-                           selectbackground=SEL_BG, selectforeground='#ffffff', inactiveselectbackground='#1d3b57')
+                           selectbackground=SEL_BG, selectforeground=SEL_FG, inactiveselectbackground=INACTIVE_SEL)
         t.configure(yscrollcommand=ys.set)
         ys.configure(command=t.yview)
         base = tkfont.Font(family=self._editor_font()[0], size=self._editor_font()[1])
-        t.tag_configure('md_h', foreground='#ffffff', font=(base.actual('family'), int(self._editor_font()[1] * 1.25), 'bold'))
+        t.tag_configure('md_h', foreground=HEAD_FG, font=(base.actual('family'), int(self._editor_font()[1] * 1.25), 'bold'))
         t.tag_configure('md_mark', foreground=MUTED)
         t.tag_configure('md_li', foreground=FG, lmargin2=int(18 * self.scale))
-        t.tag_configure('found', background='#5a4a1c')
-        t.tag_configure('ai_new', background='#173a2a')
-        t.tag_configure('trwork', background='#4a3f12')
-        t.tag_configure('trdone', background='#173a2a')
+        t.tag_configure('found', background=FOUND)
+        t.tag_configure('ai_new', background=NEW_BG)
+        t.tag_configure('trwork', background=WORK_BG)
+        t.tag_configure('trdone', background=NEW_BG)
+        t.on_link = self.open_link                           # 2.0: Ctrl+tik baglantiyi acar
+        if page:
+            t.set_page_setup(page)
         if rich:
             t.set_font(zoom=float(self.settings.get('page_zoom', 1.0)))
             t.set_page_mode(bool(self.settings.get('page_view', True)))
@@ -2042,7 +2839,12 @@ class App(tk.Tk):
         self._place_text(doc)
         for ev in ('<KeyRelease>', '<ButtonRelease-1>'):
             t.bind(ev, lambda e: (self._update_status(), self._sync_fmt_bar()), add='+')
+        t.bind('<ButtonRelease-1>', lambda e, dd=doc: self._painter_release(dd), add='+')     # 2.0: bicim boyacisi
+        t.bind('<Escape>', self._painter_cancel, add='+')
+        t.bind('<Control-k>', lambda e: (self.insert_link(), 'break')[1])
+        t.bind('<Control-K>', lambda e: (self.insert_link(), 'break')[1])
         t.bind('<KeyRelease>', lambda e, dd=doc: self._schedule_highlight(dd), add='+')
+        t.bind('<KeyRelease>', lambda e, dd=doc: self._spell_typed(dd), add='+')
         self._highlight(doc)
         t.bind('<<Modified>>', lambda e, d=doc: self._on_modified(d))
         t.on_change = lambda d=doc: self._doc_changed(d)
@@ -2050,7 +2852,152 @@ class App(tk.Tk):
         t.focus_set()
         self._update_status()
         self._sync_fmt_bar()
+        self.spell_full(doc)
         return doc
+
+    # ------------------------------------------------------------------ 2.0: yazim denetimi
+    SPELL_BATCH = 60                 # her adimda denetlenen satir
+
+    def _spell_on(self):
+        return bool(self.settings.get('spellcheck', True))
+
+    def _ensure_speller(self, quiet=True):
+        if self.speller is None:
+            if self.smoke:
+                return None
+            try:
+                self.speller = spell.create(self.settings.get('spell_lang') or 'tr-TR')
+            except Exception as e:                 # beklenmeyen COM hatasi: editor calismaya devam etsin
+                self._log_error('spell: %r' % (e,))
+                return None
+            if not self.speller.available and not quiet:
+                messagebox.showinfo('Yazım denetimi', self.speller.error, parent=self)
+        return self.speller if self.speller and self.speller.available else None
+
+    def toggle_spell(self):
+        on = not self._spell_on()
+        if on and self._ensure_speller(quiet=False) is None:
+            self.settings['spellcheck'] = False
+            core.save_settings(self.settings)
+            self._sync_fmt_bar()
+            return
+        self.settings['spellcheck'] = on
+        core.save_settings(self.settings)
+        for d in self.docs:
+            if on:
+                self.spell_full(d)
+            else:
+                d.text.tag_remove('spell', '1.0', 'end')
+        self._sync_fmt_bar()
+        self.flash('Yazım denetimi açık: hatalı kelimeler kırmızıyla işaretlenir, sağ tıkla öneri alın.' if on else 'Yazım denetimi kapalı.')
+
+    def spell_full(self, d):
+        """Belgenin tamamini arka planda parca parca denetler."""
+        if not self._spell_on() or self._ensure_speller() is None:
+            return
+        d._spell_pos = 1
+        if not getattr(d, '_spell_job', None):
+            d._spell_job = self.after(300, lambda: self._spell_step(d))
+
+    def _spell_step(self, d):
+        d._spell_job = None
+        if d not in self.docs or not self._spell_on() or self.speller is None:
+            return
+        t = d.text
+        try:
+            last = int(t.index('end-1c').split('.')[0])
+        except tk.TclError:
+            return
+        a = getattr(d, '_spell_pos', 1)
+        b = min(last, a + self.SPELL_BATCH - 1)
+        self.spell_lines(d, a, b)
+        if b < last:
+            d._spell_pos = b + 1
+            d._spell_job = self.after(15, lambda: self._spell_step(d))
+
+    def spell_lines(self, d, first, last):
+        sp = self.speller
+        if sp is None or not sp.available:
+            return
+        t = d.text
+        for ln in range(first, last + 1):
+            s0, e0 = '%d.0' % ln, '%d.end' % ln
+            try:
+                text = t.get(s0, e0)
+            except tk.TclError:
+                return
+            t.tag_remove('spell', s0, e0)
+            if not text.strip():
+                continue
+            try:
+                errs = sp.check(text)
+            except Exception as e:
+                self._log_error('spell check: %r' % (e,))
+                return
+            for st, n, _act, _rep in errs:
+                a, b = '%d.%d' % (ln, st), '%d.%d' % (ln, st + n)
+                names = set(str(x) for x in t.tag_names(a))
+                if 'lm' in names or any(x.startswith('ln_') for x in names):
+                    continue                      # liste isareti ve baglantilar denetlenmez
+                t.tag_add('spell', a, b)
+
+    def _spell_typed(self, d):
+        """Yazarken: imlecin bulundugu ve komsu satirlari kisa gecikmeyle denetler."""
+        if not self._spell_on() or self.speller is None:
+            return
+        if getattr(d, '_spell_line_job', None):
+            try:
+                self.after_cancel(d._spell_line_job)
+            except (tk.TclError, ValueError):
+                pass
+
+        def run():
+            d._spell_line_job = None
+            if d not in self.docs:
+                return
+            try:
+                ln = int(d.text.index('insert').split('.')[0])
+                last = int(d.text.index('end-1c').split('.')[0])
+            except tk.TclError:
+                return
+            self.spell_lines(d, max(1, ln - 1), min(last, ln + 1))
+        d._spell_line_job = self.after(450, run)
+
+    def spell_error_at(self, t, index):
+        if 'spell' not in [str(x) for x in t.tag_names(index)]:
+            return None
+        r = t.tag_prevrange('spell', index + '+1c')
+        if not r:
+            return None
+        return str(r[0]), str(r[1]), t.get(r[0], r[1])
+
+    def spell_replace(self, d, s0, e0, word):
+        t = d.text
+        keep = tuple(str(x) for x in t.tag_names(s0) if rtext.recorded(str(x)))
+        t.undo.separator()
+        t.undo.begin()
+        try:
+            t.delete(s0, e0)
+            t.insert(s0, word, keep)
+        finally:
+            t.undo.end()
+        t.undo.separator()
+        t.changed()
+        ln = int(s0.split('.')[0])
+        self.spell_lines(d, ln, ln)
+
+    def spell_add(self, d, word):
+        if self.speller:
+            self.speller.add(word)
+        for x in self.docs:
+            self.spell_full(x)
+
+    def spell_ignore(self, d, word):
+        if self.speller:
+            self.speller.ignore(word)
+        for x in self.docs:
+            self.spell_full(x)
+
 
     def _doc_changed(self, d):
         try:
@@ -2129,8 +3076,10 @@ class App(tk.Tk):
         blocks = None
         try:
             kind = core.detect_kind(path)
+            page = None
             if kind == 'docx':
                 blocks = rdoc.read_docx_blocks(path)
+                page = rdoc.read_docx_page(path)            # 2.0: sayfa yapisi, ust/alt bilgi, sayfa no.
                 text, docfile = '', core.DocFile(path, 'docx')
             elif kind == 'html':
                 with open(path, 'rb') as fh:
@@ -2147,14 +3096,14 @@ class App(tk.Tk):
         cur = self.cur()
         if cur and not cur.path and not cur.dirty and not cur.text.get('1.0', 'end-1c').strip():
             self.close_doc(cur, ask=False)
-        d = self.new_doc(text, os.path.basename(path), path, docfile, blocks=blocks)
+        d = self.new_doc(text, os.path.basename(path), path, docfile, blocks=blocks, page=page)
         core.add_recent(self.settings, path)
         core.save_settings(self.settings)
         if docfile.kind == 'docx':
             n_img = sum(1 for b in blocks or [] if b['t'] == 'img')
             n_tbl = sum(1 for b in blocks or [] if b['t'] == 'table')
-            self.flash('Word belgesi biçimleriyle açıldı (%d resim, %d tablo). Üst/alt bilgi, dipnot ve yorumlar bu editörde gösterilmez.'
-                       % (n_img, n_tbl), 9000)
+            self.flash('Word belgesi biçimleriyle açıldı (%d resim, %d tablo). Sayfa yapısı ve üst/alt bilgi korunur; dipnot ve yorumlar '
+                       'bu editörde gösterilmez.' % (n_img, n_tbl), 9000)
         return d
 
     # ------------------------------------------------------------------ PDF duzenleyici (1.3)
@@ -2272,8 +3221,8 @@ class App(tk.Tk):
         if d.docfile.kind == 'docx' and not d.docx_warned:
             ans = messagebox.askyesnocancel(
                 'Word belgesi',
-                'Başlıklar, kalın/italik, renkler, listeler, tablolar ve resimler korunur. Özgün dosyadaki üst/alt bilgi, dipnot, '
-                'yorum, metin kutusu ve özel sayfa düzeni ayarları korunmaz.\n\n'
+                'Yazı tipleri, biçimler, listeler, tablolar, resimler, bağlantılar, sayfa yapısı ve üst/alt bilgi metni korunur. '
+                'Özgün dosyadaki dipnot, yorum, metin kutusu, bölüm (section) ve özel stil ayarları korunmaz.\n\n'
                 'Evet: yeni bir dosyaya kaydet (önerilir)\nHayır: yine de üzerine yaz', parent=self)
             if ans is None:
                 return False
@@ -2309,7 +3258,7 @@ class App(tk.Tk):
             if d.rich or kind == 'docx':
                 blocks = d.text.get_blocks() if d.rich else rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
                 if kind == 'docx':
-                    data = rdoc.docx_bytes(blocks)
+                    data = rdoc.docx_bytes(blocks, d.text.page if d.rich else None)
                     core._atomic_write(path, lambda f: f.write(data))
                     d.docfile = core.DocFile(path, 'docx')
                 elif kind == 'html':
@@ -2408,6 +3357,7 @@ class App(tk.Tk):
                 d.text.set_font(self._editor_font()[0], self._editor_font()[1])
                 d.text.tag_configure('md_h', font=(self._editor_font()[0], int(self._editor_font()[1] * 1.25), 'bold'))
         core.save_settings(self.settings)
+        self._sync_zoom_label()
         self.flash('Yakınlaştırma: %%%d' % round(z * 100))
 
     def _autosave(self):
@@ -2417,7 +3367,7 @@ class App(tk.Tk):
                     if d.rich:
                         blocks = d.text.get_blocks()
                         core.save_recovery(d.id, d.title, rdoc.blocks_to_markdown(blocks) or ' ', d.path,
-                                           blocks=rdoc.blocks_to_json(blocks))
+                                           blocks=rdoc.blocks_to_json(blocks), page=d.text.page)
                     else:
                         core.save_recovery(d.id, d.title, d.text.get('1.0', 'end-1c'), d.path)
                 except (OSError, tk.TclError):
@@ -2452,7 +3402,8 @@ class App(tk.Tk):
                     except Exception:
                         blocks = None
                 d = self.new_doc(i['text'] if blocks is None else '', (i.get('title') or 'Kurtarılan') + ' (kurtarıldı)',
-                                 blocks=blocks, rich=True if blocks is not None else None)
+                                 blocks=blocks, rich=True if blocks is not None else None,
+                                 page=i.get('page') if isinstance(i.get('page'), dict) else None)
                 if i.get('path'):
                     d.path = None
                 core.drop_recovery(i.get('id', ''))
@@ -2611,6 +3562,11 @@ class App(tk.Tk):
 
     def show_more_menu(self):
         m = tk.Menu(self, tearoff=0)
+        m.add_command(label='Yeni  (Ctrl+N)', command=self.new_doc)
+        m.add_command(label='Aç…  (Ctrl+O)', command=self.open_dialog)
+        m.add_command(label='Kaydet  (Ctrl+S)', command=self.save)
+        m.add_command(label='Farklı kaydet…  (Ctrl+Shift+S)', command=self.save_as)
+        m.add_separator()
         rec = tk.Menu(m, tearoff=0)
         for p in self.settings.get('recent', [])[:12]:
             rec.add_command(label=p, command=lambda x=p: self.open_path(x))
@@ -2626,6 +3582,7 @@ class App(tk.Tk):
             else:
                 m.add_command(label='Bu bilgisayara kur…', command=lambda: self.install(ask=True))
         m.add_separator()
+        m.add_command(label='Ayarlar…', command=self.open_settings)
         m.add_command(label='Hakkında', command=self.about)
         x = self.more_btn.winfo_rootx()
         y = self.more_btn.winfo_rooty() + self.more_btn.winfo_height()
@@ -2643,6 +3600,23 @@ class App(tk.Tk):
             self._image_menu(m, t, img)
             m.tk_popup(e.x_root, e.y_root)
             return
+        err = self.spell_error_at(t, here) if self._spell_on() and self.speller else None
+        if err:                                             # 2.0: yazim onerileri
+            s0, e0, word = err
+            sugg = self.speller.suggest(word) if self.speller else []
+            for w_ in sugg[:7]:
+                m.add_command(label=w_, font=('Segoe UI', 9, 'bold'), command=lambda x=w_: self.spell_replace(d, s0, e0, x))
+            if not sugg:
+                m.add_command(label='(öneri yok)', state='disabled')
+            m.add_command(label='Sözlüğe ekle: “%s”' % word, command=lambda: self.spell_add(d, word))
+            m.add_command(label='Tümünü yoksay', command=lambda: self.spell_ignore(d, word))
+            m.add_separator()
+        url = t.link_at(here) if t.rich else None
+        if url:
+            m.add_command(label='Bağlantıyı aç: %s' % (url if len(url) < 60 else url[:57] + '…'), command=lambda: self.open_link(url))
+            m.add_command(label='Bağlantıyı düzenle…', command=lambda: (t.mark_set('insert', here), self.insert_link()))
+            m.add_command(label='Bağlantıyı kaldır', command=lambda: (t.mark_set('insert', here), t.remove_link(here)))
+            m.add_separator()
         m.add_command(label='Kes', command=lambda: d.text.event_generate('<<Cut>>'))
         m.add_command(label='Kopyala', command=lambda: d.text.event_generate('<<Copy>>'))
         m.add_command(label='Yapıştır', command=lambda: d.text.event_generate('<<Paste>>'))
@@ -2661,6 +3635,10 @@ class App(tk.Tk):
             m.add_cascade(label='Tablo', menu=tm)
         m.add_command(label='Resim ekle…', command=self.insert_image)
         m.add_command(label='Tablo ekle…', command=self.insert_table)
+        if t.rich:
+            m.add_command(label='Bağlantı…  (Ctrl+K)', command=self.insert_link)
+            m.add_command(label='Paragraf…', command=self.paragraph_dialog)
+            m.add_command(label='Biçimi temizle', command=lambda: self._fmt('clear'))
         m.add_separator()
         for key in ('content_strengthen', 'content_flow', 'proofread', 'shorten', 'expand', 'critique'):
             a = core.action_by_key(key)
@@ -2678,11 +3656,11 @@ class App(tk.Tk):
     def _image_menu(self, m, t, name):
         blk = t.images.get(name) or {}
         sz = tk.Menu(m, tearoff=0)
-        for label, w in (('%25', rdoc.CONTENT_W_PT * 0.25), ('%50', rdoc.CONTENT_W_PT * 0.5), ('%75', rdoc.CONTENT_W_PT * 0.75),
-                         ('Sayfa genişliği', rdoc.CONTENT_W_PT)):
+        cw = t.content_w_pt()
+        for label, w in (('%25', cw * 0.25), ('%50', cw * 0.5), ('%75', cw * 0.75), ('Sayfa genişliği', cw)):
             sz.add_command(label=label, command=lambda ww=w: t.resize_image(name, ww))
         if blk:
-            sz.add_command(label='Özgün boyut', command=lambda: t.resize_image(name, min(rdoc.CONTENT_W_PT, rdoc.image_block(blk['data'])['w'])))
+            sz.add_command(label='Özgün boyut', command=lambda: t.resize_image(name, min(cw, rdoc.image_block(blk['data'])['w'])))
         m.add_cascade(label='Resim boyutu', menu=sz)
         al = tk.Menu(m, tearoff=0)
         line = int(t.index(name).split('.')[0])
@@ -2883,8 +3861,6 @@ class App(tk.Tk):
             self.run_action(a)
 
     def run_action(self, action, options=None, translate_mode=None):
-        if self._wc_active() and action.get('mode') != 'chat':
-            return self.run_action_wordcraft(action, options, translate_mode)
         d = self.cur()
         if not d:
             if hasattr(self, 'pdf_views') and self.cur_pdf():
@@ -2937,201 +3913,6 @@ class App(tk.Tk):
             self.ai_var.set('Son işlem: %s · %s %s' % (action['label'], res.get('via', ''), ('· ' + res.get('model', '')) if res.get('model') else ''))
             self.review(d, ms, me, source, res, action, translate_mode, images=images)
         self._start_job('%s (%s)' % (action['label'], where), ai.run_with_fallback, done, backends, 'transform', source, action, options)
-
-    # ------------------------------------------------------------------ WordCraft (1.8)
-    def _wc_active(self):
-        return bool(getattr(self, 'wc', None)) and self.wc_target.get() == 'wordcraft'
-
-    def _wc_set_status(self, text):
-        self.wc_status.set(text)
-
-    def _wc_lost(self, err):
-        """WordCraft kapandiysa hedefi editore dondur; kullaniciyi bilgilendir."""
-        self.wc = None
-        self.wc_target.set('editor')
-        self._wc_set_status('')
-        self.flash('WordCraft bağlantısı koptu (%s). Hedef: bu editör.' % err, ms=9000)
-
-    def _wc_target_chosen(self):
-        if not self.wc:
-            self.wc_target.set('editor')
-            self._wc_ensure(lambda: self.wc_target.set('wordcraft'))
-
-    def wordcraft_menu(self):
-        m = tk.Menu(self, tearoff=0)
-        m.add_command(label='Bu belgeyi WordCraft\'ta aç', command=self.wc_open_current)
-        m.add_command(label='Yeni WordCraft belgesi', command=self.wc_new)
-        m.add_command(label='WordCraft\'ta dosya aç…', command=self.wc_open_file)
-        m.add_separator()
-        if self.wc:
-            m.add_command(label='AI hedefi: WordCraft', command=lambda: self.wc_target.set('wordcraft'))
-            m.add_command(label='AI hedefi: bu editör', command=lambda: self.wc_target.set('editor'))
-        m.add_command(label='WordCraft hakkında', command=self.wc_about)
-        x, y = self.wc_btn.winfo_rootx(), self.wc_btn.winfo_rooty() + self.wc_btn.winfo_height()
-        m.tk_popup(x, y)
-
-    def wc_about(self):
-        messagebox.showinfo('WordCraft', 'WordCraft %s, ArtCraft ekibinin açık kaynaklı (MIT / Apache-2.0) kelime işlemcisidir: '
-                            'şerit, stiller, tablolar, değişiklik izleme, yorumlar, içindekiler, dipnotlar, adres mektup birleştirme; '
-                            'DOCX, ODT, RTF, HTML, Markdown okur/yazar, PDF verir.\n\n'
-                            'AI Editor onu belge düzenleyici olarak açar. AI panelinde "Hedef: WordCraft" seçiliyken seçili metin oradan '
-                            'okunur, sonuç değişiklik izleme açık olarak oraya yazılır.\n\n'
-                            'Resmi, kod imzalı sürüm github.com/storytold/wordcraft adresinden SHA-256 doğrulamalı indirilir. '
-                            'WordCraft alfa aşamasındadır; önemli belgelerde yedek alın.' % wcb.WORDCRAFT_VERSION, parent=self)
-
-    def _wc_ensure(self, then):
-        """WordCraft acik degilse (gerekirse kurup) baslatir, sonra then() cagrilir."""
-        if self.wc:
-            client = self.wc
-
-            def check():
-                return client.alive()
-
-            def done(ok, alive):
-                if ok and alive:
-                    then()
-                else:
-                    self.wc = None
-                    self._wc_ensure(then)
-            self._start_job('WordCraft denetleniyor', check, done)
-            return
-        exe = wcb.installed_exe()
-        if not exe:
-            if not IS_WIN:
-                messagebox.showinfo('WordCraft', 'WordCraft kurulumu Windows içindir. Geliştirme için AGFO_WORDCRAFT_EXE '
-                                    'ortam değişkeniyle bir wordcraft yürütülebilir dosyası gösterin.', parent=self)
-                return
-            if not messagebox.askyesno('WordCraft kurulsun mu?',
-                                       'WordCraft %s (Word benzeri açık kaynaklı kelime işlemci) bu bilgisayara kurulacak.\n\n'
-                                       '• İndirme: yaklaşık 100 MB (+ Türkçe yazım sözlüğü 38 MB)\n'
-                                       '• Yer: %s\n• Yönetici izni gerekmez; dosyalar SHA-256 ile doğrulanır.\n\nDevam edilsin mi?'
-                                       % (wcb.WORDCRAFT_VERSION, wcb.install_root()), parent=self):
-                return
-
-        def work():
-            path = wcb.install() if not exe else exe
-            if IS_WIN and not wcb.dictionary_installed():
-                try:
-                    wcb.install_dictionary()
-                except wcb.WordCraftError:
-                    pass                                  # sozluk olmadan da calisir
-            client = wcb.launch(path)
-            client.setup()
-            return client
-
-        def done(ok, client):
-            if not ok:
-                messagebox.showerror('WordCraft', client, parent=self)
-                return
-            self.wc = client
-            self.wc_target.set('wordcraft')
-            self._wc_set_status('● bağlı')
-            self.flash('WordCraft açıldı. AI paneli artık WordCraft\'taki belgede çalışır (Hedef: WordCraft).', ms=9000)
-            then()
-        self._start_job('WordCraft hazırlanıyor' if exe else 'WordCraft indiriliyor (~140 MB)', work, done)
-
-    def _wc_job(self, label, fn, ok_msg=None):
-        client = self.wc
-
-        def work():
-            try:
-                return fn(client)
-            except wcb.WordCraftError as e:
-                raise ai.AIError(str(e))
-
-        def done(ok, res):
-            if not ok:
-                if 'bağlanılamadı' in res or 'kapatılmış' in res or 'anahtar' in res:
-                    self._wc_lost(res)
-                else:
-                    messagebox.showerror('WordCraft', res, parent=self)
-                return
-            if ok_msg:
-                self.flash(ok_msg, ms=9000)
-        self._start_job(label, work, done)
-
-    def _blocks_html(self, d):
-        return rdoc.blocks_to_html(d.text.get_blocks()) if d.rich else rdoc.blocks_to_html(
-            rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'), {}) or [rdoc.para()])
-
-    def wc_open_current(self):
-        d = self.cur()
-        if not d:
-            v = self.cur_pdf() if hasattr(self, 'pdf_views') else None
-            if v is not None and getattr(v, 'path', None):
-                messagebox.showinfo('WordCraft', 'PDF dosyaları WordCraft\'ta düzenlenemez; önce "Metin olarak aç" ile '
-                                    'belgeye çevirin.', parent=self)
-            return
-        path = d.path if d.path and not d.dirty and os.path.splitext(d.path)[1].lower() in ('.docx', '.odt', '.rtf', '.doc') else None
-        html = None if path else self._blocks_html(d)
-        name = d.title
-
-        def go():
-            if path:
-                self._wc_job('WordCraft: belge açılıyor', lambda c: c.open(path), 'WordCraft\'ta açıldı: %s' % os.path.basename(path))
-            else:
-                self._wc_job('WordCraft: belge aktarılıyor', lambda c: c.new_document(html),
-                             'WordCraft\'ta yeni belge olarak açıldı: %s (kaydetmek için WordCraft\'ta Dosya › Farklı kaydet)' % name)
-        self._wc_ensure(go)
-
-    def wc_new(self):
-        self._wc_ensure(lambda: self._wc_job('WordCraft: yeni belge', lambda c: c.new_document(), 'WordCraft\'ta yeni belge açıldı.'))
-
-    def wc_open_file(self):
-        path = filedialog.askopenfilename(parent=self, title='WordCraft\'ta aç', filetypes=[
-            ('Belgeler', '*.docx *.doc *.odt *.rtf *.html *.htm *.md *.txt'), ('Tüm dosyalar', '*.*')])
-        if not path:
-            return
-        self._wc_ensure(lambda: self._wc_job('WordCraft: belge açılıyor', lambda c: c.open(path),
-                                             'WordCraft\'ta açıldı: %s' % os.path.basename(path)))
-
-    def run_action_wordcraft(self, action, options=None, translate_mode=None):
-        """1.8: secimi WordCraft'tan alir, AI'ya gonderir, sonucu WordCraft'a (degisiklik izleme acik) yazar."""
-        options = dict(options or self._ai_options(), rich=True)
-        if action['key'] == 'custom' and not options.get('user_extra'):
-            messagebox.showinfo('Özel talimat', 'Önce "Ek talimat" kutusuna ne yapılmasını istediğinizi yazın.', parent=self)
-            return
-        client, backends = self.wc, self.backends()
-        scope = 'all' if self.scope_var.get() == 'all' else 'selection'
-        track = bool(self.settings.get('wordcraft_track', True))
-        mode = 'below' if translate_mode == 'below' else ('append' if action.get('mode') == 'append' else 'replace')
-
-        def work():
-            try:
-                cap = client.capture(scope)
-            except wcb.WordCraftError as e:
-                raise ai.AIError(str(e))
-            source = cap['markdown']
-            if not source.strip():
-                raise ai.AIError('WordCraft\'ta düzenlenecek metin yok. Bir bölüm seçin ya da "Tüm belge"yi işaretleyin.')
-            if len(source) > core.MAX_CHARS:
-                raise ai.AIError('Seçilen metin %d karakter; tek seferde en fazla %d karakter işlenir.' % (len(source), core.MAX_CHARS))
-            res = ai.run_with_fallback(backends, 'transform', source, action, options)
-            html = rdoc.blocks_to_html(rdoc.markdown_to_blocks(res['text'], {}) or [rdoc.para()])
-            try:
-                if translate_mode == 'newtab':
-                    client.new_document(html, turkish=False)
-                else:
-                    client.apply(cap, html, mode=mode, track=track)
-            except wcb.WordCraftError as e:
-                raise ai.AIError(str(e))
-            return dict(res, where=cap['where'])
-
-        def done(ok, res):
-            if not ok:
-                if 'bağlanılamadı' in res or 'kapatılmış' in res:
-                    self._wc_lost(res)
-                else:
-                    messagebox.showerror('Yapay zekâ · WordCraft', res, parent=self)
-                return
-            self.ai_var.set('Son işlem: %s · %s %s' % (action['label'], res.get('via', ''), ('· ' + res.get('model', '')) if res.get('model') else ''))
-            if translate_mode == 'newtab':
-                self.flash('Çeviri WordCraft\'ta yeni belge olarak açıldı.', ms=9000)
-            elif track:
-                self.flash('WordCraft\'a izlenen değişiklik olarak yazıldı (%s). İncele › Kabul et / Reddet.' % res.get('where', ''), ms=12000)
-            else:
-                self.flash('WordCraft\'a yazıldı (%s). Geri almak için WordCraft\'ta Ctrl+Z.' % res.get('where', ''), ms=12000)
-        self._start_job('%s · WordCraft' % action['label'], work, done)
 
     def _clear_marks(self, d, *marks):
         for m in marks:
@@ -3370,8 +4151,8 @@ class App(tk.Tk):
             dv.configure(yscrollcommand=sb.set)
             sb.pack(side='right', fill='y')
             dv.pack(fill='both', expand=True)
-            dv.tag_configure('delete', foreground=BAD_C, overstrike=True, background='#3a1d22')
-            dv.tag_configure('insert', foreground='#b9f5cf', background='#173a2a')
+            dv.tag_configure('delete', foreground=BAD_C, overstrike=True, background=DEL_BG)
+            dv.tag_configure('insert', foreground=INS_FG, background=NEW_BG)
             for op, s in ops:
                 dv.insert('end', s, op if op != 'equal' else ())
             dv.configure(state='disabled')
@@ -3516,9 +4297,6 @@ class App(tk.Tk):
         document = ''
         d = self.cur()
         v = self.cur_pdf() if not d and hasattr(self, 'pdf_views') else None
-        wc_doc = self._wc_active() and (self.chat_ctx.get() or prompt)
-        if wc_doc:
-            d = v = None                                   # 1.8: belge WordCraft'tan, is parcaciginda okunur
         if d and (self.chat_ctx.get() or prompt):
             try:
                 s0, e0 = d.text.index('sel.first'), d.text.index('sel.last')
@@ -3548,19 +4326,6 @@ class App(tk.Tk):
                 return
             self.chat_messages.append({'role': 'assistant', 'content': res['text']})
             self._chat_append('AI · %s' % (res.get('model') or res.get('via', '')), res['text'], 'a')
-        if wc_doc:
-            client, scope = self.wc, ('all' if self.scope_var.get() == 'all' else 'selection')
-
-            def wc_chat(backends):
-                try:
-                    cap = client.capture(scope) if scope == 'selection' else {'markdown': client.document_markdown()}
-                    if scope == 'selection' and not (cap.get('text') or '').strip():
-                        cap = {'markdown': client.document_markdown()}
-                except wcb.WordCraftError as e:
-                    raise ai.AIError(str(e))
-                return ai.run_with_fallback(backends, 'chat', msgs, (cap.get('markdown') or '')[:core.MAX_CHARS])
-            self._start_job((label or 'Sohbet') + ' · WordCraft', wc_chat, done, self.backends())
-            return
         self._start_job(label or 'Sohbet', ai.run_with_fallback, done, self.backends(), 'chat', msgs, document[:core.MAX_CHARS])
 
     def pdf_context_text(self, v):
@@ -3983,7 +4748,7 @@ class SettingsDialog(tk.Toplevel):
                      ('direct', 'Yalnızca doğrudan sağlayıcı')):
             ttk.Radiobutton(f, text=t, value=v, variable=self.mode).pack(anchor='w')
         g1 = tk.LabelFrame(f, text=' AGFO AI Manager (WordPress) ', bg=PANEL, fg=ACCENT, font=('Segoe UI', 9, 'bold'), bd=1, padx=10, pady=8,
-                           relief='solid', highlightbackground='#2d4a6c')
+                           relief='solid', highlightbackground=LINE)
         g1.pack(fill='x', pady=(10, 6))
         self.url = tk.StringVar(value=s['manager_url'])
         self.user = tk.StringVar(value=s['manager_user'])
@@ -4048,17 +4813,6 @@ class SettingsDialog(tk.Toplevel):
         app.lbl(u, 'Sürüm %s · github.com/downtownck/agfo-windows-apps (etiket ai-editor-v*)\nİndirilen dosya SHA-256 ile doğrulanır.' % core.VERSION,
                 muted=True).pack(anchor='w', pady=8)
         app.btn(u, 'Şimdi denetle', lambda: app.check_update(silent=False), 'normal', side=None).pack(anchor='w')
-
-        w = ttk.Frame(nb, padding=14)                       # 1.8
-        nb.add(w, text='WordCraft')
-        self.wc_track = tk.BooleanVar(value=s.get('wordcraft_track', True))
-        ttk.Checkbutton(w, text='AI değişikliklerini WordCraft\'ta izlenen değişiklik olarak uygula (İncele › Kabul et / Reddet)',
-                        variable=self.wc_track).pack(anchor='w')
-        inst = wcb.installed_exe()
-        app.lbl(w, 'WordCraft %s · github.com/storytold/wordcraft (MIT / Apache-2.0, ArtCraft ekibi)\n%s\n'
-                   'Türkçe yazım sözlüğü: %s' % (wcb.WORDCRAFT_VERSION, ('Kurulu: %s' % inst) if inst else 'Kurulu değil; ilk kullanımda indirilir.',
-                                                'kurulu' if wcb.dictionary_installed() else 'kurulu değil'),
-                muted=True).pack(anchor='w', pady=8)
 
         b = tk.Frame(self, bg=PANEL, padx=12, pady=10)
         b.pack(fill='x')
@@ -4181,7 +4935,6 @@ class SettingsDialog(tk.Toplevel):
             pass
         s['wrap'] = bool(self.wrap.get())
         s['auto_update'] = bool(self.auto_upd.get())
-        s['wordcraft_track'] = bool(self.wc_track.get())
         core.save_settings(s)
         for d in self.app.docs:
             d.text.configure(font=self.app._editor_font(), wrap='word' if s['wrap'] else 'none')

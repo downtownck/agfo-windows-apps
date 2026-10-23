@@ -1101,24 +1101,44 @@ def read_docx_blocks(path):
     return out or [para()]
 
 
-def _hf_text(rd, node):
-    """Ust/alt bilgi metni; PAGE alanlari {sayfa} olarak isaretlenir."""
+def _hf_parse(node):
+    """Ust/alt bilgi: (metin, sayfa_no_hizasi | None, toplam_sayfa_var_mi). PAGE alani iceren paragraf metne katilmaz."""
     if node is None:
-        return '', False
-    paras, has_page = [], False
+        return '', None, False
+    paras, num_align, has_total = [], None, False
     for p in node.iter(w('p')):
-        parts, infld = [], False
+        parts, infld, has_page = [], False, False
         for el in p.iter():
-            if el.tag == w('fldSimple') and 'PAGE' in (el.get(w('instr')) or '').upper().split():
-                has_page = True
-            elif el.tag == w('instrText') and (el.text or '').strip().upper().startswith(('PAGE', 'NUMPAGES')):
-                has_page = True
-            elif el.tag == w('fldChar'):
+            instr = ''
+            if el.tag == w('fldSimple'):
+                instr = (el.get(w('instr')) or '').upper()
+            elif el.tag == w('instrText'):
+                instr = (el.text or '').upper()
+            if instr:
+                words = instr.split()
+                if 'PAGE' in words:
+                    has_page = True
+                if 'NUMPAGES' in words or 'SECTIONPAGES' in words:
+                    has_total = True
+                continue
+            if el.tag == w('fldChar'):
                 infld = el.get(w('fldCharType')) in ('begin', 'separate')
-            elif el.tag == w('t') and el.text and not infld:
+            elif el.tag == w('t') and el.text and not infld and not _in_fld_simple(p, el):
                 parts.append(el.text)
+        if has_page and num_align is None:
+            jc = next(p.iter(w('jc')), None)
+            v = jc.get(w('val')) if jc is not None else None
+            num_align = {'right': 'right', 'end': 'right', 'left': 'left', 'start': 'left'}.get(v, 'center')
+            continue
         paras.append(''.join(parts))
-    return '\n'.join(x for x in paras if x.strip()).strip(), has_page
+    return '\n'.join(x for x in paras if x.strip()).strip(), num_align, has_total
+
+
+def _in_fld_simple(p, el):
+    for fs in p.iter(w('fldSimple')):
+        if any(x is el for x in fs.iter()):
+            return True
+    return False
 
 
 def read_docx_page(path):
@@ -1160,19 +1180,9 @@ def read_docx_page(path):
                     continue
                 name = tgt.lstrip('/')
                 name = name if name.startswith('word/') else 'word/' + name
-                txt, has_page = _hf_text(rd, rd._xml(name))
-                if has_page and not page['pnum']:
-                    align = 'center'
-                    node = rd._xml(name)
-                    jc = next(node.iter(w('jc')), None) if node is not None else None
-                    if jc is not None:
-                        align = {'right': 'right', 'end': 'right', 'left': 'left', 'start': 'left'}.get(jc.get(w('val')), 'center')
-                    fmt = 'n_of_N' if node is not None and any(
-                        'NUMPAGES' in ((e.get(w('instr')) or '') + (e.text or '')).upper()
-                        for e in node.iter() if e.tag in (w('fldSimple'), w('instrText'))) else 'n'
-                    page['pnum'] = {'pos': kind, 'align': align, 'fmt': fmt}
-                    # numaranin cevresindeki "Sayfa ... / ..." kalintilarini at
-                    txt = re.sub(r'(?i)^\s*(sayfa|page)?\s*[/]?\s*(/|of|\s)*\s*$', '', txt).strip()
+                txt, num_align, total = _hf_parse(rd._xml(name))
+                if num_align and not page['pnum']:
+                    page['pnum'] = {'pos': kind, 'align': num_align, 'fmt': 'n_of_N' if total else 'n'}
                 page[kind] = txt
     except (zipfile.BadZipFile, KeyError, ET.ParseError, ValueError, OSError):
         pass
