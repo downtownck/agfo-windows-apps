@@ -427,6 +427,20 @@ class GuiV2Tests(unittest.TestCase):
             time.sleep(0.01)
         return False
 
+    def test_theme_restart_starts_clean_process(self):
+        """2.0.1: yeniden baslatilan surec PyInstaller ortamini (_MEI klasoru) devralmamali."""
+        calls = []
+        with mock.patch.dict(os.environ, {'_PYI_APPLICATION_HOME_DIR': r'C:\\Temp\\_MEI1', '_MEIPASS2': 'x'}), \
+                mock.patch.object(self.m.subprocess, 'Popen', lambda *a, **k: calls.append((a, k))):
+            self.app.restart()
+        self.assertEqual(len(calls), 1)
+        env = calls[0][1]['env']
+        self.assertNotIn('_PYI_APPLICATION_HOME_DIR', env)
+        self.assertNotIn('_MEIPASS2', env)
+        self.assertEqual(env['PYINSTALLER_RESET_ENVIRONMENT'], '1')
+        self.app = self.m.App(smoke=True)                                 # tearDown icin yeni pencere
+        self.app.withdraw()
+
     def test_theme_palettes(self):
         m = self.m
         self.assertEqual(set(m.THEMES['dark']), set(m.THEMES['light']))

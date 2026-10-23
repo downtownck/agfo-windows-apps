@@ -1740,7 +1740,10 @@ class App(tk.Tk):
         except tk.TclError:
             pass
         args = [sys.executable] + ([] if upd.is_frozen() else [os.path.abspath(sys.argv[0])]) + files
-        subprocess.Popen(args, close_fds=True)
+        # 2.0.1: PyInstaller ortam degiskenleri yeni surece GECMEMELI; yoksa yeni pencere eski surecin gecici klasorunu
+        # (_MEI...) kullanir, eski surec kapaninca o klasor silinir ve "base_library.zip bulunamadi" hatasi cikar.
+        subprocess.Popen(args, env=upd.scrub_env(), close_fds=True,
+                         creationflags=(upd.DETACHED_PROCESS | upd.CREATE_NEW_PROCESS_GROUP) if IS_WIN else 0)
 
     def zoom_reset(self):
         self.settings['page_zoom'] = 1.0
