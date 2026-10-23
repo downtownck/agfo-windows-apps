@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
-VERSION = '1.7.0'
+VERSION = '1.8.0'
 APP_NAME = 'AGFO AI Editor'
 IS_WIN = sys.platform == 'win32'
 MAX_CHARS = 60000
@@ -75,6 +75,7 @@ DEFAULT_SETTINGS = {
     'page_zoom': 1.0,
     'rich_font': '',
     'rich_size': 11,
+    'wordcraft_track': True,           # 1.8: AI sonucunu WordCraft'ta izlenen degisiklik olarak uygula
     'install_declined': False,         # 1.4.8: is basina ceviri modeli {'kind', 'provider', 'model'}; bos = varsayilan
 }
 
