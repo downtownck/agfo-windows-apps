@@ -5,7 +5,7 @@ $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $root
 $python = (Get-Command python.exe -ErrorAction Stop).Source
 Write-Host ('Python: ' + $python)
-& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'Pillow>=11,<13' 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'cryptography>=42,<47' 'fonttools>=4.50,<5'
+& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'Pillow>=11,<13' 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'cryptography>=42,<47' 'fonttools>=4.50,<5' 'lxml>=5.2,<7'
 if ($LASTEXITCODE) { throw 'pip install failed' }
 function Write-Annotation([string]$title, [string]$text) {
     # GitHub annotations are readable through the REST API even when raw logs are not.
@@ -36,6 +36,8 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-editor-build' }
     --distpath (Join-Path $root 'dist') --workpath (Join-Path $work 'work') --specpath (Join-Path $work 'spec') `
     --icon (Join-Path $root 'assets\agfo-ai-editor.ico') --paths (Join-Path $root 'src') `
     --add-data ((Join-Path $root 'assets\agfo-ai-editor.ico') + ';assets') `
+    --add-data ((Join-Path $root 'src\brcgs_data') + ';brcgs_data') `
+    --hidden-import agfo_brcgs --hidden-import agfo_brcgs.data --hidden-import agfo_brcgs.boxes --hidden-import agfo_brcgs.docx_engine --hidden-import agfo_brcgs.store --hidden-import agfo_brcgs.guide --hidden-import agfo_brcgs.coverage --hidden-import agfo_brcgs.xlsx_reader --hidden-import agfo_brcgs_view --hidden-import lxml.etree `
     --hidden-import agfo_editor_core --hidden-import agfo_ai_client --hidden-import agfo_secrets `
     --hidden-import agfo_editor_update --hidden-import agfo_github_update --hidden-import agfo_sources --hidden-import agfo_pdf --hidden-import agfo_pdf_view --hidden-import agfo_pdf_edit `
     --hidden-import agfo_richdoc --hidden-import agfo_richtext --hidden-import agfo_doctranslate --hidden-import agfo_compare --hidden-import agfo_pdf_layout --hidden-import agfo_trlive --hidden-import agfo_speech --hidden-import agfo_readaloud --hidden-import agfo_localtts --hidden-import agfo_spell `

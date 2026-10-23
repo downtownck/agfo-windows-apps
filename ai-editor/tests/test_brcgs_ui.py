@@ -187,6 +187,25 @@ class BrcgsUiTests(unittest.TestCase):
         self.assertTrue(any(r['label'] == 'pre-excel-import' for r in v.store.revisions(v.uid)))
         self.assertIn('error', v.plan_excel({'profile': 'cp', 'rows': parsed['rows']}))
 
+    def test_real_excel_file_import_to_docx(self):
+        import test_brcgs_xlsx as TX
+        from agfo_brcgs import xlsx_reader as X
+        _ex, v = self._new('cp')
+        keys = TX.first_field_keys('cp', 3)
+        filled = TX.make_filled(tempfile.mkdtemp(dir=TMP), 'cp', [(c, k, ('inline', 'Excel yanıtı %d' % i)) for i, (c, k, _l) in enumerate(keys)])
+        vm = __import__('agfo_brcgs_view')
+        with mock.patch.object(vm.filedialog, 'askopenfilename', return_value=str(filled)), \
+                mock.patch.object(vm.messagebox, 'askokcancel', return_value=True) as ok:
+            v.import_excel()
+            ok.assert_called_once()
+        self.assertEqual(len(X.parse(str(filled))['rows']), 3)
+        by = {s['clause']: s for s in v.store.get(v.uid)['sections']}
+        for i, (c, _k, _l) in enumerate(keys):
+            self.assertIn('Excel yanıtı %d' % i, by[c]['value'])
+        blob, _st = v.store.export_docx(v.uid, os.path.join(TMP, 'cp-x.docx'))
+        back = self.app.brcgs_store().import_docx(os.path.join(TMP, 'cp-x.docx'))
+        self.assertIn('Excel yanıtı 0', {s['clause']: s['value'] for s in back['sections']}[keys[0][0]])
+
     def test_explorer_trash_rules(self):
         ex, v = self._new('ab')
         ex.refresh()

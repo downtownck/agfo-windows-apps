@@ -184,8 +184,23 @@ def selftest(out_path: str) -> int:
                            'font_subset': len(_e.font_data(_e.pick_font('Helvetica'), 'abc')) < os.path.getsize(_e.pick_font('Helvetica'))}
         os.unlink(pp)
         os.unlink(out)
+        # 2.2: BRCGS - sablonlar pakette mi, lxml var mi, 5 sablon yaz -> oku (kutu, alan, NA)
+        from agfo_brcgs import boxes as _bb, data as _bd, docx_engine as _be, guide as _bg
+        _brs = {}
+        for _pf in _bd.PROFILES:
+            _secs = _bb.sections_for_profile(_pf)
+            _secs[0]['value'] = 'Selftest %s ğüş' % _pf
+            _blob, _st = _be.write_report({'profile': _pf, 'values': {'BRC_SITE_CODE': '1234567'}, 'sections': _secs,
+                                           'na_clauses': [{'clause_ref': '%s.9' % _bb.chapter_of(_secs[0]['clause']), 'justification': 'x'}]})
+            _back = _be.read_report(_blob)
+            _brs[_pf] = (_back['profile'] == _pf and _back['values'].get('BRC_SITE_CODE') == '1234567'
+                         and _back['sections'][0]['value'] == 'Selftest %s ğüş' % _pf and len(_back['na_clauses']) == 1
+                         and _bg.form_for(_pf, _secs[0]['clause']) is not None
+                         and _bd.excel_template_path(_pf).is_file())
+        res['brcgs'] = _brs
         res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
-                     and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset'])
+                     and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset']
+                     and all(_brs.values()))
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
