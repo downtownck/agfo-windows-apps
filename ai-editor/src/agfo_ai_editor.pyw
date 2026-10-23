@@ -4923,8 +4923,10 @@ class App(tk.Tk):
             self.update_result = res
             ver = res['version']
             self.update_btn.configure(text='⬆ Güncelleme var: v%s' % ver)
-            if not self.update_btn.winfo_ismapped():
-                self.update_btn.pack(side='right', padx=(0, 8))
+            if not self.update_btn.winfo_manager():
+                # 2.2.0: baslik cubugunda once yerlestirilen once yer alir; dar pencerede kirpilan son dugme olmasin
+                first = next((w_ for w_ in self.update_btn.master.pack_slaves() if w_ is not self.update_btn), None)
+                self.update_btn.pack(side='right', padx=(0, 8), **({'before': first} if first is not None else {}))
             if self._update_shown != ver:
                 self._update_shown = ver
                 self.title('AGFO AI Editor %s  ·  güncelleme var: v%s' % (core.VERSION, ver))

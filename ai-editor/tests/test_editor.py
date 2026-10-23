@@ -478,6 +478,11 @@ class GuiTests(unittest.TestCase):
         self.assertTrue(app._apply_update_result(res))
         self.assertTrue(self.pump(lambda: app.update_btn.winfo_ismapped()))
         self.assertIn('Güncelleme var: v9.9.9', app.update_btn.cget('text'))
+        # en dar pencerede de gorunur kalir (baslik cubugundaki diger dugmeler once kirpilir)
+        app.geometry('%dx%d' % (app.minsize()[0], app.minsize()[1]))
+        self.assertTrue(self.pump(lambda: app.winfo_width() <= app.minsize()[0] + 2))
+        self.pump(lambda: False, 20)
+        self.assertTrue(app.update_btn.winfo_ismapped())
         self.assertIn('güncelleme var: v9.9.9', app.title())
         self.assertIn('v9.9.9', app.ai_var.get())
         # throttled / error: gosterilen dugme kaybolmaz
