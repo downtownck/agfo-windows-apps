@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AGFO AI Editor 1.4 - bicimli metin duzenleyici (Tk Text uzerine).
+"""AGFO AI Editor 2.0 - bicimli metin duzenleyici (Tk Text uzerine).
 
 Tk'nin kendi geri al yigini bicimleri ve resimleri geri getirmez; bu yuzden Text komutu Tcl duzeyinde
 yonlendirilir (insert / delete / image create / tag add-remove) ve her degisiklik bicimleriyle birlikte
@@ -9,6 +9,9 @@ Belge yapisi Text icinde:
   * her satir bir paragraftir; paragraf etiketleri (h1, li_b, tbl ...) satirin tamamina ve satir sonuna uygulanir;
     bir satirin bicimi, satir sonu karakterindeki etiketlerden okunur.
   * karakter etiketleri: b, i, u, c_RRGGBB; yazi tipi etiketi F_<stil>_<b><i> bunlardan turetilir.
+    2.0: s (ustu cizili), sup/sub, h_RRGGBB (vurgu), fn_<aile hex>, sz_<pt*10>, ln_<adres hex> (baglanti);
+    yazi tipi etiketi F_<stil>_<b><i>_<aile>_<boyut>_<sup/sub>.
+  * paragraf 2.0: ls_<carpan*100>, sb_<pt*10>, sa_<pt*10>, in_<sol*10>_<ilk satir*10, eksi icin m>.
   * liste isaretleri ("• ", "1. ") satir basinda 'lm' etiketli gercek metindir.
   * tablo satirlari: hucreler sekme (\\t) ile ayrilir; 'tbl' + 'tb_<n>' etiketleri.
   * resimler: kendi satirinda gomulu goruntu; veriler self.images[ad] icinde.
@@ -29,8 +32,12 @@ LIST_TAGS = ('li_b', 'li_n')
 LEVEL_TAGS = ('lvl0', 'lvl1', 'lvl2', 'lvl3')
 ALIGN_TAGS = ('al_center', 'al_right', 'al_justify')
 PARA_FIXED = set(STYLE_TAGS + LIST_TAGS + LEVEL_TAGS + ALIGN_TAGS + ('tbl', 'pb'))
-CHAR_FIXED = {'b', 'i', 'u'}
-TRANSIENT = {'sel', 'found', 'ai_new', 'hover', 'md_h', 'md_mark', 'md_li', 'fmt_flash', 'pairhl', 'trwork', 'trdone'}
+CHAR_FIXED = {'b', 'i', 'u', 's', 'sup', 'sub'}
+CHAR_PREFIX = ('c_', 'h_', 'fn_', 'sz_', 'ln_')
+PARA_PREFIX = ('tb_', 'ls_', 'sb_', 'sa_', 'in_')
+TRANSIENT = {'sel', 'found', 'ai_new', 'hover', 'md_h', 'md_mark', 'md_li', 'fmt_flash', 'pairhl', 'trwork', 'trdone', 'spell'}
+OVERLAY = ('spell', 'trdone', 'trwork', 'found', 'ai_new', 'sel')
+LINK_COLOR = '0563C1'
 ERR_MARK = '\x01AGFOERR\x01'
 ERR_MARK_TCL = '\\x01AGFOERR\\x01'
 BULLETS = ('• ', '◦ ', '▪ ', '▫ ')
@@ -40,11 +47,63 @@ PAGE_COLORS = {'bg': '#ffffff', 'fg': '#1b1b1b', 'sel': '#b9d7f7', 'insert': '#1
 
 
 def is_para_tag(t):
-    return t in PARA_FIXED or t.startswith('tb_')
+    return t in PARA_FIXED or t.startswith(PARA_PREFIX)
 
 
 def is_char_tag(t):
-    return t in CHAR_FIXED or t.startswith('c_')
+    return t in CHAR_FIXED or t.startswith(CHAR_PREFIX)
+
+
+def _hex(sv):
+    return sv.encode('utf-8').hex()
+
+
+def _unhex(h):
+    try:
+        return bytes.fromhex(h).decode('utf-8')
+    except ValueError:
+        return None
+
+
+def _num(v):
+    """pt*10 etiket sayisini geri cevirir (tam sayiysa int)."""
+    v = int(v) / 10.0
+    return int(v) if v == int(v) else v
+
+
+def _enc(v):
+    n = int(round(float(v) * 10))
+    return ('m%d' % -n) if n < 0 else str(n)
+
+
+def _dec(sv):
+    return -_num(sv[1:]) if sv.startswith('m') else _num(sv)
+
+
+def fmt_from_tags(tags):
+    """Karakter etiketlerinden bicim sozlugu (run alanlari)."""
+    f = {'b': 'b' in tags, 'i': 'i' in tags, 'u': 'u' in tags, 'color': None}
+    for t in tags:
+        if t.startswith('c_'):
+            f['color'] = t[2:]
+        elif t.startswith('h_'):
+            f['hl'] = t[2:]
+        elif t.startswith('fn_'):
+            f['font'] = _unhex(t[3:])
+        elif t.startswith('sz_'):
+            try:
+                f['size'] = _num(t[3:])
+            except ValueError:
+                pass
+        elif t.startswith('ln_'):
+            f['href'] = _unhex(t[3:])
+    if 's' in tags:
+        f['s'] = True
+    if 'sup' in tags:
+        f['va'] = 'sup'
+    elif 'sub' in tags:
+        f['va'] = 'sub'
+    return {k: v for k, v in f.items() if v or k in ('b', 'i', 'u', 'color')}
 
 
 def recorded(t):
@@ -79,6 +138,8 @@ class RichText(tk.Text):
         self.family, self.size = family, size
         self.zoom = 1.0
         self.page_mode = False
+        self.page = R.normalize_page(None)   # 2.0: sayfa ayari (boyut, yon, kenar bosluklari, ust/alt bilgi)
+        self.on_link = None                   # 2.0: Ctrl+tik ile baglanti acma (url) -> None
         self.images = {}          # gomulu resim adi -> img blogu (data, ext, w, h, align)
         self._photos = {}         # ad -> PhotoImage (cop toplanmasin)
         self._fonts = {}
@@ -119,6 +180,14 @@ class RichText(tk.Text):
         for k, tag in (('b', 'b'), ('i', 'i'), ('u', 'u')):
             self.bind('<Control-%s>' % k, lambda e, t=tag: (self.toggle_char(t), 'break')[1])
             self.bind('<Control-%s>' % k.upper(), lambda e, t=tag: (self.toggle_char(t), 'break')[1])
+        # Ctrl+E ve Ctrl+arti uygulamada (AI eylemi, yakinlastirma) kullanildigi icin burada baglanmaz
+        for seq, fn in (('<Control-equal>', lambda: self.toggle_char('sub')), ('<Control-space>', self.clear_char_formatting),
+                        ('<Control-Return>', self.insert_page_break), ('<Control-j>', lambda: self.set_align('justify')),
+                        ('<Control-J>', lambda: self.set_align('justify')), ('<Control-l>', lambda: self.set_align('left')),
+                        ('<Control-L>', lambda: self.set_align('left')), ('<Control-r>', lambda: self.set_align('right')),
+                        ('<Control-R>', lambda: self.set_align('right'))):
+            self.bind(seq, lambda e, f=fn: (f(), 'break')[1])
+        self.bind('<Control-Button-1>', self._on_ctrl_click)
         self.bind('<<Paste>>', self._on_paste)
         self.bind('<<Copy>>', self._on_copy, add='+')
         self.bind('<<Cut>>', self._on_cut)
@@ -310,27 +379,130 @@ class RichText(tk.Text):
     def px(self, pt):
         return self.winfo_fpixels('%fp' % (pt * self.zoom))
 
-    def font_tag(self, style, b, i):
+    def font_tag(self, style, b, i, family=None, size=None, va=None):
         b, i = bool(b), bool(i)
+        va = va if va in ('sup', 'sub') else None
         name = 'F_%s_%d%d' % (style, int(b), int(i))
+        if family or size or va:
+            name += '_%s_%s_%s' % (_hex(family) if family else '-', _enc(size) if size else '-', va or '-')
         if name not in self._fonts:
-            self._fonts[name] = (style, b, i)
+            self._fonts[name] = (style, b, i, family or None, size or None, va)
             self._apply_font(name)
             self._call('tag', 'lower', name)
         return name
 
+    def font_tag_for(self, style, fmt):
+        return self.font_tag(style, fmt.get('b'), fmt.get('i'), fmt.get('font'), fmt.get('size'), fmt.get('va'))
+
+    def doc_pt(self, pt):
+        """Belge punto degerini ekran puntosuna cevirir (11 pt belge = ayarlardaki yazi boyutu)."""
+        return float(pt) * self.size / 11.0
+
     def _apply_font(self, name):
-        style, b, i = self._fonts[name]
-        size = max(6, round(self.size * STYLE_SCALE.get(style, 1.0) * self.zoom))
+        style, b, i, family, dsize, va = self._fonts[name]
+        base = self.doc_pt(dsize) if dsize else self.size * STYLE_SCALE.get(style, 1.0)
+        if va:
+            base *= 0.66
+        size = max(5, round(base * self.zoom))
         weight = 'bold' if b or style in ('h1', 'h2', 'h3') else 'normal'
         slant = 'italic' if i or style == 'quote' else 'roman'
         objs = self.__dict__.setdefault('_font_objs', {})
         f = objs.get(name)
+        fam = family or self.family
         if f is None:
-            f = objs[name] = tkfont.Font(self, family=self.family, size=size, weight=weight, slant=slant)
+            f = objs[name] = tkfont.Font(self, family=fam, size=size, weight=weight, slant=slant)
         else:
-            f.configure(family=self.family, size=size, weight=weight, slant=slant)
+            f.configure(family=fam, size=size, weight=weight, slant=slant)
         self._call('tag', 'configure', name, '-font', f)
+
+    # ---------------------------------------------------------------- 2.0 etiketleri
+    @property
+    def dark(self):
+        """Duzenleme alani koyu mu (sayfa gorunumu her zaman acik)."""
+        if self.page_mode:
+            return False
+        bg = str(self.colors.get('EDIT_BG', '#0e1b2e')).lstrip('#')
+        try:
+            r, g, b = (int(bg[k:k + 2], 16) for k in (0, 2, 4))
+        except ValueError:
+            return True
+        return 0.299 * r + 0.587 * g + 0.114 * b < 128
+
+    def _raise_overlays(self):
+        for t in OVERLAY:
+            try:
+                self._call('tag', 'raise', t)
+            except tk.TclError:
+                pass
+
+    def _hl_tag(self, hexc):
+        name = 'h_' + hexc
+        col = '#' + hexc
+        if self.dark:                         # koyu zeminde vurguyu koyulastir ki yazi okunsun
+            r, g, b = (int(hexc[k:k + 2], 16) for k in (0, 2, 4))
+            col = '#%02x%02x%02x' % tuple(int(v * 0.42 + 14 * 0.58) for v in (r, g, b))
+        new = name not in self.tag_names()
+        self.tag_configure(name, background=col)
+        if new:
+            self._raise_overlays()
+        return name
+
+    def _font_family_tag(self, family):
+        name = 'fn_' + _hex(family)
+        self.tag_configure(name)
+        return name
+
+    def _size_tag(self, size):
+        name = 'sz_' + _enc(size)
+        self.tag_configure(name)
+        return name
+
+    def _link_tag(self, href):
+        name = 'ln_' + _hex(href)
+        new = name not in self.tag_names()
+        self.tag_configure(name, foreground=('#7fb6ff' if self.dark else '#' + LINK_COLOR), underline=True)
+        if new:
+            self.tag_bind(name, '<Enter>', lambda e: self.configure(cursor='hand2'))
+            self.tag_bind(name, '<Leave>', lambda e: self.configure(cursor='xterm'))
+            self._raise_overlays()
+        return name
+
+    def link_at(self, index):
+        for t in self.tag_names(index):
+            if str(t).startswith('ln_'):
+                return _unhex(str(t)[3:])
+        return None
+
+    def _on_ctrl_click(self, e):
+        url = self.link_at('@%d,%d' % (e.x, e.y))
+        if url and self.on_link:
+            self.on_link(url)
+            return 'break'
+        return None
+
+    def _ensure_para_tag(self, name):
+        """ls_/sb_/sa_/in_ etiketlerini olcege gore kurar."""
+        try:
+            if name.startswith('ls_'):
+                mult = int(name[3:]) / 100.0
+                gap = max(0, (mult - 1.0)) * self.doc_pt(11) * 1.25
+                self.tag_configure(name, spacing2=int(self.px(gap)))
+            elif name.startswith('sb_'):
+                self.tag_configure(name, spacing1=int(self.px(self.doc_pt(_dec(name[3:])) * 1.0)))
+            elif name.startswith('sa_'):
+                self.tag_configure(name, spacing3=int(self.px(self.doc_pt(_dec(name[3:])) * 1.0)))
+            elif name.startswith('in_'):
+                a, b = name[3:].split('_', 1)
+                ind, fi = _dec(a), _dec(b)
+                scale = self.size / 11.0
+                self.tag_configure(name, lmargin1=int(self.px(max(0, ind + fi) * scale)), lmargin2=int(self.px(max(0, ind) * scale)))
+            else:
+                return name
+        except (ValueError, tk.TclError):
+            return name
+        self._call('tag', 'raise', name)
+        self._raise_overlays()
+        return name
 
     def set_font(self, family=None, size=None, zoom=None):
         self.family = family or self.family
@@ -348,44 +520,58 @@ class RichText(tk.Text):
         page = self.page_mode
         tc = self.tag_configure
         base = self.px(14)
-        tc('h1', foreground=PAGE_COLORS['h1'] if page else '#ffffff', spacing1=self.px(16), spacing3=self.px(6))
-        tc('h2', foreground=PAGE_COLORS['h2'] if page else '#e6f1ff', spacing1=self.px(12), spacing3=self.px(4))
-        tc('h3', foreground=PAGE_COLORS['h1'] if page else '#dce9fb', spacing1=self.px(9), spacing3=self.px(3))
-        tc('quote', foreground=PAGE_COLORS['quote'] if page else c['MUTED'], lmargin1=self.px(30), lmargin2=self.px(30),
+        light = not self.dark
+        tc('h1', foreground=PAGE_COLORS['h1'] if light else '#ffffff', spacing1=self.px(16), spacing3=self.px(6))
+        tc('h2', foreground=PAGE_COLORS['h2'] if light else '#e6f1ff', spacing1=self.px(12), spacing3=self.px(4))
+        tc('h3', foreground=PAGE_COLORS['h1'] if light else '#dce9fb', spacing1=self.px(9), spacing3=self.px(3))
+        tc('quote', foreground=PAGE_COLORS['quote'] if light else c['MUTED'], lmargin1=self.px(30), lmargin2=self.px(30),
            rmargin=self.px(30))
         for k, t in enumerate(LEVEL_TAGS):
             tc(t, lmargin1=base * (k + 0.6), lmargin2=base * (k + 0.6) + self.px(13))
         tc('li_b', spacing3=self.px(2))
         tc('li_n', spacing3=self.px(2))
-        tc('lm', foreground=PAGE_COLORS['marker'] if page else c['ACCENT'])
+        tc('lm', foreground=PAGE_COLORS['marker'] if light else c['ACCENT'])
         tc('al_center', justify='center')
         tc('al_right', justify='right')
         tc('al_justify')
         tc('b')
         tc('i')
-        tc('tbl', background=PAGE_COLORS['tbl'] if page else '#13263d', spacing1=self.px(2), spacing3=self.px(2), lmargin1=self.px(4),
+        tc('tbl', background=PAGE_COLORS['tbl'] if light else '#13263d', spacing1=self.px(2), spacing3=self.px(2), lmargin1=self.px(4),
            lmargin2=self.px(4))
         tc('pb', spacing1=self.px(28))
         tc('u', underline=True)
+        tc('s', overstrike=True)
+        tc('sup', offset=int(self.px(self.doc_pt(4))))
+        tc('sub', offset=-int(self.px(self.doc_pt(2))))
+        tc('spell', underline=True)
+        try:                                   # Tk 8.6.? altinda alt cizgi rengi; yoksa acik kirmizi zemin
+            self._call('tag', 'configure', 'spell', '-underlinefg', '#e0312b')
+        except tk.TclError:
+            tc('spell', background='#5a2424' if self.dark else '#ffd9d6')
+        extras = []
         for t in self.tag_names():
             if t.startswith('c_'):
                 self._color_tag(t[2:])
+            elif t.startswith('h_'):
+                self._hl_tag(t[2:])
+            elif t.startswith('ln_'):
+                self._link_tag(_unhex(t[3:]) or '')
             elif t.startswith('tb_'):
                 self._table_tabs(t)
+            elif t.startswith(('ls_', 'sb_', 'sa_', 'in_')):
+                extras.append(t)
         for t in ('lm', 'tbl'):
             self._call('tag', 'lower', t)
-        for t in STYLE_TAGS + LEVEL_TAGS + ALIGN_TAGS + ('li_b', 'li_n', 'pb', 'u'):
+        for t in STYLE_TAGS + LEVEL_TAGS + ALIGN_TAGS + ('li_b', 'li_n', 'pb', 'u', 's', 'sup', 'sub'):
             self._call('tag', 'raise', t)
-        for t in ('trdone', 'trwork', 'found', 'ai_new', 'sel'):
-            try:
-                self._call('tag', 'raise', t)
-            except tk.TclError:
-                pass
+        for t in extras:
+            self._ensure_para_tag(t)
+        self._raise_overlays()
 
     def _color_tag(self, hexc):
         name = 'c_' + hexc
         col = '#' + hexc
-        if not self.page_mode:
+        if self.dark:
             r, g, b = (int(hexc[k:k + 2], 16) for k in (0, 2, 4))
             if 0.299 * r + 0.587 * g + 0.114 * b < 110:       # koyu tema: koyu yazi rengini aciklastir
                 col = '#%02x%02x%02x' % tuple(min(255, int(v + (255 - v) * 0.55)) for v in (r, g, b))
@@ -398,9 +584,20 @@ class RichText(tk.Text):
         if r:
             line = self.get(r[0], '%s lineend' % r[0])
             ncol = line.count('\t') + 1
-        width = self.px(R.CONTENT_W_PT) - self.px(8)
+        width = self.px(self.content_w_pt()) - self.px(8)
         step = max(40, width / ncol)
         self.tag_configure(tag, tabs=tuple(int(step * (k + 1)) for k in range(max(1, ncol - 1))) or (int(step),))
+
+    def content_w_pt(self):
+        return R.content_width(self.page)
+
+    def set_page_setup(self, page):
+        """Sayfa ayarini degistirir (tablo sekmeleri ve resim siniri buna gore)."""
+        self.page = R.normalize_page(page)
+        for t in self.tag_names():
+            if str(t).startswith('tb_'):
+                self._table_tabs(str(t))
+        self._resize_images()
 
     def set_page_mode(self, on):
         self.page_mode = bool(on)
@@ -408,19 +605,27 @@ class RichText(tk.Text):
         if on:
             self.configure(bg=PAGE_COLORS['bg'], fg=PAGE_COLORS['fg'], insertbackground=PAGE_COLORS['insert'],
                            selectbackground=PAGE_COLORS['sel'], selectforeground='#000000', inactiveselectbackground='#d5e3f3',
-                           padx=int(self.px(R.MARGIN_PT * 0.9)), pady=int(self.px(R.MARGIN_PT * 0.7)), spacing3=int(self.px(6)))
+                           padx=int(self.px(self.page['margins']['l'] * 0.9)), pady=int(self.px(self.page['margins']['t'] * 0.7)),
+                           spacing3=int(self.px(6)))
             self.tag_configure('found', background='#ffe58f')
             self.tag_configure('ai_new', background='#c9f2d6')
             self.tag_configure('trwork', background='#fff1b8')       # cevriliyor
             self.tag_configure('trdone', background='#d3f5dd')       # cevrildi
         else:
             self.configure(bg=c['EDIT_BG'], fg=c['FG'], insertbackground=c['ACCENT'], selectbackground=c['SEL_BG'],
-                           selectforeground='#ffffff', inactiveselectbackground='#1d3b57', padx=int(28 * self.zoom),
+                           selectforeground='#ffffff' if self.dark else '#000000',
+                           inactiveselectbackground='#1d3b57' if self.dark else '#d5e3f3', padx=int(28 * self.zoom),
                            pady=18, spacing3=int(self.px(6)))
-            self.tag_configure('found', background='#5a4a1c')
-            self.tag_configure('ai_new', background='#173a2a')
-            self.tag_configure('trwork', background='#4a3f12')
-            self.tag_configure('trdone', background='#173a2a')
+            if self.dark:
+                self.tag_configure('found', background='#5a4a1c')
+                self.tag_configure('ai_new', background='#173a2a')
+                self.tag_configure('trwork', background='#4a3f12')
+                self.tag_configure('trdone', background='#173a2a')
+            else:
+                self.tag_configure('found', background='#ffe58f')
+                self.tag_configure('ai_new', background='#c9f2d6')
+                self.tag_configure('trwork', background='#fff1b8')
+                self.tag_configure('trdone', background='#d3f5dd')
         self.configure_tags()
 
     # ================================================================ satir/paragraf yardimcilari
@@ -440,8 +645,25 @@ class RichText(tk.Text):
         lst = 'bullet' if 'li_b' in tags else 'number' if 'li_n' in tags else None
         level = next((k for k, t in enumerate(LEVEL_TAGS) if t in tags), 0)
         align = next((a[3:] for a in ALIGN_TAGS if a in tags), None)
-        return {'style': style, 'list': lst, 'level': level, 'align': align, 'pb': 'pb' in tags,
-                'table': next((t for t in tags if t.startswith('tb_')), None)}
+        out = {'style': style, 'list': lst, 'level': level, 'align': align, 'pb': 'pb' in tags,
+               'table': next((t for t in tags if t.startswith('tb_')), None)}
+        for t in tags:                                          # 2.0
+            try:
+                if t.startswith('ls_'):
+                    out['ls'] = int(t[3:]) / 100.0
+                elif t.startswith('sb_'):
+                    out['sb'] = _dec(t[3:])
+                elif t.startswith('sa_'):
+                    out['sa'] = _dec(t[3:])
+                elif t.startswith('in_'):
+                    a, b = t[3:].split('_', 1)
+                    if _dec(a):
+                        out['ind'] = _dec(a)
+                    if _dec(b):
+                        out['fi'] = _dec(b)
+            except ValueError:
+                pass
+        return out
 
     def _para_tagset(self, props):
         tags = set()
@@ -456,6 +678,15 @@ class RichText(tk.Text):
             tags.add('pb')
         if props.get('table'):
             tags.update(('tbl', props['table']))
+            return tags
+        if props.get('ls') and abs(float(props['ls']) - 1.15) > 0.001:
+            tags.add(self._ensure_para_tag('ls_%d' % int(round(float(props['ls']) * 100))))
+        if props.get('sb') is not None and props.get('sb') != '':
+            tags.add(self._ensure_para_tag('sb_' + _enc(props['sb'])))
+        if props.get('sa') is not None and props.get('sa') != '':
+            tags.add(self._ensure_para_tag('sa_' + _enc(props['sa'])))
+        if (props.get('ind') or props.get('fi')) and not props.get('list'):
+            tags.add(self._ensure_para_tag('in_%s_%s' % (_enc(props.get('ind') or 0), _enc(props.get('fi') or 0))))
         return tags
 
     def set_para_tags(self, line, tags):
@@ -478,9 +709,7 @@ class RichText(tk.Text):
             self.set_para_tags(ln, self.para_tags(ln))
 
     def char_fmt_at(self, index):
-        tags = {str(t) for t in self.tag_names(index)}
-        return {'b': 'b' in tags, 'i': 'i' in tags, 'u': 'u' in tags,
-                'color': next((t[2:] for t in tags if t.startswith('c_')), None)}
+        return fmt_from_tags({str(t) for t in self.tag_names(index)})
 
     def _char_tags(self, fmt):
         tags = []
@@ -490,8 +719,20 @@ class RichText(tk.Text):
             tags.append('i')
         if fmt.get('u'):
             tags.append('u')
+        if fmt.get('s'):
+            tags.append('s')
+        if fmt.get('va') in ('sup', 'sub'):
+            tags.append(fmt['va'])
         if fmt.get('color'):
             tags.append(self._color_tag(fmt['color'].upper()))
+        if fmt.get('hl'):
+            tags.append(self._hl_tag(fmt['hl'].upper()))
+        if fmt.get('font'):
+            tags.append(self._font_family_tag(fmt['font']))
+        if fmt.get('size'):
+            tags.append(self._size_tag(fmt['size']))
+        if fmt.get('href'):
+            tags.append(self._link_tag(fmt['href']))
         return tags
 
     def refresh_fonts(self, s='1.0', e='end'):
@@ -505,7 +746,7 @@ class RichText(tk.Text):
                 n = len(val) if kind == 't' else 1
                 end = self._call('index', '%s+%dc' % (pos, n))
                 if kind == 't':
-                    want = self.font_tag(style, 'b' in tags, 'i' in tags)
+                    want = self.font_tag_for(style, fmt_from_tags(set(tags)))
                     have = [t for t in tags if t.startswith('F_')]
                     if have != [want]:
                         for t in have:
@@ -531,7 +772,7 @@ class RichText(tk.Text):
                 fmt = {}
         props = self.para_props(line)
         tags = self._char_tags(fmt) + sorted(self.para_tags(line))
-        tags.append(self.font_tag(props['style'], fmt.get('b'), fmt.get('i')))
+        tags.append(self.font_tag_for(props['style'], fmt))
         return tuple(tags)
 
     def _on_key(self, e):
@@ -773,30 +1014,291 @@ class RichText(tk.Text):
         except tk.TclError:
             return None
 
+    VALUE_ATTRS = {'color': 'c_', 'hl': 'h_', 'font': 'fn_', 'size': 'sz_', 'href': 'ln_'}
+
     def toggle_char(self, attr, value=None):
-        """attr: 'b'|'i'|'u'|'color'. Secim varsa secime, yoksa yazilacak metne uygulanir."""
+        """attr: 'b'|'i'|'u'|'s'|'sup'|'sub' (ac/kapa) ya da 'color'|'hl'|'font'|'size'|'href' (deger; None = kaldir).
+        Secim varsa secime, yoksa yazilacak metne uygulanir."""
         rng = self.selection_or_word()
         if not rng:
             idx = self.index('insert')
             fmt = dict(self.typing_fmt[1]) if self.typing_fmt and self.compare(self.typing_fmt[0], '==', idx) else \
                 self.char_fmt_at(idx + '-1c' if int(idx.split('.')[1]) else idx)
-            fmt[attr] = value if attr == 'color' else not fmt.get(attr)
+            if attr in self.VALUE_ATTRS:
+                if value:
+                    fmt[attr] = value
+                else:
+                    fmt.pop(attr, None)
+                    if attr == 'color':
+                        fmt['color'] = None
+            elif attr in ('sup', 'sub'):
+                if fmt.get('va') == attr:
+                    fmt.pop('va', None)
+                else:
+                    fmt['va'] = attr
+            else:
+                fmt[attr] = not fmt.get(attr)
             self.typing_fmt = (idx, fmt)
             return
         s, e = rng
         self.undo.separator()
         self.undo.begin()
         try:
-            if attr == 'color':
+            if attr in self.VALUE_ATTRS:
+                prefix = self.VALUE_ATTRS[attr]
                 for t in self.tag_names():
-                    if str(t).startswith('c_'):
+                    if str(t).startswith(prefix):
                         self.tag_remove(t, s, e)
                 if value:
-                    self.tag_add(self._color_tag(value.upper()), s, e)
+                    tag = {'color': lambda v: self._color_tag(v.upper()), 'hl': lambda v: self._hl_tag(v.upper()),
+                           'font': self._font_family_tag, 'size': self._size_tag, 'href': self._link_tag}[attr](value)
+                    self.tag_add(tag, s, e)
+                if attr in ('font', 'size'):
+                    self.refresh_fonts(s, e)
+            elif attr in ('sup', 'sub'):
+                on = not self._all_have(attr, s, e)
+                self.tag_remove('sup', s, e)
+                self.tag_remove('sub', s, e)
+                if on:
+                    self.tag_add(attr, s, e)
+                self.refresh_fonts(s, e)
             else:
                 on = not self._all_have(attr, s, e)
                 (self.tag_add if on else self.tag_remove)(attr, s, e)
                 self.refresh_fonts(s, e)
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+
+    # ---------------------------------------------------------------- 2.0 komutlari
+    def _strip_char_tags(self, s, e, keep_links=True):
+        for t in list(self.tag_names()):
+            t = str(t)
+            if is_char_tag(t) and not (keep_links and t.startswith('ln_')):
+                if keep_links and (t == 'u' or t.startswith('c_')):
+                    # baglantilarin alti cizgisi/rengi korunur, digerlerinden kaldirilir
+                    self._remove_outside_links(t, s, e)
+                    continue
+                self.tag_remove(t, s, e)
+
+    def _remove_outside_links(self, tag, s, e):
+        pos = s
+        for kind, val, tags in self._dump(s, e):
+            n = len(val) if kind == 't' else 1
+            end = self._call('index', '%s+%dc' % (pos, n))
+            if not any(t.startswith('ln_') for t in tags):
+                self.tag_remove(tag, pos, end)
+            pos = end
+
+    def clear_char_formatting(self):
+        """Secimdeki karakter bicimini temizler (baglantilar kalir). Secim yoksa yazilacak metni sifirlar."""
+        rng = self.selection_or_word()
+        if not rng:
+            self.typing_fmt = (self.index('insert'), {'b': False, 'i': False, 'u': False, 'color': None})
+            return
+        s, e = rng
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            self._strip_char_tags(s, e)
+            self.refresh_fonts(s, e)
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+
+    def clear_formatting(self):
+        """Tum bicimi temizle: karakter bicimi + paragraf stili, hizalama, aralik ve girintiler (liste/tablo kalir)."""
+        rng = self.selection_or_word()
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            if rng:
+                self._strip_char_tags(rng[0], rng[1])
+            for ln in self._sel_lines():
+                p = self.para_props(ln)
+                if p['table']:
+                    continue
+                q = {'style': 'normal', 'list': p['list'], 'level': p['level'], 'pb': p['pb']}
+                self.set_para_tags(ln, self._para_tagset(q))
+                self.refresh_fonts('%d.0' % ln, '%d.end' % ln)
+            if not rng:
+                self.typing_fmt = (self.index('insert'), {'b': False, 'i': False, 'u': False, 'color': None})
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+
+    def copy_format(self):
+        """Bicim boyacisi icin imlecteki karakter + paragraf bicimini alir."""
+        idx = self.index('insert')
+        try:
+            idx = self.index('sel.first')
+        except tk.TclError:
+            pass
+        col = int(idx.split('.')[1])
+        src = idx if self.get(idx) not in ('\n', '') else (idx + '-1c' if col else idx)
+        ch = self.char_fmt_at(src)
+        ch.pop('href', None)
+        p = self.para_props(int(idx.split('.')[0]))
+        para_fmt = {k: p.get(k) for k in ('style', 'align') + R.PARA_EXTRA}
+        return {'char': ch, 'para': para_fmt}
+
+    def apply_format(self, fmt):
+        """Bicim boyacisi: secime karakter bicimini, secimdeki paragraflara (tam satir secildiyse) paragraf bicimini uygular."""
+        rng = self.selection_or_word()
+        if not rng or not fmt:
+            return False
+        s, e = rng
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            self._strip_char_tags(s, e)
+            for t in self._char_tags(fmt.get('char') or {}):
+                self.tag_add(t, s, e)
+            whole = self.compare(s, '==', '%s linestart' % s) and (self.compare(e, '==', '%s lineend' % e) or
+                                                                  self.compare(e, '==', '%s linestart' % e))
+            if whole and fmt.get('para'):
+                for ln in self.lines(s, e):
+                    p = self.para_props(ln)
+                    if p['table'] or p['list']:
+                        continue
+                    q = {'style': fmt['para'].get('style') or 'normal', 'pb': p['pb']}
+                    q.update({k: v for k, v in fmt['para'].items() if k != 'style'})
+                    self.set_para_tags(ln, self._para_tagset(q))
+            self.refresh_fonts(s, e)
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+        return True
+
+    def set_para_extra(self, **kw):
+        """Secili paragraflara ls / sb / sa / ind / fi uygular (None = kaldir)."""
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            for ln in self._sel_lines():
+                p = self.para_props(ln)
+                if p['table']:
+                    continue
+                for k, v in kw.items():
+                    if v is None:
+                        p.pop(k, None)
+                    else:
+                        p[k] = v
+                self.set_para_tags(ln, self._para_tagset(p))
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+
+    def indent(self, delta):
+        """Girinti artir/azalt: listede duzey degisir, duz paragrafta sol girinti 36 pt kayar."""
+        lines = list(self._sel_lines())
+        if lines and all(self.para_props(ln)['list'] for ln in lines):
+            return self.change_level(delta)
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            for ln in lines:
+                p = self.para_props(ln)
+                if p['list']:
+                    self._set_list_line(ln, p['list'], max(0, min(3, p['level'] + delta)))
+                    continue
+                if p['table']:
+                    continue
+                cur = float(p.get('ind') or 0)
+                if delta > 0:
+                    new = (cur // 36 + 1) * 36.0
+                else:
+                    new = (cur // 36) * 36.0 if cur % 36 else cur - 36.0
+                new = max(0.0, min(360.0, new))
+                p['ind'] = new or None
+                self.set_para_tags(ln, self._para_tagset(p))
+            self.renumber()
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+
+    def insert_link(self, url, text=None):
+        """Secimi baglanti yapar; secim yoksa metni (ya da adresi) baglanti olarak ekler."""
+        url = (url or '').strip()
+        if not url:
+            return
+        if not re.match(r'^(https?://|mailto:)', url, re.I):
+            url = ('mailto:' + url) if '@' in url and '/' not in url else 'https://' + url
+        rng = self.selection_or_word()
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            if rng:
+                s, e = rng
+                for t in self.tag_names():
+                    if str(t).startswith(('ln_', 'c_')):
+                        self.tag_remove(t, s, e)
+                for t in (self._link_tag(url), 'u', self._color_tag(LINK_COLOR)):
+                    self.tag_add(t, s, e)
+            else:
+                idx = self.index('insert')
+                fmt = self.char_fmt_at(idx + '-1c' if int(idx.split('.')[1]) else idx)
+                fmt.update({'href': url, 'u': True, 'color': LINK_COLOR})
+                line = int(idx.split('.')[0])
+                self.insert_runs(idx, [R.run(text or url, fmt.get('b'), fmt.get('i'), True, LINK_COLOR,
+                                             **{k: fmt.get(k) for k in R.RUN_EXTRA})])
+                _ = line
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+
+    def remove_link(self, index='insert'):
+        rng = self.selection_or_word()
+        if rng:
+            s, e = rng
+        else:
+            url = self.link_at(index)
+            if not url:
+                return False
+            tag = self._link_tag(url)
+            r = self.tag_prevrange(tag, index + '+1c')
+            if not r:
+                return False
+            s, e = str(r[0]), str(r[1])
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            for t in list(self.tag_names()):
+                t = str(t)
+                if t.startswith('ln_') or t == 'c_' + LINK_COLOR:
+                    self.tag_remove(t, s, e)
+            self.tag_remove('u', s, e)
+        finally:
+            self.undo.end()
+        self.undo.separator()
+        self.changed()
+        return True
+
+    def insert_page_break(self):
+        """Imlecte sayfa sonu: paragrafi boler, sonraki paragraf yeni sayfada baslar."""
+        line = int(self.index('insert').split('.')[0])
+        if self.para_props(line)['table']:
+            return
+        self.undo.separator()
+        self.undo.begin()
+        try:
+            at_start = self.compare('insert', '==', self._content_start(line)) and line > 1
+            if not at_start:
+                self._on_return()
+                line = int(self.index('insert').split('.')[0])
+            p = self.para_props(line)
+            if p['list']:
+                self._set_list_line(line, None)
+                p = self.para_props(line)
+            p['pb'] = True
+            self.set_para_tags(line, self._para_tagset(p))
         finally:
             self.undo.end()
         self.undo.separator()
@@ -948,7 +1450,7 @@ class RichText(tk.Text):
         im.load()
         if im.mode not in ('RGB', 'RGBA'):
             im = im.convert('RGBA')
-        maxw = self.px(R.CONTENT_W_PT)
+        maxw = self.px(self.content_w_pt())
         w = max(8, min(maxw, self.px(blk['w'])))
         h = max(8, w * blk['h'] / max(1.0, blk['w']))
         im = im.resize((int(w), int(h)), Image.LANCZOS)
@@ -1115,6 +1617,7 @@ class RichText(tk.Text):
             else:
                 props = {'style': b.get('style', 'normal'), 'list': b.get('list'), 'level': b.get('level', 0),
                          'align': b.get('align'), 'pb': b.get('pb')}
+                props.update(R.para_extra(b))
                 ptags = tuple(sorted(self._para_tagset(props)))
                 if b.get('list'):
                     mk = BULLETS[min(3, b.get('level', 0))] if b['list'] == 'bullet' else '1. '
@@ -1138,7 +1641,7 @@ class RichText(tk.Text):
         for r in runs:
             if not r.get('text'):
                 continue
-            tags = tuple(self._char_tags(r)) + ptags + (self.font_tag(style, r.get('b'), r.get('i')),)
+            tags = tuple(self._char_tags(r)) + ptags + (self.font_tag_for(style, r),)
             text = r['text'].replace('\n', ' ')
             self.insert(pos, text, tags)
             pos = self.index('%s+%dc' % (pos, len(text)))
@@ -1216,11 +1719,13 @@ class RichText(tk.Text):
         self._call('tag', 'add', tag, '%d.0' % first, '%d.end+1c' % last)
 
     def _run_from(self, text, tags):
-        return R.run(text, 'b' in tags, 'i' in tags, 'u' in tags, next((t[2:] for t in tags if t.startswith('c_')), None))
+        f = fmt_from_tags(set(tags))
+        return R.run(text, f['b'], f['i'], f['u'], f['color'], **{k: f.get(k) for k in R.RUN_EXTRA})
 
     @staticmethod
     def _para_block(runs, props, pb):
-        return R.para(R.merge_runs(runs), props['style'], props['list'], props['level'], props['align'], pb)
+        return R.para(R.merge_runs(runs), props['style'], props['list'], props['level'], props['align'], pb,
+                      **{k: props.get(k) for k in R.PARA_EXTRA})
 
     def markdown(self, s='1.0', e='end-1c', image_ids=None):
         blocks = self.get_blocks(s, e)
@@ -1435,7 +1940,8 @@ class RichText(tk.Text):
             h = int(h[0] if isinstance(h, tuple) else h)
         except (tk.TclError, TypeError):
             return 1
-        usable = self.px(841.9 - 2 * R.MARGIN_PT)
+        m = self.page['margins']
+        usable = self.px(R.page_dims(self.page)[1] - m['t'] - m['b'])
         return max(1, int((h or 0) / max(1.0, usable)) + 1)
 
 
