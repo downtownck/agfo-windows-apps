@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AGFO AI Editor 1.4.8 - belge cevirisinde canli vurgu.
+"""AGFO AI Editor 1.4.8 - belge cevirisinde canli vurgu (2.1: ceviri parca parca yeni sekmede belirir).
 
 Ceviri is parcaciklarindan gelen olaylar ('start' / 'done', parca anahtarlari) ana is parcaciginda islenir:
 cevrilen paragraflar sari, cevrilmis olanlar yesil vurgulanir; is bitince vurgular kisa sure sonra kalkar.
@@ -12,8 +12,9 @@ import tkinter as tk
 
 
 class TranslationLive:
-    def __init__(self, app, text=None, lines=None, view=None, pdf_map=None):
+    def __init__(self, app, text=None, lines=None, view=None, pdf_map=None, apply=None):
         self.app = app
+        self.apply = apply          # 2.1: apply(anahtar, ceviri_md) - cevrilen parca hemen yerine yazilir
         self.text, self.lines = text, lines or []
         self.view, self.pdf_map = view, pdf_map or []
         self.working = set()
@@ -22,10 +23,17 @@ class TranslationLive:
         self.finished = False
 
     # -- olaylar (ana is parcacigi)
-    def event(self, kind, keys):
+    def event(self, kind, keys, res=None):
         if self.finished:
             return
         idxs = sorted({k[0] for k in keys})
+        if kind != 'start' and res and self.apply:
+            try:
+                for key, md in res.items():
+                    self.apply(key, md)
+            except tk.TclError:
+                self.finished = True
+                return
         state = 'work' if kind == 'start' else 'done'
         if kind == 'start':
             self.working.update(idxs)

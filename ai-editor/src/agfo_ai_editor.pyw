@@ -3812,8 +3812,8 @@ class App(tk.Tk):
         n = len(events)
         batch, events[:n] = events[:n], []
         if live:
-            for kind, keys in batch:
-                live.event(kind, keys)
+            for kind, keys, res in batch:
+                live.event(kind, keys, res)
 
     def cancel_jobs(self):
         live = getattr(self, '_tr_live', None)
@@ -3961,7 +3961,7 @@ class App(tk.Tk):
         extra = self.tr_extra.get('1.0', 'end-1c').strip()
         backends = self.backends()
         layouts = None
-        live = None
+        live = live_doc = None
         import agfo_pdf_layout as playout
         if v:
             path, title = v.pr.path, os.path.splitext(os.path.basename(getattr(v.pr, 'display_name', None) or v.pr.path))[0]
@@ -3987,11 +3987,13 @@ class App(tk.Tk):
             else:
                 blocks = rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
                 lines = trlive.text_block_lines(d.text, blocks)
-            live = trlive.TranslationLive(self, text=d.text, lines=lines)
             path = None
             if not any(b['t'] == 'p' and rdoc.runs_text(b['runs']).strip() or b['t'] == 'table' for b in blocks):
                 messagebox.showinfo('Belge çevirisi', 'Çevrilecek metin yok.', parent=self)
                 return
+            live = trlive.TranslationLive(self, text=d.text, lines=lines)
+            if out in ('newtab', 'both', 'pdf'):
+                live_doc, live = self._live_translation_tab(title, lang, blocks) or (None, live)
         cancel = threading.Event()
         self._tr_cancel = cancel
         self._tr_progress = None
@@ -4025,7 +4027,7 @@ class App(tk.Tk):
             src = blocks
             try:
                 new, stats = dtr.translate_blocks(src, call, lang, progress, cancel.is_set, workers=workers,
-                                                  on_event=lambda kind, keys, _got: events.append((kind, keys)))
+                                                  on_event=lambda kind, keys, got: events.append((kind, keys, got)))
             except InterruptedError as e:
                 raise ai.AIError(str(e))
             return src, new, stats
@@ -4036,7 +4038,15 @@ class App(tk.Tk):
             if live:
                 live.finish()
             self._tr_live = None
+            alive = live_doc is not None and live_doc in self.docs
+            if alive:
+                live_doc.text.configure(state='normal')
             if not ok:
+                if alive:
+                    live_doc.text.undo.reset()
+                    live_doc.text.undo.saved = -1
+                    self._doc_changed(live_doc)
+                    res = '%s\n\nŞimdiye kadar çevrilen bölümler "%s" sekmesinde duruyor.' % (res, live_doc.title)
                 messagebox.showerror('Belge çevirisi', res, parent=self)
                 return
             src, new, stats = res
@@ -4046,7 +4056,13 @@ class App(tk.Tk):
             if layouts is not None:
                 src, new, extra_note = self._pdf_translation_outputs(v, layouts, new, title, lang, out, used)
             else:
-                if out in ('newtab', 'both', 'pdf'):
+                if alive:                                   # 2.1: canli sekme zaten cevrildi; farkliysa son haline getirilir
+                    if live_doc.text.get_blocks() != new:
+                        live_doc.text.load_blocks(new)
+                    live_doc.text.undo.reset()
+                    live_doc.text.undo.saved = -1
+                    self._doc_changed(live_doc)
+                elif out in ('newtab', 'both', 'pdf'):
                     self.new_doc(title='%s (%s)' % (title, lang), blocks=new)
                 if out in ('compare', 'both'):
                     self.open_compare(src, new, title, 'Özgün', lang, model=used)
@@ -4058,6 +4074,38 @@ class App(tk.Tk):
             self.flash(note, 10000)
         self._start_job('Belge çevriliyor → %s · %s · aynı anda %d istek' % (
             lang, self.translation_model_text().replace('Çeviri modeli: ', ''), workers), work, done)
+
+    def _live_translation_tab(self, title, lang, blocks):
+        """2.1: ceviri sekmesi hemen acilir (ozgun metnin kopyasi); her parca cevrilince yerine yazilir.
+        Ozgun belge degismez. Sekme ceviri bitene kadar salt okunurdur. Esleme kurulamazsa None (eski davranis)."""
+        import copy
+        doc = self.new_doc(title='%s (%s)' % (title, lang), blocks=copy.deepcopy(blocks), rich=True)
+        t = doc.text
+        lines = []
+        got = t.get_blocks(lines=lines)
+        if len(got) != len(blocks) or any(g['t'] != b['t'] for g, b in zip(got, blocks)):
+            self.close_doc(doc, ask=False)
+            return None
+
+        def apply(key, md):
+            rng = lines[key[0]] if key[0] < len(lines) else None
+            if not rng:
+                return
+            runs = rdoc.md_inline(md)
+            t.configure(state='normal')
+            rec = t.undo.recording
+            t.undo.recording = False
+            try:
+                if len(key) == 1:
+                    t.replace_line_runs(rng[0], runs)
+                else:
+                    t.replace_line_runs(rng[0] + key[1], runs, cell=key[2])
+            finally:
+                t.undo.recording = rec
+                t.configure(state='disabled')
+        t.configure(state='disabled')
+        self.flash('Çeviri bu sekmede parça parça beliriyor; özgün belge değişmez.', 9000)
+        return doc, trlive.TranslationLive(self, text=t, lines=lines, apply=apply)
 
     def _pdf_translation_outputs(self, v, layouts, new, title, lang, out, used):
         """PDF cevirisinin ciktilari. pdf: sayfa duzeni korunmus cevrilmis PDF (PDF duzenleyicide acilir);
