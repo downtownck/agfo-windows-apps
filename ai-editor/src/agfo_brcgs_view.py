@@ -19,7 +19,9 @@ from tkinter import filedialog, messagebox, ttk
 from agfo_brcgs import boxes as B
 from agfo_brcgs import data as D
 from agfo_brcgs import docx_engine as E
+from agfo_brcgs import findings as F
 from agfo_brcgs import guide as G
+from agfo_brcgs import i18n as I18N
 from agfo_brcgs import store as S
 
 try:
@@ -27,12 +29,12 @@ try:
 except Exception:  # pragma: no cover
     COV = None
 
-NAV_FIXED_HEAD = (('overview', 'ℹ  Rapor bilgisi'),)
-NAV_FIXED_TAIL = (('tables', '▦  Resmi tablolar'), ('sections', '☰  Rapor bölümleri'), ('na', '⊘  NA maddeleri'),
-                  ('plan', '⚑  NC Action Plan'), ('preview', '👁  Önizleme'), ('history', '⟲  Sürüm geçmişi'))
-PLAN_FIELDS = (('clause', 'Madde', 1), ('nc_text', 'Uygunsuzluk detayı', 2), ('correction', 'Düzeltme (correction)', 2),
-               ('root_cause', 'Kök neden analizi', 2), ('proposed_preventive_action', 'Önerilen önleyici faaliyet planı', 2),
-               ('date_reviewed', 'Gözden geçirme tarihi', 1), ('reviewed_by', 'Gözden geçiren', 1))
+NAV_FIXED_HEAD = (('overview', 'ℹ  Report information'),)
+NAV_FIXED_TAIL = (('tables', '▦  Official tables'), ('sections', '☰  Report sections'), ('na', '⊘  NA clauses'),
+                  ('plan', '⚑  NC Action Plan'), ('preview', '👁  Preview'), ('history', '⟲  Version history'))
+PLAN_FIELDS = (('clause', 'Clause', 1), ('nc_text', 'Non-conformity details', 2), ('correction', 'Correction', 2),
+               ('root_cause', 'Root cause analysis', 2), ('proposed_preventive_action', 'Proposed preventive action plan', 2),
+               ('date_reviewed', 'Date reviewed', 1), ('reviewed_by', 'Reviewed by', 1))
 IDENTITY_KEYS = {'OWNERCOMPANY', 'COMPANY_NAME', 'SITE_NAME', 'CERTIFIED_SITE_NAME', 'SITE_NAMEAB', 'BRC_SITE_CODE', 'SITE_CODE'}
 PLAN_TYPES = ('critical', 'major', 'minor', 'fundamental')
 PLAN_TYPE_LABELS = {'critical': 'Critical', 'major': 'Major', 'minor': 'Minor', 'fundamental': 'Fundamental'}
@@ -83,8 +85,8 @@ class Scroll(tk.Frame):
 
 # ============================================================================= gezgin
 class BrcgsExplorer(tk.Frame):
-    COLS = (('title', 'Rapor adı', 340), ('profile', 'Standart', 200), ('company', 'Firma', 220), ('site_code', 'Site kodu', 90),
-            ('filled', 'Bölüm', 80), ('size', 'Boyut', 70), ('updated_at', 'Güncellendi', 130))
+    COLS = (('title', 'Report name', 340), ('profile', 'Standard', 200), ('company', 'Company', 220), ('site_code', 'Site code', 90),
+            ('filled', 'Sections', 80), ('size', 'Size', 70), ('updated_at', 'Updated', 130))
 
     def __init__(self, app, master, store=None):
         self.app = app
@@ -105,8 +107,8 @@ class BrcgsExplorer(tk.Frame):
         e.pack(side='right')
         e.bind('<KeyRelease>', lambda ev: self.refresh())
         tk.Label(top, text='🔍', fg=c['MUTED'], bg=c['PANEL']).pack(side='right', padx=(10, 2))
-        self.app.btn(top, '⤓ DOCX içe aktar', self.import_docx, 'ghost', side='right')
-        self.new_btn = self.app.btn(top, '＋ Yeni rapor ▾', self.new_menu, 'primary', side='right')
+        self.app.btn(top, '⤓ Import DOCX', self.import_docx, 'ghost', side='right')
+        self.new_btn = self.app.btn(top, '＋ New report ▾', self.new_menu, 'primary', side='right')
         tk.Label(top, text='📋  BRCGS Report Studio', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 13, 'bold')).pack(side='left')
         tk.Label(top, text='  FS · PM · CP · AB · SD', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9)).pack(side='left')
         body = ttk.PanedWindow(self, orient='horizontal')
@@ -152,18 +154,18 @@ class BrcgsExplorer(tk.Frame):
         trash = self.store.list('trash')
         sel = self.tree_side.selection()
         self.tree_side.delete(*self.tree_side.get_children())
-        self.tree_side.insert('', 'end', iid='all', text='📁  Tüm raporlar  (%d)' % len(all_rows), open=True)
-        st = self.tree_side.insert('', 'end', iid='grp_std', text='STANDARTLAR', open=True)
+        self.tree_side.insert('', 'end', iid='all', text='📁  All reports  (%d)' % len(all_rows), open=True)
+        st = self.tree_side.insert('', 'end', iid='grp_std', text='STANDARDS', open=True)
         for p in D.PROFILES:
             n = sum(1 for r in all_rows if r['profile'] == p)
             self.tree_side.insert(st, 'end', iid='p_' + p, text='%s  (%d)' % (D.PROFILE_LABELS[p], n))
-        fm = self.tree_side.insert('', 'end', iid='grp_firm', text='FİRMALAR', open=True)
+        fm = self.tree_side.insert('', 'end', iid='grp_firm', text='COMPANIES', open=True)
         firms = {}
         for r in all_rows:
             firms[r['company'] or '—'] = firms.get(r['company'] or '—', 0) + 1
         for k, (name, n) in enumerate(sorted(firms.items(), key=lambda x: x[0].lower())):
             self.tree_side.insert(fm, 'end', iid='c_%d' % k, text='%s  (%d)' % (name, n), values=(name,))
-        self.tree_side.insert('', 'end', iid='trash', text='🗑  Çöp kutusu  (%d)' % len(trash))
+        self.tree_side.insert('', 'end', iid='trash', text='🗑  Trash  (%d)' % len(trash))
         if sel and self.tree_side.exists(sel[0]):
             self.tree_side.selection_set(sel[0])
         self.tv.delete(*self.tv.get_children())
@@ -174,8 +176,8 @@ class BrcgsExplorer(tk.Frame):
             self.tv.insert('', 'end', iid=r['id'], values=(r['title'], D.PROFILE_LABELS.get(r['profile'], r['profile']), r['company'] or '-',
                                                           r['site_code'] or '-', '%d/%d' % (r['filled'], r['sections']), size,
                                                           r['updated_at'][:16]))
-        self.info.configure(text='%d rapor · çift tık: aç · F2: yeniden adlandır · Delete: çöp kutusu · sağ tık: diğer işlemler · '
-                                 'Raporlar bu bilgisayarda saklanır: %s' % (len(rows), self.store.root))
+        self.info.configure(text='%d reports · double-click: open · F2: rename · Delete: move to trash · right-click: more · '
+                                 'Reports are stored on this computer: %s' % (len(rows), self.store.root))
 
     def _side_pick(self, _e=None):
         sel = self.tree_side.selection()
@@ -214,19 +216,19 @@ class BrcgsExplorer(tk.Frame):
         m.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
 
     def new_report(self, profile):
-        pr = self.store.create(profile, title='Yeni BRCGS Raporu - %s' % S.now()[:10])
+        pr = self.store.create(profile, title='New BRCGS report - %s' % S.now()[:10])
         self.refresh()
         self.app.open_brcgs_report(pr['id'])
 
     def import_docx(self):
-        paths = filedialog.askopenfilenames(parent=self, title='Doldurulmuş ya da boş BRCGS raporu (DOCX)',
-                                            filetypes=[('Word belgesi', '*.docx')])
+        paths = filedialog.askopenfilenames(parent=self, title='Filled or blank BRCGS report (DOCX)',
+                                            filetypes=[('Word document', '*.docx')])
         last = None
         for p in paths:
             try:
                 last = self.store.import_docx(p)
             except Exception as e:
-                messagebox.showerror('DOCX içe aktar', '%s\n\n%s' % (os.path.basename(p), e), parent=self)
+                messagebox.showerror('Import DOCX', '%s\n\n%s' % (os.path.basename(p), e), parent=self)
         self.refresh()
         if last:
             self.app.open_brcgs_report(last['id'])
@@ -234,7 +236,7 @@ class BrcgsExplorer(tk.Frame):
     def open_selected(self):
         for uid in self.selected()[:3]:
             if self.filter[0] == 'trash':
-                messagebox.showinfo('Çöp kutusu', 'Açmak için önce raporu geri yükleyin (sağ tık › Geri yükle).', parent=self)
+                messagebox.showinfo('Trash', 'Restore the report first to open it (right-click › Restore).', parent=self)
                 return
             self.app.open_brcgs_report(uid)
 
@@ -244,7 +246,7 @@ class BrcgsExplorer(tk.Frame):
             return
         pr = self.store.get(sel[0])
         win = tk.Toplevel(self)
-        win.title('Yeniden adlandır')
+        win.title('Rename')
         win.configure(bg=self.c['PANEL'], padx=14, pady=12)
         win.transient(self)
         var = tk.StringVar(value=pr['title'])
@@ -257,14 +259,14 @@ class BrcgsExplorer(tk.Frame):
             try:
                 self.store.rename(sel[0], var.get())
             except ValueError as ex:
-                messagebox.showerror('Yeniden adlandır', str(ex), parent=win)
+                messagebox.showerror('Rename', str(ex), parent=win)
                 return
             win.destroy()
             self.refresh()
             self.app.brcgs_title_changed(sel[0], var.get())
         e.bind('<Return>', lambda ev: ok())
         win.bind('<Escape>', lambda ev: win.destroy())
-        self.app.btn(win, 'Tamam', ok, 'primary', side=None).pack(anchor='e', pady=(10, 0))
+        self.app.btn(win, 'OK', ok, 'primary', side=None).pack(anchor='e', pady=(10, 0))
         self.rename_dialog = win
 
     def duplicate_selected(self):
@@ -280,12 +282,12 @@ class BrcgsExplorer(tk.Frame):
             return self.delete_selected()
         for uid in sel:
             if self.app.brcgs_view_for(uid):
-                messagebox.showinfo('Çöp kutusu', 'Açık bir rapor çöp kutusuna taşınamaz; önce sekmesini kapatın.', parent=self)
+                messagebox.showinfo('Trash', 'An open report cannot be moved to the trash; close its tab first.', parent=self)
                 return
         for uid in sel:
             self.store.set_status(uid, 'trash')
         self.refresh()
-        self.app.flash('%d rapor çöp kutusuna taşındı (geri alınabilir).' % len(sel))
+        self.app.flash('%d report(s) moved to the trash (can be restored).' % len(sel))
 
     def restore_selected(self):
         for uid in self.selected():
@@ -298,9 +300,9 @@ class BrcgsExplorer(tk.Frame):
             return
         if confirm is None:
             from tkinter import simpledialog
-            confirm = simpledialog.askstring('Kalıcı sil', '%d rapor ve tüm sürümleri kalıcı olarak silinecek.\nOnaylamak için SIL yazın:'
+            confirm = simpledialog.askstring('Delete permanently', '%d report(s) and all their versions will be deleted permanently.\nType DELETE to confirm:'
                                              % len(sel), parent=self)
-        if (confirm or '').strip().upper() != 'SIL':
+        if (confirm or '').strip().upper() != 'DELETE':
             return
         for uid in sel:
             self.store.delete_forever(uid)
@@ -319,15 +321,15 @@ class BrcgsExplorer(tk.Frame):
             self.tv.selection_set(iid)
         m = tk.Menu(self, tearoff=0)
         if self.filter[0] == 'trash':
-            m.add_command(label='Geri yükle', command=self.restore_selected)
-            m.add_command(label='Kalıcı sil…', command=self.delete_selected)
+            m.add_command(label='Restore', command=self.restore_selected)
+            m.add_command(label='Delete permanently…', command=self.delete_selected)
         else:
-            m.add_command(label='Aç  (Enter)', command=self.open_selected)
-            m.add_command(label='Yeniden adlandır  (F2)', command=self.rename_selected)
-            m.add_command(label='Kopyasını oluştur', command=self.duplicate_selected)
-            m.add_command(label='DOCX\'e yaz…', command=self.export_selected)
+            m.add_command(label='Open  (Enter)', command=self.open_selected)
+            m.add_command(label='Rename  (F2)', command=self.rename_selected)
+            m.add_command(label='Duplicate', command=self.duplicate_selected)
+            m.add_command(label='Write DOCX…', command=self.export_selected)
             m.add_separator()
-            m.add_command(label='Çöp kutusuna taşı  (Delete)', command=self.trash_selected)
+            m.add_command(label='Move to trash  (Delete)', command=self.trash_selected)
         m.tk_popup(e.x_root, e.y_root)
 
 
@@ -342,12 +344,12 @@ class BrcgsReportView(tk.Frame):
         store.mark_opened(uid)
         self.dirty = False
         self.recovered = False
-        self._assembled_lbl = None
+        self._report_box = self._closing_lbl = self._stale_lbl = None
         self.sec_badges = {}
         draft = store.get_draft(uid)
         if draft and str(draft.get('draft_at') or '') >= str(self.project.get('updated_at') or ''):
-            if app.smoke or messagebox.askyesno('Kaydedilmemiş değişiklikler', '"%s" raporunda %s tarihli kaydedilmemiş değişiklikler var '
-                                                '(program beklenmedik kapanmış olabilir).\n\nGeri getirilsin mi? Hayır derseniz son kayıt açılır.'
+            if app.smoke or messagebox.askyesno('Unsaved changes', '"%s" has unsaved changes from %s '
+                                                '(the program may have closed unexpectedly).\n\nRestore them? No opens the last saved version.'
                                                 % (self.project['title'], draft['draft_at'][:16]), parent=app):
                 draft.pop('draft_at', None)
                 self.project = draft
@@ -390,16 +392,16 @@ class BrcgsReportView(tk.Frame):
         return self.project['id']
 
     def tab_text(self):
-        return ('● ' if self.dirty else '') + '📋 ' + (self.project['title'] or 'BRCGS raporu')[:40]
+        return ('● ' if self.dirty else '') + '📋 ' + (self.project['title'] or 'BRCGS report')[:40]
 
     def _build(self):
         c = self.c
         top = tk.Frame(self, bg=c['PANEL'], padx=12, pady=8)
         top.pack(fill='x')
-        self.app.btn(top, 'Kaydet ve kapat', self.save_and_close, 'ghost', side='right')
-        self.app.btn(top, '📄 DOCX\'e yaz', self.export_docx, 'normal', side='right')
-        self.app.btn(top, '💾 Kaydet', self.save, 'primary', side='right')
-        self.state_lbl = tk.Label(top, text='● Kayıtlı', fg=c.get('OK_C', '#6fd39b'), bg=c['PANEL'], font=('Segoe UI', 9, 'bold'))
+        self.app.btn(top, 'Save and close', self.save_and_close, 'ghost', side='right')
+        self.app.btn(top, '📄 Write DOCX', self.export_docx, 'normal', side='right')
+        self.app.btn(top, '💾 Save', self.save, 'primary', side='right')
+        self.state_lbl = tk.Label(top, text='● Saved', fg=c.get('OK_C', '#6fd39b'), bg=c['PANEL'], font=('Segoe UI', 9, 'bold'))
         self.state_lbl.pack(side='right', padx=10)
         self.title_lbl = tk.Label(top, text='', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 12, 'bold'), anchor='w')
         self.title_lbl.pack(side='left')
@@ -425,7 +427,7 @@ class BrcgsReportView(tk.Frame):
     def _refresh_header(self):
         p = self.project
         self.title_lbl.configure(text=p['title'])
-        self.sub_lbl.configure(text='%s · %s · %d bölüm' % (D.PROFILE_LABELS[p['profile']], p.get('company') or 'firma yok',
+        self.sub_lbl.configure(text='%s · %s · %d sections' % (D.PROFILE_LABELS[p['profile']], p.get('company') or 'no company',
                                                              len(p['sections'])))
         for k, b in self.nav_btns.items():
             on = k == self.page or (k.startswith('g:') and self.page == k)
@@ -438,12 +440,12 @@ class BrcgsReportView(tk.Frame):
     def mark_dirty(self, *_a):
         if not self.dirty:
             self.dirty = True
-            self.state_lbl.configure(text='● Kaydedilmedi', fg=self.c.get('WARN', '#e2b356'))
+            self.state_lbl.configure(text='● Unsaved', fg=self.c.get('WARN', '#e2b356'))
             self.app.brcgs_dirty_changed(self)
 
     def _mark_clean(self):
         self.dirty = False
-        self.state_lbl.configure(text='● Kayıtlı', fg=self.c.get('OK_C', '#6fd39b'))
+        self.state_lbl.configure(text='● Saved', fg=self.c.get('OK_C', '#6fd39b'))
         self.app.brcgs_dirty_changed(self)
 
     def show(self, page):
@@ -538,24 +540,31 @@ class BrcgsReportView(tk.Frame):
         pct = round(t['green'] * 100 / t['total']) if t['total'] else 0
         cards = tk.Frame(body, bg=c['PANEL'])
         cards.pack(fill='x', padx=14, pady=(12, 0))
-        for k, (val, label, note) in enumerate(((len(self.project['sections']), 'Bölümler', '%d bölümde metin var' % t['filled']),
-                                                ('%d/%d' % (t['green'], t['total']), 'Kapsam yeşil', '%%%d rapor metninde eşleşti' % pct),
-                                                (t['yellow'], 'Kanıt notunda', 'yalnız kanıt notunda bulundu'),
-                                                (t['red'], 'Eksik', 'henüz eşleşme yok'))):
+        nc = F.counts(self.project)
+        for k, (val, label, note) in enumerate(((len(self.project['sections']), 'Sections', '%d with report text' % t['filled']),
+                                                ('%d/%d' % (t['green'], t['total']), 'Coverage green', '%d%% matched in the report text' % pct),
+                                                (t['yellow'], 'In evidence notes', 'found only in the evidence notes'),
+                                                (t['red'], 'Missing', 'no match yet'),
+                                                (nc['total'], 'Non-conformities', F.count_text(nc, self.project['profile'])))):
             f = tk.Frame(cards, bg=c['PANEL'], highlightthickness=1, highlightbackground=c['LINE'], padx=14, pady=10)
             f.grid(row=0, column=k, sticky='nsew', padx=(0 if k == 0 else 8, 0))
             cards.columnconfigure(k, weight=1)
             tk.Label(f, text=str(val), fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 18, 'bold'), anchor='w').pack(fill='x')
             tk.Label(f, text=label, fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 10, 'bold'), anchor='w').pack(fill='x')
             tk.Label(f, text=note, fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x')
-        blk = self._block(body, 'Dosya bilgisi')
+        sb = tk.Frame(body, bg=c['PANEL'])
+        sb.pack(fill='x', padx=14, pady=(8, 0))
+        self.app.btn(sb, '⚑ Scan non-conformities and NA', self.scan_findings, 'normal')
+        tk.Label(sb, text='Finds "Minor NC 2.2.2: …" statements in the section texts and counts NC by type and NA clauses.', fg=c['MUTED'],
+                 bg=c['PANEL'], font=('Segoe UI', 8)).pack(side='left', padx=8)
+        blk = self._block(body, 'File information')
         grid = tk.Frame(blk, bg=c['PANEL'])
         grid.pack(fill='x')
         self.title_var = tk.StringVar(value=self.project['title'])
         p = self.project
-        items = (('Rapor adı', None), ('Standart profili', D.PROFILE_LABELS[p['profile']]), ('Kayıt kimliği', p['id']),
-                 ('Kaynak', p.get('source_file') or p.get('origin') or ''), ('Oluşturuldu', p.get('created_at') or ''),
-                 ('Son kayıt', p.get('updated_at') or ''))
+        items = (('Report name', None), ('Standard', D.PROFILE_LABELS[p['profile']]), ('Record ID', p['id']),
+                 ('Source', p.get('source_file') or p.get('origin') or ''), ('Created', p.get('created_at') or ''),
+                 ('Last saved', p.get('updated_at') or ''))
         for k, (label, val) in enumerate(items):
             r, col = divmod(k, 3)
             cell = tk.Frame(grid, bg=c['PANEL'])
@@ -571,15 +580,15 @@ class BrcgsReportView(tk.Frame):
                 e.insert(0, val)
                 e.configure(state='readonly')
                 e.pack(fill='x')
-        tk.Label(blk, text='Rapor bu bilgisayarda saklanır (%s). Her kayıttan önce geri dönülebilir bir sürüm anlık görüntüsü alınır; '
-                           'son 25 sürüm saklanır. DOCX her zaman resmi BRCGS şablonunun üzerine yazılır, şablon yeniden kurulmaz.'
+        tk.Label(blk, text='The report is stored on this computer (%s). A snapshot you can return to is taken before every save; '
+                           'the last 25 versions are kept. The DOCX is always written onto the official BRCGS template; the template is never rebuilt.'
                            % self.store.root, fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8), anchor='w', justify='left',
                  wraplength=900).pack(fill='x', pady=(6, 0))
         mods = B.optional_modules(p['profile'])
         if mods:
-            mb = self._block(body, 'Ek modüller', 'İsteğe bağlı modüller yalnızca eklendiği raporlarda görünür. Eklenen maddeler "Rapor '
-                                                 'bölümleri"nde ayrı bölüm olarak listelenir ve resmi şablondaki modül kutularına yazılır. '
-                                                 'Boş bırakılan maddeler rapora yazılmaz.')
+            mb = self._block(body, 'Additional modules', 'Optional modules appear only in reports they are added to. Their clauses are listed as separate sections under "Report '
+                                                 'sections" and written into the module boxes of the official template. '
+                                                 'Clauses left empty are not written to the report.')
             have = {s['clause'] for s in p['sections']}
             for mod, info in mods.items():
                 units = B.module_units(p['profile'], mod)
@@ -588,18 +597,18 @@ class BrcgsReportView(tk.Frame):
                 row.pack(fill='x', pady=2)
                 tk.Label(row, text=info.get('title') or mod, fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 9, 'bold')).pack(side='left')
                 if present < len(units):
-                    self.app.btn(row, ('Bu rapora ekle (%d madde)' if not present else 'Eksik maddeleri ekle (%d/%%d)' % present)
+                    self.app.btn(row, ('Add to this report (%d clauses)' if not present else 'Add missing clauses (%d/%%d)' % present)
                                  % len(units), lambda m=mod: self.add_module(m), 'normal', side='right')
                 else:
-                    tk.Label(row, text='Raporda · %d madde' % len(units), fg=c.get('OK_C', '#6fd39b'), bg=c['PANEL']).pack(side='right')
-        xb = self._block(body, 'Excel ile çalışma', 'Denetçi rapor bölümlerini çevrimdışı Excel formunda doldurabilir. Form, buradaki alt madde '
-                                                   'sorularının aynısını içerir. Doldurulan dosyayı içe aktardığınızda yanıtlar ilgili kutulara '
-                                                   'yerleşir; boş hücreler mevcut metni silmez ve içe aktarmadan önce sürüm kaydı alınır.')
+                    tk.Label(row, text='In the report · %d clauses' % len(units), fg=c.get('OK_C', '#6fd39b'), bg=c['PANEL']).pack(side='right')
+        xb = self._block(body, 'Working with Excel', 'The auditor can fill the report sections offline in the Excel form. The form contains the same '
+                                                   'sub-clause questions as here. When you import the filled file the answers go into the matching boxes; '
+                                                   'empty cells never clear existing text, and a version snapshot is taken before importing.')
         xr = tk.Frame(xb, bg=c['PANEL'])
         xr.pack(anchor='w')
-        self.app.btn(xr, '⤓ %s Excel şablonunu kaydet…' % D.PROFILE_SHORT[p['profile']], self.save_excel_template, 'ghost')
-        self.app.btn(xr, '⤒ Excel\'den içe aktar…', self.import_excel, 'primary')
-        hb = self._block(body, 'Bölüm doluluk haritası', 'Tıklayınca bölüme gider. Koyu: dolu · orta: kısmen · açık: boş')
+        self.app.btn(xr, '⤓ Save %s Excel template…' % D.PROFILE_SHORT[p['profile']], self.save_excel_template, 'ghost')
+        self.app.btn(xr, '⤒ Import from Excel…', self.import_excel, 'primary')
+        hb = self._block(body, 'Section fill map', 'Click to open a section. Dark: filled · medium: partly · light: empty')
         flow = tk.Frame(hb, bg=c['PANEL'])
         flow.pack(fill='x')
         per_row = 12
@@ -676,13 +685,21 @@ class BrcgsReportView(tk.Frame):
         c = self.c
         body = self._scroll()
         fields = [f for f in self.fields if f['group'] == group]
-        blk = self._block(body, group, 'Alanlar resmi DOCX içerik denetimlerinden okunmuştur (etiket, tür ve açılır liste seçenekleri '
-                                       'şablondan gelir). Tarih: YYYY-AA-GG ya da GG.AA.YYYY.')
+        blk = self._block(body, group, 'Fields are read from the official DOCX content controls (labels, types and drop-down options '
+                                       'come from the template). Dates: YYYY-MM-DD or DD.MM.YYYY.')
         grid = tk.Frame(blk, bg=c['PANEL'])
         grid.pack(fill='x')
         grid.columnconfigure(1, weight=1)
+        counted = {v: k for k, v in F.COUNT_KEYS.items()}
+        nc = F.counts(self.project)
         for r, f in enumerate(fields):
             label = f['label'] + ('  #%d' % (f['occurrence'] + 1) if f['repeats'] > 1 else '')
+            if f['key'] in counted:
+                tk.Label(grid, text=label, fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9), anchor='w').grid(row=r, column=0, sticky='nw',
+                                                                                                             padx=(0, 12), pady=3)
+                tk.Label(grid, text='%d   (counted from the non-conformity list; written on export)' % nc[counted[f['key']]], fg=c['FG'],
+                         bg=c['PANEL'], font=('Segoe UI', 9), anchor='w').grid(row=r, column=1, sticky='w', pady=3)
+                continue
             lab = tk.Label(grid, text=label, fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9), anchor='w', justify='left', wraplength=260)
             lab.grid(row=r, column=0, sticky='nw', padx=(0, 12), pady=3)
             val = self._value_of(f)
@@ -702,7 +719,7 @@ class BrcgsReportView(tk.Frame):
                 def date_changed(*_a, ff=f, vv=var, hh=hint):
                     v = vv.get().strip()
                     d = E.parse_date(v)
-                    hh.configure(text=('Word\'de: ' + E.format_date(d, ff['date_format'])) if d else ('tarih değil' if v else ''))
+                    hh.configure(text=('In Word: ' + E.format_date(d, ff['date_format'])) if d else ('not a date' if v else ''))
                     self._set_value(ff, v)
                 var.trace_add('write', date_changed)
                 date_changed()
@@ -722,12 +739,12 @@ class BrcgsReportView(tk.Frame):
         c = self.c
         body = self._scroll()
         if not self.tables:
-            self._block(body, 'Resmi tablolar', 'Bu şablonda satır satır doldurulan resmi tablo yok.')
+            self._block(body, 'Official tables', 'This template has no official tables filled row by row.')
             return
         rt = self.project['meta']['report_tables']
         for key, title, cols in self.tables:
-            blk = self._block(body, title, 'Resmi şablondaki tabloya satır satır yazılır; başlık satırları ve biçim korunur. Boş bırakılan '
-                                           'tablo şablondaki haliyle kalır.')
+            blk = self._block(body, title, 'Written row by row into the table of the official template; header rows and formatting are kept. A table left '
+                                           'empty stays as it is in the template.')
             labels = self.table_col_labels.get(key) or [E.COLUMN_LABELS.get(cname, cname) for cname in cols]
             rows = rt.setdefault(key, [])
             grid = tk.Frame(blk, bg=c['PANEL'])
@@ -743,7 +760,7 @@ class BrcgsReportView(tk.Frame):
                     var.trace_add('write', lambda *a, it=item, cn=cname, vv=var: (it.__setitem__(cn, vv.get()), self.mark_dirty()))
                 tk.Button(grid, text='✕', command=lambda kk=key, rr=r: self._table_del(kk, rr), bg=c['PANEL'], fg=c.get('BAD_C', '#ff8a80'),
                           relief='flat', bd=0, cursor='hand2').grid(row=r + 1, column=len(cols), padx=4)
-            self.app.btn(blk, '＋ Satır', lambda kk=key, cc=cols: self._table_add(kk, cc), 'ghost', side=None).pack(anchor='w', pady=(6, 0))
+            self.app.btn(blk, '＋ Row', lambda kk=key, cc=cols: self._table_add(kk, cc), 'ghost', side=None).pack(anchor='w', pady=(6, 0))
 
     def _table_add(self, key, cols):
         self.project['meta']['report_tables'].setdefault(key, []).append({cname: '' for cname in cols})
@@ -772,8 +789,12 @@ class BrcgsReportView(tk.Frame):
             return ''
         cv = COV.section_coverage(self.project['profile'], row['clause'], row.get('coverage_parent'), row.get('title'))
         if not cv:
-            return 'manuel'
-        return COV.badge_text(COV.summary(cv, str(row.get('value') or ''), row.get('note') or ''))
+            return 'manual'
+        sm = COV.summary(cv, str(row.get('value') or ''), row.get('note') or '')
+        g, y, r, tot = (int(sm.get(k) or 0) for k in ('green', 'yellow', 'red', 'total'))
+        if not tot:
+            return 'manual'
+        return '%d/%d' % (g, tot) + (' +%d evidence' % y if y else '') + (' · %d missing' % r if r else ' · complete')
 
     def current_row(self):
         rows = self.chapter_rows(self.chapter)
@@ -785,16 +806,16 @@ class BrcgsReportView(tk.Frame):
     def _page_sections(self):
         c = self.c
         if not self.project['sections']:
-            self._block(self.main, 'Bu raporda bölüm yok')
+            self._block(self.main, 'This report has no sections')
             return
         chs = self.chapters()
         if self.chapter not in chs:
             self.chapter, self.section_pos = chs[0], 0
         top = tk.Frame(self.main, bg=c['PANEL'], padx=14, pady=8)
         top.pack(fill='x')
-        tk.Label(top, text='Rapor bölümü rehberi', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 11, 'bold')).pack(side='left')
+        tk.Label(top, text='Report section guide', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 11, 'bold')).pack(side='left')
         ctitle = B.chapter_title(self.project['profile'], self.chapter)
-        tk.Label(top, text='  Bölüm %s%s' % (self.chapter, (' · ' + ctitle) if ctitle else ''), fg=c['MUTED'], bg=c['PANEL'],
+        tk.Label(top, text='  Section %s%s' % (self.chapter, (' · ' + ctitle) if ctitle else ''), fg=c['MUTED'], bg=c['PANEL'],
                  font=('Segoe UI', 9)).pack(side='left')
         chips = tk.Frame(top, bg=c['PANEL'])
         chips.pack(side='right')
@@ -817,11 +838,11 @@ class BrcgsReportView(tk.Frame):
             fg = c['SEL_FG'] if on else c['FG']
             l1 = tk.Label(f, text=row['clause'], fg=fg, bg=f['bg'], font=('Segoe UI', 9, 'bold'), anchor='w')
             l1.pack(fill='x')
-            l2 = tk.Label(f, text=(row.get('title') or 'Başlıksız')[:110], fg=fg, bg=f['bg'], font=('Segoe UI', 8), anchor='w',
+            l2 = tk.Label(f, text=(row.get('title') or 'Untitled')[:110], fg=fg, bg=f['bg'], font=('Segoe UI', 8), anchor='w',
                           justify='left', wraplength=210)
             l2.pack(fill='x')
             filled, total = G.fill_counts(self.project['profile'], row)
-            l3 = tk.Label(f, text='%d/%d · %s' % (filled, total, self.badge(row)), fg=c['MUTED'] if not on else fg, bg=f['bg'],
+            l3 = tk.Label(f, text='%d/%d answered · %s' % (filled, total, self.badge(row)), fg=c['MUTED'] if not on else fg, bg=f['bg'],
                           font=('Segoe UI', 7), anchor='w')
             l3.pack(fill='x')
             self.sec_badges[i] = l3
@@ -866,16 +887,16 @@ class BrcgsReportView(tk.Frame):
         f = tk.Frame(parent, bg=c['PANEL2'], padx=10, pady=6)
         f.pack(fill='x', pady=(0, 8))
         if note['warning']:
-            tk.Label(f, text='⚠  Resmi şablonda bu madde için kutu yok. Metni yazabilirsiniz, ancak DOCX dışa aktarımında bu bölüm yazılmaz.',
+            tk.Label(f, text='⚠  The official template has no box for this clause. You can write the text, but it is not written to the DOCX.',
                      fg=c.get('WARN', '#e2b356'), bg=c['PANEL2'], font=('Segoe UI', 9), anchor='w', justify='left', wraplength=800).pack(fill='x')
             return
         bx = B.box_by_tag(p, note['tag']) or {}
         if not note['merged']:
-            tk.Label(f, text='🗎  Resmi rapor kutusu: %s %s   [%s]' % (bx.get('clause', ''), bx.get('title', ''), note['tag']), fg=c['FG'],
+            tk.Label(f, text='🗎  Official report box: %s %s   [%s]' % (bx.get('clause', ''), bx.get('title', ''), note['tag']), fg=c['FG'],
                      bg=c['PANEL2'], font=('Segoe UI', 9), anchor='w', justify='left', wraplength=800).pack(fill='x')
         else:
             others = [k for k in note['siblings'] if k != row['clause']]
-            tk.Label(f, text='⊕  Birleşik kutu: %s — bu bölüm dışa aktarımda %s ile birlikte tek kutuda birleştirilir. Sıra: %s'
+            tk.Label(f, text='⊕  Merged box: %s — on export this section is combined with %s in one box. Order: %s'
                      % (note['tag'], ', '.join(others[:12]) + (' …' if len(others) > 12 else ''), ' → '.join(note['siblings'][:14]) +
                         (' …' if len(note['siblings']) > 14 else '')), fg=c['FG'], bg=c['PANEL2'], font=('Segoe UI', 9), anchor='w',
                      justify='left', wraplength=800).pack(fill='x')
@@ -904,35 +925,39 @@ class BrcgsReportView(tk.Frame):
             rq = tk.Frame(wrap, bg=c['PANEL2'], padx=10, pady=6)
             rq.pack(fill='x', pady=(0, 8))
             refs = ' · '.join(x for x in (u.get('regulation'), ('BRCGS: ' + u['brcgs_ref']) if u.get('brcgs_ref') else '') if x)
-            tk.Label(rq, text='Modül maddesi %s   %s' % (row['clause'], refs), fg=c['FG'], bg=c['PANEL2'], font=('Segoe UI', 9, 'bold'),
+            tk.Label(rq, text='Module clause %s   %s' % (row['clause'], refs), fg=c['FG'], bg=c['PANEL2'], font=('Segoe UI', 9, 'bold'),
                      anchor='w').pack(fill='x')
             tk.Label(rq, text=u['requirement'].replace(' • ', '\n• '), fg=c['FG'], bg=c['PANEL2'], font=('Segoe UI', 9), anchor='w',
                      justify='left', wraplength=780).pack(fill='x')
         form = G.form_for(p, row['clause'])
         struct = G.struct_of(row)
-        self._assembled_lbl = None
+        self._report_box = None
+        self._closing_lbl = None
+        self._stale_lbl = None
         if form:
             fb = tk.Frame(wrap, bg=c['PANEL'], highlightthickness=1, highlightbackground=c['ACCENT'], padx=10, pady=8)
             fb.pack(fill='x')
             hh = tk.Frame(fb, bg=c['PANEL'])
             hh.pack(fill='x')
-            tk.Label(hh, text='%s için kılavuzun istediği bilgiler' % row['clause'], fg=c['FG'], bg=c['PANEL'],
+            tk.Label(hh, text='Evidence the guideline expects for %s' % row['clause'], fg=c['FG'], bg=c['PANEL'],
                      font=('Segoe UI', 10, 'bold')).pack(side='left')
             rule = form.get('rule') or {}
             if form['rule_exact'] and rule.get('minimum_words'):
-                tk.Label(hh, text='En az ~%s kelime beklenir' % rule['minimum_words'], fg=c['MUTED'], bg=c['PANEL'],
+                tk.Label(hh, text='At least ~%s words expected' % rule['minimum_words'], fg=c['MUTED'], bg=c['PANEL'],
                          font=('Segoe UI', 8)).pack(side='right')
+            tk.Label(fb, text='Enter the audit evidence in any language; the AI button turns it into English report text.',
+                     fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x', pady=(2, 0))
             if str(struct.get(G.LEGACY_KEY) or '').strip():
-                tk.Label(fb, text='Önceden yazılmış metin (aşağıdaki kutulara taşıyıp burayı boşaltabilirsiniz)', fg=c['MUTED'],
+                tk.Label(fb, text='Previously written text (move it into the boxes below and clear this one if you like)', fg=c['MUTED'],
                          bg=c['PANEL'], font=('Segoe UI', 9), anchor='w').pack(fill='x', pady=(6, 0))
                 self._text(fb, struct[G.LEGACY_KEY], rows=5, on_change=lambda v: self._answer(row, G.LEGACY_KEY, v)).pack(fill='x')
             for k, fd in enumerate(form['fields']):
-                tk.Label(fb, text='%d   %s' % (k + 1, fd.get('label') or fd['key']), fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 9, 'bold'),
+                tk.Label(fb, text='%d   %s' % (k + 1, G.label_of(fd)), fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 9, 'bold'),
                          anchor='w', justify='left', wraplength=780).pack(fill='x', pady=(8, 2))
                 raw = str(struct.get(fd['key']) or '')
                 if fd.get('type') == 'select' and fd.get('options'):
                     opts = fd['options']
-                    labels = [''] + [str(G.option_label(o)) for o in opts]
+                    labels = [''] + [I18N.guide(G.option_label(o)) for o in opts]
                     values = [''] + [str(G.option_value(o)) for o in opts]
                     var = tk.StringVar(value=labels[values.index(raw)] if raw in values else raw)
                     cb = ttk.Combobox(fb, textvariable=var, values=labels, state='readonly', width=40)
@@ -947,42 +972,170 @@ class BrcgsReportView(tk.Frame):
                     self._text(fb, raw, rows=int(fd.get('rows') or 2) + 1,
                                on_change=lambda v, ff=fd: self._answer(row, ff['key'], v)).pack(fill='x')
                 if fd.get('hint'):
-                    tk.Label(fb, text=fd['hint'], fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x')
+                    tk.Label(fb, text=I18N.guide(fd['hint']), fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x')
             if rule.get('should_not_include'):
-                tk.Label(fb, text='Yazmayın: ' + ' · '.join(rule['should_not_include']), fg=c.get('BAD_C', '#ff8a80'), bg=c['PANEL'],
-                         font=('Segoe UI', 8), anchor='w', justify='left', wraplength=780).pack(fill='x', pady=(8, 0))
-            pv = tk.Frame(wrap, bg=c['PANEL'])
-            pv.pack(fill='x', pady=(8, 0))
-            tk.Label(pv, text='▾ Rapora yazılacak metin (kutulardan otomatik)', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9),
-                     anchor='w').pack(fill='x')
-            self._assembled_lbl = tk.Label(pv, text=row.get('value') or '—', fg=c['FG'], bg=c['PANEL2'], font=('Consolas', 9), anchor='w',
-                                           justify='left', wraplength=780, padx=8, pady=6)
-            self._assembled_lbl.pack(fill='x')
-        else:
-            if COV is not None:
-                exp = COV.guide_expectations(p, row['clause']) or {}
-                lines = [x for x in (exp.get('expected_content') or []) if x]
-                if lines:
-                    tk.Label(wrap, text='Kılavuz beklentisi:\n• ' + '\n• '.join(lines), fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9),
-                             anchor='w', justify='left', wraplength=780).pack(fill='x')
-            tk.Label(wrap, text='Rapor bölümü metni', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9), anchor='w').pack(fill='x',
-                                                                                                                         pady=(8, 2))
-            self._text(wrap, row.get('value') or '', rows=12, on_change=lambda v: self._free_text(row, v)).pack(fill='x')
-        ai = tk.Frame(wrap, bg=c['PANEL'])
-        ai.pack(fill='x', pady=(8, 0))
-        self.app.btn(ai, '✨ AI: Türkçe notlardan İngilizce rapor metni', lambda: self.ai_draft(row), 'ghost', side='left')
-        tk.Label(wrap, text='Denetim kanıtları / hatırlatma notları', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9),
+                tk.Label(fb, text='Do not write: ' + ' · '.join(I18N.guide(x) for x in rule['should_not_include']), fg=c.get('BAD_C', '#ff8a80'),
+                         bg=c['PANEL'], font=('Segoe UI', 8), anchor='w', justify='left', wraplength=780).pack(fill='x', pady=(8, 0))
+        elif COV is not None:
+            exp = COV.guide_expectations(p, row['clause']) or {}
+            lines = [I18N.guide(x) for x in (exp.get('expected_content') or []) if x]
+            if lines:
+                tk.Label(wrap, text='The guideline expects:\n• ' + '\n• '.join(lines), fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9),
+                         anchor='w', justify='left', wraplength=780).pack(fill='x')
+        tk.Label(wrap, text='Audit evidence / reminder notes (not exported)', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9),
                  anchor='w').pack(fill='x', pady=(10, 2))
         self._text(wrap, row.get('note') or '', rows=4, on_change=lambda v: self._note(row, v)).pack(fill='x')
-        tk.Label(wrap, text='Bu bölümdeki bulgular (NC / gözlem)', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9),
-                 anchor='w').pack(fill='x', pady=(10, 2))
-        fnd = self.project['meta'].setdefault('section_findings', {})
-        self._text(wrap, fnd.get(row['clause']) or '', rows=3, on_change=lambda v: self._finding(row, v)).pack(fill='x')
+        # ---- Ingilizce rapor metni (DOCX'e giden)
+        rt = tk.Frame(wrap, bg=c['PANEL'])
+        rt.pack(fill='x', pady=(12, 2))
+        tk.Label(rt, text='Report text (English) — written to the official report', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 10, 'bold'),
+                 anchor='w').pack(side='left')
+        self.ai_btn = self.app.btn(rt, '✨ AI: write English report text from the evidence', lambda: self.ai_draft(row), 'primary', side='right')
+        self._stale_lbl = tk.Label(wrap, text='', fg=c.get('WARN', '#e2b356'), bg=c['PANEL'], font=('Segoe UI', 8), anchor='w')
+        self._stale_lbl.pack(fill='x')
+        self._report_box = self._text(wrap, row.get('value') or '', rows=8, on_change=lambda v: self._report_edit(row, v))
+        self._report_box.pack(fill='x')
+        tk.Label(wrap, text='You can edit this text. Clearing it returns to the text built from the evidence boxes.', fg=c['MUTED'],
+                 bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x')
+        self._section_findings(wrap, row)
+        self._closing_lbl = tk.Label(wrap, text='', fg=c['MUTED'], bg=c['PANEL2'], font=('Consolas', 9), anchor='w', justify='left',
+                                     wraplength=780, padx=8, pady=6)
+        self._closing_lbl.pack(fill='x', pady=(8, 0))
+        self._refresh_closing(row)
+        old = str((self.project['meta'].get('section_findings') or {}).get(row['clause']) or '').strip()
+        if old:
+            tk.Label(wrap, text='Findings notes (from an earlier version or Excel; not exported)', fg=c['MUTED'], bg=c['PANEL'],
+                     font=('Segoe UI', 9), anchor='w').pack(fill='x', pady=(10, 2))
+            self._text(wrap, old, rows=3, on_change=lambda v: self._finding(row, v)).pack(fill='x')
         nav = tk.Frame(wrap, bg=c['PANEL'])
         nav.pack(fill='x', pady=12)
-        self.app.btn(nav, '← Önceki', lambda: self.step(-1), 'ghost')
-        self.app.btn(nav, 'Bölümü kaydet', self.save, 'primary')
-        self.app.btn(nav, 'Sonraki →', lambda: self.step(1), 'ghost', side='right')
+        self.app.btn(nav, '← Previous', lambda: self.step(-1), 'ghost')
+        self.app.btn(nav, 'Save section', self.save, 'primary')
+        self.app.btn(nav, 'Next →', lambda: self.step(1), 'ghost', side='right')
+        self._show_stale(row)
+
+    # ---- bolum bazinda NA / NC
+    def _section_findings(self, parent, row):
+        c = self.c
+        clause = row['clause']
+        box = tk.Frame(parent, bg=c['PANEL'], highlightthickness=1, highlightbackground=c['LINE'], padx=10, pady=8)
+        box.pack(fill='x', pady=(12, 0))
+        hdr = tk.Frame(box, bg=c['PANEL'])
+        hdr.pack(fill='x')
+        tk.Label(hdr, text='Not applicable in this section', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 10, 'bold')).pack(side='left')
+        self.app.btn(hdr, '＋ NA clause', lambda: self._sec_add_na(row), 'ghost', side='right')
+        nas = F.section_nas(self.project, clause)
+        if not nas:
+            tk.Label(box, text='None. Add the sub-clauses that are not applicable at this site, with the justification.', fg=c['MUTED'],
+                     bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x')
+        for na in nas:
+            r = tk.Frame(box, bg=c['PANEL'])
+            r.pack(fill='x', pady=2)
+            var = tk.StringVar(value=na.get('clause_ref') or '')
+            ttk.Entry(r, textvariable=var, width=10).pack(side='left', anchor='n')
+            var.trace_add('write', lambda *a, it=na, vv=var: (it.__setitem__('clause_ref', vv.get()), self._findings_changed(row)))
+            tk.Button(r, text='✕', command=lambda it=na: self._sec_del_na(row, it), bg=c['PANEL'], fg=c.get('BAD_C', '#ff8a80'),
+                      relief='flat', bd=0, cursor='hand2', highlightthickness=0).pack(side='right', anchor='n', padx=4)
+            t = self._text(r, na.get('justification') or '', rows=2,
+                           on_change=lambda v, it=na: (it.__setitem__('justification', v), self._findings_changed(row)))
+            t.pack(side='left', fill='x', expand=True, padx=(8, 0))
+        box2 = tk.Frame(parent, bg=c['PANEL'], highlightthickness=1, highlightbackground=c['LINE'], padx=10, pady=8)
+        box2.pack(fill='x', pady=(8, 0))
+        hdr = tk.Frame(box2, bg=c['PANEL'])
+        hdr.pack(fill='x')
+        ncs = F.section_ncs(self.project, clause)
+        sc = {t: sum(1 for i in ncs if F.nc_type(i) == t) for t in F.TYPES}
+        tk.Label(hdr, text='Non-conformities in this section', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 10, 'bold')).pack(side='left')
+        tk.Label(hdr, text='   ' + ' · '.join('%s %d' % (F.TYPE_LABELS[t], sc[t]) for t in self._nc_types()), fg=c['MUTED'], bg=c['PANEL'],
+                 font=('Segoe UI', 9)).pack(side='left')
+        self.app.btn(hdr, '＋ Non-conformity', lambda: self._sec_add_nc(row), 'ghost', side='right')
+        if not ncs:
+            tk.Label(box2, text='None. On export this section ends with: "%s"' % F.NO_NC_SENTENCE, fg=c['MUTED'], bg=c['PANEL'],
+                     font=('Segoe UI', 8), anchor='w').pack(fill='x')
+        for it in ncs:
+            r = tk.Frame(box2, bg=c['PANEL'])
+            r.pack(fill='x', pady=3)
+            top = tk.Frame(r, bg=c['PANEL'])
+            top.pack(fill='x')
+            tv = tk.StringVar(value=F.TYPE_LABELS[F.nc_type(it)])
+            ttk.Combobox(top, textvariable=tv, values=[F.TYPE_LABELS[t] for t in self._nc_types()], state='readonly', width=12).pack(side='left')
+            tv.trace_add('write', lambda *a, x=it, vv=tv: (x.__setitem__('type', vv.get().lower()), self._findings_changed(row)))
+            tk.Label(top, text='  Clause', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9)).pack(side='left')
+            cv = tk.StringVar(value=it.get('clause') or clause)
+            ttk.Entry(top, textvariable=cv, width=10).pack(side='left', padx=(4, 0))
+            cv.trace_add('write', lambda *a, x=it, vv=cv: (x.__setitem__('clause', vv.get()), self._findings_changed(row)))
+            tk.Button(top, text='✕ Remove', command=lambda x=it: self._sec_del_nc(row, x), bg=c['PANEL'], fg=c.get('BAD_C', '#ff8a80'),
+                      relief='flat', bd=0, cursor='hand2', highlightthickness=0).pack(side='right')
+            self._text(r, F.nc_detail(it), rows=2, on_change=lambda v, x=it: (x.__setitem__('nc_text', v), self._findings_changed(row))
+                       ).pack(fill='x', pady=(2, 0))
+        if ncs:
+            tk.Label(box2, text='Correction, root cause and preventive action are entered on the NC Action Plan page.', fg=c['MUTED'],
+                     bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x', pady=(4, 0))
+
+    def _nc_types(self):
+        keys = E.field_keys(self.project['profile'])
+        return [t for t in F.TYPES if F.COUNT_KEYS[t] in keys or t != 'fundamental']
+
+    def _sec_add_na(self, row):
+        self.project['meta'].setdefault('na_clauses', []).append({'clause_ref': row['clause'], 'justification': '', 'section': row['clause']})
+        self.mark_dirty()
+        self.show('sections')
+
+    def _sec_del_na(self, row, item):
+        self.project['meta']['na_clauses'].remove(item)
+        self.mark_dirty()
+        self.show('sections')
+
+    def _sec_add_nc(self, row):
+        self.project['meta'].setdefault('action_plan', {}).setdefault('items', []).append(
+            {'type': 'minor', 'clause': row['clause'], 'nc_text': '', 'section': row['clause'], 'correction': '', 'root_cause': '',
+             'proposed_preventive_action': '', 'date_reviewed': '', 'reviewed_by': ''})
+        self.mark_dirty()
+        self.show('sections')
+
+    def _sec_del_nc(self, row, item):
+        self.project['meta']['action_plan']['items'].remove(item)
+        self.mark_dirty()
+        self.show('sections')
+
+    def _findings_changed(self, row):
+        self.mark_dirty()
+        self._refresh_closing(row)
+        self._refresh_header()
+
+    def _refresh_closing(self, row):
+        if self._closing_lbl is None:
+            return
+        lines = F.closing_lines(self.project, row)
+        try:
+            self._closing_lbl.configure(text='Added at the end of this section on export:\n' + '\n'.join(lines) if lines else
+                                        'Nothing is added on export (empty section, or the text already states it).')
+        except tk.TclError:
+            pass
+
+    def _show_stale(self, row):
+        if self._stale_lbl is None:
+            return
+        flags = row.get('flags') or {}
+        msg = ''
+        if G.report_text(row) and flags.get('report_stale'):
+            msg = '⚠ The evidence changed after this text was written. Press the AI button again to update it, or edit it here.'
+        elif G.report_text(row):
+            msg = 'English report text (written by AI or edited). The evidence boxes above stay as your source.'
+        try:
+            self._stale_lbl.configure(text=msg)
+        except tk.TclError:
+            pass
+
+    def _set_report_box(self, text):
+        if self._report_box is None:
+            return
+        try:
+            self._report_box.delete('1.0', 'end')
+            self._report_box.insert('1.0', text or '')
+            self._report_box.edit_modified(False)
+        except tk.TclError:
+            pass
 
     def _refresh_badge(self, row):
         idx = self.project['sections'].index(row)
@@ -990,17 +1143,32 @@ class BrcgsReportView(tk.Frame):
         if lbl is not None:
             try:
                 filled, total = G.fill_counts(self.project['profile'], row)
-                lbl.configure(text='%d/%d · %s' % (filled, total, self.badge(row)))
+                lbl.configure(text='%d/%d answered · %s' % (filled, total, self.badge(row)))
             except tk.TclError:
                 pass
 
     def _answer(self, row, key, value):
         G.set_answer(self.project['profile'], row, key, value)
-        if self._assembled_lbl is not None:
-            try:
-                self._assembled_lbl.configure(text=row['value'] or '—')
-            except tk.TclError:
-                pass
+        if not G.report_text(row):
+            self._set_report_box(row['value'])
+        self._show_stale(row)
+        self._refresh_closing(row)
+        self._refresh_badge(row)
+        self.mark_dirty()
+
+    def _report_edit(self, row, value):
+        p = self.project['profile']
+        if G.form_for(p, row['clause']) or G.report_text(row):
+            built = G.assemble_text(p, row, G.struct_of(row)) if isinstance((row.get('flags') or {}).get('struct'), dict) else ''
+            if value.strip() and value != built:
+                G.set_report_text(p, row, value)
+            elif not value.strip():
+                G.set_report_text(p, row, '')
+                self._set_report_box(row['value'])
+        else:
+            row['value'] = value
+        self._show_stale(row)
+        self._refresh_closing(row)
         self._refresh_badge(row)
         self.mark_dirty()
 
@@ -1013,6 +1181,9 @@ class BrcgsReportView(tk.Frame):
 
     def _note(self, row, value):
         row['note'] = value
+        if G.report_text(row):
+            row.setdefault('flags', {})['report_stale'] = True
+            self._show_stale(row)
         self._refresh_badge(row)
         self.mark_dirty()
 
@@ -1020,8 +1191,8 @@ class BrcgsReportView(tk.Frame):
         self.project['meta'].setdefault('section_findings', {})[row['clause']] = value
         self.mark_dirty()
 
-    def ai_draft(self, row):
-        """Kilavuz yanitlari + kanit notlarindan BRCGS raporu dilinde Ingilizce taslak; fark penceresinde onayla."""
+    def ai_source(self, row):
+        """AI'ya giden kanit: kilavuz sorulari (Ingilizce) + yanitlar + onceki metin + kanit notu."""
         p = self.project['profile']
         st = G.struct_of(row)
         form = G.form_for(p, row['clause'])
@@ -1030,53 +1201,46 @@ class BrcgsReportView(tk.Frame):
             for fd in form['fields']:
                 v = str(st.get(fd['key']) or '').strip()
                 if v:
-                    parts.append('- %s: %s' % (fd.get('report_label') or fd.get('label') or fd['key'], v))
+                    parts.append('- %s: %s' % (G.report_label_of(fd), G.display_value(fd, v) if fd.get('type') == 'select' else v))
         if str(st.get(G.LEGACY_KEY) or '').strip():
             parts.append(str(st[G.LEGACY_KEY]))
-        if not form and str(row.get('value') or '').strip():
+        if not form and str(row.get('value') or '').strip() and not G.report_text(row):
             parts.append(str(row['value']))
         if str(row.get('note') or '').strip():
             parts.append('Evidence notes: ' + str(row['note']))
-        if not parts:
-            messagebox.showinfo('AI', 'Önce kılavuz kutularına ya da kanıt notuna bir şey yazın.', parent=self)
-            return
-        src = '\n'.join(parts)
-        self.app.brcgs_ai_draft(self, row, src)
+        return '\n'.join(parts)
 
-    def apply_ai_text(self, row, text):
-        """AI metni bolumun rapor metni olur. Kilavuz kutularindaki yanitlar kaybolmaz: kanit notuna 'soru: yanit' olarak tasinir
-        (aksi halde rapor metni = AI metni + ayni yanitlar olur, icerik iki kez yazilirdi)."""
+    def ai_draft(self, row):
+        """Kanitlardan Ingilizce rapor metni; AI dogrudan rapor metni kutusuna yazar (onizleme penceresi yok)."""
+        src = self.ai_source(row)
+        if not src.strip():
+            messagebox.showinfo('AI', 'Enter the audit evidence in the boxes or the evidence notes first.', parent=self)
+            return
+        ncs = [it for it in F.section_ncs(self.project, row['clause']) if F.nc_detail(it)]
+        self.app.brcgs_ai_draft(self, row, src, ncs)
+
+    def apply_ai_result(self, row, text, nc_texts=None):
+        """AI sonucu: rapor metni olur; NC detaylari Ingilizceye cevrildiyse NC listesine yazilir. Kanit kutulari degismez."""
         p = self.project['profile']
-        flags = row.setdefault('flags', {})
-        st = G.struct_of(row)
-        form = G.form_for(p, row['clause'])
-        moved = []
-        if form:
-            for fd in form['fields']:
-                v = str(st.get(fd['key']) or '').strip()
-                if v:
-                    moved.append('%s: %s' % (fd.get('report_label') or fd.get('label') or fd['key'], v))
-            old_legacy = str(st.get(G.LEGACY_KEY) or '').strip()
-            if old_legacy and old_legacy != text.strip():
-                moved.insert(0, old_legacy)
-            if moved:
-                note = str(row.get('note') or '').rstrip()
-                row['note'] = (note + '\n\n' if note else '') + 'Kılavuz yanıtları (AI metninden önce):\n' + '\n'.join(moved)
-            flags['struct'] = {G.LEGACY_KEY: text}
-            row['value'] = G.assemble_text(p, row, flags['struct'])
-        else:
-            flags.pop('struct', None)
-            row['value'] = text
+        G.set_report_text(p, row, text)
+        if nc_texts:
+            ncs = [it for it in F.section_ncs(self.project, row['clause']) if F.nc_detail(it)]
+            if len(nc_texts) == len(ncs):
+                for it, en in zip(ncs, nc_texts):
+                    if en.strip():
+                        it.setdefault('nc_text_original', F.nc_detail(it))
+                        it['nc_text'] = en.strip()
         self.mark_dirty()
-        self.show('sections')
+        if self.page == 'sections' and self.current_row()[1] is row:
+            self.show('sections')
 
     # ------------------------------------------------------------------ NA
     def _page_na(self):
         c = self.c
         body = self._scroll()
         rows = self.project['meta']['na_clauses']
-        blk = self._block(body, 'Not Applicable maddeleri', 'Kapsam dışı bırakılan maddeler ve gerekçeleri ilgili bölümün resmi NA tablosuna/kutusuna '
-                                                          'yazılır (madde numarasının ilk hanesi bölümü belirler).')
+        blk = self._block(body, 'Not applicable clauses', 'Excluded clauses and their justifications are written to the official NA table/box of the matching '
+                                                          'section (the first digit of the clause number decides the section). They can also be added on each section page.')
         grid = tk.Frame(blk, bg=c['PANEL'])
         grid.pack(fill='x')
         grid.columnconfigure(1, weight=1)
@@ -1090,8 +1254,8 @@ class BrcgsReportView(tk.Frame):
             tk.Button(grid, text='✕', command=lambda rr=r: self._na_del(rr), bg=c['PANEL'], fg=c.get('BAD_C', '#ff8a80'), relief='flat',
                       bd=0, cursor='hand2').grid(row=r, column=2, padx=4)
         if not rows:
-            tk.Label(blk, text='Henüz NA maddesi yok.', fg=c['MUTED'], bg=c['PANEL']).pack(anchor='w')
-        self.app.btn(blk, '＋ Satır', self._na_add, 'ghost', side=None).pack(anchor='w', pady=(6, 0))
+            tk.Label(blk, text='No NA clauses yet.', fg=c['MUTED'], bg=c['PANEL']).pack(anchor='w')
+        self.app.btn(blk, '＋ Row', self._na_add, 'ghost', side=None).pack(anchor='w', pady=(6, 0))
 
     def _na_add(self):
         self.project['meta']['na_clauses'].append({'clause_ref': '', 'justification': ''})
@@ -1108,14 +1272,14 @@ class BrcgsReportView(tk.Frame):
         c = self.c
         body = self._scroll()
         items = self.project['meta']['action_plan'].setdefault('items', [])
-        blk = self._block(body, 'NC Action Plan', 'Critical / Major satırları resmi Major (ve varsa Critical) tablosuna, Minor satırları Minor '
-                                                 'tablosuna satır satır yazılır. "Bölümlerden tara" bölüm metinlerindeki NC satırlarını alır.')
+        blk = self._block(body, 'NC Action Plan', 'Critical / Major rows go to the official Major (and Critical, if present) table, Minor rows to the Minor '
+                                                 'table, row by row. "Scan section texts" picks up "Minor NC 2.2.2: …" statements written in the sections.')
         bar = tk.Frame(blk, bg=c['PANEL'])
         bar.pack(fill='x', pady=(0, 6))
-        self.app.btn(bar, 'Bölümlerden tara', self._plan_scan, 'ghost')
-        self.app.btn(bar, '＋ Satır', self._plan_add, 'ghost')
+        self.app.btn(bar, 'Scan section texts', self.scan_findings, 'ghost')
+        self.app.btn(bar, '＋ Row', self._plan_add, 'ghost')
         if not items:
-            tk.Label(blk, text='Henüz uygunsuzluk kaydı yok.', fg=c['MUTED'], bg=c['PANEL']).pack(anchor='w')
+            tk.Label(blk, text='No non-conformities yet.', fg=c['MUTED'], bg=c['PANEL']).pack(anchor='w')
         for i, it in enumerate(items):
             f = tk.Frame(blk, bg=c['PANEL'], highlightthickness=1, highlightbackground=c['LINE'], padx=10, pady=6)
             f.pack(fill='x', pady=4)
@@ -1126,7 +1290,7 @@ class BrcgsReportView(tk.Frame):
             ttk.Combobox(hr, textvariable=tv, values=[PLAN_TYPE_LABELS[t] for t in PLAN_TYPES], state='readonly', width=12).pack(side='left',
                                                                                                                          padx=8)
             tv.trace_add('write', lambda *a, x=it, vv=tv: (x.__setitem__('type', vv.get().lower()), self.mark_dirty()))
-            tk.Button(hr, text='✕ Sil', command=lambda k=i: self._plan_del(k), bg=c['PANEL'], fg=c.get('BAD_C', '#ff8a80'), relief='flat',
+            tk.Button(hr, text='✕ Remove', command=lambda k=i: self._plan_del(k), bg=c['PANEL'], fg=c.get('BAD_C', '#ff8a80'), relief='flat',
                       bd=0, cursor='hand2').pack(side='right')
             grid = tk.Frame(f, bg=c['PANEL'])
             grid.pack(fill='x')
@@ -1153,74 +1317,85 @@ class BrcgsReportView(tk.Frame):
         self.mark_dirty()
         self.show('plan')
 
-    def _plan_scan(self):
-        found = S.scan_action_plan(self.project)
-        if not found:
-            messagebox.showinfo('NC tarama', 'Bölüm metinlerinde "NC / non-conformity / uygunsuzluk" geçen satır bulunamadı.', parent=self)
-            return
-        items = self.project['meta']['action_plan'].setdefault('items', [])
-        have = {(str(i.get('clause')), str(i.get('nc_text') or i.get('detail') or '').strip()) for i in items}
-        new = [x for x in found if (x['clause'], x['nc_text']) not in have]
-        items.extend(new)
-        self.mark_dirty()
-        self.show('plan')
-        self.app.flash('%d uygunsuzluk satırı eklendi (%d zaten vardı).' % (len(new), len(found) - len(new)))
+    def scan_findings(self, quiet=False):
+        """Bolum metinlerindeki 'Minor NC 2.2.2: ...' kaliplarini NC listesine ekler, NC/NA sayilarini turune gore gosterir."""
+        res = F.scan(self.project)
+        if res['added']:
+            self.mark_dirty()
+        c = res['counts']
+        per = {}
+        for row in self.project['sections']:
+            ncs = [i for i in F.section_ncs(self.project, row['clause']) if F.nc_detail(i)]
+            nas = F.section_nas(self.project, row['clause'])
+            if ncs or nas:
+                per[row['clause']] = ', '.join(['%s %s' % (F.TYPE_LABELS[F.nc_type(i)], F.norm_clause(i.get('clause'))) for i in ncs] +
+                                               ['NA %s' % F.norm_clause(n.get('clause_ref')) for n in nas])
+        msg = ['Non-conformities: ' + F.count_text(c, self.project['profile']),
+               '%d new NC statement(s) found in the section texts, %d already listed.' % (len(res['added']), res['existing'])]
+        if any(k in E.field_keys(self.project['profile']) for k in F.COUNT_KEYS.values()):
+            msg.append('The non-conformity count fields of the report are filled from these numbers on export.')
+        if per:
+            msg += ['', 'By section:'] + ['%s — %s' % (k, v) for k, v in list(per.items())[:30]]
+        self.show(self.page)
+        if not quiet:
+            messagebox.showinfo('Scan non-conformities', '\n'.join(msg), parent=self)
+        return res
 
     # ------------------------------------------------------------------ onizleme / gecmis
     def _page_preview(self):
         c = self.c
-        blk = self._block(self.main, 'Rapor önizlemesi', 'Ekrandaki güncel hâl (kaydedilmemiş değişiklikler dahil). DOCX çıktısı resmi şablonla '
-                                                        'aynı sırayı izler.')
+        blk = self._block(self.main, 'Report preview', 'Current state on screen (including unsaved changes), with the lines added on export. The DOCX follows the '
+                                                        'order of the official template.')
         t = tk.Text(self.main, wrap='word', bg=c['EDIT_BG'], fg=c['FG'], relief='flat', font=('Consolas', 9), padx=10, pady=8)
         t.pack(fill='both', expand=True, padx=14, pady=10)
         t.insert('1.0', S.preview_text(self.project, self.field_labels))
         t.configure(state='disabled')
         bar = tk.Frame(blk, bg=c['PANEL'])
         bar.pack(fill='x')
-        self.app.btn(bar, 'Kopyala', lambda: (self.clipboard_clear(), self.clipboard_append(t.get('1.0', 'end-1c')),
-                                              self.app.flash('Önizleme panoya kopyalandı.')), 'ghost')
-        self.app.btn(bar, 'Editörde aç', lambda: self.app.new_doc(t.get('1.0', 'end-1c'), title=self.project['title'] + ' (önizleme)',
+        self.app.btn(bar, 'Copy', lambda: (self.clipboard_clear(), self.clipboard_append(t.get('1.0', 'end-1c')),
+                                              self.app.flash('Preview copied to the clipboard.')), 'ghost')
+        self.app.btn(bar, 'Open in editor', lambda: self.app.new_doc(t.get('1.0', 'end-1c'), title=self.project['title'] + ' (preview)',
                                                                   rich=False), 'ghost')
 
     def _page_history(self):
         c = self.c
         body = self._scroll()
-        blk = self._block(body, 'Sürüm geçmişi', 'Her kayıttan önce otomatik anlık görüntü alınır. Son %d sürüm saklanır. Geri dönmek de bir '
-                                                'sürüm kaydı oluşturur.' % S.REVISION_LIMIT)
+        blk = self._block(body, 'Version history', 'A snapshot is taken automatically before every save. The last %d versions are kept. Returning to a version also '
+                                                'creates a snapshot.' % S.REVISION_LIMIT)
         revs = self.store.revisions(self.uid)
         if not revs:
-            tk.Label(blk, text='Henüz sürüm yok (ilk kayıttan sonra oluşur).', fg=c['MUTED'], bg=c['PANEL']).pack(anchor='w')
+            tk.Label(blk, text='No versions yet (created after the first save).', fg=c['MUTED'], bg=c['PANEL']).pack(anchor='w')
         for r in revs:
             row = tk.Frame(blk, bg=c['PANEL'])
             row.pack(fill='x', pady=1)
-            tk.Label(row, text='%s   ·   %s   ·   %d dolu bölüm   ·   %.1f KB' % (r['created_at'], r.get('label') or '', r.get('filled') or 0,
+            tk.Label(row, text='%s   ·   %s   ·   %d filled sections   ·   %.1f KB' % (r['created_at'], r.get('label') or '', r.get('filled') or 0,
                                                                               r['size'] / 1024.0), fg=c['FG'], bg=c['PANEL'],
                      font=('Segoe UI', 9), anchor='w').pack(side='left')
-            self.app.btn(row, 'Bu sürüme dön', lambda rid=r['id']: self.restore_revision(rid), 'ghost', side='right')
+            self.app.btn(row, 'Return to this version', lambda rid=r['id']: self.restore_revision(rid), 'ghost', side='right')
 
     def restore_revision(self, rid):
-        if self.dirty and not messagebox.askyesno('Sürüme dön', 'Kaydedilmemiş değişiklikler kaybolacak. Devam edilsin mi?', parent=self):
+        if self.dirty and not messagebox.askyesno('Return to version', 'Unsaved changes will be lost. Continue?', parent=self):
             return
         self.project = self.store.restore_revision(self.uid, rid)
         self._mark_clean()
         self.show('history')
-        self.app.flash('Sürüm geri yüklendi.')
+        self.app.flash('Version restored.')
 
     # ------------------------------------------------------------------ kaydet / disa aktar
     def save(self, force=False):
         try:
             self.project = self.store.save(self.project, force=force)
         except S.GuardError as e:
-            if messagebox.askyesno('Kayıt durduruldu', '%s\n\nYine de üzerine yazılsın mı? (Önceki hâl sürüm geçmişinde kalır.)' % e,
+            if messagebox.askyesno('Save stopped', '%s\n\nOverwrite anyway? (The previous state stays in the version history.)' % e,
                                    icon='warning', parent=self):
                 return self.save(force=True)
             return False
         except OSError as e:
-            messagebox.showerror('Kaydedilemedi', str(e), parent=self)
+            messagebox.showerror('Could not save', str(e), parent=self)
             return False
         self._mark_clean()
         self._refresh_header()
-        self.app.flash('Rapor kaydedildi: %s' % self.project['title'])
+        self.app.flash('Report saved: %s' % self.project['title'])
         return True
 
     def save_and_close(self):
@@ -1231,47 +1406,47 @@ class BrcgsReportView(tk.Frame):
         if self.dirty and not self.save():
             return
         chk = S.export_check(self.project)
-        clean = re.sub(r'[\\/:*?"<>|]+', ' ', self.project['title']).strip(' .') or 'BRCGS raporu'
-        path = filedialog.asksaveasfilename(parent=self, title='DOCX\'e yaz (resmi şablon)', initialfile=clean + '.docx',
-                                            defaultextension='.docx', filetypes=[('Word belgesi', '*.docx')])
+        clean = re.sub(r'[\\/:*?"<>|]+', ' ', self.project['title']).strip(' .') or 'BRCGS report'
+        path = filedialog.asksaveasfilename(parent=self, title='Write DOCX (official template)', initialfile=clean + '.docx',
+                                            defaultextension='.docx', filetypes=[('Word document', '*.docx')])
         if not path:
             return
         try:
             _blob, st = self.store.export_docx(self.project, path)
         except Exception as e:
-            messagebox.showerror('DOCX yazılamadı', str(e), parent=self)
+            messagebox.showerror('Could not write the DOCX', str(e), parent=self)
             return
-        msg = ['Resmi şablon dolduruldu: %s' % os.path.basename(path), '',
-               '%d alan · %d rapor kutusu · %d NA satırı · %d tablo · %d NC satırı' % (st['fields'], st['boxes'], st['na_rows'], st['tables'],
+        msg = ['Official template filled: %s' % os.path.basename(path), '',
+               '%d fields · %d report boxes · %d NA rows · %d tables · %d NC rows' % (st['fields'], st['boxes'], st['na_rows'], st['tables'],
                                                                                    st['actions'] + st['critical']),
-               'Dolu bölüm: %d / %d' % (chk['units_filled'], chk['units_total'])]
+               'Filled sections: %d / %d' % (chk['units_filled'], chk['units_total'])]
         if chk['merged_boxes']:
-            msg.append('Birleştirilen kutular: ' + ', '.join('%s (%s)' % (t, '+'.join(v[:4]) + ('…' if len(v) > 4 else ''))
+            msg.append('Merged boxes: ' + ', '.join('%s (%s)' % (t, '+'.join(v[:4]) + ('…' if len(v) > 4 else ''))
                                                            for t, v in list(chk['merged_boxes'].items())[:6]))
         if chk['skipped']:
-            msg.append('⚠ Şablonda kutusu olmadığı için yazılmayan maddeler: ' + ', '.join(chk['skipped']))
-        msg += ['', 'Dosya Word\'de açılsın mı?']
-        if messagebox.askyesno('DOCX\'e yazıldı', '\n'.join(msg), parent=self):
+            msg.append('⚠ Not written because the template has no box for them: ' + ', '.join(chk['skipped']))
+        msg += ['', 'Open the file in Word?']
+        if messagebox.askyesno('DOCX written', '\n'.join(msg), parent=self):
             self.app._open_external(path)
 
     # ------------------------------------------------------------------ Excel
     def save_excel_template(self):
         src = D.excel_template_path(self.project['profile'])
-        path = filedialog.asksaveasfilename(parent=self, title='Excel şablonunu kaydet', initialfile=src.name, defaultextension='.xlsx',
+        path = filedialog.asksaveasfilename(parent=self, title='Save Excel template', initialfile=src.name, defaultextension='.xlsx',
                                             filetypes=[('Excel', '*.xlsx')])
         if path:
             shutil.copyfile(str(src), path)
-            self.app.flash('Excel şablonu kaydedildi: %s' % path)
+            self.app.flash('Excel template saved: %s' % path)
 
     def import_excel(self):
-        path = filedialog.askopenfilename(parent=self, title='Doldurulmuş Excel formu', filetypes=[('Excel', '*.xlsx')])
+        path = filedialog.askopenfilename(parent=self, title='Filled Excel form', filetypes=[('Excel', '*.xlsx')])
         if not path:
             return
         try:
             from agfo_brcgs import xlsx_reader as X
             parsed = X.parse(path)
         except Exception as e:
-            messagebox.showerror('Excel içe aktarılamadı', str(e), parent=self)
+            messagebox.showerror('Excel import failed', str(e), parent=self)
             return
         self.apply_excel(parsed, os.path.basename(path))
 
@@ -1282,12 +1457,12 @@ class BrcgsReportView(tk.Frame):
         pp = self.project['profile']
         xp = D.norm_profile(parsed.get('profile')) if parsed.get('profile') else ''
         if xp and xp != pp:
-            plan['error'] = ('Bu Excel %s standardı için hazırlanmış; açık rapor ise %s. Doğru şablonu kullanın veya ilgili raporu açın.'
+            plan['error'] = ('This Excel form is for the %s standard but the open report is %s. Use the right template or open the matching report.'
                              % (xp.upper(), pp.upper()))
             return plan
         rows = parsed.get('rows') or []
         if not rows:
-            plan['error'] = 'Excel dosyasında doldurulmuş yanıt bulunamadı. Sarı "Yanıt" sütununun doldurulduğundan emin olun.'
+            plan['error'] = 'No filled answers were found in the Excel file. Make sure the yellow answer column is filled.'
             return plan
         by_clause = {s['clause']: s for s in self.project['sections']}
         skipped = []
@@ -1337,27 +1512,27 @@ class BrcgsReportView(tk.Frame):
     def apply_excel(self, parsed, name='', mode=None):
         plan = self.plan_excel(parsed)
         if plan.get('error'):
-            messagebox.showerror('Excel içe aktarılamadı', plan['error'], parent=self)
+            messagebox.showerror('Excel import failed', plan['error'], parent=self)
             return 0
         if mode is None:
-            lines = ['%s' % name, '', '%d alt madde, %d yanıt, %d not / bulgu' % (len(plan['clauses']), plan['answers'], plan['notes'])]
+            lines = ['%s' % name, '', '%d sub-clauses, %d answers, %d notes / findings' % (len(plan['clauses']), plan['answers'], plan['notes'])]
             if plan['conflicts']:
-                lines.append('⚠ %d kutuda raporda zaten farklı bir metin var.' % plan['conflicts'])
+                lines.append('⚠ %d boxes already contain different text in the report.' % plan['conflicts'])
             if plan['legacy']:
-                lines.append('⚠ %d yanıtın sorusu artık formda yok; ilgili maddenin "Önceden yazılmış metin" kutusuna eklenecek.' % plan['legacy'])
+                lines.append('⚠ The question of %d answers is no longer on the form; they will be added to the "previously written text" box of the clause.' % plan['legacy'])
             for m in plan['add_modules']:
-                lines.append('%s bu rapora eklenecek.' % (B.optional_modules(self.project['profile']).get(m) or {}).get('title', m))
+                lines.append('%s will be added to this report.' % (B.optional_modules(self.project['profile']).get(m) or {}).get('title', m))
             if plan['skipped']:
-                lines.append('Raporda olmayan maddeler atlanacak: ' + ', '.join(plan['skipped'][:20]))
-            lines += ['', 'Excel\'de boş bırakılan hücreler rapordaki metni değiştirmez. İçe aktarmadan önce sürüm kaydı alınır.']
+                lines.append('Clauses not in the report will be skipped: ' + ', '.join(plan['skipped'][:20]))
+            lines += ['', 'Empty Excel cells do not change the report text. A version snapshot is taken before importing.']
             if plan['conflicts']:
-                lines += ['', 'Evet: Excel\'dekiler üzerine yazsın · Hayır: yalnız boş kutuları doldur · İptal: vazgeç']
-                ans = messagebox.askyesnocancel('Excel içe aktarma özeti', '\n'.join(lines), parent=self)
+                lines += ['', 'Yes: Excel overwrites · No: fill empty boxes only · Cancel: stop']
+                ans = messagebox.askyesnocancel('Excel import summary', '\n'.join(lines), parent=self)
                 if ans is None:
                     return 0
                 mode = 'overwrite' if ans else 'fill'
             else:
-                if not messagebox.askokcancel('Excel içe aktarma özeti', '\n'.join(lines), parent=self):
+                if not messagebox.askokcancel('Excel import summary', '\n'.join(lines), parent=self):
                     return 0
                 mode = 'fill'
         for m in plan['add_modules']:
@@ -1404,11 +1579,11 @@ class BrcgsReportView(tk.Frame):
         for row in changed.values():
             row['value'] = G.assemble_text(self.project['profile'], row, row['flags']['struct'])
         if not written:
-            self.app.flash('Excel\'deki yanıtlar raporla aynı; değişiklik yok.' + (' (%d dolu kutu korundu)' % kept if kept else ''))
+            self.app.flash('The Excel answers match the report; nothing changed.' + (' (%d filled boxes kept)' % kept if kept else ''))
             return 0
         self.mark_dirty()
         self.store.snapshot(self.uid, 'pre-excel-import')
         self.save()
         self.show(self.page)
-        self.app.flash('Excel içe aktarıldı: %d kutu güncellendi%s' % (written, (', %d dolu kutu korundu.' % kept) if kept else '.'))
+        self.app.flash('Excel imported: %d boxes updated%s' % (written, (', %d filled boxes kept.' % kept) if kept else '.'))
         return written

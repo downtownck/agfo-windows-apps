@@ -890,10 +890,10 @@ class App(tk.Tk):
         self.panel_btn = tk.Button(right, text='AI paneli ⇥', command=self.toggle_ai_panel, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
                                    highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 9), padx=8)
         self.panel_btn.pack(side='right')
-        self.brcgs_btn = tk.Button(right, text='📋 BRCGS raporları', command=self.open_brcgs, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
+        self.brcgs_btn = tk.Button(right, text='📋 BRCGS reports', command=self.open_brcgs, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
                                    highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 9), padx=8)
         self.brcgs_btn.pack(side='right')
-        Tooltip(self.brcgs_btn, 'BRCGS denetim raporları: resmi şablonu form gibi doldurun, Word\'de özgün biçimiyle açılsın')
+        Tooltip(self.brcgs_btn, 'BRCGS audit reports: fill the official template like a form; it opens in Word in its original format')
         self.conn_var = tk.StringVar(value='Bağlantı denetleniyor…')
         self.conn_lbl = tk.Label(right, textvariable=self.conn_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), padx=10, pady=3)
         self.conn_lbl.pack(side='right', padx=8, pady=4)
@@ -3119,8 +3119,9 @@ class App(tk.Tk):
             prof = self._brcgs_profile_of(path)
             if prof:
                 from agfo_brcgs import data as brd
-                ans = messagebox.askyesnocancel('BRCGS raporu', '%s\n\nBu dosya bir BRCGS %s rapor şablonu.\n\nEvet: BRCGS rapor formu olarak aç '
-                                                '(alanlar form gibi doldurulur, Word çıktısı özgün biçimde kalır)\nHayır: normal belge olarak aç'
+                ans = messagebox.askyesnocancel('BRCGS report', '%s\n\nThis file is a BRCGS %s report template.\n\nYes: open it as a '
+                                                'BRCGS report form (fields are filled like a form; the Word output keeps the original format)\n'
+                                                'No: open it as a normal document'
                                                 % (os.path.basename(path), brd.PROFILE_LABELS.get(prof, prof)), parent=self)
                 if ans is None:
                     return None
@@ -3228,7 +3229,7 @@ class App(tk.Tk):
             import lxml  # noqa: F401
             return True
         except ImportError:
-            messagebox.showerror('BRCGS raporları', 'Bu kurulumda lxml bileşeni yok; BRCGS raporları açılamıyor. Uygulamayı güncelleyin.',
+            messagebox.showerror('BRCGS reports', 'The lxml component is missing from this installation, so BRCGS reports cannot open. Please update the application.',
                                  parent=self)
             return False
 
@@ -3250,7 +3251,7 @@ class App(tk.Tk):
         import agfo_brcgs_view
         v = agfo_brcgs_view.BrcgsExplorer(self, self.nb, self.brcgs_store())
         self.brcgs_explorer = v
-        self.nb.add(v, text='📋 BRCGS raporları')
+        self.nb.add(v, text='📋 BRCGS reports')
         self.nb.select(v)
         self._drop_blank_doc()
         return v
@@ -3289,12 +3290,12 @@ class App(tk.Tk):
         try:
             pr = self.brcgs_store().import_docx(path)
         except Exception as e:
-            messagebox.showerror('BRCGS raporu', '%s\n\n%s' % (os.path.basename(path), e), parent=self)
+            messagebox.showerror('BRCGS report', '%s\n\n%s' % (os.path.basename(path), e), parent=self)
             return None
         if self.brcgs_explorer is not None:
             self.brcgs_explorer.refresh()
         v = self.open_brcgs_report(pr['id'])
-        self.flash('BRCGS raporu içe aktarıldı (%d dolu bölüm). Özgün DOCX değişmedi; "DOCX\'e yaz" resmi şablona yeni dosya yazar.'
+        self.flash('BRCGS report imported (%d filled sections). The original DOCX is unchanged; "Write DOCX" writes a new file on the official template.'
                    % sum(1 for s_ in pr['sections'] if str(s_.get('value') or '').strip()), 9000)
         return v
 
@@ -3317,7 +3318,7 @@ class App(tk.Tk):
             v = agfo_brcgs_view.BrcgsReportView(self, self.nb, self.brcgs_store(), uid)
         except Exception as e:
             self._log_error(traceback.format_exc())
-            messagebox.showerror('Rapor açılamadı', str(e), parent=self)
+            messagebox.showerror('Could not open the report', str(e), parent=self)
             return None
         self.brcgs_views[v] = v
         self.nb.add(v, text=v.tab_text())
@@ -3349,7 +3350,7 @@ class App(tk.Tk):
         else:
             if ask and v.dirty:
                 self.nb.select(v)
-                ans = messagebox.askyesnocancel('Kaydedilmemiş değişiklik', '"%s" raporu kaydedilsin mi?' % v.project['title'], parent=self)
+                ans = messagebox.askyesnocancel('Unsaved changes', 'Save the report "%s"?' % v.project['title'], parent=self)
                 if ans is None:
                     return False
                 if ans and not v.save():
@@ -3365,22 +3366,49 @@ class App(tk.Tk):
             self.new_doc()
         return True
 
-    def brcgs_ai_draft(self, view, row, src):
-        """Kilavuz yanitlari + Turkce notlar -> BRCGS denetim raporu dilinde Ingilizce bolum metni (onizleyip uygulanir)."""
+    BRCGS_NC_MARK = '=== NON-CONFORMITIES ==='
+
+    def brcgs_ai_prompt(self, profile, row, ncs):
+        from agfo_brcgs import data as brd
+        clause, title = row['clause'], row.get('title') or ''
+        text = ('You are writing the "%s %s" section of an official BRCGS %s audit report. Turn the auditor\'s evidence below '
+                '(often Turkish, sometimes fragmentary notes or answers to guideline questions) into clear, factual, past-tense English '
+                'audit report prose in the third person (e.g. "The site has…", "Records were reviewed…"). Keep every fact, number, '
+                'document code, issue/revision, name and date exactly; do not invent evidence, results or conformity statements that the '
+                'evidence does not support, and do not repeat the guideline questions. End with one concluding sentence that starts from '
+                'the evidence reviewed, e.g. "Based on the records reviewed and site observations, …". Do NOT write non-conformity '
+                'statements, NC numbers or "no non-conformities" sentences: they are added automatically. No headings, bullet points, '
+                'clause number at the start or markdown.' % (clause, title, brd.PROFILE_LABELS.get(profile, 'Global Standard')))
+        if ncs:
+            text += (' After the report text, write a line containing exactly "%s" and then translate each of the %d non-conformity '
+                     'statements listed at the end of the input into concise English audit wording, one per line, in the same order, '
+                     'without numbering, type or clause.' % (self.BRCGS_NC_MARK, len(ncs)))
+        return text
+
+    @classmethod
+    def brcgs_split_ai(cls, out, n):
+        """AI ciktisi -> (rapor metni, [NC cevirileri]); isaret yoksa ya da sayi tutmazsa NC'ler bos."""
+        out = (out or '').strip()
+        if cls.BRCGS_NC_MARK in out:
+            body, tail = out.split(cls.BRCGS_NC_MARK, 1)
+            lines = [re.sub(r'^\s*(?:[-•*]|\d+[.)])\s*', '', x).strip() for x in tail.splitlines() if x.strip()]
+            return body.strip(), (lines if len(lines) == n else [])
+        return out, []
+
+    def brcgs_ai_draft(self, view, row, src, ncs=()):
+        """Kanitlar -> Ingilizce rapor metni; sonuc dogrudan bolumun rapor metnine yazilir (on izleme penceresi yok)."""
+        from agfo_brcgs import findings as brf
         try:
             backends = self.backends()
         except Exception as e:
             messagebox.showerror('AI', str(e), parent=self)
             return
-        from agfo_brcgs import data as brd
-        clause, title = row['clause'], row.get('title') or ''
-        instruction = ('You are writing the "%s %s" section of an official BRCGS %s audit report. Turn the auditor\'s notes below '
-                       '(often Turkish, sometimes fragmentary) into clear, factual, past-tense English audit report prose in the '
-                       'third person (e.g. "The site has…", "Records were reviewed…"). Keep every fact, number, document reference, '
-                       'name and date exactly; do not invent evidence, results or conformity statements that the notes do not support. '
-                       'No headings, no bullet points, no clause number at the start, no markdown. Write only the report text.'
-                       % (clause, title, brd.PROFILE_LABELS.get(view.project['profile'], 'Global Standard')))
-        action = {'key': 'brcgs_draft', 'label': 'BRCGS rapor metni', 'template': 'custom', 'extra': instruction, 'mode': 'replace',
+        ncs = list(ncs)
+        instruction = self.brcgs_ai_prompt(view.project['profile'], row, ncs)
+        if ncs:
+            src = src + '\n\nNon-conformity statements to translate:\n' + '\n'.join(
+                '%d. %s' % (k + 1, brf.nc_detail(it)) for k, it in enumerate(ncs))
+        action = {'key': 'brcgs_draft', 'label': 'BRCGS report text', 'template': 'custom', 'extra': instruction, 'mode': 'replace',
                   'description': ''}
         options = self._ai_options()
         options.update(language='English', rich=False, from_scratch=False, preserve_facts=True, user_extra=instruction)
@@ -3392,42 +3420,13 @@ class App(tk.Tk):
             if not ok:
                 messagebox.showerror('AI', r, parent=self)
                 return
-            text = (r.get('text') or '').strip()
-            if not text:
+            body, nc_texts = self.brcgs_split_ai(r.get('text') or '', len(ncs))
+            if not body or view not in self.brcgs_views or row not in view.project['sections']:
                 return
-            self._brcgs_ai_preview(view, row, src, text, self.model_label(r))
-        self._start_job('BRCGS %s rapor metni' % clause, work, done)
-
-    def _brcgs_ai_preview(self, view, row, src, text, model):
-        win = tk.Toplevel(self)
-        win.title('AI rapor metni · %s' % row['clause'])
-        win.configure(bg=PANEL, padx=12, pady=10)
-        win.transient(self)
-        win.geometry('900x560')
-        self.lbl(win, 'Kaynak (kılavuz yanıtları ve notlar)', muted=True).pack(anchor='w')
-        a = tk.Text(win, height=8, wrap='word', bg=EDIT_BG, fg=MUTED, relief='flat', font=('Segoe UI', 9), padx=6, pady=4)
-        a.insert('1.0', src)
-        a.configure(state='disabled')
-        a.pack(fill='both', expand=False)
-        self.lbl(win, 'Önerilen rapor metni (%s) — düzenleyebilirsiniz' % model, muted=True).pack(anchor='w', pady=(8, 0))
-        b = tk.Text(win, wrap='word', bg=EDIT_BG, fg=FG, insertbackground=ACCENT, relief='flat', font=('Segoe UI', 10), padx=6, pady=4,
-                    undo=True)
-        b.insert('1.0', text)
-        b.pack(fill='both', expand=True)
-        bar = tk.Frame(win, bg=PANEL)
-        bar.pack(fill='x', pady=(8, 0))
-        self.lbl(bar, 'Uygula: bu metin bölümün rapor metni olur; kılavuz kutularındaki yanıtlarınız silinmez, kanıt notuna taşınır.',
-                 muted=True).pack(side='left')
-
-        def apply():
-            t = b.get('1.0', 'end-1c').strip()
-            win.destroy()
-            if view in self.brcgs_views and t:
-                view.apply_ai_text(row, t)
-        self.btn(bar, 'Vazgeç', win.destroy, 'ghost', side='right')
-        self.btn(bar, 'Uygula', apply, 'primary', side='right')
-        self._brcgs_ai_win = win
-        return win
+            view.apply_ai_result(row, body, nc_texts)
+            self.flash('%s: English report text written (%s)%s.' % (row['clause'], self.model_label(r),
+                                                                   ' and %d NC statements translated' % len(nc_texts) if nc_texts else ''))
+        self._start_job('BRCGS %s report text' % row['clause'], work, done)
 
     def open_as_text(self, path):
         """1.2.1: PDF / Excel / PowerPoint / e-posta metin olarak acilir (sayfa/slayt basliklariyla).
@@ -3845,7 +3844,7 @@ class App(tk.Tk):
         m.add_command(label='Kaydet  (Ctrl+S)', command=self.save)
         m.add_command(label='Farklı kaydet…  (Ctrl+Shift+S)', command=self.save_as)
         m.add_separator()
-        m.add_command(label='BRCGS raporları…', command=self.open_brcgs)
+        m.add_command(label='BRCGS reports…', command=self.open_brcgs)
         m.add_separator()
         rec = tk.Menu(m, tearoff=0)
         for p in self.settings.get('recent', [])[:12]:

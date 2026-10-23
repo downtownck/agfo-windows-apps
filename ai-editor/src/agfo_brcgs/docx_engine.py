@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import datetime
+import functools
 import io
 import re
 import zipfile
@@ -688,6 +689,14 @@ def _plain_label_map(values):
 PLAIN_LABELS = ('companyname', 'sitename', 'siteaddress', 'certifiedsiteaddress', 'address', 'country')
 PLAIN_KEYS = {'companyname': 'OWNERCOMPANY', 'sitename': 'SITE_NAME', 'siteaddress': 'SITE_ADDRESS',
               'certifiedsiteaddress': 'CERTIFIED_SITE_ADDRESS', 'address': 'ADDRESS', 'country': 'COUNTRY'}
+
+
+@functools.lru_cache(maxsize=None)
+def field_keys(profile):
+    """Resmi sablondaki form alani anahtarlari (icerik denetimi + etiketli hucre)."""
+    from . import data as _data
+    tpl = DocxTemplate(_data.template_path(profile))
+    return frozenset([f['key'] for f in scan_fields(tpl, profile)] + [f['key'] for f in plain_fields(tpl)])
 
 
 def plain_fields(tpl: DocxTemplate):
