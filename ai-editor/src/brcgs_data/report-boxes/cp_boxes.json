@@ -1,0 +1,796 @@
+{
+ "schema": "agfo_brcgs_report_boxes_v1",
+ "profile": "cp",
+ "template": "cp415-consumer-products-audit-report-template-pch-v10-15022022.docx",
+ "generated_from": "official BRCGS DOCX content controls",
+ "box_count": 46,
+ "unit_count": 46,
+ "boxes": [
+  {
+   "tag": "CP1_1",
+   "clause": "1.1",
+   "title": "Senior management commitment and continual improvement",
+   "order": 0,
+   "na_tag": "CP1NAC",
+   "clauses": [
+    "1.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP1_2",
+   "clause": "1.2",
+   "title": "Organisational structure, responsibilities and management authority",
+   "order": 1,
+   "na_tag": "CP1NAC",
+   "clauses": [
+    "1.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP2_1",
+   "clause": "2.1",
+   "title": "Legislation and safety requirements",
+   "order": 2,
+   "na_tag": "CP2NAC",
+   "clauses": [
+    "2.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP2_2",
+   "clause": "2.2",
+   "title": "Product risk assessment",
+   "order": 3,
+   "na_tag": "CP2NAC",
+   "clauses": [
+    "2.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP2_3",
+   "clause": "2.3",
+   "title": "Product labelling and claims",
+   "order": 4,
+   "na_tag": "CP2NAC",
+   "clauses": [
+    "2.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP2_4",
+   "clause": "2.4",
+   "title": "Packaging Materials",
+   "order": 5,
+   "na_tag": "CP2NAC",
+   "clauses": [
+    "2.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_1",
+   "clause": "3.1",
+   "title": "Product safety and quality management system",
+   "order": 6,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_2",
+   "clause": "3.2",
+   "title": "Documentation control",
+   "order": 7,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_3",
+   "clause": "3.3",
+   "title": "Record completion and maintenance",
+   "order": 8,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_4",
+   "clause": "3.4",
+   "title": "Internal audit",
+   "order": 9,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_5_1",
+   "clause": "3.5.1",
+   "title": "Management of suppliers of raw materials, components and packaging",
+   "order": 10,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.5.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_5_2",
+   "clause": "3.5.2",
+   "title": "Control and acceptance of incoming raw materials, components and packaging materials",
+   "order": 11,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.5.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_6",
+   "clause": "3.6",
+   "title": "Specifications and technical files",
+   "order": 12,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_7",
+   "clause": "3.7",
+   "title": "Corrective and preventive action",
+   "order": 13,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_8",
+   "clause": "3.8",
+   "title": "Control of non-conforming materials",
+   "order": 14,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_9",
+   "clause": "3.9",
+   "title": "Traceability",
+   "order": 15,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.9"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_10",
+   "clause": "3.10",
+   "title": "Complaint handling",
+   "order": 16,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.10"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP3_11",
+   "clause": "3.11",
+   "title": "Management of incidents, product withdrawal and product recall",
+   "order": 17,
+   "na_tag": "CP3NAC",
+   "clauses": [
+    "3.11"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_1",
+   "clause": "4.1",
+   "title": "External standards",
+   "order": 18,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_2",
+   "clause": "4.2",
+   "title": "Security",
+   "order": 19,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_3",
+   "clause": "4.3",
+   "title": "Layout, product flow and segregation",
+   "order": 20,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_4",
+   "clause": "4.4",
+   "title": "Building interiors",
+   "order": 21,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_5",
+   "clause": "4.5",
+   "title": "Staff facilities",
+   "order": 22,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_6",
+   "clause": "4.6",
+   "title": "Housekeeping and hygiene",
+   "order": 23,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_7",
+   "clause": "4.7",
+   "title": "Waste and waste disposal",
+   "order": 24,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_8",
+   "clause": "4.8",
+   "title": "Pest control",
+   "order": 25,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP4_9",
+   "clause": "4.9",
+   "title": "Product storage, dispatch, and transport",
+   "order": 26,
+   "na_tag": "CP4NAC",
+   "clauses": [
+    "4.9"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP5_1",
+   "clause": "5.1",
+   "title": "Product inspection and laboratory testing",
+   "order": 27,
+   "na_tag": "CP5NAC",
+   "clauses": [
+    "5.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP5_2",
+   "clause": "5.2",
+   "title": "Quantity control",
+   "order": 28,
+   "na_tag": "CP5NAC",
+   "clauses": [
+    "5.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP5_3",
+   "clause": "5.3",
+   "title": "Product sample control",
+   "order": 29,
+   "na_tag": "CP5NAC",
+   "clauses": [
+    "5.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_1_1",
+   "clause": "6.1.1",
+   "title": "Process risk assessment",
+   "order": 30,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.1.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_1_2",
+   "clause": "6.1.2",
+   "title": "Line clearance and in-process checks",
+   "order": 31,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.1.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_2",
+   "clause": "6.2",
+   "title": "Equipment and equipment maintenance",
+   "order": 32,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_3",
+   "clause": "6.3",
+   "title": "Identification and prevention of risk of product contamination",
+   "order": 33,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_3_2",
+   "clause": "6.3.2",
+   "title": "Chemical and biological control",
+   "order": 34,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.3.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_3_3",
+   "clause": "6.3.3",
+   "title": "Metal control",
+   "order": 35,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.3.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_3_4",
+   "clause": "6.3.4",
+   "title": "Glass, brittle plastics, ceramics, wood, and similar materials control",
+   "order": 36,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.3.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_3_5_1",
+   "clause": "6.3.5.1",
+   "title": "Filters and sieves",
+   "order": 37,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.3.5.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_3_5_2",
+   "clause": "6.3.5.2",
+   "title": "Metal detectors and x-ray equipment",
+   "order": 38,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.3.5.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_3_5_3",
+   "clause": "6.3.5.3",
+   "title": "Magnets and optical sorting equipment",
+   "order": 39,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.3.5.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_4",
+   "clause": "6.4",
+   "title": "Calibration and control of measuring and monitoring devices",
+   "order": 40,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_5",
+   "clause": "6.5",
+   "title": "Final product packing and control",
+   "order": 41,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP6_6",
+   "clause": "6.6",
+   "title": "Stock control and product release",
+   "order": 42,
+   "na_tag": "CP6NAC",
+   "clauses": [
+    "6.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP7_1",
+   "clause": "7.1",
+   "title": "Training and competency",
+   "order": 43,
+   "na_tag": "CP7NAC",
+   "clauses": [
+    "7.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP7_2",
+   "clause": "7.2",
+   "title": "Protective clothing",
+   "order": 44,
+   "na_tag": "CP7NAC",
+   "clauses": [
+    "7.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "CP7_3",
+   "clause": "7.3",
+   "title": "Hygiene practices",
+   "order": 45,
+   "na_tag": "CP7NAC",
+   "clauses": [
+    "7.3"
+   ],
+   "merged": false
+  }
+ ],
+ "units": [
+  {
+   "key": "1.1",
+   "box": "CP1_1",
+   "source": "standard",
+   "title": "Senior management commitment and continual improvement Fundamental Statement of Intent The site’s senior management shall demonstrate they are fully committed to the implementation of the requirements of the Global Standard for Consumer Products and to processes which facilitate continual improvement of product safety and quality management. 1.1.1 The site shall have a documented policy which states the site’s intention to meet its obligation to produce safe and legal products to the specified quality and its responsibility to its customers. This shall be: - authorised and signed by the person with overall responsibility for the site - communicated to all staff."
+  },
+  {
+   "key": "1.2",
+   "box": "CP1_2",
+   "source": "standard",
+   "title": "Organisational structure, responsibility and management authority Statement of Intent The site shall have a clear organisational structure and lines of communication to enable effective management of product safety, legality and quality."
+  },
+  {
+   "key": "2.1",
+   "box": "CP2_1",
+   "source": "standard",
+   "title": "Legislation and safety requirements"
+  },
+  {
+   "key": "2.2",
+   "box": "CP2_2",
+   "source": "standard",
+   "title": "Product risk assessment"
+  },
+  {
+   "key": "2.3",
+   "box": "CP2_3",
+   "source": "standard",
+   "title": "Product labelling and claims"
+  },
+  {
+   "key": "2.4",
+   "box": "CP2_4",
+   "source": "standard",
+   "title": "Packaging materials"
+  },
+  {
+   "key": "3.1",
+   "box": "CP3_1",
+   "source": "standard",
+   "title": ""
+  },
+  {
+   "key": "3.2",
+   "box": "CP3_2",
+   "source": "standard",
+   "title": "Documentation control Statement of Intent The site shall operate an effective document control system to ensure that only the correct approved versions of documents, including recording forms, are available and in use."
+  },
+  {
+   "key": "3.3",
+   "box": "CP3_3",
+   "source": "standard",
+   "title": "Record completion and maintenance Statement of Intent The site shall maintain original, accurate, timely and legible records to demonstrate the effective control of product safety, legality and quality."
+  },
+  {
+   "key": "3.4",
+   "box": "CP3_4",
+   "source": "standard",
+   "title": "Internal audit Statement of Intent The site shall be able to demonstrate that it verifies the effectiveness of the product safety and quality requirements implemented from the Global Standard for Consumer Products."
+  },
+  {
+   "key": "3.5.1",
+   "box": "CP3_5_1",
+   "source": "standard",
+   "title": "Management of suppliers of raw materials, components and packaging"
+  },
+  {
+   "key": "3.5.2",
+   "box": "CP3_5_2",
+   "source": "standard",
+   "title": "Control and acceptance of incoming raw materials, components and packaging materials"
+  },
+  {
+   "key": "3.6",
+   "box": "CP3_6",
+   "source": "standard",
+   "title": "Specifications and technical files Statement of Intent A system shall be in place to manage specifications and technical data for raw materials, components and packaging materials."
+  },
+  {
+   "key": "3.7",
+   "box": "CP3_7",
+   "source": "standard",
+   "title": "Corrective and preventive action Fundamental Statement of Intent The site shall operate an effective system for the capture, recording and timely corrective actions of non-conformities or matters reported as possible non-conformities critical to product safety, legality or quality."
+  },
+  {
+   "key": "3.8",
+   "box": "CP3_8",
+   "source": "standard",
+   "title": "Control of non-conforming materials Statement of Intent The site shall ensure that non-conforming raw materials, packaging, components and products are clearly identified, labelled, quarantined, investigated and documented."
+  },
+  {
+   "key": "3.9",
+   "box": "CP3_9",
+   "source": "standard",
+   "title": "Traceability Fundamental Statement of Intent The site shall be able to trace all raw materials, components and packaging from its suppliers through all stages of processing and dispatch to its primary customers, and from the customer back to the supplier."
+  },
+  {
+   "key": "3.10",
+   "box": "CP3_10",
+   "source": "standard",
+   "title": "Complaint handling Statement of Intent The site shall operate an effective system for the capture, recording and investigation of product complaints at all levels of severity."
+  },
+  {
+   "key": "3.11",
+   "box": "CP3_11",
+   "source": "standard",
+   "title": "Management of incidents, product withdrawal and product recall Statement of Intent The site shall have a plan and system in place to manage incidents effectively and enable the withdrawal and recall of products should this be required."
+  },
+  {
+   "key": "4.1",
+   "box": "CP4_1",
+   "source": "standard",
+   "title": "External standards Statement of Intent Sites used for manufacturing, storage or distribution shall be of suitable size, location, construction and design to facilitate maintenance, prevent contamination and enable the production of safe and legal products."
+  },
+  {
+   "key": "4.2",
+   "box": "CP4_2",
+   "source": "standard",
+   "title": "Security Statement of Intent Security shall be maintained to prevent access of unauthorised persons to production and storage areas."
+  },
+  {
+   "key": "4.3",
+   "box": "CP4_3",
+   "source": "standard",
+   "title": "Layout, product flow and segregation Fundamental Statement of Intent The factory layout, flow of processes and movement of personnel shall be adequate to prevent the risk of product contamination and mix-ups and to comply with relevant legislation."
+  },
+  {
+   "key": "4.4",
+   "box": "CP4_4",
+   "source": "standard",
+   "title": "Building interiors Statement of Intent The interior of the site, buildings and facilities shall be suitable for the intended purpose."
+  },
+  {
+   "key": "4.5",
+   "box": "CP4_5",
+   "source": "standard",
+   "title": "Staff facilities Statement of Intent Staff facilities shall be sufficient to accommodate the required number of personnel, and shall be designed and operated to minimise the risk of product contamination. The facilities shall be maintained in a good and clean condition."
+  },
+  {
+   "key": "4.6",
+   "box": "CP4_6",
+   "source": "standard",
+   "title": "Housekeeping and hygiene Fundamental Statement of Intent Housekeeping and cleaning systems shall be in place which ensure appropriate standards of hygiene are maintained at all times and the risk of product contamination is minimised."
+  },
+  {
+   "key": "4.7",
+   "box": "CP4_7",
+   "source": "standard",
+   "title": "Waste and waste disposal Statement of Intent Waste disposal shall be managed in accordance with legal requirements and to prevent accumulation, mix-up, risk of contamination and the attraction of pests."
+  },
+  {
+   "key": "4.8",
+   "box": "CP4_8",
+   "source": "standard",
+   "title": "Pest control Statement of Intent The whole site shall have an effective preventive pest control programme in place to minimise the risk of pests. Sufficient resources shall be available to respond rapidly to any issues that occur, in order to prevent risk to products."
+  },
+  {
+   "key": "4.9",
+   "box": "CP4_9",
+   "source": "standard",
+   "title": "Product storage, dispatch and transport Statement of Intent Facilities for the storage and transportation of products shall be suitable for purpose and minimise the risk of product contamination, damage and malicious intervention"
+  },
+  {
+   "key": "5.1",
+   "box": "CP5_1",
+   "source": "standard",
+   "title": "Product inspection and laboratory testing Fundamental Statement of Intent The site shall have a programme for product inspection and testing to control products during and after production to ensure that products are safe, legal and meet the quality specification."
+  },
+  {
+   "key": "5.2",
+   "box": "CP5_2",
+   "source": "standard",
+   "title": "Quantity control Statement of Intent The site shall operate a quantity control system which conforms to the legal requirements in the country where the product is sold and any additional customer requirements."
+  },
+  {
+   "key": "5.3",
+   "box": "CP5_3",
+   "source": "standard",
+   "title": "Product sample control Statement of Intent The site shall ensure that procedures are in place for the selection, handling, storage, approval and use of reference samples taken from pre-production, subcontracted and finished production in accordance with customer requirements."
+  },
+  {
+   "key": "6.1.1",
+   "box": "CP6_1_1",
+   "source": "standard",
+   "title": "Process risk assessment"
+  },
+  {
+   "key": "6.1.2",
+   "box": "CP6_1_2",
+   "source": "standard",
+   "title": "Line clearance and in-process checks"
+  },
+  {
+   "key": "6.2",
+   "box": "CP6_2",
+   "source": "standard",
+   "title": "Equipment and equipment maintenance Statement of Intent Equipment shall be suitable for the intended purpose and shall be used in such a way as to minimise the risk of contamination of product."
+  },
+  {
+   "key": "6.3",
+   "box": "CP6_3",
+   "source": "standard",
+   "title": "Product contamination control"
+  },
+  {
+   "key": "6.3.2",
+   "box": "CP6_3_2",
+   "source": "standard",
+   "title": "Chemical and biological control"
+  },
+  {
+   "key": "6.3.3",
+   "box": "CP6_3_3",
+   "source": "standard",
+   "title": "Metal control"
+  },
+  {
+   "key": "6.3.4",
+   "box": "CP6_3_4",
+   "source": "standard",
+   "title": "Glass, brittle plastics, ceramics, wood, and similar materials control"
+  },
+  {
+   "key": "6.3.5.1",
+   "box": "CP6_3_5_1",
+   "source": "standard",
+   "title": "Filters and sieves"
+  },
+  {
+   "key": "6.3.5.2",
+   "box": "CP6_3_5_2",
+   "source": "standard",
+   "title": "Metal detectors and x-ray equipment"
+  },
+  {
+   "key": "6.3.5.3",
+   "box": "CP6_3_5_3",
+   "source": "standard",
+   "title": "Magnets and optical sorting equipment"
+  },
+  {
+   "key": "6.4",
+   "box": "CP6_4",
+   "source": "standard",
+   "title": "Calibration and control of measuring and monitoring devices Statement of Intent Measuring equipment used to monitor product safety, quality and legality shall be calibrated and of suitable accuracy for its intended purpose."
+  },
+  {
+   "key": "6.5",
+   "box": "CP6_5",
+   "source": "standard",
+   "title": "Final product packing and control Statement of Intent The site shall ensure that products are packed in accordance with customer-specified requirements and any relevant safety criteria, quality and legal requirements."
+  },
+  {
+   "key": "6.6",
+   "box": "CP6_6",
+   "source": "standard",
+   "title": "Stock control and product release Statement of Intent The site shall ensure that stock and finished product are not released unless all agreed procedures have been followed and the release is suitably controlled"
+  },
+  {
+   "key": "7.1",
+   "box": "CP7_1",
+   "source": "standard",
+   "title": "Training and competency Fundamental Statement of Intent The site shall ensure that personnel performing work that affects product safety, legality and quality are demonstrably competent to carry out their activity, through training, work experience or qualification"
+  },
+  {
+   "key": "7.2",
+   "box": "CP7_2",
+   "source": "standard",
+   "title": "Protective clothing Statement of Intent The site's standards shall be documented and adopted by all personnel, including contractors and visitors to the production facility."
+  },
+  {
+   "key": "7.3",
+   "box": "CP7_3",
+   "source": "standard",
+   "title": "Hygiene practices Statement of Intent Standards of hygiene shall be applied with due regard to the risk of product contamination."
+  }
+ ],
+ "expanded_clauses": [],
+ "unmapped_clauses": []
+}

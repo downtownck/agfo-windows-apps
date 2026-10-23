@@ -1,0 +1,1309 @@
+{
+ "schema": "agfo_brcgs_report_boxes_v1",
+ "profile": "sd",
+ "template": "sd406-storage-distribution-audit-report-template-v3-15022022.docx",
+ "generated_from": "official BRCGS DOCX content controls",
+ "box_count": 20,
+ "unit_count": 156,
+ "boxes": [
+  {
+   "tag": "1SMC",
+   "clause": "1",
+   "title": "Senior Management Commitment",
+   "order": 0,
+   "na_tag": "1SANDDNAC",
+   "clauses": [
+    "1",
+    "1.1",
+    "1.2",
+    "1.3"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "2HARA",
+   "clause": "2",
+   "title": "Hazard and Risk Analysis",
+   "order": 1,
+   "na_tag": "2SANDDNAC",
+   "clauses": [
+    "2",
+    "2.1",
+    "2.2",
+    "2.3",
+    "2.4",
+    "2.5",
+    "2.6",
+    "2.7",
+    "2.8",
+    "2.9",
+    "2.10",
+    "2.11",
+    "2.12",
+    "2.13",
+    "2.14",
+    "2.15"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "3QM",
+   "clause": "3",
+   "title": "Product Safety and Quality Management Systems",
+   "order": 2,
+   "na_tag": "3SANDDNAC",
+   "clauses": [
+    "3",
+    "3.1",
+    "3.1.1",
+    "3.1.2",
+    "3.1.3",
+    "3.2",
+    "3.3",
+    "3.4",
+    "3.5",
+    "3.5.1",
+    "3.5.2",
+    "3.5.3",
+    "3.6",
+    "3.7",
+    "3.8",
+    "3.9",
+    "3.10"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "4SABS",
+   "clause": "4",
+   "title": "Site and Building Standards",
+   "order": 3,
+   "na_tag": "4SANDDNAC",
+   "clauses": [
+    "4",
+    "4.1",
+    "4.2",
+    "4.3",
+    "4.4",
+    "4.5"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "5VOS",
+   "clause": "5",
+   "title": "Vehicle Operating Standards",
+   "order": 4,
+   "na_tag": "5SANDDNAC",
+   "clauses": [
+    "5",
+    "5.1",
+    "5.2",
+    "5.3",
+    "5.4"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "6FM",
+   "clause": "6",
+   "title": "Facility Management",
+   "order": 5,
+   "na_tag": "6SANDDNAC",
+   "clauses": [
+    "6",
+    "6.1",
+    "6.2",
+    "6.3",
+    "6.4",
+    "6.5",
+    "6.6"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "7GOP",
+   "clause": "7",
+   "title": "Good Operating Practices",
+   "order": 6,
+   "na_tag": "7SANDDNAC",
+   "clauses": [
+    "7",
+    "7.1",
+    "7.2",
+    "7.3",
+    "7.4",
+    "7.5",
+    "7.6",
+    "7.7"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "8PL",
+   "clause": "8",
+   "title": "Personnel",
+   "order": 7,
+   "na_tag": "8SANDDNAC",
+   "clauses": [
+    "8",
+    "8.1",
+    "8.2"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "9OPFP",
+   "clause": "9",
+   "title": "Handling of open food products",
+   "order": 8,
+   "na_tag": "9OPFPNAC",
+   "clauses": [
+    "9",
+    "9.1",
+    "9.2",
+    "9.3",
+    "9.4",
+    "9.5",
+    "9.6"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "10RFPAM",
+   "clause": "10.1",
+   "title": "Wholesaler Module",
+   "order": 9,
+   "na_tag": "10RFPAMNAC",
+   "clauses": [
+    "10.1",
+    "10.1.1",
+    "10.1.2"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "102BRPR",
+   "clause": "10.2",
+   "title": "Branded Products",
+   "order": 10,
+   "na_tag": "102BRPRNAC",
+   "clauses": [
+    "10.2",
+    "10.2.1"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "103OWO",
+   "clause": "10.3",
+   "title": "Other Wholesale Operations",
+   "order": 11,
+   "na_tag": "103OWONAC",
+   "clauses": [
+    "10.3",
+    "10.3.1",
+    "10.3.2",
+    "10.3.3",
+    "10.3.4",
+    "10.3.5",
+    "10.3.6"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "12ECOMM",
+   "clause": "12",
+   "title": "Ecommerce",
+   "order": 12,
+   "na_tag": "12ECOMMNAC",
+   "clauses": [
+    "12",
+    "12.1",
+    "12.2",
+    "12.3",
+    "12.4",
+    "12.5",
+    "12.6"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "13CONARR",
+   "clause": "13",
+   "title": "Contractual arrangements (all services)",
+   "order": 13,
+   "na_tag": "13CONARRNAC",
+   "clauses": [
+    "13",
+    "13.1",
+    "13.2",
+    "13.3",
+    "13.4",
+    "13.5",
+    "13.6",
+    "13.7"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "14PROI",
+   "clause": "14",
+   "title": "Product Inspection",
+   "order": 14,
+   "na_tag": "14PROINAC",
+   "clauses": [
+    "14",
+    "14.1",
+    "14.2",
+    "14.3",
+    "14.4",
+    "14.5",
+    "14.6"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "15CONPAC",
+   "clause": "15",
+   "title": "Contract Packing (Repacking, Assembly Packing)",
+   "order": 15,
+   "na_tag": "15CONPACNAC",
+   "clauses": [
+    "15",
+    "15.1",
+    "15.2",
+    "15.3",
+    "15.4",
+    "15.5",
+    "15.6",
+    "15.7",
+    "15.8",
+    "15.9",
+    "15.10",
+    "15.11",
+    "15.12",
+    "15.13",
+    "15.14"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "16QCI",
+   "clause": "16",
+   "title": "Quantity Control Inspections",
+   "order": 16,
+   "na_tag": "16QCINAC",
+   "clauses": [
+    "16",
+    "16.1",
+    "16.2",
+    "16.3",
+    "16.4",
+    "16.5",
+    "16.6",
+    "16.7"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "17CONCHILL",
+   "clause": "17",
+   "title": "Contract chilling/freezing/tempering/defrost and high-pressure process operations",
+   "order": 17,
+   "na_tag": "17CONCHILLNAC",
+   "clauses": [
+    "17",
+    "17.1",
+    "17.2",
+    "17.3",
+    "17.4"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "18CCOB",
+   "clause": "18",
+   "title": "Contact Cleaning of baskets, roll cages and other distribution containers",
+   "order": 18,
+   "na_tag": "18CCOBNAC",
+   "clauses": [
+    "18",
+    "18.1",
+    "18.2",
+    "18.3",
+    "18.4",
+    "18.5",
+    "18.6",
+    "18.7"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "19WRAR",
+   "clause": "19",
+   "title": "Waste recovery and recycling",
+   "order": 19,
+   "na_tag": "19WRARNAC",
+   "clauses": [
+    "19",
+    "19.1",
+    "19.2",
+    "19.3",
+    "19.4",
+    "19.5",
+    "19.6",
+    "19.7"
+   ],
+   "merged": true
+  }
+ ],
+ "units": [
+  {
+   "key": "1",
+   "box": "1SMC",
+   "source": "standard",
+   "title": "Senior management commitment"
+  },
+  {
+   "key": "1.1",
+   "box": "1SMC",
+   "source": "standard",
+   "title": "Senior management commitment and continual improvement"
+  },
+  {
+   "key": "1.2",
+   "box": "1SMC",
+   "source": "standard",
+   "title": "Management review"
+  },
+  {
+   "key": "1.3",
+   "box": "1SMC",
+   "source": "standard",
+   "title": "Organisational structure, responsibility and management authority"
+  },
+  {
+   "key": "2",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Hazard and Risk Analysis"
+  },
+  {
+   "key": "2.1",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Prerequisite programmes"
+  },
+  {
+   "key": "2.2",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Multi-disciplinary team"
+  },
+  {
+   "key": "2.3",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Team leader"
+  },
+  {
+   "key": "2.4",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Team members"
+  },
+  {
+   "key": "2.5",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Where the HARA or HACCP study has been undertaken centrally, the"
+  },
+  {
+   "key": "2.6",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "The HARA or HACCP plan and resulting procedures"
+  },
+  {
+   "key": "2.7",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Scope"
+  },
+  {
+   "key": "2.8",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Product flow"
+  },
+  {
+   "key": "2.9",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Hazard analysis and risk assessment"
+  },
+  {
+   "key": "2.10",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "The HARA or HACCP team"
+  },
+  {
+   "key": "2.11",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Critical control points"
+  },
+  {
+   "key": "2.12",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Critical control points – additional requirements"
+  },
+  {
+   "key": "2.13",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Control by prerequisites and documentation"
+  },
+  {
+   "key": "2.14",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "Review"
+  },
+  {
+   "key": "2.15",
+   "box": "2HARA",
+   "source": "standard",
+   "title": "HARA or HACCP plans of service providers or subcontractors"
+  },
+  {
+   "key": "3",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Product safety and quality management system"
+  },
+  {
+   "key": "3.1",
+   "box": "3QM",
+   "source": "standard",
+   "title": "General documentation requirements"
+  },
+  {
+   "key": "3.1.1",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Product Safety and quality systems"
+  },
+  {
+   "key": "3.1.2",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Documentation control"
+  },
+  {
+   "key": "3.1.3",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Record completion and maintenance"
+  },
+  {
+   "key": "3.2",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Internal audits"
+  },
+  {
+   "key": "3.3",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Corrective and preventive action"
+  },
+  {
+   "key": "3.4",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Customer Contractual Arrangements"
+  },
+  {
+   "key": "3.5",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Purchasing"
+  },
+  {
+   "key": "3.5.1",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Supplier approval and performance monitoring of service providers and equipment suppliers"
+  },
+  {
+   "key": "3.5.2",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Management of subcontractors"
+  },
+  {
+   "key": "3.5.3",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Product fraud risk management"
+  },
+  {
+   "key": "3.6",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Traceability"
+  },
+  {
+   "key": "3.7",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Management of product withdrawal and product recall"
+  },
+  {
+   "key": "3.8",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Incident management and business continuity"
+  },
+  {
+   "key": "3.9",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Control of non-conforming product, damages and returns"
+  },
+  {
+   "key": "3.10",
+   "box": "3QM",
+   "source": "standard",
+   "title": "Complaints handling"
+  },
+  {
+   "key": "4",
+   "box": "4SABS",
+   "source": "standard",
+   "title": "Site and building standards"
+  },
+  {
+   "key": "4.1",
+   "box": "4SABS",
+   "source": "standard",
+   "title": "Location, perimeter and grounds"
+  },
+  {
+   "key": "4.2",
+   "box": "4SABS",
+   "source": "standard",
+   "title": "Site security and product defence"
+  },
+  {
+   "key": "4.3",
+   "box": "4SABS",
+   "source": "standard",
+   "title": "Layout, product flow and segregation – product intake, handling, storage and"
+  },
+  {
+   "key": "4.4",
+   "box": "4SABS",
+   "source": "standard",
+   "title": "Fabrication – product intake, handling, storage and dispatch areas"
+  },
+  {
+   "key": "4.5",
+   "box": "4SABS",
+   "source": "standard",
+   "title": "Staff facilities"
+  },
+  {
+   "key": "5",
+   "box": "5VOS",
+   "source": "standard",
+   "title": "Vehicle operating standards"
+  },
+  {
+   "key": "5.1",
+   "box": "5VOS",
+   "source": "standard",
+   "title": "Vehicle standards"
+  },
+  {
+   "key": "5.2",
+   "box": "5VOS",
+   "source": "standard",
+   "title": "Vehicle and load security"
+  },
+  {
+   "key": "5.3",
+   "box": "5VOS",
+   "source": "standard",
+   "title": "Vehicle management"
+  },
+  {
+   "key": "5.4",
+   "box": "5VOS",
+   "source": "standard",
+   "title": "Vehicle temperature controls"
+  },
+  {
+   "key": "6",
+   "box": "6FM",
+   "source": "standard",
+   "title": "Facility management"
+  },
+  {
+   "key": "6.1",
+   "box": "6FM",
+   "source": "standard",
+   "title": "Equipment"
+  },
+  {
+   "key": "6.2",
+   "box": "6FM",
+   "source": "standard",
+   "title": "Maintenance"
+  },
+  {
+   "key": "6.3",
+   "box": "6FM",
+   "source": "standard",
+   "title": "Calibration and control of measuring and monitoring devices"
+  },
+  {
+   "key": "6.4",
+   "box": "6FM",
+   "source": "standard",
+   "title": "Housekeeping and hygiene"
+  },
+  {
+   "key": "6.5",
+   "box": "6FM",
+   "source": "standard",
+   "title": "Waste and waste disposal"
+  },
+  {
+   "key": "6.6",
+   "box": "6FM",
+   "source": "standard",
+   "title": "Pest management"
+  },
+  {
+   "key": "7",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Good operating practices"
+  },
+  {
+   "key": "7.1",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Receipt of goods"
+  },
+  {
+   "key": "7.2",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Product handling"
+  },
+  {
+   "key": "7.3",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Environment control"
+  },
+  {
+   "key": "7.4",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Physical and chemical product contamination risk"
+  },
+  {
+   "key": "7.5",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Stock rotation"
+  },
+  {
+   "key": "7.6",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Product release"
+  },
+  {
+   "key": "7.7",
+   "box": "7GOP",
+   "source": "standard",
+   "title": "Management of allergens"
+  },
+  {
+   "key": "8",
+   "box": "8PL",
+   "source": "standard",
+   "title": "Personnel"
+  },
+  {
+   "key": "8.1",
+   "box": "8PL",
+   "source": "standard",
+   "title": "Training and competency"
+  },
+  {
+   "key": "8.2",
+   "box": "8PL",
+   "source": "standard",
+   "title": "Personal hygiene"
+  },
+  {
+   "key": "9",
+   "box": "9OPFP",
+   "source": "standard",
+   "title": "Handling of open food products"
+  },
+  {
+   "key": "9.1",
+   "box": "9OPFP",
+   "source": "standard",
+   "title": "Hazard and risk analysis"
+  },
+  {
+   "key": "9.2",
+   "box": "9OPFP",
+   "source": "standard",
+   "title": "Staff facilities"
+  },
+  {
+   "key": "9.3",
+   "box": "9OPFP",
+   "source": "standard",
+   "title": "Fabrication – product intake, handling, storage and dispatch areas"
+  },
+  {
+   "key": "9.4",
+   "box": "9OPFP",
+   "source": "standard",
+   "title": "Maintenance"
+  },
+  {
+   "key": "9.5",
+   "box": "9OPFP",
+   "source": "standard",
+   "title": "Housekeeping and hygiene"
+  },
+  {
+   "key": "9.6",
+   "box": "9OPFP",
+   "source": "standard",
+   "title": "Protective clothing"
+  },
+  {
+   "key": "10.1",
+   "box": "10RFPAM",
+   "source": "standard",
+   "title": "General requirements applicable to all wholesalers"
+  },
+  {
+   "key": "10.1.1",
+   "box": "10RFPAM",
+   "source": "standard",
+   "title": "Traceability"
+  },
+  {
+   "key": "10.1.2",
+   "box": "10RFPAM",
+   "source": "standard",
+   "title": "Management of product withdrawal and product recall"
+  },
+  {
+   "key": "10.2",
+   "box": "102BRPR",
+   "source": "standard",
+   "title": "Branded products"
+  },
+  {
+   "key": "10.2.1",
+   "box": "102BRPR",
+   "source": "standard",
+   "title": "Supplier approval and performance monitoring"
+  },
+  {
+   "key": "10.3",
+   "box": "103OWO",
+   "source": "standard",
+   "title": "Wholesaler-own, wholesaler-exclusive and/or customer-exclusive products"
+  },
+  {
+   "key": "10.3.1",
+   "box": "103OWO",
+   "source": "standard",
+   "title": "Supplier approval and performance monitoring"
+  },
+  {
+   "key": "10.3.2",
+   "box": "103OWO",
+   "source": "standard",
+   "title": "Customer focus and communication"
+  },
+  {
+   "key": "10.3.3",
+   "box": "103OWO",
+   "source": "standard",
+   "title": "Product fraud risk management"
+  },
+  {
+   "key": "10.3.4",
+   "box": "103OWO",
+   "source": "standard",
+   "title": "Product design/development"
+  },
+  {
+   "key": "10.3.5",
+   "box": "103OWO",
+   "source": "standard",
+   "title": "Specifications"
+  },
+  {
+   "key": "10.3.6",
+   "box": "103OWO",
+   "source": "standard",
+   "title": "Product inspection and analysis"
+  },
+  {
+   "key": "12",
+   "box": "12ECOMM",
+   "source": "standard",
+   "title": "E-commerce requirements"
+  },
+  {
+   "key": "12.1",
+   "box": "12ECOMM",
+   "source": "standard",
+   "title": "Senior management commitment"
+  },
+  {
+   "key": "12.2",
+   "box": "12ECOMM",
+   "source": "standard",
+   "title": "Customer contractual agreement"
+  },
+  {
+   "key": "12.3",
+   "box": "12ECOMM",
+   "source": "standard",
+   "title": "Traceability and mass balance"
+  },
+  {
+   "key": "12.4",
+   "box": "12ECOMM",
+   "source": "standard",
+   "title": "Product handling and returns"
+  },
+  {
+   "key": "12.5",
+   "box": "12ECOMM",
+   "source": "standard",
+   "title": "Packaging system performance – testing and validation"
+  },
+  {
+   "key": "12.6",
+   "box": "12ECOMM",
+   "source": "standard",
+   "title": "Use of the distribution network for final mile deliveries only"
+  },
+  {
+   "key": "13",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "Contractual arrangements (all services)"
+  },
+  {
+   "key": "13.1",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "enter into formal contractual arrangements with the customer, specifying the requirements"
+  },
+  {
+   "key": "13.2",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "review the service specification to ensure that it has the resources"
+  },
+  {
+   "key": "13.3",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "ensure that the services are included within the site’s HARA or"
+  },
+  {
+   "key": "13.4",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "be able to trace products through the operations undertaken and, where"
+  },
+  {
+   "key": "13.5",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "The procedures to undertake the service"
+  },
+  {
+   "key": "13.6",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "Staff shall receive training as required to deliver the services to"
+  },
+  {
+   "key": "13.7",
+   "box": "13CONARR",
+   "source": "standard",
+   "title": "Appropriate recorded checks"
+  },
+  {
+   "key": "14",
+   "box": "14PROI",
+   "source": "standard",
+   "title": "Product inspection"
+  },
+  {
+   "key": "14.1",
+   "box": "14PROI",
+   "source": "standard",
+   "title": "Where inspection is undertaken on behalf of a customer, the service"
+  },
+  {
+   "key": "14.2",
+   "box": "14PROI",
+   "source": "standard",
+   "title": "undertake a contract review before accepting the work to ensure that"
+  },
+  {
+   "key": "14.3",
+   "box": "14PROI",
+   "source": "standard",
+   "title": "carry out a risk assessment before undertaking work to identify any"
+  },
+  {
+   "key": "14.4",
+   "box": "14PROI",
+   "source": "standard",
+   "title": "Inspection methodology and procedures"
+  },
+  {
+   "key": "14.5",
+   "box": "14PROI",
+   "source": "standard",
+   "title": "Where equipment is used as part of the inspection process, this"
+  },
+  {
+   "key": "14.6",
+   "box": "14PROI",
+   "source": "standard",
+   "title": "Records shall be maintained of the inspection activity, including: quantities of"
+  },
+  {
+   "key": "15",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Contract packing (repacking, assembly packing)"
+  },
+  {
+   "key": "15.1",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "A risk assessment"
+  },
+  {
+   "key": "15.2",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Product and packaging materials"
+  },
+  {
+   "key": "15.3",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Where labels/sleeves are applied as part of the process undertaken: there"
+  },
+  {
+   "key": "15.4",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "The setting of, and amendments to, the printer parameters (e"
+  },
+  {
+   "key": "15.5",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Documented checks of the line"
+  },
+  {
+   "key": "15.6",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Documented procedures"
+  },
+  {
+   "key": "15.7",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Where online vision equipment is used to check product labels and"
+  },
+  {
+   "key": "15.8",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Records shall be maintained to ensure full traceability of all component"
+  },
+  {
+   "key": "15.9",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Where rework or any reworking operation is performed, this shall be"
+  },
+  {
+   "key": "15.10",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Where weights of the final packed products are checked, this shall"
+  },
+  {
+   "key": "15.11",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Where used, the site"
+  },
+  {
+   "key": "15.12",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Inventories shall be maintained of components, packed product and waste"
+  },
+  {
+   "key": "15.13",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "Finished product checks"
+  },
+  {
+   "key": "15.14",
+   "box": "15CONPAC",
+   "source": "standard",
+   "title": "The organisation"
+  },
+  {
+   "key": "16",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "Quantity control inspection"
+  },
+  {
+   "key": "16.1",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "The frequency and methodology of quantity checking"
+  },
+  {
+   "key": "16.2",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "If the company undertakes quantity control on imported pre-packed material intended"
+  },
+  {
+   "key": "16.3",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "Where the quantity of the product is not governed by legislative"
+  },
+  {
+   "key": "16.4",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "All equipment used for quantity measurement"
+  },
+  {
+   "key": "16.5",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "Underweight/under-measure (volume) or rejected products"
+  },
+  {
+   "key": "16.6",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "Where used, the site"
+  },
+  {
+   "key": "16.7",
+   "box": "16QCI",
+   "source": "standard",
+   "title": "Records shall be maintained of the quantity checks and shall be"
+  },
+  {
+   "key": "17",
+   "box": "17CONCHILL",
+   "source": "standard",
+   "title": "Contract chilling/freezing/tempering/defrosting and high-pressure process operations"
+  },
+  {
+   "key": "17.1",
+   "box": "17CONCHILL",
+   "source": "standard",
+   "title": "operate procedures to verify that the processes and equipment employed are"
+  },
+  {
+   "key": "17.2",
+   "box": "17CONCHILL",
+   "source": "standard",
+   "title": "Process validation"
+  },
+  {
+   "key": "17.3",
+   "box": "17CONCHILL",
+   "source": "standard",
+   "title": "The process"
+  },
+  {
+   "key": "17.4",
+   "box": "17CONCHILL",
+   "source": "standard",
+   "title": "In the case of equipment failure or process deviation, procedures shall"
+  },
+  {
+   "key": "18",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "Contract cleaning of baskets, roll cages and other distribution containers"
+  },
+  {
+   "key": "18.1",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "The cleaning area"
+  },
+  {
+   "key": "18.2",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "The layout of the cleaning area shall ensure the segregation of clean from unclean items"
+  },
+  {
+   "key": "18.3",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "Drainage facilities shall be adequate to prevent accumulation of water"
+  },
+  {
+   "key": "18.4",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "Ventilation shall be adequate to prevent any risk of condensation forming"
+  },
+  {
+   "key": "18.5",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "Equipment used for cleaning"
+  },
+  {
+   "key": "18.6",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "Where automatic equipment is used, specified limits"
+  },
+  {
+   "key": "18.7",
+   "box": "18CCOB",
+   "source": "standard",
+   "title": "operate procedures to verify that the processes and equipment employed are"
+  },
+  {
+   "key": "19",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "Waste recovery and recycling"
+  },
+  {
+   "key": "19.1",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "clearly specify the types of materials that will be handled and"
+  },
+  {
+   "key": "19.2",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "The layout of the receiving area for waste materials shall ensure"
+  },
+  {
+   "key": "19.3",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "Where company-owned or contracted vehicles are used for the collection of"
+  },
+  {
+   "key": "19.4",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "The handling of materials received for waste/recycling"
+  },
+  {
+   "key": "19.5",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "Waste/recycled materials"
+  },
+  {
+   "key": "19.6",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "Where specifications exist from the customer for the waste materials (e"
+  },
+  {
+   "key": "19.7",
+   "box": "19WRAR",
+   "source": "standard",
+   "title": "Where the ultimate disposal of materials is governed by legal requirements"
+  },
+  {
+   "key": "11",
+   "box": "",
+   "source": "standard",
+   "title": "Cross-docking requirements"
+  },
+  {
+   "key": "11.1",
+   "box": "",
+   "source": "standard",
+   "title": "Main certificated site"
+  },
+  {
+   "key": "11.2",
+   "box": "",
+   "source": "standard",
+   "title": "Traceability and mass balance"
+  },
+  {
+   "key": "11.3",
+   "box": "",
+   "source": "standard",
+   "title": "Product handling and returns"
+  },
+  {
+   "key": "11.4",
+   "box": "",
+   "source": "standard",
+   "title": "Environmental controls"
+  }
+ ],
+ "expanded_clauses": [
+  "10"
+ ],
+ "unmapped_clauses": [
+  "11",
+  "11.1",
+  "11.2",
+  "11.3",
+  "11.4"
+ ]
+}

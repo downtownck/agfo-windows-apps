@@ -1,0 +1,1274 @@
+{
+ "schema": "agfo_brcgs_report_boxes_v1",
+ "profile": "pm",
+ "template": "p703-packaging-materials-issue-7-audit-report-template-v1-1-28-04-2025.docx",
+ "generated_from": "official BRCGS DOCX content controls",
+ "box_count": 75,
+ "unit_count": 76,
+ "boxes": [
+  {
+   "tag": "PM1_1",
+   "clause": "1.1",
+   "title": "Senior management commitment and continual improvement",
+   "order": 0,
+   "na_tag": null,
+   "clauses": [
+    "1.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM1_2",
+   "clause": "1.2",
+   "title": "Management review",
+   "order": 1,
+   "na_tag": null,
+   "clauses": [
+    "1.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM1_3",
+   "clause": "1.3",
+   "title": "Organisational structure, responsibilities, and management authority",
+   "order": 2,
+   "na_tag": null,
+   "clauses": [
+    "1.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_1",
+   "clause": "2.1",
+   "title": "The hazard analysis and risk assessment team",
+   "order": 3,
+   "na_tag": null,
+   "clauses": [
+    "2.0",
+    "2.1"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "PM2_2",
+   "clause": "2.2",
+   "title": "Prerequisite programmes",
+   "order": 4,
+   "na_tag": null,
+   "clauses": [
+    "2.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_3",
+   "clause": "2.3",
+   "title": "Describe the product",
+   "order": 5,
+   "na_tag": null,
+   "clauses": [
+    "2.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_4",
+   "clause": "2.4",
+   "title": "Construct and verify process flow diagram",
+   "order": 6,
+   "na_tag": null,
+   "clauses": [
+    "2.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_5",
+   "clause": "2.5",
+   "title": "List all potential hazards associated with each manufacturing step, conduct a hazard analysis and consider any measures to control identified hazards",
+   "order": 7,
+   "na_tag": null,
+   "clauses": [
+    "2.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_6",
+   "clause": "2.6",
+   "title": "Determine the critical control measures",
+   "order": 8,
+   "na_tag": null,
+   "clauses": [
+    "2.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_7",
+   "clause": "2.7",
+   "title": "Establish validated critical limits for each critical control measure",
+   "order": 9,
+   "na_tag": null,
+   "clauses": [
+    "2.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_8",
+   "clause": "2.8",
+   "title": "Establish a monitoring system for each critical control measure",
+   "order": 10,
+   "na_tag": null,
+   "clauses": [
+    "2.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_9",
+   "clause": "2.9",
+   "title": "Establish a corrective action plan",
+   "order": 11,
+   "na_tag": null,
+   "clauses": [
+    "2.9"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_10",
+   "clause": "2.10",
+   "title": "Validate the hazard analysis and risk assessment plan and establish verification procedures",
+   "order": 12,
+   "na_tag": null,
+   "clauses": [
+    "2.10"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM2_11",
+   "clause": "2.11",
+   "title": "Hazard analysis and risk assessment documentation and record keeping",
+   "order": 13,
+   "na_tag": null,
+   "clauses": [
+    "2.11"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_1",
+   "clause": "3.1",
+   "title": "Product safety and quality management system",
+   "order": 14,
+   "na_tag": null,
+   "clauses": [
+    "3.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_2",
+   "clause": "3.2",
+   "title": "Document control",
+   "order": 15,
+   "na_tag": null,
+   "clauses": [
+    "3.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_3",
+   "clause": "3.3",
+   "title": "Record-keeping",
+   "order": 16,
+   "na_tag": null,
+   "clauses": [
+    "3.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_4",
+   "clause": "3.4",
+   "title": "Specifications",
+   "order": 17,
+   "na_tag": null,
+   "clauses": [
+    "3.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_5",
+   "clause": "3.5",
+   "title": "Internal audits",
+   "order": 18,
+   "na_tag": null,
+   "clauses": [
+    "3.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_6",
+   "clause": "3.6",
+   "title": "Supplier approval and performance monitoring",
+   "order": 19,
+   "na_tag": null,
+   "clauses": [
+    "3.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_7",
+   "clause": "3.7",
+   "title": "Product vulnerability, claims and chain of custody",
+   "order": 20,
+   "na_tag": null,
+   "clauses": [
+    "3.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_8",
+   "clause": "3.8",
+   "title": "Management of outsourced processes",
+   "order": 21,
+   "na_tag": null,
+   "clauses": [
+    "3.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_9",
+   "clause": "3.9",
+   "title": "Management of suppliers of services",
+   "order": 22,
+   "na_tag": null,
+   "clauses": [
+    "3.9"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_10",
+   "clause": "3.10",
+   "title": "Traceability",
+   "order": 23,
+   "na_tag": null,
+   "clauses": [
+    "3.10"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_11",
+   "clause": "3.11",
+   "title": "Control of non-conforming materials",
+   "order": 24,
+   "na_tag": null,
+   "clauses": [
+    "3.11"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_12",
+   "clause": "3.12",
+   "title": "Complaint-handling",
+   "order": 25,
+   "na_tag": null,
+   "clauses": [
+    "3.12"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_13",
+   "clause": "3.13",
+   "title": "Corrective and preventive action",
+   "order": 26,
+   "na_tag": null,
+   "clauses": [
+    "3.13"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM3_14",
+   "clause": "3.14",
+   "title": "Management of incidents",
+   "order": 27,
+   "na_tag": null,
+   "clauses": [
+    "3.14"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_1",
+   "clause": "4.1",
+   "title": "External standards",
+   "order": 28,
+   "na_tag": null,
+   "clauses": [
+    "4.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_2",
+   "clause": "4.2",
+   "title": "Building fabric and interiors: raw materials handling, preparation, manufacturing, packing and storage areas",
+   "order": 29,
+   "na_tag": null,
+   "clauses": [
+    "4.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_3",
+   "clause": "4.3",
+   "title": "Utilities",
+   "order": 30,
+   "na_tag": null,
+   "clauses": [
+    "4.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_4",
+   "clause": "4.4",
+   "title": "Site security and product defence",
+   "order": 31,
+   "na_tag": null,
+   "clauses": [
+    "4.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_5",
+   "clause": "4.5",
+   "title": "Layout, product flow and segregation",
+   "order": 32,
+   "na_tag": null,
+   "clauses": [
+    "4.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_6",
+   "clause": "4.6",
+   "title": "Equipment",
+   "order": 33,
+   "na_tag": null,
+   "clauses": [
+    "4.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_7",
+   "clause": "4.7",
+   "title": "Maintenance",
+   "order": 34,
+   "na_tag": null,
+   "clauses": [
+    "4.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_8",
+   "clause": "4.8",
+   "title": "Housekeeping and cleaning",
+   "order": 35,
+   "na_tag": null,
+   "clauses": [
+    "4.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_9_1",
+   "clause": "4.9.1",
+   "title": "Glass and brittle materials control",
+   "order": 36,
+   "na_tag": null,
+   "clauses": [
+    "4.9.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_9_2",
+   "clause": "4.9.2",
+   "title": "Sharps and metal control",
+   "order": 37,
+   "na_tag": null,
+   "clauses": [
+    "4.9.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_9_3",
+   "clause": "4.9.3",
+   "title": "Chemical control",
+   "order": 38,
+   "na_tag": null,
+   "clauses": [
+    "4.9.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_9_4",
+   "clause": "4.9.4",
+   "title": "Allergen management",
+   "order": 39,
+   "na_tag": null,
+   "clauses": [
+    "4.9.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_9_5",
+   "clause": "4.9.5",
+   "title": "Other physical contaminants",
+   "order": 40,
+   "na_tag": null,
+   "clauses": [
+    "4.9.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_10",
+   "clause": "4.10",
+   "title": "Waste and waste disposal",
+   "order": 41,
+   "na_tag": null,
+   "clauses": [
+    "4.10"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM4_11",
+   "clause": "4.11",
+   "title": "Pest management",
+   "order": 42,
+   "na_tag": null,
+   "clauses": [
+    "4.11"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_1",
+   "clause": "5.1",
+   "title": "Product development",
+   "order": 43,
+   "na_tag": null,
+   "clauses": [
+    "5.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_2",
+   "clause": "5.2",
+   "title": "Graphic design and artwork control",
+   "order": 44,
+   "na_tag": null,
+   "clauses": [
+    "5.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_3",
+   "clause": "5.3",
+   "title": "Print control",
+   "order": 45,
+   "na_tag": null,
+   "clauses": [
+    "5.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_4",
+   "clause": "5.4",
+   "title": "Manufacturing process control",
+   "order": 46,
+   "na_tag": null,
+   "clauses": [
+    "5.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_5",
+   "clause": "5.5",
+   "title": "Calibration and control of measuring and monitoring devices",
+   "order": 47,
+   "na_tag": null,
+   "clauses": [
+    "5.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_6",
+   "clause": "5.6",
+   "title": "Product inspection, testing and measuring",
+   "order": 48,
+   "na_tag": null,
+   "clauses": [
+    "5.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_7",
+   "clause": "5.7",
+   "title": "Incoming goods",
+   "order": 49,
+   "na_tag": null,
+   "clauses": [
+    "5.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_8",
+   "clause": "5.8",
+   "title": "Storage of all materials, work in progress and finished products",
+   "order": 50,
+   "na_tag": null,
+   "clauses": [
+    "5.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM5_9",
+   "clause": "5.9",
+   "title": "Dispatch and transport",
+   "order": 51,
+   "na_tag": null,
+   "clauses": [
+    "5.9"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM6_1",
+   "clause": "6.1",
+   "title": "Training and competence: raw materials handling, preparation, manufacturing, packing and storage areas",
+   "order": 52,
+   "na_tag": null,
+   "clauses": [
+    "6.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM6_2",
+   "clause": "6.2",
+   "title": "Personal hygiene: raw materials handling, preparation, manufacturing, packing and storage areas",
+   "order": 53,
+   "na_tag": null,
+   "clauses": [
+    "6.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM6_3",
+   "clause": "6.3",
+   "title": "Personnel facilities",
+   "order": 54,
+   "na_tag": null,
+   "clauses": [
+    "6.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM6_4",
+   "clause": "6.4",
+   "title": "Medical screening",
+   "order": 55,
+   "na_tag": null,
+   "clauses": [
+    "6.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM6_5",
+   "clause": "6.5",
+   "title": "Protective clothing",
+   "order": 56,
+   "na_tag": null,
+   "clauses": [
+    "6.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM7_1",
+   "clause": "7.1",
+   "title": "Hazard analysis and risk assessment of traded products",
+   "order": 57,
+   "na_tag": null,
+   "clauses": [
+    "7.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM7_2",
+   "clause": "7.2",
+   "title": "Approval and performance monitoring of manufacturers/packers of traded products",
+   "order": 58,
+   "na_tag": null,
+   "clauses": [
+    "7.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM7_3",
+   "clause": "7.3",
+   "title": "Specifications",
+   "order": 59,
+   "na_tag": null,
+   "clauses": [
+    "7.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM7_4",
+   "clause": "7.4",
+   "title": "Product inspection and testing",
+   "order": 60,
+   "na_tag": null,
+   "clauses": [
+    "7.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM7_5",
+   "clause": "7.5",
+   "title": "Product legality",
+   "order": 61,
+   "na_tag": null,
+   "clauses": [
+    "7.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM7_6",
+   "clause": "7.6",
+   "title": "Traceability",
+   "order": 62,
+   "na_tag": null,
+   "clauses": [
+    "7.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "PM10_1",
+   "clause": "10.1",
+   "title": "Senior management commitment and control improvement",
+   "order": 63,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_2",
+   "clause": "10.2",
+   "title": "Hazard analysis and risk assessment",
+   "order": 64,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_3",
+   "clause": "10.3",
+   "title": "Internal audits",
+   "order": 65,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_4",
+   "clause": "10.4",
+   "title": "Corrective and preventive action",
+   "order": 66,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_5",
+   "clause": "10.5",
+   "title": "Management of incidents",
+   "order": 67,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_6",
+   "clause": "10.6",
+   "title": "Building fabric and interiors: raw materials handling, preparation, manufacturing, packing and storage areas",
+   "order": 68,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_7",
+   "clause": "10.7",
+   "title": "Site security and product defence",
+   "order": 69,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_8",
+   "clause": "10.8",
+   "title": "Layout, product flow and segregation",
+   "order": 70,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_9",
+   "clause": "10.9",
+   "title": "Housekeeping and cleaning",
+   "order": 71,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_10",
+   "clause": "10.10",
+   "title": "Waste and waste disposal",
+   "order": 72,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_11",
+   "clause": "10.11",
+   "title": "Incoming goods",
+   "order": 73,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "PM10_12",
+   "clause": "10.12",
+   "title": "Training and competence: raw materials handling, preparation, manufacturing, packing and storage areas",
+   "order": 74,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  }
+ ],
+ "units": [
+  {
+   "key": "1.1",
+   "box": "PM1_1",
+   "source": "standard",
+   "title": "Senior management commitment and continual improvement"
+  },
+  {
+   "key": "1.2",
+   "box": "PM1_2",
+   "source": "standard",
+   "title": "Management review"
+  },
+  {
+   "key": "1.3",
+   "box": "PM1_3",
+   "source": "standard",
+   "title": "Organisational structure, responsibilities and management authority"
+  },
+  {
+   "key": "2.0",
+   "box": "PM2_1",
+   "source": "standard",
+   "title": "Hazard analysis and risk assessment"
+  },
+  {
+   "key": "2.1",
+   "box": "PM2_1",
+   "source": "standard",
+   "title": "The hazard analysis and risk assessment team"
+  },
+  {
+   "key": "2.2",
+   "box": "PM2_2",
+   "source": "standard",
+   "title": "Prerequisite programmes"
+  },
+  {
+   "key": "2.3",
+   "box": "PM2_3",
+   "source": "standard",
+   "title": "Describe the product"
+  },
+  {
+   "key": "2.4",
+   "box": "PM2_4",
+   "source": "standard",
+   "title": "Construct and verify the process flow diagram"
+  },
+  {
+   "key": "2.5",
+   "box": "PM2_5",
+   "source": "standard",
+   "title": "List all potential hazards associated with each manufacturing step, conduct a hazard analysis and consider any measures to control identified hazards"
+  },
+  {
+   "key": "2.6",
+   "box": "PM2_6",
+   "source": "standard",
+   "title": "Determine the critical control measure"
+  },
+  {
+   "key": "2.7",
+   "box": "PM2_7",
+   "source": "standard",
+   "title": "Establish validated critical limits for each critical control measure"
+  },
+  {
+   "key": "2.8",
+   "box": "PM2_8",
+   "source": "standard",
+   "title": "Establish a monitoring system for each critical control measure"
+  },
+  {
+   "key": "2.9",
+   "box": "PM2_9",
+   "source": "standard",
+   "title": "Establish a corrective action plan"
+  },
+  {
+   "key": "2.10",
+   "box": "PM2_10",
+   "source": "standard",
+   "title": "Validate the hazard analysis and risk assessment plan and establish verification procedures"
+  },
+  {
+   "key": "2.11",
+   "box": "PM2_11",
+   "source": "standard",
+   "title": "Hazard analysis and risk assessment documentation and record-keeping"
+  },
+  {
+   "key": "3.1",
+   "box": "PM3_1",
+   "source": "standard",
+   "title": "Product safety and quality management system"
+  },
+  {
+   "key": "3.2",
+   "box": "PM3_2",
+   "source": "standard",
+   "title": "Document control"
+  },
+  {
+   "key": "3.3",
+   "box": "PM3_3",
+   "source": "standard",
+   "title": "Record-keeping"
+  },
+  {
+   "key": "3.4",
+   "box": "PM3_4",
+   "source": "standard",
+   "title": "Specifications"
+  },
+  {
+   "key": "3.5",
+   "box": "PM3_5",
+   "source": "standard",
+   "title": "Internal audits"
+  },
+  {
+   "key": "3.6",
+   "box": "PM3_6",
+   "source": "standard",
+   "title": "Supplier approval and performance monitoring"
+  },
+  {
+   "key": "3.7",
+   "box": "PM3_7",
+   "source": "standard",
+   "title": "Product vulnerability, claims and chain of custody"
+  },
+  {
+   "key": "3.8",
+   "box": "PM3_8",
+   "source": "standard",
+   "title": "Management of outsourced processes"
+  },
+  {
+   "key": "3.9",
+   "box": "PM3_9",
+   "source": "standard",
+   "title": "Management of supplier services"
+  },
+  {
+   "key": "3.10",
+   "box": "PM3_10",
+   "source": "standard",
+   "title": "Traceability"
+  },
+  {
+   "key": "3.11",
+   "box": "PM3_11",
+   "source": "standard",
+   "title": "Control of non-conforming materials"
+  },
+  {
+   "key": "3.12",
+   "box": "PM3_12",
+   "source": "standard",
+   "title": "Complaint-handling"
+  },
+  {
+   "key": "3.13",
+   "box": "PM3_13",
+   "source": "standard",
+   "title": "Corrective and preventive action"
+  },
+  {
+   "key": "3.14",
+   "box": "PM3_14",
+   "source": "standard",
+   "title": "Management of incidents"
+  },
+  {
+   "key": "4.1",
+   "box": "PM4_1",
+   "source": "standard",
+   "title": "External standards"
+  },
+  {
+   "key": "4.2",
+   "box": "PM4_2",
+   "source": "standard",
+   "title": "Building fabric and interiors"
+  },
+  {
+   "key": "4.3",
+   "box": "PM4_3",
+   "source": "standard",
+   "title": "Utilities"
+  },
+  {
+   "key": "4.4",
+   "box": "PM4_4",
+   "source": "standard",
+   "title": "Site security and product defence"
+  },
+  {
+   "key": "4.5",
+   "box": "PM4_5",
+   "source": "standard",
+   "title": "Layout, product flow and segregation"
+  },
+  {
+   "key": "4.6",
+   "box": "PM4_6",
+   "source": "standard",
+   "title": "Equipment"
+  },
+  {
+   "key": "4.7",
+   "box": "PM4_7",
+   "source": "standard",
+   "title": "Maintenance"
+  },
+  {
+   "key": "4.8",
+   "box": "PM4_8",
+   "source": "standard",
+   "title": "Housekeeping and cleaning"
+  },
+  {
+   "key": "4.9.1",
+   "box": "PM4_9_1",
+   "source": "standard",
+   "title": "Glass and brittle materials control"
+  },
+  {
+   "key": "4.9.2",
+   "box": "PM4_9_2",
+   "source": "standard",
+   "title": "Sharps and metal control"
+  },
+  {
+   "key": "4.9.3",
+   "box": "PM4_9_3",
+   "source": "standard",
+   "title": "Chemical control"
+  },
+  {
+   "key": "4.9.4",
+   "box": "PM4_9_4",
+   "source": "standard",
+   "title": "Allergen management"
+  },
+  {
+   "key": "4.9.5",
+   "box": "PM4_9_5",
+   "source": "standard",
+   "title": "Other physical contaminants"
+  },
+  {
+   "key": "4.10",
+   "box": "PM4_10",
+   "source": "standard",
+   "title": "Waste and waste disposal"
+  },
+  {
+   "key": "4.11",
+   "box": "PM4_11",
+   "source": "standard",
+   "title": "Pest management"
+  },
+  {
+   "key": "5.1",
+   "box": "PM5_1",
+   "source": "standard",
+   "title": "Product development"
+  },
+  {
+   "key": "5.2",
+   "box": "PM5_2",
+   "source": "standard",
+   "title": "Graphic design and artwork control"
+  },
+  {
+   "key": "5.3",
+   "box": "PM5_3",
+   "source": "standard",
+   "title": "Print control"
+  },
+  {
+   "key": "5.4",
+   "box": "PM5_4",
+   "source": "standard",
+   "title": "Manufacturing process control"
+  },
+  {
+   "key": "5.5",
+   "box": "PM5_5",
+   "source": "standard",
+   "title": "Calibration and control of measuring and monitoring devices"
+  },
+  {
+   "key": "5.6",
+   "box": "PM5_6",
+   "source": "standard",
+   "title": "Product inspection, testing and measuring"
+  },
+  {
+   "key": "5.7",
+   "box": "PM5_7",
+   "source": "standard",
+   "title": "Incoming goods"
+  },
+  {
+   "key": "5.8",
+   "box": "PM5_8",
+   "source": "standard",
+   "title": "Storage of all materials, work in progress and finished goods"
+  },
+  {
+   "key": "5.9",
+   "box": "PM5_9",
+   "source": "standard",
+   "title": "Dispatch and transport"
+  },
+  {
+   "key": "6.1",
+   "box": "PM6_1",
+   "source": "standard",
+   "title": "Training and competence"
+  },
+  {
+   "key": "6.2",
+   "box": "PM6_2",
+   "source": "standard",
+   "title": "Personal hygiene"
+  },
+  {
+   "key": "6.3",
+   "box": "PM6_3",
+   "source": "standard",
+   "title": "Personnel facilities"
+  },
+  {
+   "key": "6.4",
+   "box": "PM6_4",
+   "source": "standard",
+   "title": "Medical screening"
+  },
+  {
+   "key": "6.5",
+   "box": "PM6_5",
+   "source": "standard",
+   "title": "Protective clothing"
+  },
+  {
+   "key": "7.1",
+   "box": "PM7_1",
+   "source": "standard",
+   "title": "Traded products HARA plan"
+  },
+  {
+   "key": "7.2",
+   "box": "PM7_2",
+   "source": "standard",
+   "title": "Traded product manufacturer/packer approval"
+  },
+  {
+   "key": "7.3",
+   "box": "PM7_3",
+   "source": "standard",
+   "title": "Traded product specifications"
+  },
+  {
+   "key": "7.4",
+   "box": "PM7_4",
+   "source": "standard",
+   "title": "Traded product inspection and testing"
+  },
+  {
+   "key": "7.5",
+   "box": "PM7_5",
+   "source": "standard",
+   "title": "Product legality verification"
+  },
+  {
+   "key": "7.6",
+   "box": "PM7_6",
+   "source": "standard",
+   "title": "Traded product traceability"
+  },
+  {
+   "key": "10.1",
+   "box": "PM10_1",
+   "source": "template",
+   "title": "Senior management commitment and control improvement"
+  },
+  {
+   "key": "10.2",
+   "box": "PM10_2",
+   "source": "template",
+   "title": "Hazard analysis and risk assessment"
+  },
+  {
+   "key": "10.3",
+   "box": "PM10_3",
+   "source": "template",
+   "title": "Internal audits"
+  },
+  {
+   "key": "10.4",
+   "box": "PM10_4",
+   "source": "template",
+   "title": "Corrective and preventive action"
+  },
+  {
+   "key": "10.5",
+   "box": "PM10_5",
+   "source": "template",
+   "title": "Management of incidents"
+  },
+  {
+   "key": "10.6",
+   "box": "PM10_6",
+   "source": "template",
+   "title": "Building fabric and interiors: raw materials handling, preparation, manufacturing, packing and storage areas"
+  },
+  {
+   "key": "10.7",
+   "box": "PM10_7",
+   "source": "template",
+   "title": "Site security and product defence"
+  },
+  {
+   "key": "10.8",
+   "box": "PM10_8",
+   "source": "template",
+   "title": "Layout, product flow and segregation"
+  },
+  {
+   "key": "10.9",
+   "box": "PM10_9",
+   "source": "template",
+   "title": "Housekeeping and cleaning"
+  },
+  {
+   "key": "10.10",
+   "box": "PM10_10",
+   "source": "template",
+   "title": "Waste and waste disposal"
+  },
+  {
+   "key": "10.11",
+   "box": "PM10_11",
+   "source": "template",
+   "title": "Incoming goods"
+  },
+  {
+   "key": "10.12",
+   "box": "PM10_12",
+   "source": "template",
+   "title": "Training and competence: raw materials handling, preparation, manufacturing, packing and storage areas"
+  }
+ ],
+ "expanded_clauses": [
+  "4.9"
+ ],
+ "unmapped_clauses": []
+}

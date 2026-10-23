@@ -1,0 +1,273 @@
+{
+  "schema": "agfo-brs-howto-v1",
+  "profile": "sd",
+  "standard": "BRCGS Storage & Distribution",
+  "issue": "Issue 4",
+  "document_code": "SD408",
+  "source_file": "SD408 How to complete the audit report v3 10/11/2022",
+  "summary": "Initial profile guidance generated from uploaded official how-to/checklist documents. Detailed report sections should be concise, objective and evidence-based; non-conformities must be recorded in the relevant detailed section and NC summary tables.",
+  "global_rules": [
+    "Do not alter, duplicate, delete or move XML tags/content controls in official BRCGS templates.",
+    "Dates in report and NC tables must use YYYY-MM-DD where required.",
+    "Non-conformity clause references must match the clause format in the Standard.",
+    "Do not add new columns to official tables; only use existing table structure and additional rows where permitted."
+  ],
+  "field_rules": {},
+  "detailed_rules": [
+    {
+      "clause": "1",
+      "title": "Senior management commitment",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "2",
+      "title": "Hazard and Risk Assessment",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "3",
+      "title": "Product Safety and Quality Management System",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "4",
+      "title": "Site and Building Standards",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "5",
+      "title": "Vehicle Operating Standards",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "6",
+      "title": "Facility Management",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "7",
+      "title": "Good Operating Practices",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "8",
+      "title": "Personnel",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "9",
+      "title": "Handling of open food products",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "10",
+      "title": "Wholesale Module",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "12",
+      "title": "Ecommerce",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "13",
+      "title": "Contractual arrangements",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "14",
+      "title": "Product Inspection",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "15",
+      "title": "Contract Packing",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "16",
+      "title": "Quantity Control Inspections",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "17",
+      "title": "Contract chilling/freezing/tempering/defrost and high-pressure process operations",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "18",
+      "title": "Contact Cleaning",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "19",
+      "title": "Waste recovery and recycling",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    }
+  ],
+  "ai_review_prompt": "Review the selected detailed report section against the profile guidance and standard coverage. Prefer objective evidence, exact clause references and concise professional English.",
+  "guide_language": "tr",
+  "guide_revision": "3.6.2"
+}
