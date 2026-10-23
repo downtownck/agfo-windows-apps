@@ -1937,6 +1937,30 @@ class RichText(tk.Text):
             self.undo.end()
         self.changed()
 
+    def replace_line_runs(self, line, runs, cell=None):
+        """2.1: canli ceviri - bir paragrafin (ya da tablo satirindaki bir hucrenin) metnini bicimli parcalarla degistirir.
+        Paragraf/hucre bicimi ve liste isareti korunur; satir sayisi degismez."""
+        line = int(line)
+        if line > int(self.index('end-1c').split('.')[0]):
+            return False
+        text = self.get('%d.0' % line, '%d.end' % line)
+        props = self.para_props(line)
+        ptags = tuple(sorted(self.para_tags(line)))
+        if cell is None:
+            s = self._content_start(line)
+            e = '%d.end' % line
+        else:
+            parts = text.split('\t')
+            if cell >= len(parts):
+                return False
+            a = sum(len(x) + 1 for x in parts[:cell])
+            s, e = '%d.%d' % (line, a), '%d.%d' % (line, a + len(parts[cell]))
+        if self.compare(s, '<', e):
+            self.delete(s, e)
+        clean = [dict(r, text=r['text'].replace('\t', ' ')) for r in runs] if cell is not None else runs
+        self._ins_runs(s, clean, ptags, props['style'] if cell is None else 'normal')
+        return True
+
     def plain(self):
         return R.plain_text(self.get_blocks()) if self.rich else self.get('1.0', 'end-1c')
 

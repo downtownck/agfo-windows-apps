@@ -817,32 +817,97 @@ class GuiTests(unittest.TestCase):
         self.app.close_pdf(v, ask=False)
 
     def test_translate_live_highlight_parallel(self):
-        # 1.4.8: paralel ceviri + cevrilen paragraflarin gecici vurgusu (belgeye/geri almaya girmez)
+        # 1.4.8: paralel ceviri + gecici vurgu. 2.1: ceviri sekmesi hemen acilir, parcalar cevrildikce yerine yazilir;
+        # ozgun belge hic degismez.
         R = self.m.rdoc
         d = self.app.cur()
         d.title = 'uzun.docx'
         d.text.load_blocks([R.para(text='Paragraf %d %s' % (k, 'kelime ' * 60)) for k in range(20)])
+        orig = d.text.get_blocks()
         was_dirty = d.dirty
         self.app.tr_lang.set('English')
         self.app.doc_tr_out.set('newtab')
         self.app.settings['translate_workers'] = 3
         n = len(self.app.docs)
+        fast = self.m.ai.run_with_fallback
+
+        def slow(*a):                                                              # gecikme: ara durum gorulebilsin
+            import time
+            time.sleep(0.04)
+            return fast(*a)
+        p2 = mock.patch.object(self.m.ai, 'run_with_fallback', slow)
+        p2.start()
+        try:
+            self._live_parallel_body(R, d, orig, was_dirty, n)
+        finally:
+            p2.stop()
+
+    def _live_parallel_body(self, R, d, orig, was_dirty, n):
         self.app.translate_document()
         self.assertIn('aynı anda 3 istek', self.app.ai_var.get())
-        seen = {'done': False, 'work': False}
+        self.assertEqual(len(self.app.docs), n + 1)                                 # ceviri sekmesi hemen acildi
+        out = self.app.docs[-1]
+        self.assertEqual(out.title, 'uzun (English)')
+        self.assertEqual(str(out.text.cget('state')), 'disabled')                  # ceviri bitene kadar salt okunur
+        seen = {'done': False, 'work': False, 'partial': False}
 
         def until():
-            seen['done'] = seen['done'] or bool(d.text.tag_ranges('trdone'))
-            seen['work'] = seen['work'] or bool(d.text.tag_ranges('trwork'))
-            return len(self.app.docs) > n
+            seen['done'] = seen['done'] or bool(out.text.tag_ranges('trdone'))
+            seen['work'] = seen['work'] or bool(out.text.tag_ranges('trwork'))
+            texts = [R.runs_text(b['runs']) for b in out.text.get_blocks()]
+            up = sum(1 for x in texts if x.startswith('PARAGRAF'))
+            seen['partial'] = seen['partial'] or 0 < up < len(texts)               # bir kismi cevrilmis, kalani bekliyor
+            return 'Çeviri tamam' in self.app.ai_var.get()
         self.assertTrue(self.pump(until, n=3000))
         self.assertTrue(seen['done'])                                              # cevrilenler yesil vurgulandi
-        self.assertFalse(d.text.tag_ranges('trwork'))
+        self.assertTrue(seen['partial'])                                           # metin parca parca belirdi
+        self.assertFalse(out.text.tag_ranges('trwork'))
+        self.assertEqual(str(out.text.cget('state')), 'normal')
+        self.assertTrue(out.dirty)
+        self.assertEqual(d.text.get_blocks(), orig)                                # ozgun belge degismedi
         self.assertEqual(d.dirty, was_dirty)
-        self.assertNotIn('trdone', str(d.text.get_blocks()))
+        self.assertFalse(d.text.tag_ranges('trdone') or d.text.tag_ranges('trwork'))
+        self.assertNotIn('trdone', str(out.text.get_blocks()))
         self.assertGreater(len([f for f in self.fake if f[0] == 'transform']), 3)  # birden cok grup
-        self.assertTrue(self.pump(lambda: not d.text.tag_ranges('trdone'), n=1200))  # vurgu kendiliginden kalkar
-        self.assertEqual(R.runs_text(self.app.docs[-1].text.get_blocks()[0]['runs'])[:10], 'PARAGRAF 0')
+        self.assertTrue(self.pump(lambda: not out.text.tag_ranges('trdone'), n=1200))  # vurgu kendiliginden kalkar
+        b = out.text.get_blocks()
+        self.assertTrue(all(R.runs_text(x['runs']).startswith('PARAGRAF') for x in b))
+        self.assertEqual(len(b), 20)
+        out.text.edit_undo()                                                       # canli yazimlar geri alma yiginina girmez
+        self.assertEqual(len(out.text.get_blocks()), 20)
+
+    def test_live_translation_replaces_cells_and_keeps_list_markers(self):
+        R = self.m.rdoc
+        import time
+        d = self.app.cur()
+        d.title = 'karisik.docx'
+        d.text.load_blocks([R.para(text='Başlık', style='h1'), R.para(text='madde bir', lst='bullet'),
+                            {'t': 'table', 'rows': [[[R.run('Madde')], [R.run('Durum')]], [[R.run('a')], [R.run('b')]]]}])
+        self.app.tr_lang.set('English')
+        self.app.doc_tr_out.set('newtab')
+
+        def slow(backends, fn, *args):                                             # gecikmeli: ara durum gorulebilsin
+            time.sleep(0.05)
+            text = args[0]
+            return {'text': text.upper(), 'via': 'Test', 'provider': 'P', 'model': 'm'}
+        with mock.patch.object(self.m.ai, 'run_with_fallback', slow):
+            self.app.translate_document()
+            self.assertTrue(self.pump(lambda: 'Çeviri tamam' in self.app.ai_var.get(), n=3000))
+        out = self.app.docs[-1].text.get_blocks()
+        self.assertEqual(out[0], R.para(text='BAŞLIK', style='h1'))
+        self.assertEqual((out[1]['list'], R.runs_text(out[1]['runs'])), ('bullet', 'MADDE BIR'))
+        self.assertEqual([[R.runs_text(c) for c in r] for r in out[2]['rows']], [['MADDE', 'DURUM'], ['A', 'B']])
+        self.assertEqual(self.app.docs[-1].text.get('2.0', '2.2'), '• ')           # liste isareti yerinde
+
+    def test_replace_line_runs_paragraph_and_cell(self):
+        R = self.m.rdoc
+        t = self.app.cur().text
+        t.load_blocks([R.para(text='eski', lst='number'), {'t': 'table', 'rows': [[[R.run('x')], [R.run('yy')], [R.run('z')]]]}])
+        t.replace_line_runs(1, [R.run('yeni', b=True)])
+        t.replace_line_runs(2, [R.run('ORTA\tHÜCRE')], cell=1)
+        b = t.get_blocks()
+        self.assertEqual((b[0]['list'], b[0]['runs']), ('number', [R.run('yeni', b=True)]))
+        self.assertEqual([R.runs_text(c) for c in b[1]['rows'][0]], ['x', 'ORTA HÜCRE', 'z'])
 
     def test_trlive_marks_lines_and_pdf(self):
         import agfo_trlive
@@ -856,7 +921,7 @@ class GuiTests(unittest.TestCase):
         live = agfo_trlive.TranslationLive(self.app, text=d.text, lines=lines)
         live.event('start', [(2, 0, 0), (2, 1, 1)])
         self.assertEqual(d.text.index(d.text.tag_ranges('trwork')[0]), '%d.0' % lines[2][0])
-        live.event('done', [(2, 0, 0)])
+        live.event('done', [(2, 0, 0)])                                          # res yok: yalniz vurgu
         self.assertTrue(d.text.tag_ranges('trdone'))
         self.assertFalse(d.text.tag_ranges('trwork'))
         live.finish(delay=10)
