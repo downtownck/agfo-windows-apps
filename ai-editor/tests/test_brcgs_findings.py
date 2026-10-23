@@ -33,17 +33,27 @@ class FindingsTests(unittest.TestCase):
         pr = project()
         sec = {s['clause']: s for s in pr['sections']}
         sec['2.2']['value'] = ('Risk değerlendirmesi incelendi. Minor NC 2.2.2 : Yanlış kullanım tedbirleri yazılmamış.\n'
-                               'İç denetimlerde toplam üç uygunsuzluk kaydedilmiştir.')
-        sec['3.4']['value'] = 'Plan görüldü. Major NC 3.4.1 - Program risk temelli değil. Critical non-conformity 3.4.3: Kayıt yok'
+                               'İç denetimlerde toplam üç uygunsuzluk kaydedilmiştir.\n'
+                               'The 10 minor non-conformities raised at last year’s audit have been resolved.')
+        sec['3.4']['value'] = ('Plan was seen.Minor NC Ref. 3.4.1: Programme not risk based.\n'
+                               'Major non-conformity 3.4.2 - Audits overdue. Critical NC 3.4.3: No records')
         res = F.scan(pr)
         self.assertEqual([(i['type'], i['clause'], i['section'], i['nc_text']) for i in res['added']],
                          [('minor', '2.2.2', '2.2', 'Yanlış kullanım tedbirleri yazılmamış.'),
-                          ('major', '3.4.1', '3.4', 'Program risk temelli değil.'),
-                          ('critical', '3.4.3', '3.4', 'Kayıt yok')])
-        self.assertEqual(F.scan(pr)['existing'], 3)                     # ikinci tarama cogaltmaz
+                          ('minor', '3.4.1', '3.4', 'Programme not risk based.'),
+                          ('major', '3.4.2', '3.4', 'Audits overdue.'),
+                          ('critical', '3.4.3', '3.4', 'No records')])
+        self.assertEqual(F.scan(pr)['existing'], 4)                     # ikinci tarama cogaltmaz
         c = F.counts(pr)
-        self.assertEqual((c['critical'], c['major'], c['minor'], c['total']), (1, 1, 1, 3))
-        self.assertEqual(F.count_text(c, 'cp'), 'Critical 1 · Major 1 · Minor 1 · Fundamental 0 · NA 0')
+        self.assertEqual((c['critical'], c['major'], c['minor'], c['total']), (1, 1, 2, 4))
+        self.assertEqual(F.count_text(c, 'cp'), 'Critical 1 · Major 1 · Minor 2 · Fundamental 0 · NA 0')
+
+    def test_box_paragraphs_import_as_lines(self):
+        from lxml import etree
+        ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        sdt = etree.fromstring('<w:sdt xmlns:w="%s"><w:sdtContent><w:p><w:r><w:t>First paragraph.</w:t></w:r></w:p>'
+                               '<w:p><w:r><w:t>Second</w:t><w:br/><w:t>line.</w:t></w:r></w:p></w:sdtContent></w:sdt>' % ns)
+        self.assertEqual(E.sdt_text(sdt), 'First paragraph.\nSecond\nline.')
 
     def test_section_membership_longest_prefix(self):
         secs = [{'clause': '3.5'}, {'clause': '3.5.1'}, {'clause': '3.10'}]
@@ -59,16 +69,16 @@ class FindingsTests(unittest.TestCase):
         sec['2.4']['value'] = 'Supplier approval was reviewed.'
         sec['4.9']['value'] = ''
         pr['meta']['action_plan']['items'] = [{'type': 'minor', 'clause': '2.4.1', 'nc_text': 'Score above maximum.'}]
-        pr['meta']['na_clauses'] = [{'clause_ref': '4.9.2', 'justification': 'No own vehicles'}]
-        self.assertEqual(F.closing_lines(pr, sec['1.1']), [F.NO_NC_SENTENCE])
-        self.assertEqual(F.closing_lines(pr, sec['2.4']), ['Minor NC 2.4.1: Score above maximum.'])
-        self.assertEqual(F.closing_lines(pr, sec['4.9']), ['Clause 4.9.2 is not applicable: No own vehicles.'])
-        self.assertEqual(F.closing_lines(pr, sec['3.1']), [])          # bos bolume 'NC yok' yazilmaz
-        # metinde zaten varsa eklenmez
+        pr['meta']['na_clauses'] = [{'clause_ref': '4.9.2', 'justification': 'No own vehicles'},
+                                    {'clause_ref': '5.3', 'justification': 'No product samples are retained.'}]
+        self.assertEqual(F.closing_lines(pr, sec['1.1']), [])                       # sabit 'NC yok' cumlesi yok
+        self.assertEqual(F.closing_lines(pr, sec['2.4']), ['Minor NC Ref. 2.4.1: Score above maximum.'])
+        self.assertEqual(F.closing_lines(pr, sec['4.9']), [])                       # alt madde NA: yalniz NA tablosu
+        self.assertEqual(F.closing_lines(pr, sec['5.3']), ['N/A: No product samples are retained.'])
+        self.assertEqual(F.with_closing(pr, sec['2.4']), 'Supplier approval was reviewed.\nMinor NC Ref. 2.4.1: Score above maximum.')
+        # metinde zaten varsa eklenmez (eski bicim de taninir)
         sec['2.4']['value'] += '\nMinor NC 2.4.1: Score above maximum.'
         self.assertEqual(F.closing_lines(pr, sec['2.4']), [])
-        sec['1.1']['value'] += ' No non-conformities were raised.'
-        self.assertEqual(F.closing_lines(pr, sec['1.1']), [])
 
     def test_count_fields_written_to_docx(self):
         pr = project('cp')

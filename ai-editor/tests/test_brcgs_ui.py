@@ -168,13 +168,14 @@ class BrcgsUiTests(unittest.TestCase):
         self.assertIn('Prosedür mevcut', calls[0][0])
         self.assertIn('Dağıtım listesi güncel değil', calls[0][0])
         self.assertIn('Do NOT write non-conformity', calls[0][1])
+        self.assertIn('apart from the non-conformity', calls[0][1])
         self.assertTrue(row['value'].startswith('The site has a documented procedure'))
         self.assertNotIn('NON-CONFORMITIES', row['value'])
         self.assertEqual(nc['nc_text'], 'The distribution list was not up to date.')
         self.assertEqual(nc['nc_text_original'], 'Dağıtım listesi güncel değil')
         self.assertEqual(G.struct_of(row)[k], 'Prosedür mevcut, 2025 revizyon')           # kanit kutusu yerinde
         from agfo_brcgs import findings as F
-        self.assertEqual(F.closing_lines(v.project, row), ['Minor NC %s: The distribution list was not up to date.' % row['clause']])
+        self.assertEqual(F.closing_lines(v.project, row), ['Minor NC Ref. %s: The distribution list was not up to date.' % row['clause']])
         # kanit degisince Ingilizce metin korunur, uyari gorunur
         v._answer(row, k, 'Prosedür mevcut, 2026 revizyon')
         self.assertTrue(row['value'].startswith('The site has'))
@@ -189,7 +190,7 @@ class BrcgsUiTests(unittest.TestCase):
         v._sec_add_nc(row)
         v.project['meta']['action_plan']['items'][0].update(type='major', nc_text='Policy not signed')
         row2 = next(r for r in v.project['sections'] if r['clause'] == '2.2')
-        row2['value'] = 'Risk assessment reviewed. Minor NC 2.2.2 : Misuse not covered.'
+        row2['value'] = 'Risk assessment reviewed. Minor NC Ref. 2.2.2: Misuse not covered.'
         with mock.patch.object(__import__('agfo_brcgs_view').messagebox, 'showinfo') as info:
             res = v.scan_findings()
         msg = info.call_args[0][1]

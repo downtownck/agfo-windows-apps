@@ -182,6 +182,23 @@ class BrcgsDocxRoundTrip(unittest.TestCase):
             self.assertFalse([k for k in keys if k.startswith('ADDITIONAL_MODULES_TABLE_')], 'başlık etiketleri alan sayılmamalı')
             self.assertFalse(keys & B.detail_tags(p), 'detaylı rapor kutuları form alanı olmamalı')
 
+    def test_every_box_written_with_long_multiparagraph_text(self):
+        # 2.2.1: kutuya 'Root cause analysis ...' yazilinca ayni tablo NC ozet tablosu sanilip sonraki kutular yazilmiyordu
+        # (gercek FS raporunda 3.7'den sonra 3.8-3.11 bos kaliyordu). NC tablolari artik bundled sablonun yapisindan belirlenir.
+        para = ('Corrective action request form FRM.021 was checked. Root cause analysis is done with 5 whys; proposed preventive '
+                'action plan reviewed. Clause/section ref and justification recorded.')
+        for p in data.PROFILES:
+            with self.subTest(profile=p):
+                secs = B.sections_for_profile(p)
+                for s in secs:
+                    # gercek raporlardaki gibi bos satirlarla ayrilmis paragraflar (hata yalniz bu bicimde tetikleniyordu)
+                    s['value'] = '\n'.join(('%s %s line %d' % (s['clause'], para, k)) if k % 3 != 1 else '' for k in range(14))
+                blob, st = E.write_report({'profile': p, 'values': {}, 'sections': secs})
+                want = {r['tag'] for r in B.merge_for_export(p, secs)['rows']}
+                missed = [E.sdt_props(x)['tag'] for _n, x in E.DocxTemplate(blob).all_sdts()
+                          if E.sdt_props(x)['tag'] in want and E.sdt_props(x)['placeholder_showing']]
+                self.assertEqual(missed, [])
+
     def test_section_skeleton_matches_box_spec(self):
         expected_units = {'fs': 94, 'pm': 76, 'cp': 46, 'sd': 156, 'ab': 29}          # docs/report-box-specification.md
         for p, n in expected_units.items():

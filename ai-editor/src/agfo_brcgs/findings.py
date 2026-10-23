@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-"""AGFO AI Editor - bolum bazinda NC / NA, sayim ve rapor kapanis cumleleri.
+"""AGFO AI Editor - bolum bazinda NC / NA, sayim ve rapor kapanis satirlari.
 
 Tek veri kaynagi: NC'ler project.meta.action_plan.items, NA'lar project.meta.na_clauses (DOCX'in resmi tablolarina
 giden listeler). Bir kayit, maddesinin (2.2.2) en uzun on-eki olan rapor bolumune (2.2) aittir; bolum ekraninda
 eklenen kayitlarda 'section' alani bunu sabitler.
 
-DOCX'e yazarken her bolum metninin sonuna, metinde zaten yoksa:
-  - her NC icin  "Minor NC 2.2.2: <detay>"   (gercek raporlardaki bicim)
-  - her NA icin  "Clause 4.9.2 is not applicable: <gerekce>."
-  - bolumde NC yoksa ve metin varsa  "No non-conformities were raised against this clause."
-eklenir. Bu satirlar kayitli metne yazilmaz; her disa aktarimda verilerden yeniden turetilir.
+DOCX'e yazarken bolum metninin sonuna, metinde zaten yoksa (bicim gercek bir FS Issue 9 raporundan alindi):
+  - her NC icin  "Minor NC Ref. 2.7.1: <detay>"
+  - bolumun tamami uygulanamaz ve metin bossa  "N/A: <gerekce>"  (alt madde NA'lari yalniz resmi NA tablosuna gider)
+Uygunsuzluk yoksa sabit bir cumle eklenmez: gercek raporlarda bolum maddeye ozgu bir uygunluk ifadesiyle biter
+("Records sampled during the audit were found to be complete, legible ..."); AI metni yazarken bunu kurar.
+Bu satirlar kayitli metne yazilmaz; her disa aktarimda verilerden yeniden turetilir.
 """
 from __future__ import annotations
 
@@ -17,18 +18,15 @@ import re
 
 TYPES = ('critical', 'major', 'minor', 'fundamental')
 TYPE_LABELS = {'critical': 'Critical', 'major': 'Major', 'minor': 'Minor', 'fundamental': 'Fundamental'}
-NO_NC_SENTENCE = 'No non-conformities were raised against this clause.'
-NA_SENTENCE = 'Clause %s is not applicable: %s'
+NA_PREFIX = 'N/A: '
 COUNT_KEYS = {'critical': 'CRITICAL', 'major': 'MAJOR', 'minor': 'MINOR', 'fundamental': 'FUNDAMENTAL'}
 
-# "Minor NC 2.2.2 : metin", "Major non-conformity 4.4.1 - metin", paragraf ortasinda da olabilir; metin satir sonuna
-# ya da bir sonraki NC baslangicina kadar surer. Siradan "uygunsuzluk" gecen cumleler NC sayilmaz.
-NC_RX = re.compile(r'\b(Fundamental|Critical|Major|Minor)\s+(?:NC|non[- ]?conformit(?:y|ies))\b\s*(\d+(?:\.\d+)*)?\s*[:\-–—]?\s*'
+# "Minor NC Ref. 2.7.1: metin" (FS Issue 9 raporu), "Minor NC 2.2.2 : metin", "Major non-conformity 4.4.1 - metin";
+# paragraf ortasinda da olabilir. Madde numarasi ve ayirici zorunlu: "The 10 minor non-conformities raised at last
+# year's audit ..." gibi siradan cumleler NC sayilmaz. Metin satir sonuna ya da sonraki NC'ye kadar surer.
+NC_RX = re.compile(r'\b(Fundamental|Critical|Major|Minor)\s+(?:NC|non[- ]?conformit(?:y|ies))\b\s*(?:(?:Ref|No|Reference)\.?\s*)?'
+                   r'(\d+(?:\.\d+)+)\s*[:\-–—]\s*'
                    r'(.*?)(?=\s*\b(?:Fundamental|Critical|Major|Minor)\s+(?:NC|non[- ]?conformit)|\n|$)', re.I)
-
-
-def _clause_key(c):
-    return [int(x) if x.isdigit() else x for x in str(c or '').strip().split('.') if x != '']
 
 
 def norm_clause(c):
@@ -74,7 +72,7 @@ def nc_type(item):
 
 def nc_detail(item):
     t = str(item.get('nc_text') or item.get('detail') or '').strip()
-    m = NC_RX.match(t)                          # "Minor NC 2.2.2 : x" bicimindeki tarama satirlarindan yalniz detay
+    m = NC_RX.match(t)                          # "Minor NC Ref. 2.2.2: x" bicimindeki tarama satirlarindan yalniz detay
     return (m.group(3).strip() if m and m.group(3).strip() else t)
 
 
@@ -94,7 +92,7 @@ def count_text(c, profile=None):
 
 
 def apply_count_fields(values, project, field_keys):
-    """Sablonda sayac alani varsa (CP/AB: CRITICAL/MAJOR/MINOR[/FUNDAMENTAL]) NC listesinden turetilen sayilari yazar."""
+    """Sablondaki NC sayac alanlarina (CRITICAL/MAJOR/MINOR[/FUNDAMENTAL]) NC listesinden turetilen sayilari yazar."""
     c = counts(project)
     out = dict(values)
     for t, key in COUNT_KEYS.items():
@@ -104,40 +102,36 @@ def apply_count_fields(values, project, field_keys):
 
 
 def nc_line(item):
-    clause = norm_clause(item.get('clause')) or ''
-    return ('%s NC %s: %s' % (TYPE_LABELS[nc_type(item)], clause, nc_detail(item))).replace('NC : ', 'NC: ')
+    return '%s NC Ref. %s: %s' % (TYPE_LABELS[nc_type(item)], norm_clause(item.get('clause')), nc_detail(item))
 
 
 def na_line(na):
-    just = str(na.get('justification') or '').strip().rstrip('.')
-    return (NA_SENTENCE % (norm_clause(na.get('clause_ref')), just) + '.') if just else \
-        'Clause %s is not applicable.' % norm_clause(na.get('clause_ref'))
+    just = str(na.get('justification') or '').strip()
+    return NA_PREFIX + just if just else 'Not applicable'
 
 
 def _has_nc(text, item):
     c = norm_clause(item.get('clause'))
     for m in NC_RX.finditer(text or ''):
-        if m.group(1).lower() == nc_type(item) and (not c or (m.group(2) or '') == c):
+        if m.group(1).lower() == nc_type(item) and (not c or m.group(2) == c):
             return True
     return False
 
 
 def closing_lines(project, row):
-    """Bu bolumun DOCX metnine eklenecek satirlar (metinde zaten olanlar atlanir)."""
+    """Bu bolumun DOCX metnine eklenecek satirlar. Raporun herhangi bir bolumunde zaten yazili olan NC tekrar eklenmez
+    (gercek raporlarda bolum 2'nin tum NC'leri tek kutuda, 2.1 metninde durur; 2.7.1 NC'si bos 2.7 satirina eklenmemeli)."""
     text = str(row.get('value') or '')
-    low = text.lower()
+    everywhere = '\n'.join(str(r.get('value') or '') for r in project.get('sections') or [])
     ncs = [it for it in section_ncs(project, row['clause']) if nc_detail(it)]
-    nas = [na for na in section_nas(project, row['clause']) if str(na.get('clause_ref') or '').strip()]
+    nas = section_nas(project, row['clause'])
     out = []
-    for na in nas:
-        line = na_line(na)
-        if line.lower().rstrip('.') not in low:
-            out.append(line)
+    whole = [na for na in nas if norm_clause(na.get('clause_ref')) == row['clause']]
+    if whole and not text.strip():
+        out.append(na_line(whole[0]))
     for it in ncs:
-        if not _has_nc(text, it):
+        if not _has_nc(everywhere, it):
             out.append(nc_line(it))
-    if not ncs and text.strip() and not NC_RX.search(text) and 'no non-conformit' not in low:
-        out.append(NO_NC_SENTENCE)
     return out
 
 
@@ -146,11 +140,11 @@ def with_closing(project, row):
     text = str(row.get('value') or '').rstrip()
     if not extra:
         return text
-    return (text + '\n\n' if text else '') + '\n'.join(extra)
+    return (text + '\n' if text else '') + '\n'.join(extra)
 
 
 def export_sections(project):
-    """DOCX icin bolum kopyalari: kapanis cumleleri eklenmis metinle."""
+    """DOCX icin bolum kopyalari: kapanis satirlari eklenmis metinle."""
     out = []
     for row in project.get('sections') or []:
         r = dict(row)
@@ -160,7 +154,7 @@ def export_sections(project):
 
 
 def scan(project):
-    """Bolum metinlerindeki 'Minor NC 2.2.2: ...' kalıplarini NC listesine ekler (zaten olanlari atlar).
+    """Bolum metinlerindeki 'Minor NC Ref. 2.2.2: ...' kaliplarini NC listesine ekler (zaten olanlari atlar).
     Donus: {'added': [...], 'existing': n, 'counts': counts(project)}"""
     items = project.setdefault('meta', {}).setdefault('action_plan', {}).setdefault('items', [])
     have = {(nc_type(i), norm_clause(i.get('clause')), re.sub(r'\s+', ' ', nc_detail(i)).lower()) for i in items}
@@ -170,7 +164,7 @@ def scan(project):
             detail = m.group(3).strip()
             if not detail:
                 continue
-            item = {'type': m.group(1).lower(), 'clause': m.group(2) or row['clause'], 'nc_text': detail, 'section': row['clause'],
+            item = {'type': m.group(1).lower(), 'clause': m.group(2), 'nc_text': detail, 'section': row['clause'],
                     'correction': '', 'root_cause': '', 'proposed_preventive_action': '', 'date_reviewed': '', 'reviewed_by': '',
                     'source': 'scan'}
             k = (item['type'], norm_clause(item['clause']), re.sub(r'\s+', ' ', detail).lower())

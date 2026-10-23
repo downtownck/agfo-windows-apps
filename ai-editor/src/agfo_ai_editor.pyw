@@ -3375,10 +3375,17 @@ class App(tk.Tk):
                 '(often Turkish, sometimes fragmentary notes or answers to guideline questions) into clear, factual, past-tense English '
                 'audit report prose in the third person (e.g. "The site has…", "Records were reviewed…"). Keep every fact, number, '
                 'document code, issue/revision, name and date exactly; do not invent evidence, results or conformity statements that the '
-                'evidence does not support, and do not repeat the guideline questions. End with one concluding sentence that starts from '
-                'the evidence reviewed, e.g. "Based on the records reviewed and site observations, …". Do NOT write non-conformity '
-                'statements, NC numbers or "no non-conformities" sentences: they are added automatically. No headings, bullet points, '
-                'clause number at the start or markdown.' % (clause, title, brd.PROFILE_LABELS.get(profile, 'Global Standard')))
+                'evidence does not support, and do not repeat the guideline questions. Do NOT write non-conformity statements or NC '
+                'references: they are added automatically after your text. No headings, bullet points, clause number at the start or '
+                'markdown.' % (clause, title, brd.PROFILE_LABELS.get(profile, 'Global Standard')))
+        if ncs:
+            text += (' End with a sentence summarising how the requirements of this clause are met apart from the non-conformity '
+                     'listed after the text.')
+        else:
+            text += (' No non-conformity was raised in this section, so end with one clause-specific conformity statement in the '
+                     'style of BRCGS audit reports, based only on the evidence, e.g. "Records sampled during the audit were found to be '
+                     'complete, legible, appropriately authorised where required and readily retrievable." or "The traceability system '
+                     'complies with the legal requirements of the countries of sale."')
         if ncs:
             text += (' After the report text, write a line containing exactly "%s" and then translate each of the %d non-conformity '
                      'statements listed at the end of the input into concise English audit wording, one per line, in the same order, '

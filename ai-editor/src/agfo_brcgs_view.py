@@ -555,7 +555,7 @@ class BrcgsReportView(tk.Frame):
         sb = tk.Frame(body, bg=c['PANEL'])
         sb.pack(fill='x', padx=14, pady=(8, 0))
         self.app.btn(sb, '⚑ Scan non-conformities and NA', self.scan_findings, 'normal')
-        tk.Label(sb, text='Finds "Minor NC 2.2.2: …" statements in the section texts and counts NC by type and NA clauses.', fg=c['MUTED'],
+        tk.Label(sb, text='Finds "Minor NC Ref. 2.2.2: …" statements in the section texts and counts NC by type and NA clauses.', fg=c['MUTED'],
                  bg=c['PANEL'], font=('Segoe UI', 8)).pack(side='left', padx=8)
         blk = self._block(body, 'File information')
         grid = tk.Frame(blk, bg=c['PANEL'])
@@ -1050,7 +1050,7 @@ class BrcgsReportView(tk.Frame):
                  font=('Segoe UI', 9)).pack(side='left')
         self.app.btn(hdr, '＋ Non-conformity', lambda: self._sec_add_nc(row), 'ghost', side='right')
         if not ncs:
-            tk.Label(box2, text='None. On export this section ends with: "%s"' % F.NO_NC_SENTENCE, fg=c['MUTED'], bg=c['PANEL'],
+            tk.Label(box2, text='None. The AI text then ends with a conformity statement for this clause.', fg=c['MUTED'], bg=c['PANEL'],
                      font=('Segoe UI', 8), anchor='w').pack(fill='x')
         for it in ncs:
             r = tk.Frame(box2, bg=c['PANEL'])
@@ -1273,7 +1273,7 @@ class BrcgsReportView(tk.Frame):
         body = self._scroll()
         items = self.project['meta']['action_plan'].setdefault('items', [])
         blk = self._block(body, 'NC Action Plan', 'Critical / Major rows go to the official Major (and Critical, if present) table, Minor rows to the Minor '
-                                                 'table, row by row. "Scan section texts" picks up "Minor NC 2.2.2: …" statements written in the sections.')
+                                                 'table, row by row. "Scan section texts" picks up "Minor NC Ref. 2.2.2: …" statements written in the sections.')
         bar = tk.Frame(blk, bg=c['PANEL'])
         bar.pack(fill='x', pady=(0, 6))
         self.app.btn(bar, 'Scan section texts', self.scan_findings, 'ghost')
