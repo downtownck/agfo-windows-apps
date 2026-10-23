@@ -513,7 +513,11 @@ class DocxTemplate:
     """Bir DOCX paketini acar; parcalar lxml agaci olarak duzenlenir, yalniz degisenler yeniden yazilir."""
 
     def __init__(self, path_or_bytes):
-        raw = path_or_bytes if isinstance(path_or_bytes, (bytes, bytearray)) else open(path_or_bytes, 'rb').read()
+        if isinstance(path_or_bytes, (bytes, bytearray)):
+            raw = path_or_bytes
+        else:
+            with open(path_or_bytes, 'rb') as fh:
+                raw = fh.read()
         self.raw = bytes(raw)
         self.zip = zipfile.ZipFile(io.BytesIO(self.raw))
         self.trees = {}
@@ -672,7 +676,8 @@ def _plain_label_map(values):
             if isinstance(v, str) and v.strip():
                 return v
         return ''
-    m = {'sitename': pick(('SITE_NAME', 'SITE', 'LOCATION_NAME')),
+    m = {'companyname': pick(('OWNERCOMPANY', 'COMPANY_NAME')),
+         'sitename': pick(('SITE_NAME', 'SITE', 'LOCATION_NAME')),
          'siteaddress': pick(('SITE_ADDRESS', 'CERTIFIED_SITE_ADDRESS', 'ADDRESS', 'COMPANY_ADDRESS')),
          'certifiedsiteaddress': pick(('CERTIFIED_SITE_ADDRESS', 'SITE_ADDRESS', 'ADDRESS', 'COMPANY_ADDRESS')),
          'address': pick(('ADDRESS', 'SITE_ADDRESS', 'CERTIFIED_SITE_ADDRESS', 'COMPANY_ADDRESS')),
@@ -680,19 +685,43 @@ def _plain_label_map(values):
     return {k: v for k, v in m.items() if v.strip()}
 
 
-PLAIN_LABELS = ('sitename', 'siteaddress', 'certifiedsiteaddress', 'address', 'country')
+PLAIN_LABELS = ('companyname', 'sitename', 'siteaddress', 'certifiedsiteaddress', 'address', 'country')
+PLAIN_KEYS = {'companyname': 'OWNERCOMPANY', 'sitename': 'SITE_NAME', 'siteaddress': 'SITE_ADDRESS',
+              'certifiedsiteaddress': 'CERTIFIED_SITE_ADDRESS', 'address': 'ADDRESS', 'country': 'COUNTRY'}
+
+
+def plain_fields(tpl: DocxTemplate):
+    """Icerik denetimi olmayan etiketli hucreler (CP/AB/SD 'Company name', 'Site name', 'Address', 'Country' ...) form alani
+    olarak: scan_fields ile ayni sozluk bicimi, kind='plain'. Yazma _write_plain_labeled_cells ile, okuma read_report ile yapilir."""
+    out, seen = [], set()
+    for label, target in plain_labeled_cells(tpl):
+        key = PLAIN_KEYS[label]
+        if key in seen:
+            continue
+        seen.add(key)
+        row = target.getparent()
+        cells = row_cells(row)
+        i = cells.index(target) if target in cells else 0
+        shown = normalize_text(node_text(cells[i - 1])) if i > 0 else label
+        out.append({'key': key, 'tag': '', 'alias': '', 'kind': 'plain', 'items': [], 'date_format': '', 'placeholder_showing': False,
+                    'occurrence': 0, 'repeats': 1, 'label': shown or label, 'hint': '', 'group': group_title(target) or 'Diğer',
+                    'value': normalize_import_value(node_text(target))})
+    return out
 
 
 def plain_labeled_cells(tpl: DocxTemplate):
     """Denetimi olmayan etiket/deger hucre ciftleri: [(etiket, hedef_hucre)]."""
     out = []
+    # ayni bilgi icin icerik denetimi varsa (FS/PM OWNERCOMPANY) duz hucre kullanilmaz: FS'de 'Company name' satirinin
+    # yanindaki hucre bir deger yuvasi degil, 'Site code' etiketidir
+    has_control = {sdt_props(s)['tag'] for _n, s in tpl.all_sdts()}
     for row in tpl.document.iter(w('tr')):
         if inside_nc_summary_table(row):
             continue
         cells = row_cells(row)
         for i in range(len(cells) - 1):
             label = compact(normalize_text(node_text(cells[i])))
-            if label not in PLAIN_LABELS:
+            if label not in PLAIN_LABELS or PLAIN_KEYS[label] in has_control:
                 continue
             target = cells[i + 1]
             if next(target.iter(w('sdt')), None) is not None:
@@ -1310,8 +1339,7 @@ def read_report(path_or_bytes, filename=''):
                 na.append({'clause_ref': B.normalize_clause(ref) or ref, 'justification': just})
     for label, target in plain_labeled_cells(tpl):
         v = normalize_import_value(node_text(target))
-        key = {'sitename': 'SITE_NAME', 'siteaddress': 'SITE_ADDRESS', 'certifiedsiteaddress': 'CERTIFIED_SITE_ADDRESS',
-               'address': 'ADDRESS', 'country': 'COUNTRY'}[label]
+        key = PLAIN_KEYS[label]
         if v and not values.get(key):
             values[key] = v
     tables = {}

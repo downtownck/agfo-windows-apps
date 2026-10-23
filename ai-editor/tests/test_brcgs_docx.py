@@ -45,6 +45,8 @@ def build_project(profile, tpl):
         else:
             values[f['key']] = v
         expect[(f['key'], f['occurrence'])] = v
+    plain = {f['key']: 'P_%s Örnek Sok. No:5 & <x>' % f['key'] for f in E.plain_fields(tpl)}
+    values.update(plain)
     sections = B.sections_for_profile(profile)
     for k, s in enumerate(sections):
         s['value'] = 'Metin %s satır bir.\n%s\nSon satır %d.' % (s['clause'], TRAP if k % 3 == 0 else 'Ara satır.', k)
@@ -64,7 +66,7 @@ def build_project(profile, tpl):
              {'type': 'minor', 'clause': '5.1.2', 'nc_text': 'Etiket kontrol kaydı eksik', 'correction': 'Kayıt tamamlandı',
               'root_cause': 'Vardiya devri', 'proposed_preventive_action': 'Kontrol listesi', 'date_reviewed': '2026-10-22', 'reviewed_by': 'B'}]
     return {'profile': profile, 'values': values, 'sections': sections, 'na_clauses': na, 'report_tables': tables,
-            'action_plan': {'items': items}}, expect
+            'action_plan': {'items': items}, '_plain': plain}, expect
 
 
 @unittest.skipUnless(HAVE_LXML, 'lxml yok')
@@ -98,6 +100,10 @@ class BrcgsDocxRoundTrip(unittest.TestCase):
                     if not ok:
                         lost.append((f['key'], f['occurrence'], want, f['value']))
                 self.assertEqual(lost, [], 'alan kaybı')
+                # denetimsiz etiketli hucreler (Company name / Site name / Address / Country)
+                self.assertTrue(project['_plain'])
+                self.assertEqual({k: back['values'].get(k) for k in project['_plain']}, project['_plain'])
+                self.assertEqual({f['key']: f['value'] for f in E.plain_fields(E.DocxTemplate(blob))}, project['_plain'])
                 self.assertEqual(len(got_fields), len(expect))
                 # bolumler (kutusuz maddeler haric): kayip 0, bozuk 0
                 want_sec = {s['clause']: s['value'] for s in project['sections']}

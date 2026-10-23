@@ -212,7 +212,36 @@ class Store:
         pr['updated_at'] = now()
         pr['created_at'] = old.get('created_at') or pr.get('created_at') or now()
         self._write(pr)
+        self.drop_draft(uid)
         return self.get(uid)                    # geri okunan dogrulanmis hali
+
+    # ------------------------------------------------------------------ kurtarma taslagi (otomatik kayit)
+    def _draft_path(self, uid):
+        self._path(uid)
+        d = self.root / 'drafts'
+        d.mkdir(parents=True, exist_ok=True)
+        return d / ('%s.json' % uid)
+
+    def save_draft(self, project):
+        """Kaydedilmemis hal; surum gecmisine girmez, asil kaydi degistirmez. Cokme sonrasi geri getirmek icin."""
+        pr = copy.deepcopy(project)
+        pr['draft_at'] = now()
+        _atomic_write_bytes(self._draft_path(project['id']), json.dumps(pr, ensure_ascii=False).encode('utf-8'))
+
+    def get_draft(self, uid):
+        p = self._draft_path(uid)
+        if not p.exists():
+            return None
+        try:
+            return json.loads(p.read_text('utf-8'))
+        except (OSError, ValueError):
+            return None
+
+    def drop_draft(self, uid):
+        try:
+            self._draft_path(uid).unlink()
+        except (OSError, KeyError):
+            pass
 
     # ------------------------------------------------------------------ surumler
     def _rev_dir(self, uid):
@@ -282,6 +311,7 @@ class Store:
         if pr.get('status') != 'trash':
             raise ValueError('Yalnız çöp kutusundaki raporlar kalıcı silinebilir.')
         self._path(uid).unlink()
+        self.drop_draft(uid)
         d = self.root / 'revisions' / uid
         if d.is_dir():
             for f in d.glob('*'):
