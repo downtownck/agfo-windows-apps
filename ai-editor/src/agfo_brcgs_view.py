@@ -182,15 +182,20 @@ class BrcgsExplorer(tk.Frame):
         if not sel:
             return
         iid = sel[0]
+        new = self.filter
         if iid in ('all', 'grp_std', 'grp_firm'):
-            self.filter = ('all', None)
+            new = ('all', None)
         elif iid == 'trash':
-            self.filter = ('trash', None)
+            new = ('trash', None)
         elif iid.startswith('p_'):
-            self.filter = ('profile', iid[2:])
+            new = ('profile', iid[2:])
         elif iid.startswith('c_'):
-            self.filter = ('company', self.tree_side.item(iid, 'values')[0])
-        self.refresh()
+            new = ('company', self.tree_side.item(iid, 'values')[0])
+        # refresh() secimi geri yukler ve bu yeniden <<TreeviewSelect>> uretir: suzgec degismediyse yenileme yok,
+        # yoksa sonsuz dongu olur (2.2.0: sol agaca tiklayinca pencere donuyordu)
+        if new != self.filter:
+            self.filter = new
+            self.refresh()
 
     def _sort_by(self, key):
         cur, rev = self.sort

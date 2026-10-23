@@ -206,6 +206,21 @@ class BrcgsUiTests(unittest.TestCase):
         back = self.app.brcgs_store().import_docx(os.path.join(TMP, 'cp-x.docx'))
         self.assertIn('Excel yanıtı 0', {s['clause']: s['value'] for s in back['sections']}[keys[0][0]])
 
+    def test_explorer_side_tree_click_does_not_loop(self):
+        # 2.2.0: sol agacta bir ogeye tiklamak refresh -> secim geri yukleme -> <<TreeviewSelect>> -> refresh dongusune giriyordu
+        ex = self.app.open_brcgs()
+        ex.store.create('fs', values={'OWNERCOMPANY': 'Firma A'})
+        ex.refresh()
+        calls = []
+        orig = ex.refresh
+        ex.refresh = lambda: (calls.append(1), orig())
+        for iid in ('p_fs', 'all', 'c_0', 'trash', 'grp_std'):
+            del calls[:]
+            ex.tree_side.selection_set(iid)
+            self.pump(n=40)
+            self.assertLessEqual(len(calls), 1, iid)
+        self.assertEqual(ex.filter, ('all', None))
+
     def test_explorer_trash_rules(self):
         ex, v = self._new('ab')
         ex.refresh()
