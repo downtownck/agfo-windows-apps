@@ -184,8 +184,23 @@ def selftest(out_path: str) -> int:
                            'font_subset': len(_e.font_data(_e.pick_font('Helvetica'), 'abc')) < os.path.getsize(_e.pick_font('Helvetica'))}
         os.unlink(pp)
         os.unlink(out)
+        # 2.2: BRCGS - sablonlar pakette mi, lxml var mi, 5 sablon yaz -> oku (kutu, alan, NA)
+        from agfo_brcgs import boxes as _bb, data as _bd, docx_engine as _be, guide as _bg
+        _brs = {}
+        for _pf in _bd.PROFILES:
+            _secs = _bb.sections_for_profile(_pf)
+            _secs[0]['value'] = 'Selftest %s ğüş' % _pf
+            _blob, _st = _be.write_report({'profile': _pf, 'values': {'BRC_SITE_CODE': '1234567'}, 'sections': _secs,
+                                           'na_clauses': [{'clause_ref': '%s.9' % _bb.chapter_of(_secs[0]['clause']), 'justification': 'x'}]})
+            _back = _be.read_report(_blob)
+            _brs[_pf] = (_back['profile'] == _pf and _back['values'].get('BRC_SITE_CODE') == '1234567'
+                         and _back['sections'][0]['value'] == 'Selftest %s ğüş' % _pf and len(_back['na_clauses']) == 1
+                         and _bg.form_for(_pf, _secs[0]['clause']) is not None
+                         and _bd.excel_template_path(_pf).is_file())
+        res['brcgs'] = _brs
         res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
-                     and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset'])
+                     and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset']
+                     and all(_brs.values()))
     except Exception as e:  # pragma: no cover
         res['error'] = repr(e)
     pathlib.Path(out_path).write_text(json.dumps(res, ensure_ascii=False), encoding='utf-8')
@@ -736,6 +751,8 @@ class App(tk.Tk):
         self.jobs = {}
         self.docs = []
         self.pdf_views = {}           # 1.3: PDF duzenleyici sekmeleri (cerceve -> PdfView)
+        self.brcgs_views = {}         # 2.2: BRCGS rapor sekmeleri (BrcgsReportView)
+        self.brcgs_explorer = None    # 2.2: BRCGS rapor gezgini sekmesi
         self.colors = {'BG': BG, 'PANEL': PANEL, 'PANEL2': PANEL2, 'FG': FG, 'MUTED': MUTED, 'ACCENT': ACCENT,
                        'EDIT_BG': EDIT_BG, 'SEL_BG': SEL_BG, 'LINE': LINE, 'SEL_FG': SEL_FG, 'THEME': THEME}
         self.chat_messages = []
@@ -873,6 +890,10 @@ class App(tk.Tk):
         self.panel_btn = tk.Button(right, text='AI paneli ⇥', command=self.toggle_ai_panel, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
                                    highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 9), padx=8)
         self.panel_btn.pack(side='right')
+        self.brcgs_btn = tk.Button(right, text='📋 BRCGS raporları', command=self.open_brcgs, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
+                                   highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 9), padx=8)
+        self.brcgs_btn.pack(side='right')
+        Tooltip(self.brcgs_btn, 'BRCGS denetim raporları: resmi şablonu form gibi doldurun, Word\'de özgün biçimiyle açılsın')
         self.conn_var = tk.StringVar(value='Bağlantı denetleniyor…')
         self.conn_lbl = tk.Label(right, textvariable=self.conn_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), padx=10, pady=3)
         self.conn_lbl.pack(side='right', padx=8, pady=4)
@@ -903,7 +924,7 @@ class App(tk.Tk):
         self.paned = ttk.PanedWindow(self, orient='horizontal')
         self.paned.pack(fill='both', expand=True, padx=8, pady=(6, 4))
         self.nb = ttk.Notebook(self.paned)
-        self.nb.bind('<<NotebookTabChanged>>', lambda e: (self._update_status(), self._sync_fmt_bar()))
+        self.nb.bind('<<NotebookTabChanged>>', lambda e: (self._update_status(), self._sync_fmt_bar(), self._brcgs_panel_auto()))
         self.nb.bind('<Button-2>', self._middle_close)
         self.paned.add(self.nb, weight=3)
         side = ttk.Frame(self.paned, padding=(10, 8))
@@ -1810,6 +1831,7 @@ class App(tk.Tk):
 
     def toggle_ai_panel(self):
         """AI panelini gizle / goster (PDF sayfa gorunumu ve okuma icin genis alan)."""
+        self._panel_auto_hidden = False                     # elle secim otomatik gizlemeyi iptal eder
         if str(self.side_panel) in self.paned.panes():
             self.paned.forget(self.side_panel)
             self.panel_btn.configure(text='AI paneli ⇤')
@@ -3093,6 +3115,17 @@ class App(tk.Tk):
         if os.path.splitext(path)[1].lower() in READ_ONLY_KINDS:
             return self.open_as_text(path)
         blocks = None
+        if os.path.splitext(path)[1].lower() == '.docx' and not self.smoke:
+            prof = self._brcgs_profile_of(path)
+            if prof:
+                from agfo_brcgs import data as brd
+                ans = messagebox.askyesnocancel('BRCGS raporu', '%s\n\nBu dosya bir BRCGS %s rapor şablonu.\n\nEvet: BRCGS rapor formu olarak aç '
+                                                '(alanlar form gibi doldurulur, Word çıktısı özgün biçimde kalır)\nHayır: normal belge olarak aç'
+                                                % (os.path.basename(path), brd.PROFILE_LABELS.get(prof, prof)), parent=self)
+                if ans is None:
+                    return None
+                if ans:
+                    return self.import_brcgs_docx(path)
         try:
             kind = core.detect_kind(path)
             page = None
@@ -3179,9 +3212,222 @@ class App(tk.Tk):
         self.nb.forget(v)
         self.pdf_views.pop(v, None)
         v.destroy()
-        if not self.docs and not self.pdf_views and ask:
+        if not self.nb.tabs() and ask:
             self.new_doc()
         return True
+
+    # ------------------------------------------------------------------ BRCGS Report Studio (2.2)
+    def brcgs_store(self):
+        if getattr(self, '_brcgs_store', None) is None:
+            from agfo_brcgs import store as brs
+            self._brcgs_store = brs.Store()
+        return self._brcgs_store
+
+    def _brcgs_ready(self):
+        try:
+            import lxml  # noqa: F401
+            return True
+        except ImportError:
+            messagebox.showerror('BRCGS raporları', 'Bu kurulumda lxml bileşeni yok; BRCGS raporları açılamıyor. Uygulamayı güncelleyin.',
+                                 parent=self)
+            return False
+
+    def _drop_blank_doc(self):
+        """Acilista gelen tek bos 'Adsiz' belge, yeni sekme acilinca kapatilir (PDF acarken oldugu gibi)."""
+        if len(self.docs) == 1:
+            d = self.docs[0]
+            if not d.path and not d.dirty and not d.text.get('1.0', 'end-1c').strip():
+                self.close_doc(d, ask=False)
+
+    def open_brcgs(self):
+        """Rapor gezgini sekmesi (tek ornek)."""
+        if self.brcgs_explorer is not None:
+            self.brcgs_explorer.refresh()
+            self.nb.select(self.brcgs_explorer)
+            return self.brcgs_explorer
+        if not self._brcgs_ready():
+            return None
+        import agfo_brcgs_view
+        v = agfo_brcgs_view.BrcgsExplorer(self, self.nb, self.brcgs_store())
+        self.brcgs_explorer = v
+        self.nb.add(v, text='📋 BRCGS raporları')
+        self.nb.select(v)
+        self._drop_blank_doc()
+        return v
+
+    def _brcgs_panel_auto(self):
+        """BRCGS sekmelerinde AI paneli yer kaplamasin: sekmeye gelince gizlenir, belgeye donunce geri acilir."""
+        shown = str(self.side_panel) in self.paned.panes()
+        on_brcgs = self.cur_brcgs() is not None
+        if on_brcgs and shown:
+            self.paned.forget(self.side_panel)
+            self.panel_btn.configure(text='AI paneli ⇤')
+            self._panel_auto_hidden = True
+        elif not on_brcgs and not shown and getattr(self, '_panel_auto_hidden', False):
+            self.paned.add(self.side_panel, weight=2)
+            self.panel_btn.configure(text='AI paneli ⇥')
+            self._panel_auto_hidden = False
+
+    def brcgs_view_for(self, uid):
+        return next((v for v in self.brcgs_views if v.uid == uid), None)
+
+    def _brcgs_profile_of(self, path):
+        try:
+            import zipfile
+            with zipfile.ZipFile(path) as z:
+                xml = z.read('word/document.xml')
+            if b'w:sdt' not in xml or not any(t in xml for t in (b'w:val="OWNERCOMPANY"', b'w:val="BRC_SITE_CODE"', b'BRCGS')):
+                return None
+            from agfo_brcgs import docx_engine as bre
+            return bre.detect_profile(bre.DocxTemplate(path))
+        except Exception:
+            return None
+
+    def import_brcgs_docx(self, path):
+        if not self._brcgs_ready():
+            return None
+        try:
+            pr = self.brcgs_store().import_docx(path)
+        except Exception as e:
+            messagebox.showerror('BRCGS raporu', '%s\n\n%s' % (os.path.basename(path), e), parent=self)
+            return None
+        if self.brcgs_explorer is not None:
+            self.brcgs_explorer.refresh()
+        v = self.open_brcgs_report(pr['id'])
+        self.flash('BRCGS raporu içe aktarıldı (%d dolu bölüm). Özgün DOCX değişmedi; "DOCX\'e yaz" resmi şablona yeni dosya yazar.'
+                   % sum(1 for s_ in pr['sections'] if str(s_.get('value') or '').strip()), 9000)
+        return v
+
+    def cur_brcgs(self):
+        try:
+            w = self.nametowidget(self.nb.select())
+        except (KeyError, tk.TclError):
+            return None
+        return w if w in self.brcgs_views or w is self.brcgs_explorer else None
+
+    def open_brcgs_report(self, uid):
+        v = self.brcgs_view_for(uid)
+        if v:
+            self.nb.select(v)
+            return v
+        if not self._brcgs_ready():
+            return None
+        import agfo_brcgs_view
+        try:
+            v = agfo_brcgs_view.BrcgsReportView(self, self.nb, self.brcgs_store(), uid)
+        except Exception as e:
+            self._log_error(traceback.format_exc())
+            messagebox.showerror('Rapor açılamadı', str(e), parent=self)
+            return None
+        self.brcgs_views[v] = v
+        self.nb.add(v, text=v.tab_text())
+        self.nb.select(v)
+        self._drop_blank_doc()
+        return v
+
+    def brcgs_dirty_changed(self, v):
+        try:
+            if v in self.brcgs_views:
+                self.nb.tab(v, text=v.tab_text())
+        except tk.TclError:
+            pass
+        if self.brcgs_explorer is not None and not v.dirty:
+            self.brcgs_explorer.refresh()
+
+    def brcgs_title_changed(self, uid, title):
+        v = self.brcgs_view_for(uid)
+        if v:
+            v.project['title'] = title
+            v._refresh_header()
+            self.brcgs_dirty_changed(v)
+
+    def close_brcgs_view(self, v, ask=True):
+        if v is self.brcgs_explorer:
+            self.nb.forget(v)
+            v.destroy()
+            self.brcgs_explorer = None
+        else:
+            if ask and v.dirty:
+                self.nb.select(v)
+                ans = messagebox.askyesnocancel('Kaydedilmemiş değişiklik', '"%s" raporu kaydedilsin mi?' % v.project['title'], parent=self)
+                if ans is None:
+                    return False
+                if ans and not v.save():
+                    return False
+                if not ans:
+                    v.store.drop_draft(v.uid)
+            self.nb.forget(v)
+            self.brcgs_views.pop(v, None)
+            v.destroy()
+            if self.brcgs_explorer is not None:
+                self.brcgs_explorer.refresh()
+        if not self.nb.tabs():
+            self.new_doc()
+        return True
+
+    def brcgs_ai_draft(self, view, row, src):
+        """Kilavuz yanitlari + Turkce notlar -> BRCGS denetim raporu dilinde Ingilizce bolum metni (onizleyip uygulanir)."""
+        try:
+            backends = self.backends()
+        except Exception as e:
+            messagebox.showerror('AI', str(e), parent=self)
+            return
+        from agfo_brcgs import data as brd
+        clause, title = row['clause'], row.get('title') or ''
+        instruction = ('You are writing the "%s %s" section of an official BRCGS %s audit report. Turn the auditor\'s notes below '
+                       '(often Turkish, sometimes fragmentary) into clear, factual, past-tense English audit report prose in the '
+                       'third person (e.g. "The site has…", "Records were reviewed…"). Keep every fact, number, document reference, '
+                       'name and date exactly; do not invent evidence, results or conformity statements that the notes do not support. '
+                       'No headings, no bullet points, no clause number at the start, no markdown. Write only the report text.'
+                       % (clause, title, brd.PROFILE_LABELS.get(view.project['profile'], 'Global Standard')))
+        action = {'key': 'brcgs_draft', 'label': 'BRCGS rapor metni', 'template': 'custom', 'extra': instruction, 'mode': 'replace',
+                  'description': ''}
+        options = self._ai_options()
+        options.update(language='English', rich=False, from_scratch=False, preserve_facts=True, user_extra=instruction)
+
+        def work():
+            return ai.run_with_fallback(backends, 'transform', src, action, options)
+
+        def done(ok, r):
+            if not ok:
+                messagebox.showerror('AI', r, parent=self)
+                return
+            text = (r.get('text') or '').strip()
+            if not text:
+                return
+            self._brcgs_ai_preview(view, row, src, text, self.model_label(r))
+        self._start_job('BRCGS %s rapor metni' % clause, work, done)
+
+    def _brcgs_ai_preview(self, view, row, src, text, model):
+        win = tk.Toplevel(self)
+        win.title('AI rapor metni · %s' % row['clause'])
+        win.configure(bg=PANEL, padx=12, pady=10)
+        win.transient(self)
+        win.geometry('900x560')
+        self.lbl(win, 'Kaynak (kılavuz yanıtları ve notlar)', muted=True).pack(anchor='w')
+        a = tk.Text(win, height=8, wrap='word', bg=EDIT_BG, fg=MUTED, relief='flat', font=('Segoe UI', 9), padx=6, pady=4)
+        a.insert('1.0', src)
+        a.configure(state='disabled')
+        a.pack(fill='both', expand=False)
+        self.lbl(win, 'Önerilen rapor metni (%s) — düzenleyebilirsiniz' % model, muted=True).pack(anchor='w', pady=(8, 0))
+        b = tk.Text(win, wrap='word', bg=EDIT_BG, fg=FG, insertbackground=ACCENT, relief='flat', font=('Segoe UI', 10), padx=6, pady=4,
+                    undo=True)
+        b.insert('1.0', text)
+        b.pack(fill='both', expand=True)
+        bar = tk.Frame(win, bg=PANEL)
+        bar.pack(fill='x', pady=(8, 0))
+        self.lbl(bar, 'Uygula: bu metin bölümün rapor metni olur; kılavuz kutularındaki yanıtlarınız silinmez, kanıt notuna taşınır.',
+                 muted=True).pack(side='left')
+
+        def apply():
+            t = b.get('1.0', 'end-1c').strip()
+            win.destroy()
+            if view in self.brcgs_views and t:
+                view.apply_ai_text(row, t)
+        self.btn(bar, 'Vazgeç', win.destroy, 'ghost', side='right')
+        self.btn(bar, 'Uygula', apply, 'primary', side='right')
+        self._brcgs_ai_win = win
+        return win
 
     def open_as_text(self, path):
         """1.2.1: PDF / Excel / PowerPoint / e-posta metin olarak acilir (sayfa/slayt basliklariyla).
@@ -3232,6 +3478,9 @@ class App(tk.Tk):
     def save(self, doc=None):
         if doc is None and self.cur_pdf():
             return self.cur_pdf().save()
+        if doc is None and self.cur_brcgs() is not None:
+            v = self.cur_brcgs()
+            return v.save() if v is not self.brcgs_explorer else False
         d = doc or self.cur()
         if not d:
             return False
@@ -3314,6 +3563,8 @@ class App(tk.Tk):
     def close_doc(self, doc=None, ask=True):
         if doc is None and self.cur_pdf():
             return self.close_pdf(self.cur_pdf(), ask)
+        if doc is None and self.cur_brcgs() is not None:
+            return self.close_brcgs_view(self.cur_brcgs(), ask)
         d = doc or self.cur()
         if not d:
             return True
@@ -3327,7 +3578,7 @@ class App(tk.Tk):
         self.nb.forget(d.frame)
         d.frame.destroy()
         self.docs.remove(d)
-        if not self.docs and ask:
+        if not self.nb.tabs() and ask:
             self.new_doc()
         return True
 
@@ -3340,6 +3591,9 @@ class App(tk.Tk):
         if frame in self.pdf_views:
             self.close_pdf(frame)
             return
+        if frame in self.brcgs_views or frame is self.brcgs_explorer:
+            self.close_brcgs_view(frame)
+            return
         if frame in getattr(self, 'compare_views', {}):
             self.close_compare(frame)
             return
@@ -3350,6 +3604,9 @@ class App(tk.Tk):
     def on_close(self):
         for v in list(self.pdf_views.values()):
             if not self.close_pdf(v):
+                return
+        for v in list(self.brcgs_views):
+            if v.dirty and not self.close_brcgs_view(v):
                 return
         for d in list(self.docs):
             if d.dirty:
@@ -3380,6 +3637,8 @@ class App(tk.Tk):
         self.flash('Yakınlaştırma: %%%d' % round(z * 100))
 
     def _autosave(self):
+        for v in list(getattr(self, 'brcgs_views', {})):
+            v.autosave()
         for d in self.docs:
             if d.dirty:
                 try:
@@ -3585,6 +3844,8 @@ class App(tk.Tk):
         m.add_command(label='Aç…  (Ctrl+O)', command=self.open_dialog)
         m.add_command(label='Kaydet  (Ctrl+S)', command=self.save)
         m.add_command(label='Farklı kaydet…  (Ctrl+Shift+S)', command=self.save_as)
+        m.add_separator()
+        m.add_command(label='BRCGS raporları…', command=self.open_brcgs)
         m.add_separator()
         rec = tk.Menu(m, tearoff=0)
         for p in self.settings.get('recent', [])[:12]:
@@ -4169,7 +4430,7 @@ class App(tk.Tk):
         self.nb.forget(v)
         getattr(self, 'compare_views', {}).pop(v, None)
         v.destroy()
-        if not self.docs and not self.pdf_views and not getattr(self, 'compare_views', None):
+        if not self.nb.tabs():
             self.new_doc()
 
     def run_audit(self):

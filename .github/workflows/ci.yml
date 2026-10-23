@@ -30,8 +30,21 @@ jobs:
           python -m compileall -q supertools system-care backupsync/src phantom-shot
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
           python -m unittest discover -s backupsync/tests
-          python -m pip install --quiet 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'Pillow>=11,<13' 'cryptography>=42,<47' 'fonttools>=4.50,<5'
-          xvfb-run -a python -m unittest discover -s ai-editor/tests
+          python -m pip install --quiet 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'Pillow>=11,<13' 'cryptography>=42,<47' 'fonttools>=4.50,<5' 'lxml>=5.2,<7'
+          xvfb-run -a python -m unittest discover -s ai-editor/tests > /tmp/editor-tests.txt 2>&1 || {
+            tail -200 /tmp/editor-tests.txt
+            # annotations are readable through the REST API even when raw logs are not
+            python - <<'PY'
+          import re
+          t = open('/tmp/editor-tests.txt', encoding='utf-8', errors='replace').read()
+          blocks = re.findall(r'^(?:FAIL|ERROR): .*?(?=^(?:FAIL|ERROR): |^-{20,}\nRan |\Z)', t, re.S | re.M) or [t[-6000:]]
+          for i, b in enumerate(blocks[:8]):
+              msg = b[-3500:].replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+              print('::error title=ai-editor tests %d::%s' % (i + 1, msg))
+          PY
+            exit 1
+          }
+          tail -3 /tmp/editor-tests.txt
 
   ai-manager-php:
     runs-on: ubuntu-latest

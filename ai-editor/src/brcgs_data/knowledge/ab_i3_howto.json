@@ -1,0 +1,105 @@
+{
+  "schema": "agfo-brs-howto-v1",
+  "profile": "ab",
+  "standard": "BRCGS Agents & Brokers",
+  "issue": "Issue 3",
+  "document_code": "AB309",
+  "source_file": "AB309 How to complete the audit report v2 14/07/2022",
+  "summary": "Initial profile guidance generated from uploaded official how-to/checklist documents. Detailed report sections should be concise, objective and evidence-based; non-conformities must be recorded in the relevant detailed section and NC summary tables.",
+  "global_rules": [
+    "Do not alter, duplicate, delete or move XML tags/content controls in official BRCGS templates.",
+    "Dates in report and NC tables must use YYYY-MM-DD where required.",
+    "Non-conformity clause references must match the clause format in the Standard.",
+    "Do not add new columns to official tables; only use existing table structure and additional rows where permitted."
+  ],
+  "field_rules": {},
+  "detailed_rules": [
+    {
+      "clause": "1",
+      "title": "Senior management commitment",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "2",
+      "title": "Hazard and Risk Assessment",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "3",
+      "title": "Product Safety and Quality Management System",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "4",
+      "title": "Supplier and Sub-contracted Service Management",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "5",
+      "title": "Personnel",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    },
+    {
+      "clause": "6",
+      "title": "Meeting FSMA Requirements",
+      "expected_content": [
+        "Bu bölüm için kılavuzda belirtilen uygulamaları ve objektif kanıtları açıklayın."
+      ],
+      "must_include": [],
+      "minimum_words": 45,
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ]
+    }
+  ],
+  "ai_review_prompt": "Review the selected detailed report section against the profile guidance and standard coverage. Prefer objective evidence, exact clause references and concise professional English.",
+  "guide_language": "tr",
+  "guide_revision": "3.6.2"
+}

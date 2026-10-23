@@ -667,7 +667,12 @@ class GuiTests(unittest.TestCase):
         make_pdf(pdf, [['Birinci sayfa metni'], ['Ikinci sayfa metni']])
         before = pathlib.Path(pdf).read_bytes()
         self.app.open_as_text(pdf)
-        self.assertTrue(self.pump(lambda: self.app.cur() is not None and self.app.cur().title == 'kitap.pdf (metin)'))
+        ok = self.pump(lambda: self.app.cur() is not None and self.app.cur().title == 'kitap.pdf (metin)', 1000)
+        if not ok:                                  # tani: is bitmedi mi, geri cagirma mi hata verdi?
+            log = core.data_dir() / 'error-log.txt'
+            self.fail('PDF sekmesi açılmadı; bekleyen iş=%d, sekmeler=%r\n%s' % (
+                len(self.app.jobs), [self.app.nb.tab(t, 'text') for t in self.app.nb.tabs()],
+                log.read_text('utf-8')[-3000:] if log.exists() else '(hata günlüğü yok)'))
         d = self.app.cur()
         body = d.text.markdown()[0]
         self.assertEqual(body, '## s. 1\n\nBirinci sayfa metni\n\n## s. 2\n\nIkinci sayfa metni')

@@ -1,0 +1,690 @@
+{
+  "schema": "agfo_brcgs_howto_v2",
+  "profile": "pm",
+  "standard": "BRCGS Packaging Materials",
+  "issue": "7",
+  "document_code": "P702",
+  "source_file": "p702-how-to-complete-the-audit-report-v2-1-19-01-2026.pdf",
+  "summary": "Knowledge base extracted from BRCGS how-to-complete audit report guidance. Used for local rule checks and later AI review prompts.",
+  "global_rules": {
+    "template_integrity": [
+      "Do not amend, duplicate, delete or relocate XML tags.",
+      "Do not add new tables or columns to the official report template.",
+      "Use the official Microsoft Word template."
+    ],
+    "language": [
+      "Audit Summary and Non-Conformity Summary shall be completed in English.",
+      "Detailed Report may be in the user language unless BRCGS requests translation."
+    ],
+    "detailed_report": [
+      "Each summary box must capture enough specific information to explain the controls in place.",
+      "Reference objective evidence reviewed, including titles, reference numbers, versions or dates where relevant.",
+      "Do not include excessive raw test data.",
+      "Use role titles rather than actual staff names where possible.",
+      "If non-applicable, record non-applicable in the section and provide justification in the NA box."
+    ]
+  },
+  "field_rules": {
+    "BRC_SITE_CODE": {
+      "label": "BRCGS site code",
+      "type": "digits",
+      "min": 5,
+      "max": 8,
+      "mandatory": true,
+      "message": "Site code must be numeric and normally 5-8 digits."
+    },
+    "AUDITOR_NUMBER": {
+      "label": "Auditor number",
+      "type": "digits",
+      "min": 5,
+      "max": 6,
+      "mandatory": false,
+      "message": "Auditor number must be numeric only."
+    },
+    "EVALUATION_START_DATE": {
+      "label": "Audit start date",
+      "type": "date_ymd",
+      "mandatory": true,
+      "message": "Use YYYY-MM-DD format."
+    },
+    "AUDIT_START_DATE": {
+      "label": "Audit start date",
+      "type": "date_ymd",
+      "mandatory": true,
+      "message": "Use YYYY-MM-DD format."
+    },
+    "AUDIT_FINISH_DATE": {
+      "label": "Audit finish date",
+      "type": "date_ymd",
+      "mandatory": true,
+      "message": "Use YYYY-MM-DD format."
+    },
+    "CERTIFICATE_ISSUE_DATE": {
+      "label": "Certificate issue date",
+      "type": "date_ymd",
+      "mandatory": false,
+      "message": "Use YYYY-MM-DD format when completed."
+    },
+    "CERTIFICATE_EXPIRY_DATE": {
+      "label": "Certificate expiry date",
+      "type": "date_ymd",
+      "mandatory": false,
+      "message": "Use YYYY-MM-DD format when completed."
+    },
+    "COMMERCIAL_REPRESENTATIVE_MAIL": {
+      "label": "Commercial representative email",
+      "type": "email",
+      "mandatory": true,
+      "message": "Use a single valid email address."
+    },
+    "TECHNICAL_REPRESENTATIVE_MAIL": {
+      "label": "Technical representative email",
+      "type": "email",
+      "mandatory": true,
+      "message": "Use a single valid email address."
+    },
+    "FUNDAMENTAL": {
+      "label": "Fundamental NC count",
+      "type": "number",
+      "mandatory": true,
+      "message": "Use numeric value, use 0 if none."
+    },
+    "CRITICAL": {
+      "label": "Critical NC count",
+      "type": "number",
+      "mandatory": true,
+      "message": "Use numeric value, use 0 if none."
+    },
+    "MAJOR": {
+      "label": "Major NC count",
+      "type": "number",
+      "mandatory": true,
+      "message": "Use numeric value, use 0 if none."
+    },
+    "MINOR": {
+      "label": "Minor NC count",
+      "type": "number",
+      "mandatory": true,
+      "message": "Use numeric value, use 0 if none."
+    },
+    "SCOPE_OF_AUDIT": {
+      "label": "Scope of audit",
+      "type": "scope",
+      "mandatory": true,
+      "message": "Scope should be clear, succinct, unambiguous, and avoid brand names or long product lists."
+    },
+    "SCOPE": {
+      "label": "Scope of audit",
+      "type": "scope",
+      "mandatory": true,
+      "message": "Scope should be clear, succinct, unambiguous, and avoid brand names or long product lists."
+    },
+    "EXCLUSION_FROM_SCOPE": {
+      "label": "Scope exclusions",
+      "type": "non_empty_or_none",
+      "mandatory": true,
+      "message": "If there are no exclusions, record None."
+    },
+    "SCOPE_EXCLUSIONS": {
+      "label": "Scope exclusions",
+      "type": "non_empty_or_none",
+      "mandatory": true,
+      "message": "If there are no exclusions, record None."
+    },
+    "JUSTIFICATION_FOR_EXCLUSION": {
+      "label": "Justification for exclusion",
+      "type": "justification",
+      "mandatory": true,
+      "message": "If no exclusions, record non-applicable; otherwise provide a clear justification."
+    }
+  },
+  "detailed_rules": [
+    {
+      "clause": "1",
+      "title": "Üst yönetim taahhüdü",
+      "expected_content": [
+        "Ürün güvenliği ve kalite kültürü planını, hedefleri, yönetim gözden geçirmesini ve önceki uygunsuzlukların kapanışını açıklayın.",
+        "Organizasyon yapısı, kritik görevler, vekiller ve çalışanların sorumluluk farkındalığını belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "1.1",
+      "title": "Üst yönetim taahhüdü ve sürekli iyileştirme",
+      "expected_content": [
+        "Politika, kültür planı, hedefler, izleme sonuçları ve sürekli iyileştirme faaliyetlerini açıklayın.",
+        "Son gözden geçirme tarihini ve üst yönetimin katılımını belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "1.2",
+      "title": "Yönetimin gözden geçirmesi",
+      "expected_content": [
+        "Toplantı sıklığını, son toplantı tarihini, katılımcı görevleri ve gündem konularını yazın.",
+        "Aksiyonların sorumluluk, termin ve kapanış takibini açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "1.3",
+      "title": "Organizasyon yapısı ve sorumluluklar",
+      "expected_content": [
+        "Güncel organizasyon yapısını ve ürün güvenliği/kalitesine ilişkin temel görevleri açıklayın.",
+        "Kritik görevler için vekilleri ve personelin sorumluluk farkındalığını belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.1",
+      "title": "HARA ekibi",
+      "expected_content": [
+        "HARA ekip üyelerinin görevlerini ve yetkinliklerini açıklayın.",
+        "Ekip lideri ve dış uzman desteği varsa sorumlulukları belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.2",
+      "title": "Ön gereksinim programları",
+      "expected_content": [
+        "HARA sistemini destekleyen ön gereksinim programlarını ve kapsamını açıklayın.",
+        "Programların uygulanması ve doğrulanmasına ilişkin örnekler verin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.3",
+      "title": "Ürün tanımı",
+      "expected_content": [
+        "Ürün veya ürün gruplarının bileşimini, yapısını, kullanım amacını, müşteri grubunu ve yasal şartlarını açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.4",
+      "title": "Proses akış şeması",
+      "expected_content": [
+        "Temel proses adımlarını ve dış kaynaklı adımları belirtin.",
+        "Akış şemasının son saha doğrulama tarihini ve sonucunu yazın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.5",
+      "title": "Tehlike analizi ve risk değerlendirmesi",
+      "expected_content": [
+        "Her proses adımındaki fiziksel, kimyasal, biyolojik ve kalite tehlikelerini açıklayın.",
+        "Şiddet/olasılık yöntemini, kontrol önlemlerini ve önemli risklerin nasıl belirlendiğini belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.6",
+      "title": "Kritik kontrol önlemlerinin belirlenmesi",
+      "expected_content": [
+        "Kritik kontrol önlemlerinin nasıl seçildiğini ve karar yöntemini açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.7",
+      "title": "Kritik limitlerin doğrulanması",
+      "expected_content": [
+        "Her kritik kontrol önlemi için ölçülebilir limitleri ve validasyon kanıtlarını belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.8",
+      "title": "İzleme sistemi",
+      "expected_content": [
+        "Kritik kontrol önlemlerinin kim tarafından, hangi sıklıkta ve nasıl izlendiğini açıklayın.",
+        "Kayıtları ve yetkilendirmeyi belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.9",
+      "title": "Düzeltici faaliyet planı",
+      "expected_content": [
+        "Limit sapmalarında ürün ve proses için uygulanacak düzeltme, sorumluluk ve kayıtları açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.10",
+      "title": "HARA planının validasyonu ve gözden geçirilmesi",
+      "expected_content": [
+        "Planın validasyon ve doğrulama yöntemini açıklayın.",
+        "Son planlı gözden geçirmenin tarihini, sorumlusunu ve gerekçesini belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "2.11",
+      "title": "HARA dokümantasyonu ve kayıtları",
+      "expected_content": [
+        "HARA dokümanlarının ve izleme kayıtlarının kontrolünü açıklayın.",
+        "Denetçinin sistemin izlendiğini ve kontrol altında olduğunu doğruladığı objektif kanıtları belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.1",
+      "title": "Ürün güvenliği ve kalite yönetim sistemi",
+      "expected_content": [
+        "Yönetim sistemi dokümanlarının yapısını, erişimini ve sahadaki uygulanmasını açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.2",
+      "title": "Doküman kontrolü",
+      "expected_content": [
+        "Dokümanların onay, revizyon, dağıtım ve eski kopya kontrolünü açıklayın.",
+        "İncelenen doküman referanslarını belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.3",
+      "title": "Kayıtların saklanması",
+      "expected_content": [
+        "Kayıtların tamamlanması, okunaklılığı, saklama süresi ve geri çağrılmasını açıklayın.",
+        "İncelenen kayıtları belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.4",
+      "title": "Şartnameler",
+      "expected_content": [
+        "Ham madde, ara ürün, bitmiş ürün ve ambalaj şartnamelerinin hazırlanması, onayı ve gözden geçirilmesini açıklayın.",
+        "İncelenen şartname örneklerini referanslarıyla belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.5",
+      "title": "İç denetimler",
+      "expected_content": [
+        "İç denetim programının kapsamını, sıklığını, denetçi yetkinliği ve bağımsızlığını açıklayın.",
+        "İncelenen denetim raporları, bulgular ve aksiyon takibini özetleyin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.6",
+      "title": "Tedarikçi onayı ve performans izleme",
+      "expected_content": [
+        "Risk bazlı tedarikçi onay yöntemini, yeniden değerlendirme sıklığını ve performans izlemeyi açıklayın.",
+        "İncelenen tedarikçi örneklerini ve istisna yönetimini belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.7",
+      "title": "Ürün hassasiyeti, beyanlar ve gözetim zinciri",
+      "expected_content": [
+        "Ürün sahteciliği/hassasiyet risk değerlendirmesini ve kontrol planını açıklayın.",
+        "Beyanlar ile gözetim zinciri şartlarının doğrulanmasını belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.8",
+      "title": "Dış kaynaklı proseslerin yönetimi",
+      "expected_content": [
+        "Dış kaynaklı proseslerin onay, sözleşme, şartname, izlenebilirlik ve performans kontrollerini açıklayın.",
+        "İncelenen örnekleri belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.9",
+      "title": "Hizmet tedarikçilerinin yönetimi",
+      "expected_content": [
+        "Ürün güvenliğini etkileyen hizmetlerin onay ve izleme yöntemini açıklayın.",
+        "Sözleşme, kapsam ve performans kayıtlarından örnek verin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.10",
+      "title": "İzlenebilirlik",
+      "expected_content": [
+        "Ham madde, ambalaj, ara ürün, yeniden işleme ve bitmiş ürün izlenebilirliğini açıklayın.",
+        "Denetimdeki testin ürünü/partisi, tarihi, miktar mutabakatı, sonucu ve süresini yazın.",
+        "Yıllık testleri ve dış kaynaklı proses bağlantılarını belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.11",
+      "title": "Uygun olmayan malzeme kontrolü",
+      "expected_content": [
+        "Uygun olmayan malzemenin tanımlanması, karantinası, değerlendirilmesi ve serbest bırakılmasını açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.12",
+      "title": "Şikâyetlerin ele alınması",
+      "expected_content": [
+        "Şikâyet kayıt, araştırma, trend ve aksiyon sistemini açıklayın.",
+        "İncelenen örnekleri belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.13",
+      "title": "Düzeltici ve önleyici faaliyet",
+      "expected_content": [
+        "Kök neden, sorumluluk, termin, etkinlik doğrulama ve tekrarın önlenmesini açıklayın.",
+        "İncelenen örnekleri belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "3.14",
+      "title": "Olay yönetimi",
+      "expected_content": [
+        "Olay, geri çekme ve geri çağırma prosedürünü ve testini açıklayın.",
+        "Son testin tarihini, sonucunu ve süresini belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "4",
+      "title": "Saha standartları",
+      "expected_content": [
+        "Dış saha, bina içi, yardımcı tesisler, güvenlik, yerleşim, ekipman, bakım, temizlik, kontaminasyon, atık ve zararlı kontrollerini saha kanıtlarıyla açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "4.8",
+      "title": "Temizlik",
+      "expected_content": [
+        "Temizlik yöntemlerini, sorumluları, sıklığı, ekipmanı ve doğrulama sistemini açıklayın.",
+        "İncelenen kayıtları ve saha gözlemlerini belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "4.11",
+      "title": "Zararlı yönetimi",
+      "expected_content": [
+        "Zararlı yönetim kapsamı, sıklığı, yetkinlik, plan, trend ve aksiyonları açıklayın.",
+        "İncelenen raporları belirtin."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "5",
+      "title": "Ürün ve proses kontrolü",
+      "expected_content": [
+        "Ürün geliştirme, artwork, baskı, proses parametreleri, kalibrasyon, test, mal kabul, depolama ve sevkiyat kontrollerini açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "5.4",
+      "title": "Üretim proses kontrolü",
+      "expected_content": [
+        "Kritik proses parametreleri, makine ayarları, hat açma, proses içi kontroller ve kayıtları açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "5.6",
+      "title": "Ürün muayenesi ve test",
+      "expected_content": [
+        "Test planını, kabul limitlerini, yöntemleri, laboratuvar yeterliliğini ve sonuçları açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "6",
+      "title": "Personel",
+      "expected_content": [
+        "Eğitim, hijyen, personel tesisleri, sağlık taraması ve koruyucu kıyafet kontrollerini açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    },
+    {
+      "clause": "7",
+      "title": "Ticareti yapılan ürünler",
+      "expected_content": [
+        "Ticareti yapılan ürünlerin risk değerlendirmesi, üretici onayı, şartname, test, yasallık ve izlenebilirlik kontrollerini açıklayın."
+      ],
+      "must_include": [],
+      "should_not_include": [
+        "Müşteri marka adlarını gereksiz yere yazmayın.",
+        "Görev unvanı yeterliyse kişisel ad kullanmayın.",
+        "Ham test verilerini gereksiz ayrıntıyla aktarmayın."
+      ],
+      "minimum_words": 45
+    }
+  ],
+  "ai_review_prompt": "Assess whether the report text meets the BRCGS how-to guidance for the relevant clause. Return pass/warning/fail, missing points, weak points and a suggested revision.",
+  "guide_language": "tr",
+  "guide_revision": "3.6.2"
+}

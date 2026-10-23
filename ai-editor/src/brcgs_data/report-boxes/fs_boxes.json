@@ -1,0 +1,2270 @@
+{
+ "schema": "agfo_brcgs_report_boxes_v1",
+ "profile": "fs",
+ "template": "f908-food-i9-audit-report-template-v11-16122022.docx",
+ "generated_from": "official BRCGS DOCX content controls",
+ "box_count": 84,
+ "unit_count": 166,
+ "boxes": [
+  {
+   "tag": "F1_1",
+   "clause": "1.1",
+   "title": "Senior management commitment",
+   "order": 0,
+   "na_tag": null,
+   "clauses": [
+    "1.1",
+    "1.2"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "F2",
+   "clause": "2",
+   "title": "The Food Safety Plan – HACCP",
+   "order": 1,
+   "na_tag": null,
+   "clauses": [
+    "2.1",
+    "2.2",
+    "2.3",
+    "2.4",
+    "2.5",
+    "2.6",
+    "2.7",
+    "2.8",
+    "2.9",
+    "2.10",
+    "2.11",
+    "2.12",
+    "2.13"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "F3_1",
+   "clause": "3.1",
+   "title": "Food safety and quality manual, 3.2 Document control, 3.3 Record completion and maintenance",
+   "order": 2,
+   "na_tag": null,
+   "clauses": [
+    "3.1",
+    "3.2",
+    "3.3"
+   ],
+   "merged": true
+  },
+  {
+   "tag": "F3_4",
+   "clause": "3.4",
+   "title": "Internal audits",
+   "order": 3,
+   "na_tag": null,
+   "clauses": [
+    "3.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F3_5_1",
+   "clause": "3.5.1",
+   "title": "Management of suppliers of raw material and packaging",
+   "order": 4,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F3_5_2",
+   "clause": "3.5.2",
+   "title": "Raw material and packaging acceptance, monitoring and management procedures",
+   "order": 5,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F3_5_3",
+   "clause": "3.5.3",
+   "title": "Management of suppliers of services",
+   "order": 6,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F3_5_4",
+   "clause": "3.5.4",
+   "title": "Management of Outsourced processing",
+   "order": 7,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F3_6",
+   "clause": "3.6",
+   "title": "Specifications",
+   "order": 8,
+   "na_tag": null,
+   "clauses": [
+    "3.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F3_7",
+   "clause": "3.7",
+   "title": "Corrective and preventive actions",
+   "order": 9,
+   "na_tag": null,
+   "clauses": [
+    "3.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F3_8",
+   "clause": "3.8",
+   "title": "Control of non-conforming product",
+   "order": 10,
+   "na_tag": null,
+   "clauses": [
+    "3.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F3_9",
+   "clause": "3.9",
+   "title": "Traceability",
+   "order": 11,
+   "na_tag": null,
+   "clauses": [
+    "3.9"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F3_10",
+   "clause": "3.10",
+   "title": "Complaint-handling",
+   "order": 12,
+   "na_tag": null,
+   "clauses": [
+    "3.10"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F3_11",
+   "clause": "3.11",
+   "title": "Management of incidents, product withdrawal and product recall",
+   "order": 13,
+   "na_tag": null,
+   "clauses": [
+    "3.11"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_1",
+   "clause": "4.1",
+   "title": "External standards",
+   "order": 14,
+   "na_tag": null,
+   "clauses": [
+    "4.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_2",
+   "clause": "4.2",
+   "title": "Site security and food defence",
+   "order": 15,
+   "na_tag": null,
+   "clauses": [
+    "4.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_3",
+   "clause": "4.3",
+   "title": "Layout, product flow and segregation",
+   "order": 16,
+   "na_tag": null,
+   "clauses": [
+    "4.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_4",
+   "clause": "4.4",
+   "title": "Building fabric, raw material handling, preparation, processing, packing and storage areas",
+   "order": 17,
+   "na_tag": null,
+   "clauses": [
+    "4.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_5",
+   "clause": "4.5",
+   "title": "Utilities – water, ice, air and other gases",
+   "order": 18,
+   "na_tag": null,
+   "clauses": [
+    "4.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_6",
+   "clause": "4.6",
+   "title": "Equipment",
+   "order": 19,
+   "na_tag": null,
+   "clauses": [
+    "4.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_7",
+   "clause": "4.7",
+   "title": "Maintenance",
+   "order": 20,
+   "na_tag": null,
+   "clauses": [
+    "4.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_8",
+   "clause": "4.8",
+   "title": "Staff facilities",
+   "order": 21,
+   "na_tag": null,
+   "clauses": [
+    "4.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_9_1",
+   "clause": "4.9.1",
+   "title": "Chemical control",
+   "order": 22,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_9_2",
+   "clause": "4.9.2",
+   "title": "Metal control",
+   "order": 23,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_9_3",
+   "clause": "4.9.3",
+   "title": "Glass, brittle plastic, ceramics and similar materials",
+   "order": 24,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_9_4",
+   "clause": "4.9.4",
+   "title": "Products packed into glass or other brittle containers",
+   "order": 25,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_9_5",
+   "clause": "4.9.5",
+   "title": "Wood",
+   "order": 26,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_9_6",
+   "clause": "4.9.6",
+   "title": "Other physical contaminants",
+   "order": 27,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_10_1",
+   "clause": "4.10.1",
+   "title": "Selection and operation of foreign-body detection and removal equipment",
+   "order": 28,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_10_2",
+   "clause": "4.10.2",
+   "title": "Filters and sieves",
+   "order": 29,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_10_3",
+   "clause": "4.10.3",
+   "title": "Metal detectors and X-ray equipment",
+   "order": 30,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_10_4",
+   "clause": "4.10.4",
+   "title": "Magnets",
+   "order": 31,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_10_5",
+   "clause": "4.10.5",
+   "title": "Optical sorting equipment",
+   "order": 32,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_10_6",
+   "clause": "4.10.6",
+   "title": "Container cleanliness – glass jars, cans and other rigid containers",
+   "order": 33,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_10_7",
+   "clause": "4.10.7",
+   "title": "Other foreign-body detection and removal equipment",
+   "order": 34,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_11",
+   "clause": "4.11",
+   "title": "Housekeeping and hygiene",
+   "order": 35,
+   "na_tag": null,
+   "clauses": [
+    "4.11"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_11_7",
+   "clause": "4.11.7",
+   "title": "Cleaning in place (CIP)",
+   "order": 36,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_11_8",
+   "clause": "4.11.8",
+   "title": "Environmental monitoring",
+   "order": 37,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F4_12",
+   "clause": "4.12",
+   "title": "Waste and waste disposal",
+   "order": 38,
+   "na_tag": null,
+   "clauses": [
+    "4.12"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_13",
+   "clause": "4.13",
+   "title": "Management of surplus food and products for animal feed",
+   "order": 39,
+   "na_tag": null,
+   "clauses": [
+    "4.13"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_14",
+   "clause": "4.14",
+   "title": "Pest management",
+   "order": 40,
+   "na_tag": null,
+   "clauses": [
+    "4.14"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_15",
+   "clause": "4.15",
+   "title": "Storage facilities",
+   "order": 41,
+   "na_tag": null,
+   "clauses": [
+    "4.15"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F4_16",
+   "clause": "4.16",
+   "title": "Dispatch and transport",
+   "order": 42,
+   "na_tag": null,
+   "clauses": [
+    "4.16"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_1",
+   "clause": "5.1",
+   "title": "Product design/development",
+   "order": 43,
+   "na_tag": null,
+   "clauses": [
+    "5.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_2",
+   "clause": "5.2",
+   "title": "Product labelling",
+   "order": 44,
+   "na_tag": null,
+   "clauses": [
+    "5.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_3",
+   "clause": "5.3",
+   "title": "Management of allergens",
+   "order": 45,
+   "na_tag": null,
+   "clauses": [
+    "5.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_4",
+   "clause": "5.4",
+   "title": "Product authenticity, claims and chain of custody",
+   "order": 46,
+   "na_tag": null,
+   "clauses": [
+    "5.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_5",
+   "clause": "5.5",
+   "title": "Product packaging",
+   "order": 47,
+   "na_tag": null,
+   "clauses": [
+    "5.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_6_1",
+   "clause": "5.6.1",
+   "title": "Product inspection, on-site product testing and laboratory analysis",
+   "order": 48,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F5_7",
+   "clause": "5.7",
+   "title": "Product release",
+   "order": 49,
+   "na_tag": null,
+   "clauses": [
+    "5.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_8",
+   "clause": "5.8",
+   "title": "Pet food and animal feed",
+   "order": 50,
+   "na_tag": null,
+   "clauses": [
+    "5.8"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F5_9",
+   "clause": "5.9",
+   "title": "Animal primary conversion",
+   "order": 51,
+   "na_tag": null,
+   "clauses": [
+    "5.9"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F6_1",
+   "clause": "6.1",
+   "title": "Control of operations",
+   "order": 52,
+   "na_tag": null,
+   "clauses": [
+    "6.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F6_2",
+   "clause": "6.2",
+   "title": "Labelling and pack control",
+   "order": 53,
+   "na_tag": null,
+   "clauses": [
+    "6.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F6_3",
+   "clause": "6.3",
+   "title": "Quantity, weight, volume and number control",
+   "order": 54,
+   "na_tag": null,
+   "clauses": [
+    "6.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F6_4",
+   "clause": "6.4",
+   "title": "Calibration and control of measuring and monitoring devices",
+   "order": 55,
+   "na_tag": null,
+   "clauses": [
+    "6.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F7_1",
+   "clause": "7.1",
+   "title": "Training: raw material handling, preparation, processing, packing and storage areas",
+   "order": 56,
+   "na_tag": null,
+   "clauses": [
+    "7.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F7_2",
+   "clause": "7.2",
+   "title": "Personal hygiene: raw material handling, preparation, processing, packing and storage areas",
+   "order": 57,
+   "na_tag": null,
+   "clauses": [
+    "7.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F7_3",
+   "clause": "7.3",
+   "title": "Medical screening",
+   "order": 58,
+   "na_tag": null,
+   "clauses": [
+    "7.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F7_4",
+   "clause": "7.4",
+   "title": "Protective clothing: employees or visitors to production areas",
+   "order": 59,
+   "na_tag": null,
+   "clauses": [
+    "7.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F8_1",
+   "clause": "8.1",
+   "title": "Layout product flow and segregation in high-risk, high-care and ambient high-care zones",
+   "order": 60,
+   "na_tag": null,
+   "clauses": [
+    "8.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F8_2",
+   "clause": "8.2",
+   "title": "Building fabric in high-risk and high-care zones",
+   "order": 61,
+   "na_tag": null,
+   "clauses": [
+    "8.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F8_3",
+   "clause": "8.3",
+   "title": "Equipment and maintenance in high-risk and high-care zones",
+   "order": 62,
+   "na_tag": null,
+   "clauses": [
+    "8.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F8_4",
+   "clause": "8.4",
+   "title": "Staff facilities for high-risk and high-care zones",
+   "order": 63,
+   "na_tag": null,
+   "clauses": [
+    "8.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F8_5",
+   "clause": "8.5",
+   "title": "Housekeeping and hygiene in the high-risk high-care zones",
+   "order": 64,
+   "na_tag": null,
+   "clauses": [
+    "8.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F8_6",
+   "clause": "8.6",
+   "title": "Waste/Waste disposal in high risk, high care zones",
+   "order": 65,
+   "na_tag": null,
+   "clauses": [
+    "8.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F8_7",
+   "clause": "8.7",
+   "title": "Protective clothing in the high-risk high-care zones",
+   "order": 66,
+   "na_tag": null,
+   "clauses": [
+    "8.7"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F9_1",
+   "clause": "9.1",
+   "title": "The food safety plan - HACCP",
+   "order": 67,
+   "na_tag": null,
+   "clauses": [
+    "9.1"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F9_2",
+   "clause": "9.2",
+   "title": "Approval and performance monitoring of manufacturers/packers of traded food products",
+   "order": 68,
+   "na_tag": null,
+   "clauses": [
+    "9.2"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F9_3",
+   "clause": "9.3",
+   "title": "Specifications",
+   "order": 69,
+   "na_tag": null,
+   "clauses": [
+    "9.3"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F9_4",
+   "clause": "9.4",
+   "title": "Product inspection and laboratory testing",
+   "order": 70,
+   "na_tag": null,
+   "clauses": [
+    "9.4"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F9_5",
+   "clause": "9.5",
+   "title": "Product legality",
+   "order": 71,
+   "na_tag": null,
+   "clauses": [
+    "9.5"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F9_6",
+   "clause": "9.6",
+   "title": "Traceability",
+   "order": 72,
+   "na_tag": null,
+   "clauses": [
+    "9.6"
+   ],
+   "merged": false
+  },
+  {
+   "tag": "F11_1",
+   "clause": "11.1",
+   "title": "Traceability",
+   "order": 73,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F11_2",
+   "clause": "11.2",
+   "title": "Approval of meat supply chain",
+   "order": 74,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F11_3",
+   "clause": "11.3",
+   "title": "Raw material receipt and inspection",
+   "order": 75,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F11_4",
+   "clause": "11.4",
+   "title": "Management of cross-contamination between species",
+   "order": 76,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F11_5",
+   "clause": "11.5",
+   "title": "Product testing",
+   "order": 77,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "F11_6",
+   "clause": "11.6",
+   "title": "Training",
+   "order": 78,
+   "na_tag": null,
+   "clauses": [],
+   "merged": false
+  },
+  {
+   "tag": "FSMAF91",
+   "clause": "13.1",
+   "title": "Preventive Controls for Human Food: 21 CFR Part 117 (Clauses 13.1.1 – 13.1.33)",
+   "order": 79,
+   "na_tag": null,
+   "clauses": [
+    "13.1.1",
+    "13.1.2",
+    "13.1.3",
+    "13.1.4",
+    "13.1.5",
+    "13.1.6",
+    "13.1.7",
+    "13.1.8",
+    "13.1.9",
+    "13.1.10",
+    "13.1.11",
+    "13.1.12",
+    "13.1.13",
+    "13.1.14",
+    "13.1.15",
+    "13.1.16",
+    "13.1.17",
+    "13.1.18",
+    "13.1.19",
+    "13.1.20",
+    "13.1.21",
+    "13.1.22",
+    "13.1.23",
+    "13.1.24",
+    "13.1.25",
+    "13.1.26",
+    "13.1.27",
+    "13.1.28",
+    "13.1.29",
+    "13.1.30",
+    "13.1.31",
+    "13.1.32",
+    "13.1.33"
+   ],
+   "merged": true,
+   "module": "13"
+  },
+  {
+   "tag": "FSMAF92",
+   "clause": "13.2",
+   "title": "Preventive Controls for Animal Food: 21 CFR Part 507 (Clause 13.2.1)",
+   "order": 80,
+   "na_tag": null,
+   "clauses": [
+    "13.2.1"
+   ],
+   "merged": true,
+   "module": "13"
+  },
+  {
+   "tag": "FSMAF93",
+   "clause": "13.3",
+   "title": "Food Defence: 21 CFR Part 121 (Clauses 13.3.1 – 13.3.11)",
+   "order": 81,
+   "na_tag": null,
+   "clauses": [
+    "13.3.1",
+    "13.3.2",
+    "13.3.3",
+    "13.3.4",
+    "13.3.5",
+    "13.3.6",
+    "13.3.7",
+    "13.3.8",
+    "13.3.9",
+    "13.3.10",
+    "13.3.11"
+   ],
+   "merged": true,
+   "module": "13"
+  },
+  {
+   "tag": "FSMAF94",
+   "clause": "13.4",
+   "title": "Sanitary Transportation: 21 CFR Part 1 Subpart O (Clauses 13.4.1 – 13.4.9)",
+   "order": 82,
+   "na_tag": null,
+   "clauses": [
+    "13.4.1",
+    "13.4.2",
+    "13.4.3",
+    "13.4.4",
+    "13.4.5",
+    "13.4.6",
+    "13.4.7",
+    "13.4.8",
+    "13.4.9"
+   ],
+   "merged": true,
+   "module": "13"
+  },
+  {
+   "tag": "FSMAF95",
+   "clause": "13.5",
+   "title": "Produce Safety: 21 CFR Part 112 (Clauses 13.5.1 – 13.5.18)",
+   "order": 83,
+   "na_tag": null,
+   "clauses": [
+    "13.5.1",
+    "13.5.2",
+    "13.5.3",
+    "13.5.4",
+    "13.5.5",
+    "13.5.6",
+    "13.5.7",
+    "13.5.8",
+    "13.5.9",
+    "13.5.10",
+    "13.5.11",
+    "13.5.12",
+    "13.5.13",
+    "13.5.14",
+    "13.5.15",
+    "13.5.16",
+    "13.5.17",
+    "13.5.18"
+   ],
+   "merged": true,
+   "module": "13"
+  }
+ ],
+ "units": [
+  {
+   "key": "1.1",
+   "box": "F1_1",
+   "source": "standard",
+   "title": "Senior management commitment and continual improvement"
+  },
+  {
+   "key": "1.2",
+   "box": "F1_1",
+   "source": "standard",
+   "title": "Organisational structure, responsibilities and management authority"
+  },
+  {
+   "key": "2.1",
+   "box": "F2",
+   "source": "standard",
+   "title": "The HACCP food safety team (equivalent to Codex Alimentarius Step 1)"
+  },
+  {
+   "key": "2.2",
+   "box": "F2",
+   "source": "standard",
+   "title": "Prerequisite programmes"
+  },
+  {
+   "key": "2.3",
+   "box": "F2",
+   "source": "standard",
+   "title": "Describe the product (equivalent to Codex Alimentarius Step 2)"
+  },
+  {
+   "key": "2.4",
+   "box": "F2",
+   "source": "standard",
+   "title": "Identify intended use (equivalent to Codex Alimentarius Step 3)"
+  },
+  {
+   "key": "2.5",
+   "box": "F2",
+   "source": "standard",
+   "title": "Construct a process flow diagram (equivalent to Codex Alimentarius Step 4)"
+  },
+  {
+   "key": "2.6",
+   "box": "F2",
+   "source": "standard",
+   "title": "Verify process flow diagram (equivalent to Codex Alimentarius Step 5)"
+  },
+  {
+   "key": "2.7",
+   "box": "F2",
+   "source": "standard",
+   "title": "List all potential hazards associated with each process step, conduct a hazard analysis and consider any measures to control identified hazards (equivalent to Codex Alimentarius Step 6, Principle 1)"
+  },
+  {
+   "key": "2.8",
+   "box": "F2",
+   "source": "standard",
+   "title": "Determine the CCPs (equivalent to Codex Alimentarius Step 7, Principle 2)"
+  },
+  {
+   "key": "2.9",
+   "box": "F2",
+   "source": "standard",
+   "title": "Establish validated critical limits for each CCP (equivalent to Codex Alimentarius Step 8, Principle 3)"
+  },
+  {
+   "key": "2.10",
+   "box": "F2",
+   "source": "standard",
+   "title": "Establish a monitoring system for each CCP (equivalent to Codex Alimentarius Step 9, Principle 4)"
+  },
+  {
+   "key": "2.11",
+   "box": "F2",
+   "source": "standard",
+   "title": "Establish a corrective action plan (equivalent to Codex Alimentarius Step 10, Principle 5)"
+  },
+  {
+   "key": "2.12",
+   "box": "F2",
+   "source": "standard",
+   "title": "Validate the HACCP plan and establish verification procedures (equivalent to Codex Alimentarius Step 11, Principle 6)"
+  },
+  {
+   "key": "2.13",
+   "box": "F2",
+   "source": "standard",
+   "title": "HACCP documentation and record-keeping (equivalent to Codex Alimentarius Step 12, Principle 7)"
+  },
+  {
+   "key": "3.1",
+   "box": "F3_1",
+   "source": "standard",
+   "title": "Food safety and quality manual"
+  },
+  {
+   "key": "3.2",
+   "box": "F3_1",
+   "source": "standard",
+   "title": "Document control"
+  },
+  {
+   "key": "3.3",
+   "box": "F3_1",
+   "source": "standard",
+   "title": "Record completion and maintenance"
+  },
+  {
+   "key": "3.4",
+   "box": "F3_4",
+   "source": "standard",
+   "title": "Internal audits"
+  },
+  {
+   "key": "3.5.1",
+   "box": "F3_5_1",
+   "source": "template",
+   "title": "Management of suppliers of raw material and packaging"
+  },
+  {
+   "key": "3.5.2",
+   "box": "F3_5_2",
+   "source": "template",
+   "title": "Raw material and packaging acceptance, monitoring and management procedures"
+  },
+  {
+   "key": "3.5.3",
+   "box": "F3_5_3",
+   "source": "template",
+   "title": "Management of suppliers of services"
+  },
+  {
+   "key": "3.5.4",
+   "box": "F3_5_4",
+   "source": "template",
+   "title": "Management of Outsourced processing"
+  },
+  {
+   "key": "3.6",
+   "box": "F3_6",
+   "source": "standard",
+   "title": "Specifications"
+  },
+  {
+   "key": "3.7",
+   "box": "F3_7",
+   "source": "standard",
+   "title": "Corrective and preventive actions"
+  },
+  {
+   "key": "3.8",
+   "box": "F3_8",
+   "source": "standard",
+   "title": "Control of non-conforming product"
+  },
+  {
+   "key": "3.9",
+   "box": "F3_9",
+   "source": "standard",
+   "title": "Traceability"
+  },
+  {
+   "key": "3.10",
+   "box": "F3_10",
+   "source": "standard",
+   "title": "Complaint-handling"
+  },
+  {
+   "key": "3.11",
+   "box": "F3_11",
+   "source": "standard",
+   "title": "Management of incidents, product withdrawal and product recall"
+  },
+  {
+   "key": "4.1",
+   "box": "F4_1",
+   "source": "standard",
+   "title": "External standards and site security"
+  },
+  {
+   "key": "4.2",
+   "box": "F4_2",
+   "source": "standard",
+   "title": "Food defence"
+  },
+  {
+   "key": "4.3",
+   "box": "F4_3",
+   "source": "standard",
+   "title": "Layout, product flow and segregation"
+  },
+  {
+   "key": "4.4",
+   "box": "F4_4",
+   "source": "standard",
+   "title": "Building fabric, raw material-handling, preparation, processing, packing and storage areas"
+  },
+  {
+   "key": "4.5",
+   "box": "F4_5",
+   "source": "standard",
+   "title": "Utilities – water, ice, air and other gases"
+  },
+  {
+   "key": "4.6",
+   "box": "F4_6",
+   "source": "standard",
+   "title": "Equipment"
+  },
+  {
+   "key": "4.7",
+   "box": "F4_7",
+   "source": "standard",
+   "title": "Maintenance"
+  },
+  {
+   "key": "4.8",
+   "box": "F4_8",
+   "source": "standard",
+   "title": "Staff facilities"
+  },
+  {
+   "key": "4.9.1",
+   "box": "F4_9_1",
+   "source": "template",
+   "title": "Chemical control"
+  },
+  {
+   "key": "4.9.2",
+   "box": "F4_9_2",
+   "source": "template",
+   "title": "Metal control"
+  },
+  {
+   "key": "4.9.3",
+   "box": "F4_9_3",
+   "source": "template",
+   "title": "Glass, brittle plastic, ceramics and similar materials"
+  },
+  {
+   "key": "4.9.4",
+   "box": "F4_9_4",
+   "source": "template",
+   "title": "Products packed into glass or other brittle containers"
+  },
+  {
+   "key": "4.9.5",
+   "box": "F4_9_5",
+   "source": "template",
+   "title": "Wood"
+  },
+  {
+   "key": "4.9.6",
+   "box": "F4_9_6",
+   "source": "template",
+   "title": "Other physical contaminants"
+  },
+  {
+   "key": "4.10.1",
+   "box": "F4_10_1",
+   "source": "template",
+   "title": "Selection and operation of foreign-body detection and removal equipment"
+  },
+  {
+   "key": "4.10.2",
+   "box": "F4_10_2",
+   "source": "template",
+   "title": "Filters and sieves"
+  },
+  {
+   "key": "4.10.3",
+   "box": "F4_10_3",
+   "source": "template",
+   "title": "Metal detectors and X-ray equipment"
+  },
+  {
+   "key": "4.10.4",
+   "box": "F4_10_4",
+   "source": "template",
+   "title": "Magnets"
+  },
+  {
+   "key": "4.10.5",
+   "box": "F4_10_5",
+   "source": "template",
+   "title": "Optical sorting equipment"
+  },
+  {
+   "key": "4.10.6",
+   "box": "F4_10_6",
+   "source": "template",
+   "title": "Container cleanliness – glass jars, cans and other rigid containers"
+  },
+  {
+   "key": "4.10.7",
+   "box": "F4_10_7",
+   "source": "template",
+   "title": "Other foreign-body detection and removal equipment"
+  },
+  {
+   "key": "4.11",
+   "box": "F4_11",
+   "source": "standard",
+   "title": "Housekeeping and hygiene"
+  },
+  {
+   "key": "4.11.7",
+   "box": "F4_11_7",
+   "source": "template",
+   "title": "Cleaning in place (CIP)"
+  },
+  {
+   "key": "4.11.8",
+   "box": "F4_11_8",
+   "source": "template",
+   "title": "Environmental monitoring"
+  },
+  {
+   "key": "4.12",
+   "box": "F4_12",
+   "source": "standard",
+   "title": "Waste and waste disposal"
+  },
+  {
+   "key": "4.13",
+   "box": "F4_13",
+   "source": "standard",
+   "title": "Management of surplus food and products for animal feed"
+  },
+  {
+   "key": "4.14",
+   "box": "F4_14",
+   "source": "standard",
+   "title": "Pest management"
+  },
+  {
+   "key": "4.15",
+   "box": "F4_15",
+   "source": "standard",
+   "title": "Storage facilities"
+  },
+  {
+   "key": "4.16",
+   "box": "F4_16",
+   "source": "standard",
+   "title": "Dispatch and transport"
+  },
+  {
+   "key": "5.1",
+   "box": "F5_1",
+   "source": "standard",
+   "title": "Product design/development"
+  },
+  {
+   "key": "5.2",
+   "box": "F5_2",
+   "source": "standard",
+   "title": "Product labelling"
+  },
+  {
+   "key": "5.3",
+   "box": "F5_3",
+   "source": "standard",
+   "title": "Management of allergens"
+  },
+  {
+   "key": "5.4",
+   "box": "F5_4",
+   "source": "standard",
+   "title": "Product authenticity, claims and chain of custody"
+  },
+  {
+   "key": "5.5",
+   "box": "F5_5",
+   "source": "standard",
+   "title": "Product packaging"
+  },
+  {
+   "key": "5.6.1",
+   "box": "F5_6_1",
+   "source": "template",
+   "title": "Product inspection, on-site product testing and laboratory analysis"
+  },
+  {
+   "key": "5.7",
+   "box": "F5_7",
+   "source": "standard",
+   "title": "Product release"
+  },
+  {
+   "key": "5.8",
+   "box": "F5_8",
+   "source": "standard",
+   "title": "Pet food and animal feed"
+  },
+  {
+   "key": "5.9",
+   "box": "F5_9",
+   "source": "standard",
+   "title": "Animal primary conversion"
+  },
+  {
+   "key": "6.1",
+   "box": "F6_1",
+   "source": "standard",
+   "title": "Control of operations"
+  },
+  {
+   "key": "6.2",
+   "box": "F6_2",
+   "source": "standard",
+   "title": "Labelling and pack control"
+  },
+  {
+   "key": "6.3",
+   "box": "F6_3",
+   "source": "standard",
+   "title": "Quantity – weight, volume and number control"
+  },
+  {
+   "key": "6.4",
+   "box": "F6_4",
+   "source": "standard",
+   "title": "Calibration and control of measuring and monitoring devices"
+  },
+  {
+   "key": "7.1",
+   "box": "F7_1",
+   "source": "standard",
+   "title": "Training: raw material-handling, preparation, processing, packing and storage areas"
+  },
+  {
+   "key": "7.2",
+   "box": "F7_2",
+   "source": "standard",
+   "title": "Personal hygiene: raw material-handling, preparation, processing, packing and storage areas"
+  },
+  {
+   "key": "7.3",
+   "box": "F7_3",
+   "source": "standard",
+   "title": "Medical screening"
+  },
+  {
+   "key": "7.4",
+   "box": "F7_4",
+   "source": "standard",
+   "title": "Protective clothing: staff or visitors to production areas"
+  },
+  {
+   "key": "8.1",
+   "box": "F8_1",
+   "source": "standard",
+   "title": "Layout, product flow and segregation in high-risk, high-care and ambient high-care zones"
+  },
+  {
+   "key": "8.2",
+   "box": "F8_2",
+   "source": "standard",
+   "title": "Building fabric in high-risk and high-care zones"
+  },
+  {
+   "key": "8.3",
+   "box": "F8_3",
+   "source": "standard",
+   "title": "Equipment and maintenance in high-risk and high-care zones"
+  },
+  {
+   "key": "8.4",
+   "box": "F8_4",
+   "source": "standard",
+   "title": "Staff facilities for high-risk and high-care zones"
+  },
+  {
+   "key": "8.5",
+   "box": "F8_5",
+   "source": "standard",
+   "title": "Housekeeping and hygiene in high-risk and high-care zones"
+  },
+  {
+   "key": "8.6",
+   "box": "F8_6",
+   "source": "standard",
+   "title": "Waste and waste disposal in high-risk, high-care zones"
+  },
+  {
+   "key": "8.7",
+   "box": "F8_7",
+   "source": "standard",
+   "title": "Protective clothing in high-risk and high-care zones"
+  },
+  {
+   "key": "9.1",
+   "box": "F9_1",
+   "source": "standard",
+   "title": "The food safety plan – HACCP"
+  },
+  {
+   "key": "9.2",
+   "box": "F9_2",
+   "source": "standard",
+   "title": "Approval and performance monitoring of manufacturers/packers of traded food products"
+  },
+  {
+   "key": "9.3",
+   "box": "F9_3",
+   "source": "standard",
+   "title": "Specifications"
+  },
+  {
+   "key": "9.4",
+   "box": "F9_4",
+   "source": "standard",
+   "title": "Product inspection and laboratory testing"
+  },
+  {
+   "key": "9.5",
+   "box": "F9_5",
+   "source": "standard",
+   "title": "Product legality"
+  },
+  {
+   "key": "9.6",
+   "box": "F9_6",
+   "source": "standard",
+   "title": "Traceability"
+  },
+  {
+   "key": "11.1",
+   "box": "F11_1",
+   "source": "template",
+   "title": "Traceability"
+  },
+  {
+   "key": "11.2",
+   "box": "F11_2",
+   "source": "template",
+   "title": "Approval of meat supply chain"
+  },
+  {
+   "key": "11.3",
+   "box": "F11_3",
+   "source": "template",
+   "title": "Raw material receipt and inspection"
+  },
+  {
+   "key": "11.4",
+   "box": "F11_4",
+   "source": "template",
+   "title": "Management of cross-contamination between species"
+  },
+  {
+   "key": "11.5",
+   "box": "F11_5",
+   "source": "template",
+   "title": "Product testing"
+  },
+  {
+   "key": "11.6",
+   "box": "F11_6",
+   "source": "template",
+   "title": "Training"
+  },
+  {
+   "key": "13.1.1",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Adequate lighting in handwashing areas, locker rooms and toilets (21 CFR 117.20)",
+   "optional_module": "13",
+   "requirement": "Handwashing areas, dressing and locker rooms, and toilets must have adequate lighting.",
+   "brcgs_ref": "4.8 S.O.I, 4.4.9",
+   "regulation": "21 CFR 117.20"
+  },
+  {
+   "key": "13.1.2",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Protection of food in installed outdoor bulk vessels (21 CFR 117.20(b)(3))",
+   "optional_module": "13",
+   "requirement": "Adequate precautions must be taken to protect food in installed outdoor bulk vessels by any effective means.",
+   "brcgs_ref": "4.15.5",
+   "regulation": "21 CFR 117.20(b)(3)"
+  },
+  {
+   "key": "13.1.3",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Backflow and cross-connection prevention and adequate sewage disposal (21 CFR 117.37)",
+   "optional_module": "13",
+   "requirement": "The water distribution system must prevent backflow from, or cross-connection between, piping systems that discharge waste water or sewage and piping systems that carry water for food or food manufacturing sewage must be disposed of into an adequate sewerage system or disposed of through other adequate means.",
+   "brcgs_ref": "4.4.3, 4.5.2",
+   "regulation": "21 CFR 117.37"
+  },
+  {
+   "key": "13.1.4",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Corrosion-resistant food contact surfaces with smoothly bonded seams (21 CFR 117.40)",
+   "optional_module": "13",
+   "requirement": "All food contact surfaces of plant equipment and utensils used in manufacturing, processing, packing, or holding food must be corrosion-resistant. Seams on food contact surfaces must be smoothly bonded or maintained so as to minimise accumulation of food particles, dirt, and organic matter and thus minimise the opportunity for growth of microorganisms and allergen cross-contact.",
+   "brcgs_ref": "4.6 S.O.I, 4.7",
+   "regulation": "21 CFR 117.40"
+  },
+  {
+   "key": "13.1.5",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Sufficient, potable ice for food contact made under GMP (21 CFR 117.80)",
+   "optional_module": "13",
+   "requirement": "Ice used in contact with food must be supplied in sufficient quantity, be potable at the point of use or pose no risk of contamination according to applicable legislation and manufactured in accordance with the good manufacturing practice (GMP) requirements of 21 CFR § 117.",
+   "brcgs_ref": "4.5.1",
+   "regulation": "21 CFR 117.80"
+  },
+  {
+   "key": "13.1.6",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Inspection, segregation and protective storage of raw materials (21 CFR 117.80)",
+   "optional_module": "13",
+   "requirement": "Raw materials and other ingredients must be inspected, segregated or otherwise handled to ensure they are clean and suitable for processing and stored to protect against allergen cross-contact and contamination and to minimise deterioration.",
+   "brcgs_ref": "3.5.1.1, 3.5.2.1, 4.5.1, 4.15.1",
+   "regulation": "21 CFR 117.80"
+  },
+  {
+   "key": "13.1.7",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Disposal or reconditioning of adulterated food and ingredients (21 CFR 117.80 (c)(9))",
+   "optional_module": "13",
+   "requirement": "Food, raw materials, and other ingredients that are adulterated must be disposed of in a manner that protects against the contamination of other food, if appropriate, reconditioned with a method proven to be effective or subsequently found not to be adulterated according to the Federal Food, Drug, and Cosmetic Act.",
+   "brcgs_ref": "3.8.1",
+   "regulation": "21 CFR 117.80 (c)(9)"
+  },
+  {
+   "key": "13.1.8",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Holding, labelling and shipment of human food by-products for animal food (21 CFR 117.95)",
+   "optional_module": "13",
+   "requirement": "Human food by-products for use as animal food must be held under conditions that will protect against contamination, identified during holding, labelled with the common or usual name, and protected against contamination during shipment.",
+   "brcgs_ref": "4.13.3",
+   "regulation": "21 CFR 117.95"
+  },
+  {
+   "key": "13.1.9",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Reducing defects below defect action levels without blending lots (21 CFR 117.110)",
+   "optional_module": "13",
+   "requirement": "Where defect action levels (DALs) are established for a food, quality control operations must reduce defects to the lowest level possible. Defect levels rendering the food adulterated may not be reduced by mixing the food with another lot.",
+   "brcgs_ref": "NO EQUIVALENT OR RELATED CLAUSE",
+   "regulation": "21 CFR 117.110"
+  },
+  {
+   "key": "13.1.10",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Additional hazards to identify and evaluate in the hazard analysis (21 CFR 117.130(a))",
+   "optional_module": "13",
+   "requirement": "The hazard analysis must additionally identify and evaluate the following known or reasonably foreseeable hazards, which are associated with the food or facility: • economic adulterants which affect food safety • environmental pathogens where ready-to-eat (RTE) food is exposed to the environment prior to packaging and the packaged food does not receive a kill step • radiological hazards • unintentional adulterants that affect food safety.",
+   "brcgs_ref": "2.7.1, 2.7.2",
+   "regulation": "21 CFR 117.130(a)"
+  },
+  {
+   "key": "13.1.11",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Evaluation of hazards to determine those requiring a preventive control (21 CFR 117.130(a)(1))",
+   "optional_module": "13",
+   "requirement": "All identified, known, or reasonably foreseeable hazards must be evaluated to determine ‘hazards that require a preventive control’ (i.e. , significant hazards).",
+   "brcgs_ref": "2.7.2, 2.8.1",
+   "regulation": "21 CFR 117.130(a)(1)"
+  },
+  {
+   "key": "13.1.12",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Preventive controls for each hazard requiring a preventive control (21 CFR 117.135)",
+   "optional_module": "13",
+   "requirement": "Establish one or more preventive control(s) for each identified ‘hazard that require a preventive control’ (i.e. , significant hazard) such that the control significantly minimises or prevents the food manufactured, processed, packed, or held by the facility from being adulterated under section 402 of FD&C or misbranded under section 403(w) of FD&C.",
+   "brcgs_ref": "2.2.1, 2.8.1",
+   "regulation": "21 CFR 117.135"
+  },
+  {
+   "key": "13.1.13",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Recall procedure: consignee notification, effectiveness checks, disposal (21 CFR 117.139)",
+   "optional_module": "13",
+   "requirement": "Evaluate and update the recall and withdrawal procedure as necessary to ensure it contains procedures and responsibility for the following: • notifying consignees of how to return or dispose of recalled product • conducting effectiveness checks to verify recall is carried out • appropriate disposal of recalled product (i.e. , destroy, divert, repurpose).",
+   "brcgs_ref": "3.11.2",
+   "regulation": "21 CFR 117.139"
+  },
+  {
+   "key": "13.1.14",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Procedures for receiving raw materials from unapproved suppliers (21 CFR 117.140)",
+   "optional_module": "13",
+   "requirement": "The supply-chain program established in subpart G of § 117.140 shall contain procedures for the receipt of the raw material or other ingredients from unapproved suppliers which include preventive control management actions and responsibilities. These shall include: • corrective actions and corrections in accordance with § 117.150, taking into account the nature of any supplier non-conformance • review of records in accordance with § 117.165(a)(4); and • reanalysis in accordance with § 117.170.",
+   "brcgs_ref": "3.5.1",
+   "regulation": "21 CFR 117.140"
+  },
+  {
+   "key": "13.1.15",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Monitoring activities and written procedures for preventive controls (21 CFR 117.145)",
+   "optional_module": "13",
+   "requirement": "Establish monitoring activities and a written procedure for each preventive control in a manner consistent with the requirements of section 2.10 of the Standard.",
+   "brcgs_ref": "2.10.1, 2.10.2",
+   "regulation": "21 CFR 117.145"
+  },
+  {
+   "key": "13.1.16",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Corrective action procedures for preventive controls and pathogen findings (21 CFR 117.150)",
+   "optional_module": "13",
+   "requirement": "Establish corrective action procedures when preventive controls are not implemented in a manner consistent with the requirements of clauses 2.11.1, 3.7,1 and 3.7.2 of the Standard. Corrective action procedures must be established and implemented when the presence of a pathogen (or indicator organism) is detected as a part of verification activities (i.e. , product testing and/or environmental monitoring).",
+   "brcgs_ref": "2.11.1, 3.7.1, 3.7.2",
+   "regulation": "21 CFR 117.150"
+  },
+  {
+   "key": "13.1.17",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Validation of process preventive controls by a PCQI (21 CFR 117.160)",
+   "optional_module": "13",
+   "requirement": "Validate all established process preventative controls prior to implementation of the food safety plan, upon changes requiring revalidation or within 90 calendar days of the first food production. The validation of preventive controls must be performed (or overseen) by a preventive controls qualified individual.",
+   "brcgs_ref": "2.9.2",
+   "regulation": "21 CFR 117.160"
+  },
+  {
+   "key": "13.1.18",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Calibration of devices used to verify preventive controls (21 CFR 117.165)",
+   "optional_module": "13",
+   "requirement": "Devices used to verify preventive controls must be calibrated.",
+   "brcgs_ref": "3.4.1, 6.4 S.O.I",
+   "regulation": "21 CFR 117.165"
+  },
+  {
+   "key": "13.1.19",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "PCQI review of monitoring, corrective action and verification records (21 CFR 117.165(a))",
+   "optional_module": "13",
+   "requirement": "The PCQI (or authorised designee) reviews the monitoring and corrective action records within 7 days. Where an alternate timeframe exceeding 7 days is used, the PCQI must document justification. The PCQI (or their authorised designee) reviews the verification records for all preventive controls (e.g. , calibration records, product testing, supply-chain audits) and other verification activities within a reasonable timeframe after the record has been created.",
+   "brcgs_ref": "2.10.2, 2.12.2, 3.7.2",
+   "regulation": "21 CFR 117.165(a)"
+  },
+  {
+   "key": "13.1.20",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Written procedure for product testing as a verification activity (21 CFR 117.165(b))",
+   "optional_module": "13",
+   "requirement": "Where product testing for a pathogen (or indicator organism) or other hazard is used as a verification activity, a scientifically valid and written testing procedure must identify the following: • sampling procedure to include method, quantity, frequency, and number of samples • analytical method • laboratory conducting an analysis • corrective action procedure where a pathogen is detected.",
+   "brcgs_ref": "5.6",
+   "regulation": "21 CFR 117.165(b)"
+  },
+  {
+   "key": "13.1.21",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Written procedure for environmental monitoring as a verification activity (21 CFR 117.165(b)(3))",
+   "optional_module": "13",
+   "requirement": "Where environmental monitoring for a pathogen (or indicator organism) is used as a verification activity, a scientifically valid and written testing procedure must identify the following: • adequate number and location of sample sites • timing and frequency of sampling • analytical method • laboratory conducting the analysis • corrective action procedure where a pathogen is detected.",
+   "brcgs_ref": "5.6",
+   "regulation": "21 CFR 117.165(b)(3)"
+  },
+  {
+   "key": "13.1.22",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Designated PCQI with documented training or qualifications (21 CFR 117.180)",
+   "optional_module": "13",
+   "requirement": "Identify a PCQI responsible for developing the food safety plan, validating preventive controls, review of records, and reanalysis of the plan. Document the PCQI’s training or qualifications via job experience.",
+   "brcgs_ref": "NO EQUIVALENT OR RELATED CLAUSE",
+   "regulation": "21 CFR 117.180"
+  },
+  {
+   "key": "13.1.23",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Content and integrity of records required under the food safety plan (21 CFR 117.305)",
+   "optional_module": "13",
+   "requirement": "All records required by 21 CFR § 117 must be accurate, indelible, created concurrently with performance of the activity documented, and include: • the date and time of the activity being documented • signature/initials of individual performing the activity or conducting the record review • information to identify the facility (e.g. , name and location) • the identity of the product and lot code where applicable.",
+   "brcgs_ref": "3.3.1",
+   "regulation": "21 CFR 117.305"
+  },
+  {
+   "key": "13.1.24",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Owner sign-off of the food safety plan and its revisions (21 CFR 117.310)",
+   "optional_module": "13",
+   "requirement": "The owner, operator, or agent in charge of the facility must sign and date the written food safety plan initially and again upon any changes following reanalysis.",
+   "brcgs_ref": "1.1.3",
+   "regulation": "21 CFR 117.310"
+  },
+  {
+   "key": "13.1.25",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Retention and retrievability of food safety plan records (21 CFR 117.315)",
+   "optional_module": "13",
+   "requirement": "All documents and records relating to the food safety plan (i.e. , all records required by 21 CFR § 117) must be retained at the facility for 2 years after the record is created. Where records are stored offsite, they must be retrievable within 24 hours, with the exception of the food safety plan, which must remain onsite.",
+   "brcgs_ref": "3.3.1, 3.3.2",
+   "regulation": "21 CFR 117.315"
+  },
+  {
+   "key": "13.1.26",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Supplier approval and verification for supply-chain-applied controls (21 CFR 117.405)",
+   "optional_module": "13",
+   "requirement": "Where a hazard requiring a supply-chain-applied control is identified in the hazard analysis, the receiving facility must establish and implement specific supplier approval and verification activities. Where a hazard requiring a supply-chain-applied control is identified and the control is applied by an entity other than the receiving facility’s supplier, the receiving facility is responsible for verifying implementation of the control.",
+   "brcgs_ref": "3.5.1.1",
+   "regulation": "21 CFR 117.405"
+  },
+  {
+   "key": "13.1.27",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Determining appropriate supplier verification activities (21 CFR 117.415)",
+   "optional_module": "13",
+   "requirement": "The site must determine and conduct appropriate supplier verification activities as part of the supplier approval process. This must include identification of supplier verification activities that may not be accepted.",
+   "brcgs_ref": "3.5.1",
+   "regulation": "21 CFR 117.415"
+  },
+  {
+   "key": "13.1.28",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Annual onsite audit of suppliers controlling serious health hazards (21 CFR 117.430)",
+   "optional_module": "13",
+   "requirement": "When a hazard in a raw material or other ingredient is controlled by the supplier and is one for which there is a reasonable probability that exposure to the hazard will result in serious adverse health consequences or death to humans, an onsite audit of the supplier is required before using the raw material and at least annually thereafter.",
+   "brcgs_ref": "3.5.1.1, 3.5.1.2",
+   "regulation": "21 CFR 117.430"
+  },
+  {
+   "key": "13.1.29",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "No financial conflicts of interest in supplier verification (21 CFR 117.430)",
+   "optional_module": "13",
+   "requirement": "Sites shall not engage in any financial conflicts of interests that influence the results of the verification activities for raw materials and other ingredients. The payment must not be related to the results of the activity.",
+   "brcgs_ref": "NO EQUIVALENT OR RELATED CLAUSE",
+   "regulation": "21 CFR 117.430"
+  },
+  {
+   "key": "13.1.30",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Documented supplier approval before receiving raw materials (21 CFR 117.420)",
+   "optional_module": "13",
+   "requirement": "Supplier approval must be documented before receiving and using raw materials and ingredients. Verification activities must be conducted before receiving and using raw materials and ingredients on a temporary basis from unapproved suppliers.",
+   "brcgs_ref": "3.5.1 S.O.I, 3.5.2.1, 3.5.1.7",
+   "regulation": "21 CFR 117.420"
+  },
+  {
+   "key": "13.1.31",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Supplier verification before use and at an adequate frequency thereafter (21 CFR 117.430)",
+   "optional_module": "13",
+   "requirement": "One or more supplier verification activities (as defined in 21 CFR § 117.410(b)) must be conducted for each supplier before using raw materials and ingredients and periodically thereafter at an adequate frequency.",
+   "brcgs_ref": "3.5.1.2, 3.5.2.1",
+   "regulation": "21 CFR 117.430"
+  },
+  {
+   "key": "13.1.32",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "Qualified auditor and scope of onsite supplier audits (21 CFR 117.435)",
+   "optional_module": "13",
+   "requirement": "Where an onsite audit is required as a supplier verification activity, the audit must be conducted by a qualified auditor, consider all applicable FDA food safety regulations and include a review of the supplier’s written plan and its implementation.",
+   "brcgs_ref": "3.5.1.2",
+   "regulation": "21 CFR 117.435"
+  },
+  {
+   "key": "13.1.33",
+   "box": "FSMAF91",
+   "source": "module13",
+   "title": "PCQI review of supply-chain program records (21 CFR 117.475)",
+   "optional_module": "13",
+   "requirement": "Review of records as applicable to a sites supply-chain program must be reviewed within a reasonable timeframe by (or under the oversight of) a preventive controls qualified individual, to ensure that the records are complete, the activities reflected in the records occurred in accordance with the food safety plan, the preventive controls are effective, and appropriate decisions were made about corrective action.",
+   "brcgs_ref": "2.1-2.13, 3.5.1.3",
+   "regulation": "21 CFR 117.475"
+  },
+  {
+   "key": "13.2.1",
+   "box": "FSMAF92",
+   "source": "module13",
+   "title": "Animal food rule: identification and labelling of by-products for animal food (21 CFR 507.28)",
+   "optional_module": "13",
+   "requirement": "Human food by-products for distribution as animal food must be held under conditions that will protect against contamination, including the following: • During holding, human food by-products for use as animal food must be accurately identified. • Labelling that identifies the product by the common or usual name must be affixed to or accompany the human food by-products for use as animal food when distributed. • Before distribution shipping containers (e.g. , totes, drums, and tubs) and bulk vehicles used must be examined before use to protect against the contamination of animal food from the container or vehicle. This should happen when the facility itself is responsible for transporting the by-products or by any third party used in transportation. Containers and equipment used to convey or hold human food by-products for use as animal food before distribution must be designed, constructed of appropriate material, and cleaned as necessary, and maintained to protect against the contamination of human food by-products for use as animal food. Human food by-products for use as animal food held for distribution must be held in a way to protect against contamination from sources such as trash",
+   "brcgs_ref": "4.13.3",
+   "regulation": "21 CFR 507.28"
+  },
+  {
+   "key": "13.3.1",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Qualified individuals for the food defence plan (21 CFR 121.4)",
+   "optional_module": "13",
+   "requirement": "A qualified individual is responsible for developing the site’s food defence plan, conducting a vulnerability assessment, identifying mitigation strategies, and conducting a reanalysis of the plan. The qualified individual responsible for developing the food defence plan shall be identified on the site’s organisational chart. One or more qualified individuals shall be responsible for implementing mitigation strategies at actionable process steps. Qualified individuals undertaking activities related to the preparation of the food defence plan, conducting the vulnerability assessment, identifying mitigation strategies, and performing the plan reanalysis must have successfully completed training for the specific function at least equivalent to that received under a standardised curriculum recognised as adequate by FDA or be otherwise qualified through job experience to conduct the activities. Responsibility for ensuring compliance with food defence requirements must be clearly assigned to supervisory personnel who have the education, training, and experience necessary to supervise the activities.",
+   "brcgs_ref": "4.2.1",
+   "regulation": "21 CFR 121.4"
+  },
+  {
+   "key": "13.3.2",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Written food defence plan and its required elements (21 CFR 121.126)",
+   "optional_module": "13",
+   "requirement": "The site shall have a written food defence plan, which includes the following: • a vulnerability assessment identifying significant vulnerabilities and actionable process steps • appropriate mitigation strategies to reduce the vulnerability • procedures for food defence monitoring, corrective action, and verification.",
+   "brcgs_ref": "4.2.1-4.2.4",
+   "regulation": "21 CFR 121.126"
+  },
+  {
+   "key": "13.3.3",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Vulnerability assessment for each food type (21 CFR 121.130)",
+   "optional_module": "13",
+   "requirement": "A written vulnerability assessment shall be prepared for each food type manufactured, processed, packed, or held, which evaluates the following key criteria (at a minimum): • scale and severity of potential public health impact if a contaminate were added to a product • degree of physical access to the product • ability of an attacker to successfully contaminate product – including consideration of an inside attacker. A vulnerability assessment shall be documented for each food type regardless of the outcome and provide justification as to why each point, step or procedure in the operation was or was not identified as an actionable process step.",
+   "brcgs_ref": "4.2.2, 4.2.3",
+   "regulation": "21 CFR 121.130"
+  },
+  {
+   "key": "13.3.4",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Mitigation strategies for each actionable process step (21 CFR 121.135)",
+   "optional_module": "13",
+   "requirement": "Written mitigation strategies shall be established and implemented for each actionable process step identified in the vulnerability assessment. Justification shall be documented explaining how the strategy significantly minimises or prevents the vulnerability.",
+   "brcgs_ref": "4.2.2, 4.2.3, 4.2.4, 4.16.5",
+   "regulation": "21 CFR 121.135"
+  },
+  {
+   "key": "13.3.5",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Food defence monitoring procedures and records (21 CFR 121.140)",
+   "optional_module": "13",
+   "requirement": "Written monitoring procedures shall be established and implemented to include the activity and frequency for monitoring food defence mitigation strategies being adequate to provide assurance. Procedures shall include recordkeeping requirements for all monitoring activities.",
+   "brcgs_ref": "4.2.3",
+   "regulation": "21 CFR 121.140"
+  },
+  {
+   "key": "13.3.6",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Food defence corrective action procedures (21 CFR 121.145)",
+   "optional_module": "13",
+   "requirement": "Written corrective action procedures shall be established and implemented when mitigation strategies are not properly implemented. The procedure shall include the following criteria: • method for identifying and correcting a lack of implementation • method for reducing the likelihood of recurrence • recordkeeping requirements for corrective actions.",
+   "brcgs_ref": "3.7.1, 3.7.2",
+   "regulation": "21 CFR 121.145"
+  },
+  {
+   "key": "13.3.7",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Food defence verification procedures (21 CFR 121.150)",
+   "optional_module": "13",
+   "requirement": "Written verification procedures shall be established and implemented to ensure that food defence monitoring and corrective action are performed according to procedures. Verification procedures shall describe activities to verify implementation of mitigation strategies. Verification procedures shall include: • a review of monitoring and corrective action records within an appropriate timeframe (e.g. , 7 days) • other verification activities as appropriate (e.g. , internal audit) • method for verifying that reanalysis of the food defence plan was conducted • frequency for verification activities • recordkeeping requirements of all verification activities.",
+   "brcgs_ref": "3.4.1, 4.2.2, 4.2.3",
+   "regulation": "21 CFR 121.150"
+  },
+  {
+   "key": "13.3.8",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Reanalysis of the food defence plan every 3 years and upon change (21 CFR 121.157)",
+   "optional_module": "13",
+   "requirement": "A re-analysis of the entire food defence plan must be conducted at least once every 3 years. In addition, a re-analysis of the entire plan, or the applicable portion of the plan must be conducted: • when a significant change made in the activities conducted at the facility creates a potential for a new vulnerability or a significant increase in a previously identified vulnerability • when new information about potential vulnerabilities associated with the food operation or facility becomes known • whenever a site finds that a mitigation strategy, a combination of strategies, or the food defence plan is not properly implemented • whenever the FDA requires re-analysis to respond to new vulnerabilities, credible threats to the food supply, and developments in scientific understanding including, as appropriate, results from the Department of Homeland Security biological, chemical, radiological, or other terrorism risk assessment. Any re-analysis and the implementation of mitigation strategies needed to address vulnerabilities identified must be completed: • before any change in activities (including any change in mitigation strategy) at the site is operative • when necessary within 90-calendar days after production • within a reasonable timeframe, providing a written justification is prepared for a timeframe that exceeds 90 days after production of the applicable food first begins.",
+   "brcgs_ref": "4.2.2",
+   "regulation": "21 CFR 121.157"
+  },
+  {
+   "key": "13.3.9",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Content of records required under the food defence plan (21 CFR 121.305)",
+   "optional_module": "13",
+   "requirement": "All records required by 21 CFR § 121 must include: • date and time of activity being documented • signature/initials of individual performing activity or conducting record review • information to identify the facility (e.g. , name and location) • identity of the product and lot code where applicable. • actual values and observations obtained during food defence monitoring • performance of the activity documented and be created concurrently • detail as necessary to provide history of work performed Records shall be accurate, indelible and kept as original records or electronic records or genuine copies (e.g. photocopies, pictures, scanned copies, microfilm, microfiche, or other accurate reproductions of the original records).",
+   "brcgs_ref": "3.3.1, 4.2.2",
+   "regulation": "21 CFR 121.305"
+  },
+  {
+   "key": "13.3.10",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Owner sign-off of the food defence plan and its revisions (21 CFR 121.310)",
+   "optional_module": "13",
+   "requirement": "The owner, operator or agent in charge of the facility must sign and date the written food defence plan initially and then upon any changes following reanalysis.",
+   "brcgs_ref": "1.1.3, 4.2.2",
+   "regulation": "21 CFR 121.310"
+  },
+  {
+   "key": "13.3.11",
+   "box": "FSMAF93",
+   "source": "module13",
+   "title": "Retention and retrievability of food defence plan records (21 CFR 121.315)",
+   "optional_module": "13",
+   "requirement": "All documents and records relating to the food defence plan (i.e. , all records required by 21 CFR § 121) must be retained at the facility for 2 years after the record is created and shall be retained for a period of 2 years after its use is discontinued. Where records are stored offsite, they must be retrievable within 24 hours with the exception of the food defence plan, which must remain onsite. Records required by a facility during the 3-year period prior to the applicable calendar year to support its status as exempt as a very small business must be retained at the facility to support its status at the facility during the applicable calendar year. Where a facility is closed for a prolonged period, the food defence plan may be transferred to some other reasonably accessible location but must be returned to the facility within 24 hours for official review upon request.",
+   "brcgs_ref": "3.3.2, 4.2.2, 4.2.3, 4.2.4",
+   "regulation": "21 CFR 121.315"
+  },
+  {
+   "key": "13.4.1",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Sanitary design, cleaning and storage of vehicles and transport equipment (21 CFR 1.906)",
+   "optional_module": "13",
+   "requirement": "Vehicles and transportation equipment must be designed, maintained and stored in a sanitary condition appropriate for the intended use to prevent food from becoming unsafe during transportation. Where inspection reveals that vehicles or containers are not in a clean condition, they shall not be used. A documented procedure shall describe cleaning and storage practices of all vehicles and transportation equipment maintained by the site whether leased or owned and as appropriate for the intended use. The procedures shall be fully implemented. Cleaning activities shall be recorded.",
+   "brcgs_ref": "4.16.1- 4.16.6",
+   "regulation": "21 CFR 1.906"
+  },
+  {
+   "key": "13.4.2",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Sanitary transportation responsibilities in contracts with US partners (21 CFR 1.908(a))",
+   "optional_module": "13",
+   "requirement": "The site shall ensure that contracts with US shippers, receivers, loaders, and carriers specify their responsibility for compliance with FSMA’s Sanitary Transportation rule. Where the site acts as the shipper or receiver, it shall ensure compliance with the rule. Responsibilities shall ensure transportation operations are conducted in a manner to prevent food from becoming unsafe during transport and that responsibility for compliance with the regulation is assigned to competent supervisory personnel. For example by applying controls such as: • segregating or isolating, or using packaging to protect food from contamination by raw foods and non-food items in the same load • ensuring that food that requires temperature control for safety is transported under adequate temperature control • considering the type of food when establishing transport conditions and controls. Where the shipper, loader, receiver, or carrier becomes aware of an indication of a possible material failure of temperature control or other conditions that may render the food unsafe during transportation, the food shall not be sold or otherwise distributed.",
+   "brcgs_ref": "3.7, 3.8, 4.16.1, 4.16.5",
+   "regulation": "21 CFR 1.908(a)"
+  },
+  {
+   "key": "13.4.3",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Vehicle sanitary specifications and operating temperatures set by shipper (21 CFR 1.908(b))",
+   "optional_module": "13",
+   "requirement": "Where the site arranges transportation, it shall document sanitary design requirements and cleaning procedures of vehicles appropriate for the type of food to be transported. There shall be a documented operating temperature for the transportation operation which includes ensuring a previous cargo does not make the food unsafe and if necessary, the pre-cooling phase. and these shall be developed and implemented to ensure food is transported under adequate temperature control. These requirements shall be communicated to the loader and carrier. Where the site does not arrange transportation, the above provision shall be documented in the shipping service contract to ensure that the shipper documents sanitary specifications of vehicles for the loader and carrier, which are appropriate for the type of food.",
+   "brcgs_ref": "3.5.3.2",
+   "regulation": "21 CFR 1.908(b)"
+  },
+  {
+   "key": "13.4.4",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Loader responsibility for following shipper sanitary specifications (21 CFR 1.908(c))",
+   "optional_module": "13",
+   "requirement": "Contracts with loaders shall specify that the loader is responsible for following sanitary specifications provided by the shipper.",
+   "brcgs_ref": "3.5.3.2, 4.16.6",
+   "regulation": "21 CFR 1.908(c)"
+  },
+  {
+   "key": "13.4.5",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Assessment of temperature abuse on receipt of temperature-controlled food (21 CFR 1.908(d))",
+   "optional_module": "13",
+   "requirement": "Where the site receives temperature-controlled product immediately following transportation, it shall conduct an assessment to determine whether the food was subject to temperature abuse.",
+   "brcgs_ref": "3.5.2.1, 4.16.3",
+   "regulation": "21 CFR 1.908(d)"
+  },
+  {
+   "key": "13.4.6",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Carrier responsibilities for sanitary activities specified in contracts (21 CFR 1.908(e))",
+   "optional_module": "13",
+   "requirement": "Contracts with carriers shall specify that the carrier is responsible for the following sanitary activities where agreed in writing with shipper: • sanitary condition of the vehicles and transportation equipment • following the shipper’s sanitary specifications (including precooling requirements where applicable) • recording compliance with operating temperatures where critical to food safety procedures for the use of bulk vehicles, which include recording the previous cargo and the most recent cleaning activity for the shipper. • practices for cleaning, sanitising if necessary, and inspecting vehicles and transportation equipment.",
+   "brcgs_ref": "3.5.3.2, 4.16.2, 4.16.3, 4.16.6",
+   "regulation": "21 CFR 1.908(e)"
+  },
+  {
+   "key": "13.4.7",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Carrier training programme for transportation personnel (21 CFR 1.910)",
+   "optional_module": "13",
+   "requirement": "Contracts with carriers shall specify that the carrier implements a training program for all personnel engaged in transportation activities, upon hiring and thereafter, as necessary which covers: • awareness of potential food safety problems that may occur during food transportation • basic sanitary transportation practices to address those potential problems • the responsibilities of the carrier • date of training, type of training covered and the person(s) trained • specific training which is mandated by legal regulation.",
+   "brcgs_ref": "7.1.1, 7.1.6",
+   "regulation": "21 CFR 1.910"
+  },
+  {
+   "key": "13.4.8",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Retention of transportation operation and contract records (21 CFR 1.912(a–e))",
+   "optional_module": "13",
+   "requirement": "The site shall keep all records related to US transportation operations and transportation service contracts as original or electronic records for a minimum of 12 months beyond termination of the activity or contract or when the individual no longer performs the activity. Offsite records shall be retrievable within 24 hours.",
+   "brcgs_ref": "3.3.2, 3.5.3.2, 4.16.6, 7.1.6",
+   "regulation": "21 CFR 1.912(a–e)"
+  },
+  {
+   "key": "13.4.9",
+   "box": "FSMAF94",
+   "source": "module13",
+   "title": "Onsite vehicle sanitation records and availability to authorities (21 CFR 1.912(f–i))",
+   "optional_module": "13",
+   "requirement": "The recordkeeping policy shall ensure that all sanitary design requirements and cleaning procedures for vehicles are maintained onsite and all offsite records including original and electronic are retrievable within 24 hours. Shippers, receivers, loaders, and carriers must make all records required by this subpart available to a duly authorised individual promptly upon oral or written request.",
+   "brcgs_ref": "3.3.1, 3.3.2",
+   "regulation": "21 CFR 1.912(f–i)"
+  },
+  {
+   "key": "13.5.1",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Additional training for personnel handling produce or food contact surfaces (21 CFR 112.22(a))",
+   "optional_module": "13",
+   "requirement": "Personnel (permanent and temporary) who handle produce or touch food contact surfaces must receive additional training on the following: • principles of food hygiene and food safety • produce safety standards applicable to an individual’s job. The importance of health and personal hygiene for all personnel and visitors, including recognising symptoms of a health condition that is reasonably likely to result in contamination of covered produce or food contact surfaces with microorganisms of public health significance.",
+   "brcgs_ref": "7.1.1-7.16",
+   "regulation": "21 CFR 112.22(a)"
+  },
+  {
+   "key": "13.5.2",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Additional training for personnel conducting harvest activities (21 CFR 112.22(b))",
+   "optional_module": "13",
+   "requirement": "Personnel (permanent and temporary) who conduct harvest activities (including washing and cooling) must receive additional training on the following: • recognising produce contaminated with known or reasonably foreseeable hazards • inspecting harvest containers and equipment to ensure that they are clean, maintained, and do not contaminate produce with hazards • correcting problems with harvest containers or equipment.",
+   "brcgs_ref": "7.1.1-7.1.6",
+   "regulation": "21 CFR 112.22(b)"
+  },
+  {
+   "key": "13.5.3",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "FDA-recognised food safety training for supervisors (21 CFR 112.22(c))",
+   "optional_module": "13",
+   "requirement": "One or more supervisors or individuals responsible for the operation must have successfully completed food safety training equivalent to a standardised curriculum recognised by FDA.",
+   "brcgs_ref": "NO EQUIVALENT OR RELATED CLAUSE",
+   "regulation": "21 CFR 112.22(c)"
+  },
+  {
+   "key": "13.5.4",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Designated supervisor responsible for Produce Safety rule compliance (21 CFR 112.23)",
+   "optional_module": "13",
+   "requirement": "A supervisor shall be identified with responsibility for the operation and ensuring compliance with the Produce Safety rule. This individual shall be identified on the site’s organisational chart.",
+   "brcgs_ref": "1.2.1",
+   "regulation": "21 CFR 112.23"
+  },
+  {
+   "key": "13.5.5",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Preventing produce contamination after contact with animals (21 CFR 112.32)",
+   "optional_module": "13",
+   "requirement": "Personnel (permanent and temporary) shall avoid contact with animals or take measures such as handwashing and protective clothing to prevent contamination of produce and food contact surfaces following contact with worker animals.",
+   "brcgs_ref": "7.2.1, 7.2.2",
+   "regulation": "21 CFR 112.32"
+  },
+  {
+   "key": "13.5.6",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Maintenance and annual inspection of the agricultural water system (21 CFR 112.42)",
+   "optional_module": "13",
+   "requirement": "The water distribution system supplying agricultural water used for harvest, packing, holding – and associated equipment – shall be maintained, inspected at least annually, and equipment properly stored to prevent the system from being a source of contamination to produce and food contact surfaces. The system shall be inspected for conditions which could introduce known or foreseeable hazards into or onto produce. Where testing of the water source or a system inspection reveals contamination, deficiencies shall be corrected such as the repair of well caps or sanitary seals.",
+   "brcgs_ref": "4.5.1, 4.5.2, 4.7.1",
+   "regulation": "21 CFR 112.42"
+  },
+  {
+   "key": "13.5.7",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Treatment and monitoring of agricultural water to microbial criteria (21 CFR 112.43)",
+   "optional_module": "13",
+   "requirement": "Agricultural water treatment must be delivered and monitored at a frequency that ensures water is safe, of adequate sanitary quality, and meets the microbial quality criteria of no detectable generic Escherichia coli (E. coli) in 100 mL.",
+   "brcgs_ref": "4.5.1",
+   "regulation": "21 CFR 112.43"
+  },
+  {
+   "key": "13.5.8",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Microbial quality criterion of no detectable generic E. coli in water (21 CFR 112.44)",
+   "optional_module": "13",
+   "requirement": "Potable water quality standards used shall ensure the microbial quality criterion is met, which is no detectable generic E. coli in 100 mL. When using agricultural water during growing activities for covered produce (other than sprouts) using a direct water application method you must comply with 21 CFR 112.44(b).",
+   "brcgs_ref": "4.5.1",
+   "regulation": "21 CFR 112.44"
+  },
+  {
+   "key": "13.5.9",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Actions when agricultural water fails microbial quality criteria (21 CFR 112.45)",
+   "optional_module": "13",
+   "requirement": "Where agricultural water does not meet microbial quality criteria or is determined to be unsafe and not of adequate sanitary quality, water use must be discontinued along with treatment or other correction that re-establishes sanitary and microbial quality criteria. Where water treatment is not performed, reinspection of the entire affected agricultural water system shall be conducted followed by the identification of conditions leading to the introduction of hazards into or onto produce or food contact surfaces, and the correction, and verification of correction, to ensure water meets microbial quality criteria.",
+   "brcgs_ref": "3.7.1, 3.7.2",
+   "regulation": "21 CFR 112.45"
+  },
+  {
+   "key": "13.5.10",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Agricultural water testing by the site or third parties (21 CFR 112.47)",
+   "optional_module": "13",
+   "requirement": "Agricultural water testing may be performed by the site (or site representative) or by data collected by a third party or parties, provided the water source(s) sampled by the third party or parties adequately represent your agricultural water source(s) and all other applicable requirements of this part are met. Aseptic water sampling must be performed. The method of analysis for water testing is EPA ‘Method 1603: Escherichia coli (E. coli) in water by membrane filtration using modified membrane-thermotolerant Escherichia coli agar or equivalent method.",
+   "brcgs_ref": "4.5.1, 5.6.6",
+   "regulation": "21 CFR 112.47"
+  },
+  {
+   "key": "13.5.11",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Water management and change schedules during harvest, packing and holding (21 CFR 112.48)",
+   "optional_module": "13",
+   "requirement": "During harvest, packing, and holding operations (e.g. , hydrocooling, washing), water must be managed to maintain its safety and sanitary quality and to prevent contamination of produce. This includes establishing and following a water- change schedule for recirculated water. The quality of water used for harvest, packing, and holding activities must be visually monitored for organic build up (e.g. , soil, plant debris). The temperature of water used for harvest, packing, and holding activities as appropriate to the commodity and operation must be maintained and monitored to minimise the infiltration of pathogens into produce.",
+   "brcgs_ref": "8.1.4",
+   "regulation": "21 CFR 112.48"
+  },
+  {
+   "key": "13.5.12",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "No distribution of dropped produce (21 CFR 112.114)",
+   "optional_module": "13",
+   "requirement": "Dropped produce (i.e. , produce that comes in contact with the ground prior to harvest) where the produce would not normally touch the ground as a part of growing and harvest shall not be distributed.",
+   "brcgs_ref": "3.5.1.1, 3.5.2.1",
+   "regulation": "21 CFR 112.114"
+  },
+  {
+   "key": "13.5.13",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Control of sewage disposal and septic systems (21 CFR 112.131)",
+   "optional_module": "13",
+   "requirement": "Sewage disposal and septic systems shall be controlled and appropriate for the site to prevent the contamination of produce and food contact surfaces. All of the following requirements apply to sites for the control and disposal of sewage: • Sewage shall be disposed into an adequate sewage or septic system or through other adequate means. • Sewage and septic systems shall be maintained in a manner that prevents contamination of covered produce, food contact surfaces, areas used for a covered activity, agricultural water sources, and agricultural water distribution systems with known or reasonably foreseeable hazards. • Sewage and septic systems shall be managed and dispose of leakages or spills of human waste in a manner that prevents contamination of covered produce, and prevents or minimises contamination of food contact surfaces, areas used for a covered activity, agricultural water sources, or agricultural water distribution systems. • After a significant event (such as flooding or an earthquake) that could negatively impact a sewage or septic system, appropriate steps must be taken, to ensure that sewage and septic systems continue to operate in a manner that does not contaminate covered produce, food contact surfaces, areas used for a covered activity, agricultural water sources, or agricultural water distribution systems.",
+   "brcgs_ref": "4.4 SOI, 4.4.3, 4.12 SOI, 4.12.2",
+   "regulation": "21 CFR 112.131"
+  },
+  {
+   "key": "13.5.14",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Plumbing free of backflow and cross-connection between waste and potable (21 CFR 112.133)",
+   "optional_module": "13",
+   "requirement": "Plumbing shall not allow backflow or cross-connection between waste and potable water lines.",
+   "brcgs_ref": "4.4.3, 4.5.1, 4.5.2",
+   "regulation": "21 CFR 112.133"
+  },
+  {
+   "key": "13.5.15",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Review, signing and content of produce safety records (21 CFR 112.161)",
+   "optional_module": "13",
+   "requirement": "All produce safety-related records must be reviewed, dated, and signed within a reasonable timeframe after being made by the supervisor or responsible party to include the following: • name and location of farm • actual values and observations obtained during monitoring • an adequate description (such as the commodity name, or the specific variety or brand name of a commodity, and, when available, any lot number or other identifier) of covered produce applicable to the record • the location of a growing area (for example, a specific field) or other area (for example, a specific packing shed) applicable to the record • the date and time of the activity documented • recording at time of activity • legible results • date and signature of person performing the activity.",
+   "brcgs_ref": "3.3.1, 3.3.2",
+   "regulation": "21 CFR 112.161"
+  },
+  {
+   "key": "13.5.16",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Retention and retrievability of produce safety records (21 CFR 112.162, 112.163)",
+   "optional_module": "13",
+   "requirement": "All produce safety documents and records must be retained at the site for 2 years after the record is created. Where records are stored offsite, they must be retrievable within 24 hours. Electronic records are considered to be onsite if they are accessible from an onsite location. Records related to equipment or processes used by the site for analyses, sampling, or action plans shall be retained at the site for at least 2 years after their use is discontinued. This – includes the results of scientific studies, tests, and evaluations.",
+   "brcgs_ref": "3.3.2",
+   "regulation": "21 CFR 112.162, 112.163"
+  },
+  {
+   "key": "13.5.17",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Listeria environmental monitoring plan for sprouts (21 CFR 112.145)",
+   "optional_module": "13",
+   "requirement": "Specific additional requirements for the harvesting, packing, and holding of sprouts. Establish and implement a written environmental monitoring plan for the testing of Listeria spp. or Listeria monocytogenes. The environmental monitoring plan shall include the following criteria: • target test (i.e. , Listeria spp. or Listeria monocytogenes) • sample frequency (no less than monthly) • sample timing (i.e. , when in the process are samples collected) • sample sites where the number of samples and location are sufficient to determine the efficacy of controls (includes food contact and non-food contact surfaces). The plan shall describe aseptic methods for sample collection and testing according to FDA’s ‘Testing methodology for Listeria species or Listeria monocytogenes in environmental samples,’ Version 1, October 2015 (or equivalent). The documented environmental monitoring plan shall include a corrective action plan that, at a minimum, requires the site to take the actions, and record when and how the site will complete actions, if the growing, harvesting, packing, or holding environment tests positive for Listeria species or Listeria monocytogenes’.",
+   "brcgs_ref": "NO EQUIVALENT OR RELATED CLAUSE",
+   "regulation": "21 CFR 112.145"
+  },
+  {
+   "key": "13.5.18",
+   "box": "FSMAF95",
+   "source": "module13",
+   "title": "Corrective actions for positive Listeria samples in sprout operations (21 CFR 112.146)",
+   "optional_module": "13",
+   "requirement": "Specific additional requirements for the harvesting, packing, and holding of sprouts. The environmental monitoring plan shall include a corrective action plan if any samples are positive for Listeria spp. or Listeria monocytogenes. If Listeria spp. or Listeria monocytogenes are identified in the harvesting, packing, or holding area, the following activities shall occur as a part of the corrective action process: • prevent contaminated product from entering into commerce • resample positive surfaces and the surrounding area to determine the extent of contamination • clean and sanitise the affected and surrounding areas • resample and retest to confirm the elimination of Listeria spp. or Listeria monocytogenes • conduct finished product testing as appropriate • take additional action to prevent recurrence and to prevent adulterated food from entering commerce.",
+   "brcgs_ref": "NO EQUIVALENT OR RELATED CLAUSE",
+   "regulation": "21 CFR 112.146"
+  }
+ ],
+ "expanded_clauses": [
+  "3.5",
+  "4.9",
+  "4.10",
+  "5.6"
+ ],
+ "unmapped_clauses": [],
+ "optional_modules": {
+  "13": {
+   "title": "Module 13: Meeting FSMA Requirements for Food",
+   "short": "Modül 13 – FSMA",
+   "source": "BRCGS Food Safety Issue 9, Module 13: Meeting FSMA Requirements for Food (July 2022)",
+   "units": 72
+  }
+ }
+}
