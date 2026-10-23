@@ -50,6 +50,7 @@ import agfo_trlive as trlive  # noqa: E402
 import agfo_speech as speech  # noqa: E402  # 1.5: seslendirme
 import agfo_readaloud as readaloud  # noqa: E402  # 1.6: sesli oku
 import agfo_localtts as localtts  # noqa: E402  # 1.7: bu bilgisayardaki ses servisi
+import agfo_wordcraft as wcb  # noqa: E402  # 1.8: WordCraft belge duzenleyici koprusu
 
 
 def selftest(out_path: str) -> int:
@@ -144,6 +145,12 @@ def selftest(out_path: str) -> int:
         res['speech'] = res['speech'] and _ra.group_paragraphs(['a', '', 'b'], False) == [(0, 0), (2, 2)] and \
             [x['title'] for x in _sp.plan_sections('## A\n\n' + 'x. ' * 200 + '\n\n## B\n\n' + 'y. ' * 200)] == ['A', 'B']
         res['ok'] = res['ok'] and res['speech']
+        import agfo_wordcraft as _wc   # 1.8: WordCraft koprusu EXE'de
+        _info = {'selection': {'anchor': {'story': 'body', 'path': [0], 'off': 0}, 'focus': {'story': 'body', 'path': [0], 'off': 12}},
+                 'blocks': [{'index': 0, 'type': 'paragraph', 'style': 'Normal', 'text': 'Gıda güvenliği',
+                             'runs': [{'start': 0, 'end': 5, 'props': {'bold': True}}]}]}
+        res['wordcraft'] = _wc.selection_markdown(_info) == '**Gıda** güven' and _wc.windows_arch() in _wc.PORTABLE
+        res['ok'] = res['ok'] and res['wordcraft']
         pr2 = _p.PdfProject(pp)
         lays = pr2.layouts()
         tdata, _tst = pr2.translated_pdf(lays, ['Line one', 'Old text'][:sum(len(x['paras']) for x in lays)] or ['Line one'])
@@ -825,6 +832,7 @@ class App(tk.Tk):
         tk.Frame(f, bg='#2d4a6c', width=1, height=22).pack(side='left', padx=5)
         fb('image', '🖼 Resim', self.insert_image)
         fb('table', '▦ Tablo', self.insert_table)
+        self.wc_btn = self.btn(f, '📝 WordCraft ▾', self.wordcraft_menu, 'ghost', side='right', padx=8, pady=3)   # 1.8
         self.page_btn = self.btn(f, '📄 Sayfa görünümü', self.toggle_page_view, 'ghost', side='right', padx=8, pady=3)
         self.btn(f, '🌐 Belgeyi çevir', self.translate_document, 'ghost', side='right', padx=8, pady=3)
         self.fmt_hint = tk.Label(f, text='', fg=MUTED, bg=PANEL, font=('Segoe UI', 8))
@@ -1014,6 +1022,17 @@ class App(tk.Tk):
         self.lbl(sc, 'Kapsam:', muted=True).pack(side='left')
         ttk.Radiobutton(sc, text='Seçili metin (yoksa paragraf)', value='selection', variable=self.scope_var).pack(side='left', padx=6)
         ttk.Radiobutton(sc, text='Tüm belge', value='all', variable=self.scope_var).pack(side='left')
+        # 1.8: hedef belge: bu editordeki sekme ya da WordCraft penceresindeki belge
+        self.wc = None
+        self.wc_target = tk.StringVar(value='editor')
+        tg = tk.Frame(side, bg=PANEL)
+        tg.pack(fill='x', pady=(0, 4))
+        self.lbl(tg, 'Hedef:', muted=True).pack(side='left')
+        ttk.Radiobutton(tg, text='Bu editör', value='editor', variable=self.wc_target).pack(side='left', padx=6)
+        ttk.Radiobutton(tg, text='WordCraft', value='wordcraft', variable=self.wc_target,
+                        command=self._wc_target_chosen).pack(side='left')
+        self.wc_status = tk.StringVar(value='')
+        tk.Label(tg, textvariable=self.wc_status, fg=MUTED, bg=PANEL, font=('Segoe UI', 8)).pack(side='left', padx=8)
         self.ai_nb = ttk.Notebook(side, style='Panel.TNotebook')
         self.ai_nb.pack(fill='both', expand=True, pady=(4, 0))
         self._tab_content(self._ai_tab('İçerik'))
@@ -2864,6 +2883,8 @@ class App(tk.Tk):
             self.run_action(a)
 
     def run_action(self, action, options=None, translate_mode=None):
+        if self._wc_active() and action.get('mode') != 'chat':
+            return self.run_action_wordcraft(action, options, translate_mode)
         d = self.cur()
         if not d:
             if hasattr(self, 'pdf_views') and self.cur_pdf():
@@ -2916,6 +2937,201 @@ class App(tk.Tk):
             self.ai_var.set('Son işlem: %s · %s %s' % (action['label'], res.get('via', ''), ('· ' + res.get('model', '')) if res.get('model') else ''))
             self.review(d, ms, me, source, res, action, translate_mode, images=images)
         self._start_job('%s (%s)' % (action['label'], where), ai.run_with_fallback, done, backends, 'transform', source, action, options)
+
+    # ------------------------------------------------------------------ WordCraft (1.8)
+    def _wc_active(self):
+        return bool(getattr(self, 'wc', None)) and self.wc_target.get() == 'wordcraft'
+
+    def _wc_set_status(self, text):
+        self.wc_status.set(text)
+
+    def _wc_lost(self, err):
+        """WordCraft kapandiysa hedefi editore dondur; kullaniciyi bilgilendir."""
+        self.wc = None
+        self.wc_target.set('editor')
+        self._wc_set_status('')
+        self.flash('WordCraft bağlantısı koptu (%s). Hedef: bu editör.' % err, ms=9000)
+
+    def _wc_target_chosen(self):
+        if not self.wc:
+            self.wc_target.set('editor')
+            self._wc_ensure(lambda: self.wc_target.set('wordcraft'))
+
+    def wordcraft_menu(self):
+        m = tk.Menu(self, tearoff=0)
+        m.add_command(label='Bu belgeyi WordCraft\'ta aç', command=self.wc_open_current)
+        m.add_command(label='Yeni WordCraft belgesi', command=self.wc_new)
+        m.add_command(label='WordCraft\'ta dosya aç…', command=self.wc_open_file)
+        m.add_separator()
+        if self.wc:
+            m.add_command(label='AI hedefi: WordCraft', command=lambda: self.wc_target.set('wordcraft'))
+            m.add_command(label='AI hedefi: bu editör', command=lambda: self.wc_target.set('editor'))
+        m.add_command(label='WordCraft hakkında', command=self.wc_about)
+        x, y = self.wc_btn.winfo_rootx(), self.wc_btn.winfo_rooty() + self.wc_btn.winfo_height()
+        m.tk_popup(x, y)
+
+    def wc_about(self):
+        messagebox.showinfo('WordCraft', 'WordCraft %s, ArtCraft ekibinin açık kaynaklı (MIT / Apache-2.0) kelime işlemcisidir: '
+                            'şerit, stiller, tablolar, değişiklik izleme, yorumlar, içindekiler, dipnotlar, adres mektup birleştirme; '
+                            'DOCX, ODT, RTF, HTML, Markdown okur/yazar, PDF verir.\n\n'
+                            'AI Editor onu belge düzenleyici olarak açar. AI panelinde "Hedef: WordCraft" seçiliyken seçili metin oradan '
+                            'okunur, sonuç değişiklik izleme açık olarak oraya yazılır.\n\n'
+                            'Resmi, kod imzalı sürüm github.com/storytold/wordcraft adresinden SHA-256 doğrulamalı indirilir. '
+                            'WordCraft alfa aşamasındadır; önemli belgelerde yedek alın.' % wcb.WORDCRAFT_VERSION, parent=self)
+
+    def _wc_ensure(self, then):
+        """WordCraft acik degilse (gerekirse kurup) baslatir, sonra then() cagrilir."""
+        if self.wc:
+            client = self.wc
+
+            def check():
+                return client.alive()
+
+            def done(ok, alive):
+                if ok and alive:
+                    then()
+                else:
+                    self.wc = None
+                    self._wc_ensure(then)
+            self._start_job('WordCraft denetleniyor', check, done)
+            return
+        exe = wcb.installed_exe()
+        if not exe:
+            if not IS_WIN:
+                messagebox.showinfo('WordCraft', 'WordCraft kurulumu Windows içindir. Geliştirme için AGFO_WORDCRAFT_EXE '
+                                    'ortam değişkeniyle bir wordcraft yürütülebilir dosyası gösterin.', parent=self)
+                return
+            if not messagebox.askyesno('WordCraft kurulsun mu?',
+                                       'WordCraft %s (Word benzeri açık kaynaklı kelime işlemci) bu bilgisayara kurulacak.\n\n'
+                                       '• İndirme: yaklaşık 100 MB (+ Türkçe yazım sözlüğü 38 MB)\n'
+                                       '• Yer: %s\n• Yönetici izni gerekmez; dosyalar SHA-256 ile doğrulanır.\n\nDevam edilsin mi?'
+                                       % (wcb.WORDCRAFT_VERSION, wcb.install_root()), parent=self):
+                return
+
+        def work():
+            path = wcb.install() if not exe else exe
+            if IS_WIN and not wcb.dictionary_installed():
+                try:
+                    wcb.install_dictionary()
+                except wcb.WordCraftError:
+                    pass                                  # sozluk olmadan da calisir
+            client = wcb.launch(path)
+            client.setup()
+            return client
+
+        def done(ok, client):
+            if not ok:
+                messagebox.showerror('WordCraft', client, parent=self)
+                return
+            self.wc = client
+            self.wc_target.set('wordcraft')
+            self._wc_set_status('● bağlı')
+            self.flash('WordCraft açıldı. AI paneli artık WordCraft\'taki belgede çalışır (Hedef: WordCraft).', ms=9000)
+            then()
+        self._start_job('WordCraft hazırlanıyor' if exe else 'WordCraft indiriliyor (~140 MB)', work, done)
+
+    def _wc_job(self, label, fn, ok_msg=None):
+        client = self.wc
+
+        def work():
+            try:
+                return fn(client)
+            except wcb.WordCraftError as e:
+                raise ai.AIError(str(e))
+
+        def done(ok, res):
+            if not ok:
+                if 'bağlanılamadı' in res or 'kapatılmış' in res or 'anahtar' in res:
+                    self._wc_lost(res)
+                else:
+                    messagebox.showerror('WordCraft', res, parent=self)
+                return
+            if ok_msg:
+                self.flash(ok_msg, ms=9000)
+        self._start_job(label, work, done)
+
+    def _blocks_html(self, d):
+        return rdoc.blocks_to_html(d.text.get_blocks()) if d.rich else rdoc.blocks_to_html(
+            rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'), {}) or [rdoc.para()])
+
+    def wc_open_current(self):
+        d = self.cur()
+        if not d:
+            v = self.cur_pdf() if hasattr(self, 'pdf_views') else None
+            if v is not None and getattr(v, 'path', None):
+                messagebox.showinfo('WordCraft', 'PDF dosyaları WordCraft\'ta düzenlenemez; önce "Metin olarak aç" ile '
+                                    'belgeye çevirin.', parent=self)
+            return
+        path = d.path if d.path and not d.dirty and os.path.splitext(d.path)[1].lower() in ('.docx', '.odt', '.rtf', '.doc') else None
+        html = None if path else self._blocks_html(d)
+        name = d.title
+
+        def go():
+            if path:
+                self._wc_job('WordCraft: belge açılıyor', lambda c: c.open(path), 'WordCraft\'ta açıldı: %s' % os.path.basename(path))
+            else:
+                self._wc_job('WordCraft: belge aktarılıyor', lambda c: c.new_document(html),
+                             'WordCraft\'ta yeni belge olarak açıldı: %s (kaydetmek için WordCraft\'ta Dosya › Farklı kaydet)' % name)
+        self._wc_ensure(go)
+
+    def wc_new(self):
+        self._wc_ensure(lambda: self._wc_job('WordCraft: yeni belge', lambda c: c.new_document(), 'WordCraft\'ta yeni belge açıldı.'))
+
+    def wc_open_file(self):
+        path = filedialog.askopenfilename(parent=self, title='WordCraft\'ta aç', filetypes=[
+            ('Belgeler', '*.docx *.doc *.odt *.rtf *.html *.htm *.md *.txt'), ('Tüm dosyalar', '*.*')])
+        if not path:
+            return
+        self._wc_ensure(lambda: self._wc_job('WordCraft: belge açılıyor', lambda c: c.open(path),
+                                             'WordCraft\'ta açıldı: %s' % os.path.basename(path)))
+
+    def run_action_wordcraft(self, action, options=None, translate_mode=None):
+        """1.8: secimi WordCraft'tan alir, AI'ya gonderir, sonucu WordCraft'a (degisiklik izleme acik) yazar."""
+        options = dict(options or self._ai_options(), rich=True)
+        if action['key'] == 'custom' and not options.get('user_extra'):
+            messagebox.showinfo('Özel talimat', 'Önce "Ek talimat" kutusuna ne yapılmasını istediğinizi yazın.', parent=self)
+            return
+        client, backends = self.wc, self.backends()
+        scope = 'all' if self.scope_var.get() == 'all' else 'selection'
+        track = bool(self.settings.get('wordcraft_track', True))
+        mode = 'below' if translate_mode == 'below' else ('append' if action.get('mode') == 'append' else 'replace')
+
+        def work():
+            try:
+                cap = client.capture(scope)
+            except wcb.WordCraftError as e:
+                raise ai.AIError(str(e))
+            source = cap['markdown']
+            if not source.strip():
+                raise ai.AIError('WordCraft\'ta düzenlenecek metin yok. Bir bölüm seçin ya da "Tüm belge"yi işaretleyin.')
+            if len(source) > core.MAX_CHARS:
+                raise ai.AIError('Seçilen metin %d karakter; tek seferde en fazla %d karakter işlenir.' % (len(source), core.MAX_CHARS))
+            res = ai.run_with_fallback(backends, 'transform', source, action, options)
+            html = rdoc.blocks_to_html(rdoc.markdown_to_blocks(res['text'], {}) or [rdoc.para()])
+            try:
+                if translate_mode == 'newtab':
+                    client.new_document(html, turkish=False)
+                else:
+                    client.apply(cap, html, mode=mode, track=track)
+            except wcb.WordCraftError as e:
+                raise ai.AIError(str(e))
+            return dict(res, where=cap['where'])
+
+        def done(ok, res):
+            if not ok:
+                if 'bağlanılamadı' in res or 'kapatılmış' in res:
+                    self._wc_lost(res)
+                else:
+                    messagebox.showerror('Yapay zekâ · WordCraft', res, parent=self)
+                return
+            self.ai_var.set('Son işlem: %s · %s %s' % (action['label'], res.get('via', ''), ('· ' + res.get('model', '')) if res.get('model') else ''))
+            if translate_mode == 'newtab':
+                self.flash('Çeviri WordCraft\'ta yeni belge olarak açıldı.', ms=9000)
+            elif track:
+                self.flash('WordCraft\'a izlenen değişiklik olarak yazıldı (%s). İncele › Kabul et / Reddet.' % res.get('where', ''), ms=12000)
+            else:
+                self.flash('WordCraft\'a yazıldı (%s). Geri almak için WordCraft\'ta Ctrl+Z.' % res.get('where', ''), ms=12000)
+        self._start_job('%s · WordCraft' % action['label'], work, done)
 
     def _clear_marks(self, d, *marks):
         for m in marks:
@@ -3300,6 +3516,9 @@ class App(tk.Tk):
         document = ''
         d = self.cur()
         v = self.cur_pdf() if not d and hasattr(self, 'pdf_views') else None
+        wc_doc = self._wc_active() and (self.chat_ctx.get() or prompt)
+        if wc_doc:
+            d = v = None                                   # 1.8: belge WordCraft'tan, is parcaciginda okunur
         if d and (self.chat_ctx.get() or prompt):
             try:
                 s0, e0 = d.text.index('sel.first'), d.text.index('sel.last')
@@ -3329,6 +3548,19 @@ class App(tk.Tk):
                 return
             self.chat_messages.append({'role': 'assistant', 'content': res['text']})
             self._chat_append('AI · %s' % (res.get('model') or res.get('via', '')), res['text'], 'a')
+        if wc_doc:
+            client, scope = self.wc, ('all' if self.scope_var.get() == 'all' else 'selection')
+
+            def wc_chat(backends):
+                try:
+                    cap = client.capture(scope) if scope == 'selection' else {'markdown': client.document_markdown()}
+                    if scope == 'selection' and not (cap.get('text') or '').strip():
+                        cap = {'markdown': client.document_markdown()}
+                except wcb.WordCraftError as e:
+                    raise ai.AIError(str(e))
+                return ai.run_with_fallback(backends, 'chat', msgs, (cap.get('markdown') or '')[:core.MAX_CHARS])
+            self._start_job((label or 'Sohbet') + ' · WordCraft', wc_chat, done, self.backends())
+            return
         self._start_job(label or 'Sohbet', ai.run_with_fallback, done, self.backends(), 'chat', msgs, document[:core.MAX_CHARS])
 
     def pdf_context_text(self, v):
@@ -3817,6 +4049,17 @@ class SettingsDialog(tk.Toplevel):
                 muted=True).pack(anchor='w', pady=8)
         app.btn(u, 'Şimdi denetle', lambda: app.check_update(silent=False), 'normal', side=None).pack(anchor='w')
 
+        w = ttk.Frame(nb, padding=14)                       # 1.8
+        nb.add(w, text='WordCraft')
+        self.wc_track = tk.BooleanVar(value=s.get('wordcraft_track', True))
+        ttk.Checkbutton(w, text='AI değişikliklerini WordCraft\'ta izlenen değişiklik olarak uygula (İncele › Kabul et / Reddet)',
+                        variable=self.wc_track).pack(anchor='w')
+        inst = wcb.installed_exe()
+        app.lbl(w, 'WordCraft %s · github.com/storytold/wordcraft (MIT / Apache-2.0, ArtCraft ekibi)\n%s\n'
+                   'Türkçe yazım sözlüğü: %s' % (wcb.WORDCRAFT_VERSION, ('Kurulu: %s' % inst) if inst else 'Kurulu değil; ilk kullanımda indirilir.',
+                                                'kurulu' if wcb.dictionary_installed() else 'kurulu değil'),
+                muted=True).pack(anchor='w', pady=8)
+
         b = tk.Frame(self, bg=PANEL, padx=12, pady=10)
         b.pack(fill='x')
         app.btn(b, 'Kaydet', self.save, 'primary', side='right')
@@ -3938,6 +4181,7 @@ class SettingsDialog(tk.Toplevel):
             pass
         s['wrap'] = bool(self.wrap.get())
         s['auto_update'] = bool(self.auto_upd.get())
+        s['wordcraft_track'] = bool(self.wc_track.get())
         core.save_settings(s)
         for d in self.app.docs:
             d.text.configure(font=self.app._editor_font(), wrap='word' if s['wrap'] else 'none')
