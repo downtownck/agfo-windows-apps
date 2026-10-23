@@ -81,9 +81,21 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(imp['title'], 'Gürsa Oluklu PM Audit Report')
         got = {s['clause']: s['value'] for s in imp['sections'] if s['value']}
         want = {s['clause']: s['value'] for s in pr['sections'][:10]}
-        self.assertEqual({k: got.get(k) for k in want}, want)
+        # 2.2.1: NC'nin ait oldugu bolumun sonunda 'Minor NC Ref. ...' satiri var, digerlerine bir sey eklenmez
+        from agfo_brcgs import findings as F
+        for k, v in want.items():
+            self.assertTrue(got[k].startswith(v), k)
+            tail = got[k][len(v):].strip()
+            self.assertEqual(tail, 'Minor NC Ref. 3.1.1: Kayıt eksik' if F.section_for_clause(pr['sections'], '3.1.1') == k else '')
         # sablonun kendi on-dolu kutulari (P703 bolum 7: 'Not applicable') okunur, uydurma metin eklenmez
-        self.assertEqual({v for k, v in got.items() if k not in want}, {'Not applicable'})
+        # NC'nin ait oldugu bolum bossa da NC satiri yazilir
+        self.assertEqual({v for k, v in got.items() if k not in want}, {'Not applicable', 'Minor NC Ref. 3.1.1: Kayıt eksik'})
+        # ikinci disa aktarim kapanis satirlarini cogaltmaz
+        imp = self.st.save(imp)
+        out2 = pathlib.Path(self.tmp) / 'out2.docx'
+        self.st.export_docx(imp['id'], str(out2))
+        again = {s['clause']: s['value'] for s in self.st.import_docx(str(out2))['sections'] if s['value']}
+        self.assertEqual({k: again[k] for k in want}, {k: got[k] for k in want})
         self.assertEqual(imp['meta']['na_clauses'], [{'clause_ref': '4.9', 'justification': 'Yok'}])
         self.assertEqual(imp['meta']['action_plan']['items'][0]['nc_text'], 'Kayıt eksik')
 
@@ -97,6 +109,9 @@ class StoreTests(unittest.TestCase):
         chk = S.export_check(pr)
         self.assertEqual(chk['units_filled'], 1)
         self.assertEqual(chk['units_total'], len(B.sections_for_profile('fs')))
+        # siradan 'uygunsuzluk' gecen cumle NC sayilmaz (2.2.1)
+        pr['sections'][4]['value'] = 'İç denetimlerde toplam üç uygunsuzluk ve iki gözlem kaydedilmiştir.'
+        self.assertEqual(len(S.scan_action_plan(pr)), 1)
 
 
 if __name__ == '__main__':

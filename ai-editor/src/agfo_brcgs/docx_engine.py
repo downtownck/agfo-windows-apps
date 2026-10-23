@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import datetime
+import functools
 import io
 import re
 import zipfile
@@ -66,8 +67,16 @@ def sdt_text(sdt) -> str:
     if content is None:
         return ''
     out = []
-    for el in content.iter(w('t'), w('br')):
-        out.append('\n' if el.tag == w('br') else (el.text or ''))
+    first_p = True
+    for el in content.iter(w('p'), w('t'), w('br')):
+        if el.tag == w('p'):
+            # 2.2.1: kutu icindeki her paragraf yeni satir; Word'de yazilmis raporlarda paragraflar bitisik okunuyordu
+            # ("...organisation chart.There is a ...")
+            if not first_p:
+                out.append('\n')
+            first_p = False
+        else:
+            out.append('\n' if el.tag == w('br') else (el.text or ''))
     return ''.join(out).strip()
 
 
@@ -220,9 +229,40 @@ def inside_table_editor(node) -> bool:
     return False
 
 
-def inside_nc_summary_table(node) -> bool:
+@functools.lru_cache(maxsize=None)
+def _nc_table_index(profile):
+    """Bundled resmi sablonda NC / eylem plani / NA ozet tablolarinin belge sirasindaki konumlari: (tablo sayisi, konumlar)."""
+    t = DocxTemplate(data.template_path(profile))
+    tbls = list(t.document.iter(w('tbl')))
+    return len(tbls), frozenset(i for i, x in enumerate(tbls) if is_official_nc_or_action_table(x))
+
+
+def nc_table_set(tpl):
+    """Bu belgede NC ozet tablosu sayilan tablolar. Karar ICERIGE gore degil yapiya gore verilir: denetci metninde
+    'root cause analysis' gecince detayli rapor tablosu NC tablosu sanilip sonraki kutular yazilmiyordu (2.2.1).
+    Profil biliniyor ve tablo sayisi tutuyorsa bundled sablondaki konumlar, yoksa ilk cagridaki (yazmadan onceki) hal."""
+    if getattr(tpl, '_nc', None) is None:
+        tbls = list(tpl.document.iter(w('tbl')))
+        idx = None
+        if getattr(tpl, 'profile', None):
+            try:
+                idx = _nc_table_index(tpl.profile)
+            except (OSError, KeyError):
+                idx = None
+        if idx and idx[0] == len(tbls):
+            tpl._nc = [x for i, x in enumerate(tbls) if i in idx[1]]
+        else:
+            tpl._nc = [x for x in tbls if is_official_nc_or_action_table(x)]
+    return tpl._nc
+
+
+def inside_nc_summary_table(node, tpl=None) -> bool:
     tbl = ancestor(node, 'tbl')
-    return tbl is not None and is_official_nc_or_action_table(tbl)
+    if tbl is None:
+        return False
+    if tpl is not None:
+        return any(tbl is x for x in nc_table_set(tpl))
+    return is_official_nc_or_action_table(tbl)
 
 
 def cell_label(sdt) -> str:
@@ -526,6 +566,8 @@ class DocxTemplate:
             if PARTS_RX.match(name):
                 self.trees[name] = etree.fromstring(self.zip.read(name), parser)
         self.changed = set()
+        self.profile = None             # bilindiginde NC tablolari bundled sablondan belirlenir (nc_table_set)
+        self._nc = None
 
     @property
     def document(self):
@@ -536,8 +578,10 @@ class DocxTemplate:
         return [(n, self.trees[n]) for n in names if n in self.trees]
 
     def all_sdts(self):
+        # 2.2.1: liste once alinir. Yazicilar dolasirken agaci degistirir; lxml'in canli iter()'i degistirilen kutudan
+        # sonra ayni tablodaki kutulari atliyordu (gercek FS raporunda 3.7'den sonra 3.8-3.11 bos yaziliyordu).
         for name, root in self.parts():
-            for sdt in root.iter(w('sdt')):
+            for sdt in list(root.iter(w('sdt'))):
                 yield name, sdt
 
     def save(self, path=None) -> bytes:
@@ -597,6 +641,7 @@ def scan_fields(tpl: DocxTemplate, profile):
     Donus: [{'key','tag','alias','kind','items','label','group','occurrence','date_format','value'}] belge sirasiyla.
     key = etiket (yoksa ad); ayni etiket birden cok kez geciyorsa occurrence 0,1,2..."""
     p = data.norm_profile(profile)
+    tpl.profile = tpl.profile or p
     skip = B.detail_tags(p) | B.na_tags(p)
     labels = label_tags(p)
     seen = {}
@@ -606,7 +651,7 @@ def scan_fields(tpl: DocxTemplate, profile):
         key = pr['tag'] or pr['alias']
         if not key or pr['tag'] in skip or pr['kind'] in ('docPartObj', 'picture', 'group'):
             continue
-        if is_container_sdt(sdt) or inside_nc_summary_table(sdt) or inside_table_editor(sdt) or pr['tag'] in labels:
+        if is_container_sdt(sdt) or inside_nc_summary_table(sdt, tpl) or inside_table_editor(sdt) or pr['tag'] in labels:
             continue
         n = seen.get(key, 0)
         seen[key] = n + 1
@@ -635,6 +680,7 @@ def write_fields(tpl: DocxTemplate, values, profile):
     """Yaprak alanlari yazar. values[key] str ya da (yinelenen etiket icin) list olabilir.
     Tek metin cok satirliysa ve etiket yineleniyorsa satirlar sirayla dagitilir."""
     p = data.norm_profile(profile)
+    tpl.profile = tpl.profile or p
     skip = B.detail_tags(p) | B.na_tags(p)
     labels = label_tags(p)
     occ = {}
@@ -645,7 +691,7 @@ def write_fields(tpl: DocxTemplate, values, profile):
         key = pr['tag'] or pr['alias']
         if not key or pr['tag'] in skip:
             continue
-        if is_container_sdt(sdt) or inside_nc_summary_table(sdt) or pr['tag'] in labels:
+        if is_container_sdt(sdt) or inside_nc_summary_table(sdt, tpl) or pr['tag'] in labels:
             continue
         leaves.append((name, sdt, pr, key))
         totals[key] = totals.get(key, 0) + 1
@@ -690,6 +736,14 @@ PLAIN_KEYS = {'companyname': 'OWNERCOMPANY', 'sitename': 'SITE_NAME', 'siteaddre
               'certifiedsiteaddress': 'CERTIFIED_SITE_ADDRESS', 'address': 'ADDRESS', 'country': 'COUNTRY'}
 
 
+@functools.lru_cache(maxsize=None)
+def field_keys(profile):
+    """Resmi sablondaki form alani anahtarlari (icerik denetimi + etiketli hucre)."""
+    from . import data as _data
+    tpl = DocxTemplate(_data.template_path(profile))
+    return frozenset([f['key'] for f in scan_fields(tpl, profile)] + [f['key'] for f in plain_fields(tpl)])
+
+
 def plain_fields(tpl: DocxTemplate):
     """Icerik denetimi olmayan etiketli hucreler (CP/AB/SD 'Company name', 'Site name', 'Address', 'Country' ...) form alani
     olarak: scan_fields ile ayni sozluk bicimi, kind='plain'. Yazma _write_plain_labeled_cells ile, okuma read_report ile yapilir."""
@@ -716,7 +770,7 @@ def plain_labeled_cells(tpl: DocxTemplate):
     # yanindaki hucre bir deger yuvasi degil, 'Site code' etiketidir
     has_control = {sdt_props(s)['tag'] for _n, s in tpl.all_sdts()}
     for row in tpl.document.iter(w('tr')):
-        if inside_nc_summary_table(row):
+        if inside_nc_summary_table(row, tpl):
             continue
         cells = row_cells(row)
         for i in range(len(cells) - 1):
@@ -760,7 +814,7 @@ def write_boxes(tpl: DocxTemplate, rows):
         v = by_tag.get(tag, upper.get(tag.upper()))
         if v is None:
             continue
-        if is_container_sdt(sdt) or inside_nc_summary_table(sdt):
+        if is_container_sdt(sdt) or inside_nc_summary_table(sdt, tpl):
             continue
         if replace_sdt_text(sdt, v):
             tpl.changed.add(name)
@@ -969,7 +1023,7 @@ def generic_tables(tpl: DocxTemplate):
     Anahtar = tabloyu saran denetimin etiketi ya da baslik denetimlerinin ilk etiketi; sablondan turetilir."""
     out, seen = [], set()
     for tbl in tpl.document.iter(w('tbl')):
-        if official_table_type(tbl) or action_plan_table_type(tbl) or critical_table(tbl) or is_official_nc_or_action_table(tbl):
+        if official_table_type(tbl) or action_plan_table_type(tbl) or critical_table(tbl) or any(tbl is x for x in nc_table_set(tpl)):
             continue
         rows = direct_rows(tbl)
         for i, r in enumerate(rows):
@@ -1272,6 +1326,8 @@ def write_report(project, out_path=None, template=None):
     project: {'profile', 'values', 'sections', 'na_clauses', 'action_plan': {'items': [...]}, 'report_tables': {...}}"""
     p = data.norm_profile(project.get('profile'))
     tpl = DocxTemplate(template or data.template_path(p))
+    tpl.profile = p
+    nc_table_set(tpl)                   # yazmadan once sabitlenir
     merged = B.merge_for_export(p, project.get('sections') or [])
     na_rows = B.na_rows_for_export(p, project.get('na_clauses') or [])
     stats = {'fields': write_fields(tpl, project.get('values') or {}, p),
@@ -1304,6 +1360,7 @@ def read_report(path_or_bytes, filename=''):
     """Dolu (ya da bos) resmi raporu okur: {'profile','values','sections','na_clauses','report_tables','action_plan'}."""
     tpl = DocxTemplate(path_or_bytes)
     p = detect_profile(tpl, filename)
+    tpl.profile = p
     dtags, ntags = B.detail_tags(p), B.na_tags(p)
     values, detailed, na = {}, [], []
     fields = scan_fields(tpl, p)
@@ -1323,7 +1380,8 @@ def read_report(path_or_bytes, filename=''):
             if B.is_placeholder(v):
                 v = ''
             detailed.append({'tag': pr['tag'], 'value': v})
-        elif pr['tag'] in ntags and not pr['placeholder_showing']:
+        elif pr['tag'] in ntags and not pr['placeholder_showing'] and next(sdt.iter(w('tbl')), None) is None:
+            # tablo saran NA denetimi atlanir: o tablo asagida satir satir okunur (AB)
             for line in sdt_text(sdt).split('\n'):
                 line = line.strip()
                 if not line or B.is_placeholder(line):

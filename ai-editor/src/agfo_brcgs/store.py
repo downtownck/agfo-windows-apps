@@ -329,8 +329,12 @@ class Store:
 
     @staticmethod
     def export_payload(project):
+        """DOCX'e giden veri: bolum metinlerine NC/NA/kapanis satirlari eklenir, NC sayac alanlari NC listesinden turetilir."""
+        from . import docx_engine as E
+        from . import findings as F
         meta = project.get('meta') or {}
-        return {'profile': project['profile'], 'values': project.get('values') or {}, 'sections': project.get('sections') or [],
+        values = F.apply_count_fields(project.get('values') or {}, project, E.field_keys(project['profile']))
+        return {'profile': project['profile'], 'values': values, 'sections': F.export_sections(project),
                 'na_clauses': meta.get('na_clauses') or [], 'report_tables': meta.get('report_tables') or {},
                 'action_plan': meta.get('action_plan') or {}}
 
@@ -351,12 +355,14 @@ def export_check(project):
 
 
 def preview_text(project, field_labels=None):
-    lines = [str(project.get('title') or '').upper(), 'Profil: ' + project['profile'].upper()]
+    """Raporun duz metin hali (DOCX'e yazilacak bolum metinleriyle, kapanis cumleleri dahil)."""
+    from . import findings as F
+    lines = [str(project.get('title') or '').upper(), 'Standard: ' + data.PROFILE_LABELS.get(project['profile'], project['profile'])]
     if project.get('company'):
-        lines.append('Firma: ' + project['company'])
+        lines.append('Company: ' + project['company'])
     if project.get('site_code'):
-        lines.append('Site kodu: ' + project['site_code'])
-    lines += ['', '== GENEL RAPOR ALANLARI ==']
+        lines.append('Site code: ' + project['site_code'])
+    lines += ['', '== REPORT FIELDS ==']
     labels = field_labels or {}
     for key, value in (project.get('values') or {}).items():
         vals = value if isinstance(value, list) else [value]
@@ -365,10 +371,10 @@ def preview_text(project, field_labels=None):
             lines.append('%s: %s' % (labels.get(key, key), ', '.join(vals)))
     lines += ['', '== DETAILED REPORT ==']
     for row in project.get('sections') or []:
-        v = str(row.get('value') or '').strip()
-        lines += ['', '%s %s' % (row['clause'], row.get('title') or ''), v or '[boş]']
+        v = F.with_closing(project, row).strip()
+        lines += ['', '%s %s' % (row['clause'], row.get('title') or ''), v or '[empty]']
         if str(row.get('note') or '').strip():
-            lines.append('Kanıt notu: ' + str(row['note']).strip())
+            lines.append('Evidence notes (not exported): ' + str(row['note']).strip())
     meta = project.get('meta') or {}
     if meta.get('na_clauses'):
         lines += ['', '== NOT APPLICABLE CLAUSES ==']
@@ -376,10 +382,9 @@ def preview_text(project, field_labels=None):
             lines.append('%s - %s' % (str(na.get('clause_ref') or '').strip(), str(na.get('justification') or '').strip()))
     items = (meta.get('action_plan') or {}).get('items') or []
     if items:
-        lines += ['', '== NC ACTION PLAN ==']
+        lines += ['', '== NC ACTION PLAN ==  (' + F.count_text(F.counts(project), project['profile']) + ')']
         for it in items:
-            lines.append('%s [%s] %s' % (str(it.get('clause') or '').strip(), str(it.get('type') or '').strip(),
-                                         str(it.get('nc_text') or it.get('detail') or '').strip()))
+            lines.append('%s [%s] %s' % (str(it.get('clause') or '').strip(), F.TYPE_LABELS[F.nc_type(it)], F.nc_detail(it)))
     return '\n'.join(lines)
 
 
@@ -387,17 +392,10 @@ _NC_LINE = re.compile(r'\b(non[- ]?conformity|non[- ]?conformance|uygunsuzluk|\b
 
 
 def scan_action_plan(project):
-    """Bolum metinlerindeki NC satirlarini eylem planina toplar (repository.php scan_action_plan)."""
-    items = []
-    for row in project.get('sections') or []:
-        text = str(row.get('value') or '')
-        for line in re.split(r'\r\n|\r|\n', text):
-            line = line.strip()
-            if not line or not _NC_LINE.search(line):
-                continue
-            m = re.search(r'\b(fundamental|critical|major|minor)\b', line, re.I)
-            cm = re.search(r'\b(\d+(?:\.\d+)+)\b', line)
-            items.append({'clause': cm.group(1) if cm else row['clause'], 'type': m.group(1).lower() if m else 'minor',
-                          'nc_text': line, 'root_cause': '', 'correction': '', 'proposed_preventive_action': '',
-                          'date_reviewed': '', 'reviewed_by': '', 'source': 'scan'})
-    return items
+    """Bolum metinlerindeki 'Minor NC 2.2.2: ...' kaliplari (findings.NC_RX); projeyi degistirmez.
+    2.2.1'e kadar 'uygunsuzluk' gecen her satir NC sayiliyordu; gercek raporlarda siradan cumleler NC'ye donusuyordu."""
+    import copy as _copy
+    from . import findings as F
+    pr = _copy.deepcopy(project)
+    pr.setdefault('meta', {})['action_plan'] = {'items': []}
+    return F.scan(pr)['added']

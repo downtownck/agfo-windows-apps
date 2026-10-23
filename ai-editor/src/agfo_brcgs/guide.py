@@ -16,6 +16,7 @@ import re
 
 from . import coverage as cov
 from . import data
+from . import i18n
 
 GENERIC_GUIDE_RX = re.compile(r'^Bu bölüm için kılavuzda belirtilen', re.I)
 LEGACY_KEY = '_legacy'
@@ -83,6 +84,43 @@ def option_label(opt):
     return opt.get('label') if isinstance(opt, dict) else opt
 
 
+def label_of(fd):
+    """Ekranda gosterilen soru (Ingilizce)."""
+    return i18n.guide(fd.get('label') or fd.get('key') or '')
+
+
+def report_label_of(fd):
+    return i18n.guide(fd.get('report_label') or fd.get('label') or fd.get('key') or '')
+
+
+def display_value(fd, value):
+    """Secim kutusunda saklanan deger (Turkce veri) -> raporda/ekranda gorunen Ingilizce secenek."""
+    for o in fd.get('options') or []:
+        if str(option_value(o)) == str(value):
+            return i18n.guide(option_label(o))
+    return i18n.guide(value)
+
+
+def report_text(row):
+    """AI ile yazilmis ya da elle duzeltilmis Ingilizce rapor metni (varsa kutulardan kurulan metnin yerine gecer)."""
+    t = (row.get('flags') or {}).get('report_text')
+    return t if isinstance(t, str) and t.strip() else ''
+
+
+def set_report_text(profile, row, text):
+    """Rapor metnini elle/AI ile belirler; bos birakilirsa kutulardan kurulan metne doner."""
+    flags = row.setdefault('flags', {})
+    if str(text or '').strip():
+        flags['report_text'] = text
+        flags.pop('report_stale', None)
+        row['value'] = text
+    else:
+        flags.pop('report_text', None)
+        flags.pop('report_stale', None)
+        row['value'] = assemble_text(profile, row, struct_of(row)) if isinstance(flags.get('struct'), dict) else ''
+    return row['value']
+
+
 def assemble_text(profile, row, struct):
     """Rapor metni = dolu kutular kilavuz sirasiyla (varsa once onceki serbest metin)."""
     if not isinstance(struct, dict):
@@ -99,7 +137,7 @@ def assemble_text(profile, row, struct):
                 continue
             if fd.get('type') == 'select':
                 # yalniz "Evet"/"Uygulanamaz" raporda anlamsiz: sorusuyla birlikte yazilir
-                val = re.sub(r'[\s?:.]+$', '', str(fd.get('report_label') or fd.get('label') or '')) + ': ' + val
+                val = re.sub(r'[\s?:.]+$', '', report_label_of(fd)) + ': ' + display_value(fd, val)
             parts.append(val)
     else:
         for k, v in struct.items():
@@ -117,7 +155,12 @@ def set_answer(profile, row, key, value):
     struct = flags.get('struct') if isinstance(flags.get('struct'), dict) else struct_of(row)
     flags['struct'] = struct
     struct[key] = value
-    row['value'] = assemble_text(profile, row, struct)
+    if report_text(row):
+        # Ingilizce rapor metni korunur; kanit degisti, yeniden yazilmasi gerekebilir
+        flags['report_stale'] = True
+        row['value'] = flags['report_text']
+    else:
+        row['value'] = assemble_text(profile, row, struct)
     return row['value']
 
 

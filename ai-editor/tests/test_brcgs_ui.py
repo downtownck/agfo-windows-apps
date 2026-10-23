@@ -145,26 +145,62 @@ class BrcgsUiTests(unittest.TestCase):
         self.assertTrue(v2.save())
         self.assertIsNone(self.app.brcgs_store().get_draft(uid))
 
-    def test_ai_draft_moves_answers_to_note(self):
+    def test_ai_writes_english_report_text_directly(self):
         _ex, v = self._new('sd')
         v.show('sections')
         _i, row = v.current_row()
         from agfo_brcgs import guide as G
         k = G.form_for('sd', row['clause'])['fields'][0]['key']
         v._answer(row, k, 'Prosedür mevcut, 2025 revizyon')
+        v._sec_add_nc(row)
+        nc = v.project['meta']['action_plan']['items'][0]
+        nc['nc_text'] = 'Dağıtım listesi güncel değil'
         calls = []
 
         def fake(backends, fn, text, action, opts):
             calls.append((text, action['extra']))
-            return {'text': 'The site has a documented procedure (revision 2025).', 'via': 'T', 'provider': 'P', 'model': 'm'}
+            return {'text': 'The site has a documented procedure (revision 2025). Based on the records reviewed, document control was '
+                            'verified.\n=== NON-CONFORMITIES ===\n1. The distribution list was not up to date.',
+                    'via': 'T', 'provider': 'P', 'model': 'm'}
         with mock.patch.object(self.m.ai, 'run_with_fallback', fake), mock.patch.object(self.app, 'backends', return_value=[]):
             v.ai_draft(row)
-            self.assertTrue(self.pump(lambda: getattr(self.app, '_brcgs_ai_win', None) is not None, 300))
+            self.assertTrue(self.pump(lambda: G.report_text(row), 300))
         self.assertIn('Prosedür mevcut', calls[0][0])
-        self.assertIn('BRCGS', calls[0][1])
-        v.apply_ai_text(row, 'The site has a documented procedure (revision 2025).')
-        self.assertEqual(row['value'], 'The site has a documented procedure (revision 2025).')
-        self.assertIn('Prosedür mevcut, 2025 revizyon', row['note'])
+        self.assertIn('Dağıtım listesi güncel değil', calls[0][0])
+        self.assertIn('Do NOT write non-conformity', calls[0][1])
+        self.assertIn('apart from the non-conformity', calls[0][1])
+        self.assertTrue(row['value'].startswith('The site has a documented procedure'))
+        self.assertNotIn('NON-CONFORMITIES', row['value'])
+        self.assertEqual(nc['nc_text'], 'The distribution list was not up to date.')
+        self.assertEqual(nc['nc_text_original'], 'Dağıtım listesi güncel değil')
+        self.assertEqual(G.struct_of(row)[k], 'Prosedür mevcut, 2025 revizyon')           # kanit kutusu yerinde
+        from agfo_brcgs import findings as F
+        self.assertEqual(F.closing_lines(v.project, row), ['Minor NC Ref. %s: The distribution list was not up to date.' % row['clause']])
+        # kanit degisince Ingilizce metin korunur, uyari gorunur
+        v._answer(row, k, 'Prosedür mevcut, 2026 revizyon')
+        self.assertTrue(row['value'].startswith('The site has'))
+        self.assertIn('evidence changed', v._stale_lbl.cget('text'))
+
+    def test_section_na_nc_and_scan_counts(self):
+        _ex, v = self._new('cp')
+        v.show('sections')
+        _i, row = v.current_row()
+        v._sec_add_na(row)
+        v.project['meta']['na_clauses'][0]['justification'] = 'Not relevant'
+        v._sec_add_nc(row)
+        v.project['meta']['action_plan']['items'][0].update(type='major', nc_text='Policy not signed')
+        row2 = next(r for r in v.project['sections'] if r['clause'] == '2.2')
+        row2['value'] = 'Risk assessment reviewed. Minor NC Ref. 2.2.2: Misuse not covered.'
+        with mock.patch.object(__import__('agfo_brcgs_view').messagebox, 'showinfo') as info:
+            res = v.scan_findings()
+        msg = info.call_args[0][1]
+        self.assertIn('Critical 0 · Major 1 · Minor 1 · Fundamental 0 · NA 1', msg)
+        self.assertEqual(len(res['added']), 1)
+        v.show('g:Number of non-conformities')
+        payload = v.store.export_payload(v.project)
+        self.assertEqual((payload['values']['MAJOR'], payload['values']['MINOR']), ('1', '1'))
+        v.show('overview')
+        self.app.update()
 
     def test_excel_plan_fill_and_profile_mismatch(self):
         _ex, v = self._new('fs')
@@ -206,6 +242,21 @@ class BrcgsUiTests(unittest.TestCase):
         back = self.app.brcgs_store().import_docx(os.path.join(TMP, 'cp-x.docx'))
         self.assertIn('Excel yanıtı 0', {s['clause']: s['value'] for s in back['sections']}[keys[0][0]])
 
+    def test_explorer_side_tree_click_does_not_loop(self):
+        # 2.2.0: sol agacta bir ogeye tiklamak refresh -> secim geri yukleme -> <<TreeviewSelect>> -> refresh dongusune giriyordu
+        ex = self.app.open_brcgs()
+        ex.store.create('fs', values={'OWNERCOMPANY': 'Firma A'})
+        ex.refresh()
+        calls = []
+        orig = ex.refresh
+        ex.refresh = lambda: (calls.append(1), orig())
+        for iid in ('p_fs', 'all', 'c_0', 'trash', 'grp_std'):
+            del calls[:]
+            ex.tree_side.selection_set(iid)
+            self.pump(n=40)
+            self.assertLessEqual(len(calls), 1, iid)
+        self.assertEqual(ex.filter, ('all', None))
+
     def test_explorer_trash_rules(self):
         ex, v = self._new('ab')
         ex.refresh()
@@ -222,7 +273,7 @@ class BrcgsUiTests(unittest.TestCase):
         ex.tv.selection_set(v.uid)
         ex.delete_selected(confirm='hayır')
         self.assertEqual(len(ex.store.list('trash')), 1)
-        ex.delete_selected(confirm='sil')
+        ex.delete_selected(confirm='delete')
         self.assertEqual(ex.store.list('all'), [])
 
 
