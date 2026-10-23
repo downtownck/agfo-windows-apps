@@ -7,6 +7,11 @@ Belge = blok listesi:
   {'t': 'img', 'data': bytes, 'ext': 'png'|'jpeg'|'gif'|'bmp', 'w': pt, 'h': pt, 'align': ...}
   {'t': 'table', 'rows': [[runs, runs, ...], ...]}      (her hucre tek paragraf: run listesi)
 run = {'text': str, 'b': bool, 'i': bool, 'u': bool, 'color': 'RRGGBB'|None}
+  2.0 (yalniz kullanildiginda bulunur): 'font': aile, 'size': pt, 's': ustu cizili, 'va': 'sup'|'sub',
+  'hl': vurgu 'RRGGBB', 'href': baglanti adresi
+paragraf 2.0 (istege bagli): 'ls': satir araligi carpani, 'sb'/'sa': oncesi/sonrasi bosluk pt, 'ind': sol girinti pt,
+  'fi': ilk satir girintisi pt (eksi = asili)
+sayfa (belge duzeyi, DOCX sectPr + ust/alt bilgi): bkz. DEFAULT_PAGE
 
 Donusumler: DOCX <-> bloklar (bicim, liste, tablo, resim), Markdown <-> bloklar (AI'a giden/gelen metin,
 .md dosyalari), HTML -> Markdown (AI Manager yanitlari, .html dosyalari), bloklar -> HTML.
@@ -39,6 +44,22 @@ CONTENT_W_PT = PAGE_W_PT - 2 * MARGIN_PT
 STYLES = ('normal', 'h1', 'h2', 'h3', 'quote')
 STYLE_LABELS = {'normal': 'Normal metin', 'h1': 'Başlık 1', 'h2': 'Başlık 2', 'h3': 'Başlık 3', 'quote': 'Alıntı'}
 IMG_EXT = {'png': 'image/png', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'bmp': 'image/bmp'}
+RUN_EXTRA = ('font', 'size', 's', 'va', 'hl', 'href')          # 2.0
+PARA_EXTRA = ('ls', 'sb', 'sa', 'ind', 'fi')                    # 2.0
+PAGE_SIZES = {'A4': (595.3, 841.9), 'A5': (419.5, 595.3), 'Letter': (612.0, 792.0), 'Legal': (612.0, 1008.0)}
+PAGE_SIZE_LABELS = {'A4': 'A4 (21 × 29,7 cm)', 'A5': 'A5 (14,8 × 21 cm)', 'Letter': 'Letter (21,6 × 27,9 cm)',
+                    'Legal': 'Legal (21,6 × 35,6 cm)'}
+MARGIN_PRESETS = {'normal': (70.9, 70.9, 70.9, 70.9), 'narrow': (36.0, 36.0, 36.0, 36.0), 'wide': (72.0, 72.0, 144.0, 144.0),
+                  'moderate': (72.0, 72.0, 54.0, 54.0)}
+MARGIN_LABELS = {'normal': 'Normal (2,5 cm)', 'narrow': 'Dar (1,27 cm)', 'moderate': 'Orta (2,54 / 1,9 cm)', 'wide': 'Geniş (2,54 / 5,08 cm)'}
+DEFAULT_PAGE = {'size': 'A4', 'orient': 'portrait', 'margins': {'t': 70.9, 'b': 70.9, 'l': 70.9, 'r': 70.9},
+                'header': '', 'footer': '', 'pnum': None}
+# pnum: None | {'pos': 'footer'|'header', 'align': 'left'|'center'|'right', 'fmt': 'n'|'n_of_N'}
+HIGHLIGHTS = {'yellow': 'FFFF00', 'green': '00FF00', 'cyan': '00FFFF', 'magenta': 'FF00FF', 'blue': '0000FF', 'red': 'FF0000',
+              'darkBlue': '000080', 'darkCyan': '008080', 'darkGreen': '008000', 'darkMagenta': '800080', 'darkRed': '800000',
+              'darkYellow': '808000', 'darkGray': '808080', 'lightGray': 'C0C0C0', 'black': '000000'}
+HIGHLIGHT_BY_HEX = {v: k for k, v in HIGHLIGHTS.items()}
+LINE_SPACINGS = (1.0, 1.15, 1.5, 2.0, 2.5, 3.0)
 
 
 def w(tag):
@@ -46,14 +67,42 @@ def w(tag):
 
 
 # ----------------------------------------------------------------------------- yardimcilar
-def run(text, b=False, i=False, u=False, color=None):
-    return {'text': text, 'b': bool(b), 'i': bool(i), 'u': bool(u), 'color': color}
+def run(text, b=False, i=False, u=False, color=None, **extra):
+    r = {'text': text, 'b': bool(b), 'i': bool(i), 'u': bool(u), 'color': color}
+    for k in RUN_EXTRA:                       # 2.0: yalniz kullanilan ozellikler kayda girer
+        v = extra.get(k)
+        if v:
+            r[k] = v
+    return r
 
 
-def para(runs=None, style='normal', lst=None, level=0, align=None, pb=False, text=None):
+def run_extra(r):
+    return {k: r[k] for k in RUN_EXTRA if r.get(k)}
+
+
+def para(runs=None, style='normal', lst=None, level=0, align=None, pb=False, text=None, **extra):
     if text is not None:
         runs = [run(text)]
-    return {'t': 'p', 'style': style, 'list': lst, 'level': level, 'align': align, 'pb': pb, 'runs': runs or []}
+    p = {'t': 'p', 'style': style, 'list': lst, 'level': level, 'align': align, 'pb': pb, 'runs': runs or []}
+    for k in PARA_EXTRA:
+        v = extra.get(k)
+        if _para_extra_set(k, v):
+            p[k] = v
+    return p
+
+
+def _para_extra_set(k, v):
+    if v is None or v == '':
+        return False
+    return True if k in ('sb', 'sa') else bool(v)     # 0 pt oncesi/sonrasi bosluk anlamlidir
+
+
+def para_extra(b):
+    return {k: b[k] for k in PARA_EXTRA if _para_extra_set(k, b.get(k))}
+
+
+def _run_key(r):
+    return (r.get('b', False), r.get('i', False), r.get('u', False), r.get('color')) + tuple(r.get(k) or None for k in RUN_EXTRA)
 
 
 def merge_runs(runs):
@@ -62,12 +111,50 @@ def merge_runs(runs):
     for r in runs:
         if not r.get('text'):
             continue
-        key = (r.get('b', False), r.get('i', False), r.get('u', False), r.get('color'))
-        if out and (out[-1]['b'], out[-1]['i'], out[-1]['u'], out[-1]['color']) == key:
+        key = _run_key(r)
+        if out and _run_key(out[-1]) == key:
             out[-1]['text'] += r['text']
         else:
-            out.append(run(r['text'], *key))
+            out.append(run(r['text'], key[0], key[1], key[2], key[3], **run_extra(r)))
     return out
+
+
+def normalize_page(page):
+    """Eksik/bozuk sayfa ayarini varsayilanlarla tamamlar."""
+    out = {k: (dict(v) if isinstance(v, dict) else v) for k, v in DEFAULT_PAGE.items()}
+    if isinstance(page, dict):
+        if page.get('size') in PAGE_SIZES:
+            out['size'] = page['size']
+        if page.get('orient') in ('portrait', 'landscape'):
+            out['orient'] = page['orient']
+        m = page.get('margins')
+        if isinstance(m, dict):
+            for k in 't', 'b', 'l', 'r':
+                try:
+                    v = float(m.get(k, out['margins'][k]))
+                    out['margins'][k] = max(0.0, min(300.0, v))
+                except (TypeError, ValueError):
+                    pass
+        for k in 'header', 'footer':
+            if isinstance(page.get(k), str):
+                out[k] = page[k]
+        pn = page.get('pnum')
+        if isinstance(pn, dict) and pn.get('pos') in ('header', 'footer'):
+            out['pnum'] = {'pos': pn['pos'], 'align': pn.get('align') if pn.get('align') in ('left', 'center', 'right') else 'center',
+                           'fmt': 'n_of_N' if pn.get('fmt') == 'n_of_N' else 'n'}
+    return out
+
+
+def page_dims(page):
+    """(genislik, yukseklik) pt - yone gore."""
+    page = normalize_page(page)
+    w_, h_ = PAGE_SIZES[page['size']]
+    return (h_, w_) if page['orient'] == 'landscape' else (w_, h_)
+
+
+def content_width(page):
+    page = normalize_page(page)
+    return page_dims(page)[0] - page['margins']['l'] - page['margins']['r']
 
 
 def runs_text(runs):
@@ -162,12 +249,16 @@ def runs_to_md(runs):
         if not core_:
             out.append(t)
             continue
-        if r['u']:
+        if r['u'] and not r.get('href'):
             core_ = '<u>%s</u>' % core_
+        if r.get('s'):
+            core_ = '~~%s~~' % core_
         if r['i']:
             core_ = '*%s*' % core_
         if r['b']:
             core_ = '**%s**' % core_
+        if r.get('href'):
+            core_ = '[%s](%s)' % (core_, r['href'].replace(')', '%29').replace(' ', '%20'))
         out.append(' ' * lead + core_ + ' ' * trail)
     return ''.join(out)
 
@@ -222,9 +313,38 @@ def blocks_to_markdown(blocks, image_ids=None):
     return '\n'.join(lines)
 
 
+_MD_LINK = re.compile(r'\[((?:\\.|[^\]\\])+)\]\(((?:https?://|mailto:)[^)\s]+)\)')
+
+
 def md_inline(text, base=None):
-    """Satir ici Markdown (** * <u>) -> run listesi. Dengesiz isaretler duz metin kalir."""
+    """Satir ici Markdown (** * ~~ <u> [metin](adres)) -> run listesi. Dengesiz isaretler duz metin kalir."""
     base = base or {}
+    if not base.get('_nolink') and _MD_LINK.search(text):          # 2.0: baglantilar
+        out, pos = [], 0
+        for m in _MD_LINK.finditer(text):
+            if m.start() > pos:
+                out.extend(md_inline(text[pos:m.start()], dict(base, _nolink=True)))
+            for r in md_inline(m.group(1), dict(base, _nolink=True)):
+                r['href'] = m.group(2)
+                r['u'] = True
+                if not r.get('color'):
+                    r['color'] = '0563C1'
+                out.append(r)
+            pos = m.end()
+        if pos < len(text):
+            out.extend(md_inline(text[pos:], dict(base, _nolink=True)))
+        return merge_runs(out)
+    if '~~' in text and re.sub(r'\\.', '', text).count('~~') % 2 == 0:   # 2.0: ustu cizili
+        out, strike = [], False
+        for k, piece in enumerate(text.split('~~')):
+            if k:
+                strike = not strike
+            if piece:
+                for r in md_inline(piece, dict(base, _nolink=True)):
+                    if strike:
+                        r['s'] = True
+                    out.append(r)
+        return merge_runs(out)
     b0, i0, u0, c0 = base.get('b', False), base.get('i', False), base.get('u', False), base.get('color')
     text = text.replace('&lt;u&gt;', '\x00LU\x00').replace('&lt;/u&gt;', '\x00RU\x00')
     # dengesiz isaretleri kacisla
@@ -544,14 +664,29 @@ def _runs_html(runs):
     out = []
     for r in merge_runs(runs):
         t = html.escape(r['text']).replace('\t', '&emsp;')
+        css = []
         if r['color']:
-            t = '<span style="color:#%s">%s</span>' % (r['color'], t)
+            css.append('color:#%s' % r['color'])
+        if r.get('hl'):
+            css.append('background:#%s' % r['hl'])
+        if r.get('font'):
+            css.append("font-family:'%s'" % html.escape(r['font'], quote=True).replace("'", ''))
+        if r.get('size'):
+            css.append('font-size:%gpt' % r['size'])
+        if css:
+            t = '<span style="%s">%s</span>' % (';'.join(css), t)
+        if r.get('s'):
+            t = '<s>%s</s>' % t
+        if r.get('va') in ('sup', 'sub'):
+            t = '<%s>%s</%s>' % (r['va'], t, r['va'])
         if r['u']:
             t = '<u>%s</u>' % t
         if r['i']:
             t = '<em>%s</em>' % t
         if r['b']:
             t = '<strong>%s</strong>' % t
+        if r.get('href'):
+            t = '<a href="%s">%s</a>' % (html.escape(r['href'], quote=True), t)
         out.append(t)
     return ''.join(out)
 
@@ -570,6 +705,21 @@ def blocks_to_html(blocks):
             out.append('<li>%s</li>' % _runs_html(b['runs']))
             continue
         style = ' style="text-align:%s"' % b['align'] if b.get('align') else ''
+        if b['t'] == 'p' and para_extra(b):                    # 2.0: aralik ve girintiler
+            css = []
+            if b.get('align'):
+                css.append('text-align:%s' % b['align'])
+            if b.get('ls'):
+                css.append('line-height:%g' % (b['ls'] * 1.15))
+            if b.get('sb') is not None:
+                css.append('margin-top:%gpt' % b['sb'])
+            if b.get('sa') is not None:
+                css.append('margin-bottom:%gpt' % b['sa'])
+            if b.get('ind'):
+                css.append('margin-left:%gpt' % b['ind'])
+            if b.get('fi'):
+                css.append('text-indent:%gpt' % b['fi'])
+            style = ' style="%s"' % ';'.join(css)
         if b['t'] == 'p':
             tag = {'h1': 'h1', 'h2': 'h2', 'h3': 'h3', 'quote': 'blockquote'}.get(b.get('style'), 'p')
             out.append('<%s%s>%s</%s>' % (tag, style, _runs_html(b['runs']) or '<br>', tag))
@@ -600,6 +750,16 @@ def html_to_blocks(text):
 
 
 # ----------------------------------------------------------------------------- DOCX okuma
+def _int_attr(el, name):
+    if el is None:
+        return None
+    v = el.get(w(name))
+    try:
+        return int(float(v)) if v not in (None, '') else None
+    except ValueError:
+        return None
+
+
 def _on(el):
     """<w:b/>, <w:b w:val="true"/> -> True; val=0/false/none -> False."""
     if el is None:
@@ -719,7 +879,35 @@ class _DocxReader:
             if jc is not None:
                 v = jc.get(w('val'))
                 align = {'center': 'center', 'right': 'right', 'end': 'right', 'both': 'justify', 'distribute': 'justify'}.get(v)
-        return {'style': style, 'list': lst, 'level': min(level, 3), 'align': align, 'pb': pb}
+        extra = {}
+        if ppr is not None:                                   # 2.0: aralik ve girintiler
+            sp = ppr.find(w('spacing'))
+            if sp is not None:
+                for key, attr in (('sb', 'before'), ('sa', 'after')):
+                    v = _int_attr(sp, attr)
+                    if v is not None and sp.get(w(attr + 'Autospacing')) not in ('1', 'true', 'on'):
+                        extra[key] = round(v / 20.0, 1)
+                ln = _int_attr(sp, 'line')
+                rule = sp.get(w('lineRule')) or 'auto'
+                if ln and rule == 'auto':
+                    mult = round(ln / 240.0, 2)
+                    if abs(mult - 1.15) > 0.01 and mult > 0:
+                        extra['ls'] = mult
+            ind = ppr.find(w('ind'))
+            if ind is not None and not lst:
+                left = _int_attr(ind, 'left')
+                if left is None:
+                    left = _int_attr(ind, 'start')
+                if left and style != 'quote':
+                    extra['ind'] = round(left / 20.0, 1)
+                fl, hg = _int_attr(ind, 'firstLine'), _int_attr(ind, 'hanging')
+                if hg:
+                    extra['fi'] = -round(hg / 20.0, 1)
+                elif fl:
+                    extra['fi'] = round(fl / 20.0, 1)
+        out = {'style': style, 'list': lst, 'level': min(level, 3), 'align': align, 'pb': pb}
+        out.update(extra)
+        return out
 
     def run_fmt(self, r):
         rpr = r.find(w('rPr'))
@@ -731,6 +919,31 @@ class _DocxReader:
         for src in (base, rpr):
             if src is None:
                 continue
+            el = src.find(w('strike'))                         # 2.0
+            if el is None:
+                el = src.find(w('dstrike'))
+            if el is not None:
+                f['s'] = _on(el)
+            fn = src.find(w('rFonts'))
+            if fn is not None:
+                fam = fn.get(w('ascii')) or fn.get(w('hAnsi'))
+                if fam:
+                    f['font'] = fam
+            sz = src.find(w('sz'))
+            v = _int_attr(sz, 'val') if sz is not None else None
+            if v and 2 <= v <= 3276:
+                f['size'] = v / 2.0 if v % 2 else v // 2
+            va = src.find(w('vertAlign'))
+            if va is not None:
+                f['va'] = {'superscript': 'sup', 'subscript': 'sub'}.get(va.get(w('val')))
+            hl = src.find(w('highlight'))
+            if hl is not None and hl.get(w('val')) not in (None, 'none'):
+                f['hl'] = HIGHLIGHTS.get(hl.get(w('val')), 'FFFF00')
+            shd = src.find(w('shd'))
+            if shd is not None and 'hl' not in f:
+                fill = (shd.get(w('fill')) or '').upper()
+                if re.match(r'^[0-9A-F]{6}$', fill) and fill != 'FFFFFF':
+                    f['hl'] = fill
             for k, tag in (('b', 'b'), ('i', 'i')):
                 el = src.find(w(tag))
                 if el is not None:
@@ -747,7 +960,9 @@ class _DocxReader:
     def paragraph(self, p, blocks):
         """Paragrafi bloklara ekler; satir/sayfa sonlari ve satir ici resimler paragrafi boler."""
         props = self.para_props(p)
-        cur = para(style=props['style'], lst=props['list'], level=props['level'], align=props['align'], pb=props['pb'])
+        cur = para(style=props['style'], lst=props['list'], level=props['level'], align=props['align'], pb=props['pb'],
+                   **{k: props.get(k) for k in PARA_EXTRA})
+        link = [None]
 
         def push():
             cur['runs'] = merge_runs(cur['runs'])
@@ -765,11 +980,14 @@ class _DocxReader:
                 tag = ch.tag
                 if tag == w('r'):
                     fmt = self.run_fmt(ch)
+                    if link[0]:
+                        fmt['href'] = link[0]
+                    ext = {k: fmt.get(k) for k in RUN_EXTRA}
                     for el in ch:
                         if el.tag == w('t') and el.text:
-                            cur['runs'].append(run(el.text, fmt['b'], fmt['i'], fmt['u'], fmt['color']))
+                            cur['runs'].append(run(el.text, fmt['b'], fmt['i'], fmt['u'], fmt['color'], **ext))
                         elif el.tag == w('tab'):
-                            cur['runs'].append(run('\t', fmt['b'], fmt['i'], fmt['u'], fmt['color']))
+                            cur['runs'].append(run('\t', fmt['b'], fmt['i'], fmt['u'], fmt['color'], **ext))
                         elif el.tag in (w('br'), w('cr')):
                             if el.get(w('type')) == 'page':
                                 new_para(pb=True)
@@ -795,7 +1013,15 @@ class _DocxReader:
                                 if img:
                                     self._emit_image(img, cur, blocks, props)
                                 break
-                elif tag in (w('hyperlink'), w('ins'), w('smartTag'), w('fldSimple'), w('customXml'), w('sdtContent'), w('sdt')):
+                elif tag == w('hyperlink'):
+                    rid = ch.get('{%s}id' % R_NS)
+                    tgt = self.rels.get(rid, ('', '')) if rid else ('', '')
+                    href = tgt[0] if tgt[1] == 'External' and re.match(r'^(https?://|mailto:)', tgt[0], re.I) else None
+                    old = link[0]
+                    link[0] = href or old
+                    walk(ch)
+                    link[0] = old
+                elif tag in (w('ins'), w('smartTag'), w('fldSimple'), w('customXml'), w('sdtContent'), w('sdt')):
                     walk(ch)
                 elif tag == w('del') or tag == w('pPr'):
                     continue
@@ -875,21 +1101,126 @@ def read_docx_blocks(path):
     return out or [para()]
 
 
+def _hf_parse(node):
+    """Ust/alt bilgi: (metin, sayfa_no_hizasi | None, toplam_sayfa_var_mi). PAGE alani iceren paragraf metne katilmaz."""
+    if node is None:
+        return '', None, False
+    paras, num_align, has_total = [], None, False
+    for p in node.iter(w('p')):
+        parts, infld, has_page = [], False, False
+        for el in p.iter():
+            instr = ''
+            if el.tag == w('fldSimple'):
+                instr = (el.get(w('instr')) or '').upper()
+            elif el.tag == w('instrText'):
+                instr = (el.text or '').upper()
+            if instr:
+                words = instr.split()
+                if 'PAGE' in words:
+                    has_page = True
+                if 'NUMPAGES' in words or 'SECTIONPAGES' in words:
+                    has_total = True
+                continue
+            if el.tag == w('fldChar'):
+                infld = el.get(w('fldCharType')) in ('begin', 'separate')
+            elif el.tag == w('t') and el.text and not infld and not _in_fld_simple(p, el):
+                parts.append(el.text)
+        if has_page and num_align is None:
+            jc = next(p.iter(w('jc')), None)
+            v = jc.get(w('val')) if jc is not None else None
+            num_align = {'right': 'right', 'end': 'right', 'left': 'left', 'start': 'left'}.get(v, 'center')
+            continue
+        paras.append(''.join(parts))
+    return '\n'.join(x for x in paras if x.strip()).strip(), num_align, has_total
+
+
+def _in_fld_simple(p, el):
+    for fs in p.iter(w('fldSimple')):
+        if any(x is el for x in fs.iter()):
+            return True
+    return False
+
+
+def read_docx_page(path):
+    """DOCX'ten sayfa ayari (boyut, yon, kenar bosluklari, ust/alt bilgi, sayfa no)."""
+    page = normalize_page(None)
+    try:
+        with zipfile.ZipFile(path) as z:
+            rd = _DocxReader(z)
+            root = rd._xml('word/document.xml')
+            body = root.find(w('body')) if root is not None else None
+            sect = body.find(w('sectPr')) if body is not None else None
+            if sect is None:
+                return page
+            sz = sect.find(w('pgSz'))
+            if sz is not None:
+                pw, ph = _int_attr(sz, 'w'), _int_attr(sz, 'h')
+                if pw and ph:
+                    land = sz.get(w('orient')) == 'landscape' or pw > ph
+                    a, b = sorted((pw / 20.0, ph / 20.0))
+                    best = min(PAGE_SIZES, key=lambda k: abs(PAGE_SIZES[k][0] - a) + abs(PAGE_SIZES[k][1] - b))
+                    if abs(PAGE_SIZES[best][0] - a) + abs(PAGE_SIZES[best][1] - b) < 20:
+                        page['size'] = best
+                    page['orient'] = 'landscape' if land else 'portrait'
+            mar = sect.find(w('pgMar'))
+            if mar is not None:
+                for k, attr in (('t', 'top'), ('b', 'bottom'), ('l', 'left'), ('r', 'right')):
+                    v = _int_attr(mar, attr)
+                    if v is not None:
+                        page['margins'][k] = round(abs(v) / 20.0, 1)
+            for kind in ('header', 'footer'):
+                ref = None
+                for el in sect.findall(w(kind + 'Reference')):
+                    if el.get(w('type')) in (None, 'default'):
+                        ref = el
+                if ref is None:
+                    continue
+                tgt = rd.rels.get(ref.get('{%s}id' % R_NS), ('', ''))[0]
+                if not tgt:
+                    continue
+                name = tgt.lstrip('/')
+                name = name if name.startswith('word/') else 'word/' + name
+                txt, num_align, total = _hf_parse(rd._xml(name))
+                if num_align and not page['pnum']:
+                    page['pnum'] = {'pos': kind, 'align': num_align, 'fmt': 'n_of_N' if total else 'n'}
+                page[kind] = txt
+    except (zipfile.BadZipFile, KeyError, ET.ParseError, ValueError, OSError):
+        pass
+    return page
+
+
 # ----------------------------------------------------------------------------- DOCX yazma
 def _xml_text(s):
     return html.escape(s, quote=False)
 
 
 def _run_xml(r):
+    # sema sirasi: rStyle rFonts b bCs i iCs strike color sz szCs highlight u vertAlign
     rpr = ''
+    if r.get('href'):
+        rpr += '<w:rStyle w:val="Hyperlink"/>'
+    if r.get('font'):
+        f = html.escape(r['font'], quote=True)
+        rpr += '<w:rFonts w:ascii="%s" w:hAnsi="%s" w:cs="%s" w:eastAsia="%s"/>' % (f, f, f, f)
     if r.get('b'):
         rpr += '<w:b/><w:bCs/>'
     if r.get('i'):
         rpr += '<w:i/><w:iCs/>'
-    if r.get('u'):
-        rpr += '<w:u w:val="single"/>'
+    if r.get('s'):
+        rpr += '<w:strike/>'
     if r.get('color'):
         rpr += '<w:color w:val="%s"/>' % r['color']
+    if r.get('size'):
+        hp = max(2, min(3276, int(round(float(r['size']) * 2))))
+        rpr += '<w:sz w:val="%d"/><w:szCs w:val="%d"/>' % (hp, hp)
+    hl = r.get('hl')
+    if hl:
+        name = HIGHLIGHT_BY_HEX.get(hl.upper())
+        rpr += '<w:highlight w:val="%s"/>' % name if name else '<w:shd w:val="clear" w:color="auto" w:fill="%s"/>' % hl.upper()
+    if r.get('u'):
+        rpr += '<w:u w:val="single"/>'
+    if r.get('va') in ('sup', 'sub'):
+        rpr += '<w:vertAlign w:val="%s"/>' % ('superscript' if r['va'] == 'sup' else 'subscript')
     rpr = '<w:rPr>%s</w:rPr>' % rpr if rpr else ''
     parts = []
     for k, piece in enumerate(r['text'].split('\t')):
@@ -906,6 +1237,7 @@ class _DocxWriter:
         self.rels = []          # (rId, tip, hedef)
         self.nums = []          # (numId, abstract)
         self.pic_id = 0
+        self.content_w = CONTENT_W_PT
 
     def rel(self, typ, target):
         rid = 'rId%d' % (len(self.rels) + 10)
@@ -928,10 +1260,53 @@ class _DocxWriter:
             ppr += '<w:pageBreakBefore/>'
         if b.get('list') and num_id:
             ppr += '<w:numPr><w:ilvl w:val="%d"/><w:numId w:val="%d"/></w:numPr>' % (b.get('level', 0), num_id)
+        # sema sirasi: ... numPr spacing ind jc
+        sp = ''
+        if b.get('sb') is not None and b.get('sb') != '':
+            sp += ' w:before="%d"' % int(round(float(b['sb']) * 20))
+        if b.get('sa') is not None and b.get('sa') != '':
+            sp += ' w:after="%d"' % int(round(float(b['sa']) * 20))
+        if b.get('ls'):
+            sp += ' w:line="%d" w:lineRule="auto"' % int(round(float(b['ls']) * 240))
+        if sp:
+            ppr += '<w:spacing%s/>' % sp
+        if (b.get('ind') or b.get('fi')) and not b.get('list'):
+            ind = ' w:left="%d"' % int(round(float(b.get('ind') or 0) * 20))
+            fi = float(b.get('fi') or 0)
+            if fi > 0:
+                ind += ' w:firstLine="%d"' % int(round(fi * 20))
+            elif fi < 0:
+                ind += ' w:hanging="%d"' % int(round(-fi * 20))
+            ppr += '<w:ind%s/>' % ind
         if b.get('align'):
             ppr += '<w:jc w:val="%s"/>' % {'justify': 'both'}.get(b['align'], b['align'])
         ppr = '<w:pPr>%s</w:pPr>' % ppr if ppr else ''
-        return '<w:p>%s%s</w:p>' % (ppr, ''.join(_run_xml(r) for r in merge_runs(b['runs'])))
+        return '<w:p>%s%s</w:p>' % (ppr, self.runs_xml(b['runs']))
+
+    def runs_xml(self, runs):
+        out, k = [], 0
+        runs = merge_runs(runs)
+        while k < len(runs):
+            href = runs[k].get('href')
+            if not href:
+                out.append(_run_xml(runs[k]))
+                k += 1
+                continue
+            grp = []
+            while k < len(runs) and runs[k].get('href') == href:
+                grp.append(runs[k])
+                k += 1
+            rid = self.link_rel(href)
+            out.append('<w:hyperlink r:id="%s" w:history="1">%s</w:hyperlink>' % (rid, ''.join(_run_xml(r) for r in grp)))
+        return ''.join(out)
+
+    def link_rel(self, href):
+        for rid, typ, tgt, *_ in self.rels:
+            if typ.endswith('/hyperlink') and tgt == href:
+                return rid
+        rid = 'rId%d' % (len(self.rels) + 10)
+        self.rels.append((rid, 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink', href, 'External'))
+        return rid
 
     def image_xml(self, b):
         self.pic_id += 1
@@ -953,7 +1328,7 @@ class _DocxWriter:
 
     def table_xml(self, b):
         ncol = max((len(r) for r in b['rows']), default=1)
-        colw = int(CONTENT_W_PT * 20 / ncol)
+        colw = int(self.content_w * 20 / ncol)
         grid = ''.join('<w:gridCol w:w="%d"/>' % colw for _ in range(ncol))
         rows = []
         for row in b['rows']:
@@ -1029,19 +1404,61 @@ STYLES_XML = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles 
               '<w:pPr><w:ind w:left="720" w:right="720"/></w:pPr><w:rPr><w:i/><w:color w:val="404040"/></w:rPr></w:style>'
               '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/>'
               '<w:pPr><w:spacing w:after="60"/><w:ind w:left="720"/><w:contextualSpacing/></w:pPr></w:style>'
+              '<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:uiPriority w:val="99"/>'
+              '<w:unhideWhenUsed/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>'
+              '<w:style w:type="paragraph" w:styleId="Header"><w:name w:val="header"/><w:basedOn w:val="Normal"/>'
+              '<w:pPr><w:tabs><w:tab w:val="center" w:pos="4536"/><w:tab w:val="right" w:pos="9072"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>'
+              '<w:style w:type="paragraph" w:styleId="Footer"><w:name w:val="footer"/><w:basedOn w:val="Normal"/>'
+              '<w:pPr><w:tabs><w:tab w:val="center" w:pos="4536"/><w:tab w:val="right" w:pos="9072"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:style>'
               '<w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/><w:tblPr><w:tblCellMar>'
               '<w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>'
               '</w:styles>') % W_NS
 
 
-def docx_bytes(blocks):
+def _hf_xml(kind, text, pnum):
+    """header1.xml / footer1.xml - metin satirlari + istege bagli PAGE alani."""
+    tag = 'hdr' if kind == 'header' else 'ftr'
+    style = 'Header' if kind == 'header' else 'Footer'
+    paras = []
+    lines = [x for x in (text or '').split('\n')] if (text or '').strip() else []
+    with_num = pnum and pnum.get('pos') == kind
+
+    def field(instr):
+        return ('<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> %s </w:instrText></w:r>'
+                '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>' % instr)
+    for ln in lines:
+        paras.append('<w:p><w:pPr><w:pStyle w:val="%s"/><w:jc w:val="center"/></w:pPr>%s</w:p>'
+                     % (style, _run_xml(run(ln)) if ln else ''))
+    if with_num:
+        num = field('PAGE')
+        if pnum.get('fmt') == 'n_of_N':
+            num += _run_xml(run(' / ')) + field('NUMPAGES')
+        paras.append('<w:p><w:pPr><w:pStyle w:val="%s"/><w:jc w:val="%s"/></w:pPr>%s</w:p>' % (style, pnum.get('align', 'center'), num))
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:%s xmlns:w="%s" xmlns:r="%s">%s</w:%s>'
+            % (tag, W_NS, R_NS, ''.join(paras) or '<w:p/>', tag))
+
+
+def docx_bytes(blocks, page=None):
+    page = normalize_page(page)
     wr = _DocxWriter()
+    wr.content_w = content_width(page)
     body = wr.body_xml(blocks)
+    pw, ph = page_dims(page)
+    m = page['margins']
+    parts, refs = {}, ''
+    for kind in ('header', 'footer'):
+        if page[kind].strip() or (page['pnum'] and page['pnum']['pos'] == kind):
+            name = '%s1.xml' % kind
+            parts['word/' + name] = _hf_xml(kind, page[kind], page['pnum'])
+            rid = wr.rel('http://schemas.openxmlformats.org/officeDocument/2006/relationships/' + kind, name)
+            refs += '<w:%sReference w:type="default" r:id="%s"/>' % (kind, rid)
+    sect = ('<w:sectPr>%s<w:pgSz w:w="%d" w:h="%d"%s/>'
+            '<w:pgMar w:top="%d" w:right="%d" w:bottom="%d" w:left="%d" w:header="708" w:footer="708" w:gutter="0"/>'
+            '</w:sectPr>') % (refs, round(pw * 20), round(ph * 20), ' w:orient="landscape"' if page['orient'] == 'landscape' else '',
+                              round(m['t'] * 20), round(m['r'] * 20), round(m['b'] * 20), round(m['l'] * 20))
     doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-           '<w:document xmlns:w="%s" xmlns:r="%s" xmlns:wp="%s" xmlns:a="%s" xmlns:pic="%s"><w:body>%s'
-           '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
-           '<w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417" w:header="708" w:footer="708" w:gutter="0"/>'
-           '</w:sectPr></w:body></w:document>') % (W_NS, R_NS, WP_NS, A_NS, PIC_NS, body)
+           '<w:document xmlns:w="%s" xmlns:r="%s" xmlns:wp="%s" xmlns:a="%s" xmlns:pic="%s"><w:body>%s%s'
+           '</w:body></w:document>') % (W_NS, R_NS, WP_NS, A_NS, PIC_NS, body, sect)
     exts = sorted({b.rsplit('.', 1)[1] for b in wr.media})
     ct = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
           '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -1052,6 +1469,8 @@ def docx_bytes(blocks):
           '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
           '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
           '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
+          + ''.join('<Override PartName="/%s" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.%s+xml"/>'
+                    % (n, 'header' if 'header' in n else 'footer') for n in sorted(parts)) +
           '</Types>')
     rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="%s">'
             '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
@@ -1060,7 +1479,10 @@ def docx_bytes(blocks):
     doc_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="%s">'
                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
                 '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>'
-                '%s</Relationships>') % (REL_NS, ''.join('<Relationship Id="%s" Type="%s" Target="%s"/>' % r for r in wr.rels))
+                '%s</Relationships>') % (REL_NS, ''.join(
+                    '<Relationship Id="%s" Type="%s" Target="%s"%s/>' % (r[0], r[1], html.escape(r[2], quote=True),
+                                                                        ' TargetMode="External"' if len(r) > 3 else '')
+                    for r in wr.rels))
     now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     core_xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                 '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
@@ -1077,6 +1499,8 @@ def docx_bytes(blocks):
         z.writestr('word/styles.xml', STYLES_XML)
         z.writestr('word/numbering.xml', _numbering_xml(wr.nums))
         z.writestr('docProps/core.xml', core_xml)
+        for name, data in parts.items():
+            z.writestr(name, data)
         for name, data in wr.media.items():
             z.writestr(name, data, compress_type=zipfile.ZIP_STORED)
     return buf.getvalue()
@@ -1117,6 +1541,8 @@ def has_formatting(blocks):
             return True
         if b.get('style', 'normal') != 'normal' or b.get('list') or b.get('align'):
             return True
-        if any(r['b'] or r['i'] or r['u'] or r['color'] for r in b['runs']):
+        if para_extra(b):
+            return True
+        if any(r['b'] or r['i'] or r['u'] or r['color'] or run_extra(r) for r in b['runs']):
             return True
     return False
