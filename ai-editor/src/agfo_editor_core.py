@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
-VERSION = '1.8.0'
+VERSION = '2.0.0'
 APP_NAME = 'AGFO AI Editor'
 IS_WIN = sys.platform == 'win32'
 MAX_CHARS = 60000

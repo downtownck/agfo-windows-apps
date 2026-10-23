@@ -19,10 +19,18 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
 - **Otomatik:** önce AI Manager, ulaşılamazsa doğrudan anahtar.
 
 ## Özellikler
-- **Word gibi biçimli editör (1.4):** sayfa görünümü (A4, kenar boşlukları), başlık 1-3, alıntı, kalın / italik /
-  altı çizili, yazı rengi, madde ve numaralı listeler (Tab ile alt düzey), hizalama, tablo (satır/sütun ekle-sil), resim
-  ekle / boyutlandır / değiştir / kaldır. `.docx` biçimleriyle açılır ve kaydedilir; `.md` ve `.html` de biçimli açılır.
-  Geri al / yinele biçimleri ve resimleri de geri getirir. `.txt` dosyaları düz metin olarak kalır.
+- **Word gibi editör (2.0):** sekmeli şerit menü — *Giriş* (pano, biçim boyacısı, yazı tipi ve boyutu, kalın / italik /
+  altı çizili / üstü çizili, üst ve alt simge, vurgu ve yazı rengi, biçimi temizle, madde / numaralı / çok düzeyli
+  listeler, girinti, hizalama ve iki yana yaslama, satır aralığı, paragraf öncesi/sonrası boşluk, stil galerisi: Normal,
+  Başlık 1-3, Alıntı), *Ekle* (tablo, resim, bağlantı, sayfa sonu, üst bilgi, alt bilgi, sayfa numarası, simge), *Düzen*
+  (kenar boşlukları, dikey/yatay, A4 / A5 / Letter / Legal, girintiler ve aralıklar), *Görünüm* (sayfa görünümü,
+  yakınlaştırma, yazım denetimi, AI paneli, koyu / açık tema), *Yapay zekâ* (içerik eylemleri, çeviri, sesli okuma,
+  panel sekmeleri). Bunların hepsi `.docx` dosyasına yazılır ve geri okunur; Word'de aynı görünür. Sayfa bölünmesi
+  editörde yaklaşıktır, Word / PDF çıktısı gerçek sayfa düzenini kullanır. Geri al / yinele bütün biçimleri, resimleri
+  ve tabloları geri getirir. `.md` ve `.html` de biçimli açılır; `.txt` dosyaları düz metin kalır.
+- **Türkçe yazım denetimi (2.0):** Windows'un kendi yazım denetleyicisi kullanılır (ek indirme yok). Hatalı kelimeler
+  kırmızıyla işaretlenir; sağ tıkla öneriler, *Sözlüğe ekle*, *Tümünü yoksay*. Windows'ta Türkçe dil paketinin yazım
+  denetimi bileşeni yüklü olmalıdır.
 - Kodlama ve satır sonu korunur; Türkçe ANSI dosyalar tanınır. Bul/değiştir (biçimi korur), otomatik kurtarma, son dosyalar.
 - **İçerik:** İçeriği güçlendir, Akışı ve yapıyı düzelt, Argümanı netleştir, Düzelt ve cilala, Kısalt, Geliştir,
   Sadeleştir, Özetle, ton dönüşümleri, SEO/LinkedIn, Devamını yaz, Eleştirel okuma, Başlık önerileri, Özel talimat
@@ -67,8 +75,10 @@ masaüstüne kısayol eklenir. Yönetici yetkisi gerekmez. Güncellemeler uygula
   benzer yazı tipiyle gerçek, aranabilir metin olarak yazılır); "Resmi sil" ile PDF'deki resimleri içerikten kaldırın.
   Şifreli PDF'lerde belge sahibinin izinlerine uyulur.
 
-Kısayollar: Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+W, Ctrl+F, Ctrl+H, F3, Ctrl+E (AI ile düzenle), Ctrl+Enter (sohbet),
-Ctrl+B / Ctrl+I / Ctrl+U (kalın / italik / altı çizili), Ctrl+Z / Ctrl+Y.
+Kısayollar: Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+W, Ctrl+F, Ctrl+H, F3, Ctrl+E (AI ile düzenle), Ctrl+Enter (sohbette gönder,
+belgede sayfa sonu), Ctrl+B / Ctrl+I / Ctrl+U (kalın / italik / altı çizili), Ctrl+= (alt simge), Ctrl+L / Ctrl+R / Ctrl+J
+(sola / sağa / iki yana), Ctrl+K (bağlantı; Ctrl+tık açar), Ctrl+Boşluk (karakter biçimini temizle), F9 (sesli oku),
+Ctrl+Z / Ctrl+Y.
 
 Veriler: `%LOCALAPPDATA%\AGFO-AI-Editor` (ayarlar, kurtarma kayıtları, hata günlüğü). Metinleriniz yalnızca seçtiğiniz
 AI bağlantısına gönderilir.

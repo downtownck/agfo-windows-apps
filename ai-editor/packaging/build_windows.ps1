@@ -38,7 +38,7 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-editor-build' }
     --add-data ((Join-Path $root 'assets\agfo-ai-editor.ico') + ';assets') `
     --hidden-import agfo_editor_core --hidden-import agfo_ai_client --hidden-import agfo_secrets `
     --hidden-import agfo_editor_update --hidden-import agfo_github_update --hidden-import agfo_sources --hidden-import agfo_pdf --hidden-import agfo_pdf_view --hidden-import agfo_pdf_edit `
-    --hidden-import agfo_richdoc --hidden-import agfo_richtext --hidden-import agfo_doctranslate --hidden-import agfo_compare --hidden-import agfo_pdf_layout --hidden-import agfo_trlive --hidden-import agfo_speech --hidden-import agfo_readaloud --hidden-import agfo_localtts `
+    --hidden-import agfo_richdoc --hidden-import agfo_richtext --hidden-import agfo_doctranslate --hidden-import agfo_compare --hidden-import agfo_pdf_layout --hidden-import agfo_trlive --hidden-import agfo_speech --hidden-import agfo_readaloud --hidden-import agfo_localtts --hidden-import agfo_spell `
     --collect-submodules pypdf --collect-submodules cryptography --collect-submodules fontTools.subset --collect-submodules fontTools.ttLib --hidden-import pypdf._crypt_providers._cryptography --collect-all pypdfium2 --collect-all pypdfium2_raw --hidden-import PIL.ImageTk `
     (Join-Path $root 'src\agfo_ai_editor.pyw')
 if ($LASTEXITCODE) { throw 'PyInstaller failed' }

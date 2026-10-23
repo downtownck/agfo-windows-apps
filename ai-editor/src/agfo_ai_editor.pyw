@@ -128,6 +128,23 @@ def selftest(out_path: str) -> int:
         back = _r.read_docx_blocks(dp)
         os.unlink(dp)
         res['rich_docx'] = [b['t'] for b in back]
+        # 2.0: Word bicimleri + sayfa yapisi / ust-alt bilgi / sayfa no. gidis-donus, yazim denetimi modulu EXE'de
+        import agfo_spell as _sp2
+        v2 = [_r.para([_r.run('A', font='Georgia', size=14, s=True, hl='FFFF00'), _r.run('2', va='sup'),
+                       _r.run(' b', u=True, color='0563C1', href='https://agfo.app')], ls=1.5, sb=6, ind=36, fi=-18)]
+        v2page = {'orient': 'landscape', 'header': 'Üst', 'pnum': {'pos': 'footer', 'align': 'right', 'fmt': 'n'}}
+        with open(dp, 'wb') as fh:
+            fh.write(_r.docx_bytes(v2, v2page))
+        b2, pg2 = _r.read_docx_blocks(dp), _r.read_docx_page(dp)
+        os.unlink(dp)
+        res['v2_docx'] = (b2[0]['runs'] == _r.merge_runs(v2[0]['runs']) and b2[0].get('ls') == 1.5 and b2[0].get('fi') == -18
+                          and pg2['orient'] == 'landscape' and pg2['header'] == 'Üst' and pg2['pnum']['align'] == 'right')
+        res['spell'] = _sp2.utf16_map('a😀b')(3) == 2
+        if IS_WIN:
+            _ws = _sp2.WinSpeller('en-US')
+            res['spell_windows'] = {'available': _ws.available, 'error': _ws.error,
+                                    'errors': len(_ws.check('This is a smple test')) if _ws.available else None}
+        res['ok'] = res['ok'] and res['v2_docx'] and res['spell']
         tr, _st = _t.translate_blocks(blocks, lambda text, ins: text.replace('Başlık', 'Title'), 'English')
         import agfo_pdf_edit as _e
         _p.write_simple_pdf(pp, [['Satir bir', 'Eski metin']])
@@ -907,8 +924,7 @@ class App(tk.Tk):
                 page.pack_forget()
         for k, b in self.rtab_btns.items():
             on = k == key
-            b.configure(bg=RIBBON if on else TITLE_BG, fg=(ACCENT if THEME == 'dark' else '#1f4e79') if on else '#ffffff',
-                        font=('Segoe UI', 10, 'bold' if on else 'normal'))
+            b.configure(bg=RIBBON if on else TITLE_BG, fg=(ACCENT if THEME == 'dark' else '#1f4e79') if on else '#ffffff')
         if save and self.settings.get('ribbon_tab') != key:
             self.settings['ribbon_tab'] = key
             core.save_settings(self.settings)
