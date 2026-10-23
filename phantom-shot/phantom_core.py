@@ -1,4 +1,4 @@
-"""AGFO Phantom Shot 1.1.0 - GUI'den bagimsiz cekirdek (yalnizca standart kutuphane).
+"""AGFO Phantom Shot 1.2.0 - GUI'den bagimsiz cekirdek (yalnizca standart kutuphane).
 
 Phantom Shot, belirlenen bir klavye ya da fare tusuna basildiginda ekran goruntusunu alip
 ayarlanan klasore kaydeder; ekranda hicbir pencere, bildirim ya da ses gostermez. Yakalamanin
@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
