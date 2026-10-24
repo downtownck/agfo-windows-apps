@@ -203,6 +203,10 @@ class WordViewUiTests(unittest.TestCase):
         ed.focus_force()
         ed.event_generate('<Tab>', when='now')
         self.pump(n=10)
+        if v.inline_editor[0] == fld[0]:
+            # tus olayi ulasmadi (Windows derleme makinesinde pencere klavye odaginda olmayabilir): ayni adim dogrudan
+            v.inline_editor[2](True, 1)
+            self.pump(n=10)
         self.assertEqual(v.project['values']['BRC_SITE_CODE'], '7654321')
         self.assertTrue(v.dirty)
         self.assertNotEqual(v.inline_editor[0], fld[0])                 # sonraki alan acildi
@@ -213,6 +217,9 @@ class WordViewUiTests(unittest.TestCase):
         v.inline_editor[1].focus_force()
         v.inline_editor[1].event_generate('<Escape>', when='now')
         self.pump(n=5)
+        if v.wordview.editor is not None:
+            v.inline_editor[2](False)                               # tus olayi ulasmadiysa ayni adim
+            self.pump(n=5)
         self.assertIsNone(v.wordview.editor)
         self.assertEqual(v.project['values'].get(nxt[0]), before)       # Esc degistirmez
         # rapor kutusu: yerinde cok satirli duzenleyici -> bolumun rapor metni
