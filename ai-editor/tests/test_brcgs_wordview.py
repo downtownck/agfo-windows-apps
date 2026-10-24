@@ -239,7 +239,7 @@ class WordViewUiTests(unittest.TestCase):
             self.assertGreater(before, 0.0)
             w_ = next(w for w in visible() if isinstance(w, kind))
             x, y = w_.winfo_rootx() + 5, w_.winfo_rooty() + 5
-            self.assertIs(self.app.winfo_containing(x, y), w_)
+            # isabet testi ortama bagli (Windows derleme makinesinde pencere masaustunde degil): olay penceresi yeterli
             combo_ = next(w for w in self._walk(canvas) if isinstance(w, ttk.Combobox))
             val = combo_.get()
             w_.event_generate('<MouseWheel>', delta=120, x=5, y=5, rootx=x, rooty=y)     # yukari
@@ -248,6 +248,10 @@ class WordViewUiTests(unittest.TestCase):
             self.assertLess(canvas.yview()[0], before, 'tekerlek %s ustunde sayfayi kaydirmali' % kind.__name__)
         wheel_up_over(ttk.Combobox)
         wheel_up_over(tk.Text)                                          # tasmayan metin kutusu: sayfa kayar
+        # imlecin altindaki pencere bulunamasa da (Windows derleme makinesi) olay penceresiyle calisir
+        with mock.patch.object(self.app, 'winfo_containing', return_value=None):
+            wheel_up_over(ttk.Combobox)
+            wheel_up_over(tk.Text)
 
     def _walk(self, w):
         out = [w]
