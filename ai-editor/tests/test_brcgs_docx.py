@@ -199,6 +199,25 @@ class BrcgsDocxRoundTrip(unittest.TestCase):
                           if E.sdt_props(x)['tag'] in want and E.sdt_props(x)['placeholder_showing']]
                 self.assertEqual(missed, [])
 
+    def test_rewriting_filled_heading_box_keeps_colour(self):
+        # 2.4.0: FS F3_1 kutusunun paragrafi Heading3 (mavi). Ilk yazimda renk 'auto' yapilir; ayni dosyaya ikinci yazimda
+        # bu renk siliniyordu ve metin maviye donuyordu (gercek raporda Turkce stil kimligi 'Balk3' ile de oldu).
+        secs = B.sections_for_profile('fs')
+        for s_ in secs:
+            if s_['clause'] == '3.1':
+                s_['value'] = 'First version.'
+        b1, _ = E.write_report({'profile': 'fs', 'values': {}, 'sections': secs})
+        for s_ in secs:
+            if s_['clause'] == '3.1':
+                s_['value'] = 'Second version.'
+        b2, _ = E.write_report({'profile': 'fs', 'values': {}, 'sections': secs}, template=b1)
+        sdt = next(x for _n, x in E.DocxTemplate(b2).all_sdts() if E.sdt_props(x)['tag'] == 'F3_1')
+        run = next(sdt.find(E.w('sdtContent')).iter(E.w('r')))
+        col = run.find(E.w('rPr')).find(E.w('color'))
+        self.assertIsNotNone(col, 'renk kaybolmamali (baslik mavisi gorunur)')
+        self.assertEqual(E.sdt_text(sdt), 'Second version.')
+        self.assertTrue(E._HEADING_STYLE.match('Balk3') and E._HEADING_STYLE.match('Heading3'))
+
     def test_section_skeleton_matches_box_spec(self):
         expected_units = {'fs': 94, 'pm': 76, 'cp': 46, 'sd': 156, 'ab': 29}          # docs/report-box-specification.md
         for p, n in expected_units.items():

@@ -48,6 +48,42 @@ def _colors(app):
     return c
 
 
+PLAIN_TAG = '#plain'
+
+
+def word_targets(blob):
+    """Word gorunumunde tiklanabilir/duzenlenebilir hedefler, belge sirasinda: [((etiket, sira), gorunen_metin)].
+    Yaprak icerik denetimleri + denetimsiz etiketli hucreler (CP/AB/SD 'Company name', 'Address' ...; bos ise etiketi)."""
+    tpl = E.DocxTemplate(blob)
+    W = E.w
+    plain = {}
+    for label, cell in E.plain_labeled_cells(tpl):
+        plain[cell] = E.PLAIN_KEYS[label]
+    label_cells = {}
+    for cell, key in plain.items():
+        row = cell.getparent()
+        cells = E.row_cells(row)
+        i = cells.index(cell) if cell in cells else 0
+        if i > 0:
+            label_cells[cell] = cells[i - 1]
+    targets, seen, done = [], {}, set()
+    for el in tpl.document.iter(W('sdt'), W('tc')):
+        if el.tag == W('tc'):
+            if el in plain and plain[el] not in done:
+                done.add(plain[el])
+                txt = E.node_text(el).strip() or E.node_text(label_cells.get(el, el))
+                targets.append(((PLAIN_TAG, plain[el]), txt))
+            continue
+        cont = el.find(W('sdtContent'))
+        if cont is None or next(cont.iter(W('sdt')), None) is not None or next(el.iter(W('tbl')), None) is not None:
+            continue
+        tag = E.sdt_props(el)['tag']
+        occ = seen.get(tag, 0)
+        seen[tag] = occ + 1
+        targets.append(((tag, occ), E.sdt_text(el)))
+    return targets
+
+
 SCROLLERS = []          # (canvas, kaydirma) - fare tekerlegi icin kayitli alanlar
 
 
@@ -462,7 +498,8 @@ class BrcgsReportView(tk.Frame):
         self.table_col_labels = {k: labels for k, _t, _tb, _c, labels in E.generic_tables(self.template)}
         self.form_page = 'overview'
         self.wordview = None
-        self._word = {'key': None, 'pdf': None, 'found': [], 'busy': False, 'error': None, 'pending': None}
+        self._word = {'key': None, 'pdf': None, 'found': [], 'busy': False, 'error': None, 'pending': None, 'deferred': False}
+        self.inline_editor = None
         self._field_widgets = {}
         self._build()
         self.show('word' if self.app.doc_renderer().engine else 'overview')
@@ -627,7 +664,8 @@ class BrcgsReportView(tk.Frame):
         self.app.btn(bar, '－', lambda: self.wordview and self.wordview.set_zoom(self.wordview.zoom / 1.15), 'ghost', side='right')
         self.app.btn(bar, 'Fit width', lambda: self.wordview and self.wordview.fit(), 'ghost', side='right')
         self.word_status.pack(side='left', fill='x', expand=True)
-        self.word_hover = tk.Label(self.main, text='Click anywhere on a page to edit that field or section in the form.', fg=c['MUTED'],
+        self.word_hover = tk.Label(self.main, text='Click a field or report box on the page to edit it here. Tab: next field · Enter: done · '
+                                                   'Esc: cancel', fg=c['MUTED'],
                                    bg=c['PANEL2'], font=('Segoe UI', 8), anchor='w', padx=10)
         self.word_hover.pack(fill='x')
         self.wordview = WV.WordView(self.main, c, on_pick=self.pick_target, on_hover=self._hover_target,
@@ -677,21 +715,8 @@ class BrcgsReportView(tk.Frame):
             try:
                 blob, _st = E.write_report(payload, template=template)
                 pdf = ren.to_pdf(blob)
-                tpl = E.DocxTemplate(blob)
-                targets, seen = [], {}
-                W = E.w
-                for name, sdt in tpl.all_sdts():
-                    if name != 'word/document.xml':
-                        continue
-                    cont = sdt.find(W('sdtContent'))
-                    if cont is None or next(cont.iter(W('sdt')), None) is not None or next(sdt.iter(W('tbl')), None) is not None:
-                        continue
-                    tag = E.sdt_props(sdt)['tag']
-                    occ = seen.get(tag, 0)
-                    seen[tag] = occ + 1
-                    targets.append(((tag, occ), E.sdt_text(sdt)))
                 import agfo_docrender as R
-                q.put(('ok', key, pdf, R.anchors(pdf, targets)))
+                q.put(('ok', key, pdf, R.anchors(pdf, word_targets(blob), with_rect=True)))
             except Exception as e:  # noqa: BLE001
                 q.put(('err', key, str(e), None))
         threading.Thread(target=work, daemon=True).start()
@@ -705,7 +730,9 @@ class BrcgsReportView(tk.Frame):
             st['busy'] = False
             if kind == 'ok':
                 st.update(key=k, pdf=a, found=b, error=None)
-                if self.wordview is not None and self.winfo_exists():
+                if self.wordview is not None and self.winfo_exists() and self.wordview.editor is not None:
+                    st['deferred'] = True                   # yazarken sayfa degismesin; duzenleyici kapaninca
+                elif self.wordview is not None and self.winfo_exists():
                     self.wordview.set_document(a, b)
                     self.word_status.configure(text='Drawn by %s · %d pages · %s' % (
                         self.app.doc_renderer().engine, len(self.wordview.sizes),
@@ -727,6 +754,11 @@ class BrcgsReportView(tk.Frame):
         """(sayfa, odak, etiket) - Word gorunumunde tiklanan alanin formdaki yeri."""
         tag, occ = target if isinstance(target, tuple) else (target, 0)
         p = self.project['profile']
+        if tag == PLAIN_TAG:
+            f = next((x for x in self.fields if x['kind'] == 'plain' and x['key'] == occ), None)
+            if f is not None:
+                return 'field', (f['key'], 0, f['group']), f['label']
+            return 'overview', None, ''
         if not hasattr(self, '_tag_sections'):
             m = {}
             for row in self.project['sections']:
@@ -754,19 +786,183 @@ class BrcgsReportView(tk.Frame):
             return 'tables', None, 'Official tables'
         return 'overview', None, ''
 
+    # ---- yerinde duzenleme (2.4.0)
+    def _field_of(self, target):
+        tag, occ = target
+        if tag == PLAIN_TAG:
+            return next((x for x in self.fields if x['kind'] == 'plain' and x['key'] == occ), None)
+        self._target_info(target)                       # onbellekleri kurar
+        return self._field_by_tag.get((tag, occ)) or self._field_by_tag.get((tag, 0))
+
+    def _box_text(self, tag):
+        """Kutuda Word'de gorunen metin (birlesik kutularda madde basliklariyla, NC satirlari dahil)."""
+        p = self.project['profile']
+        rows = B.merge_for_export(p, F.export_sections(self.project))['rows']
+        return next((r['value'] for r in rows if r['tag'] == tag), '')
+
+    def inline_edit(self, target, region):
+        kind, focus, label = self._target_info(target)
+        wv = self.wordview
+        c = self.c
+        page, rect = region[1], region[4]
+        if kind == 'field':
+            f = self._field_of(target)
+            if f is None:
+                return False
+            counted = {v: k for k, v in F.COUNT_KEYS.items()}
+            if f['key'] in counted:
+                self.app.flash('%s is counted from the non-conformity list; add or remove NCs to change it.' % f['label'], 7000)
+                self.show('plan')
+                return True
+            value = self._value_of(f)
+            multiline = f['kind'] in ('rich',) and (len(value) > 60 or re.search(
+                r'scope|description|profile|changes|justification|comments|rationale|claims|reason|address', f['key'], re.I))
+        elif kind == 'section':
+            tag = target[0]
+            value = self._box_text(tag)
+            multiline = True
+        else:
+            return False
+        frame = tk.Frame(wv.canvas, bg=c['ACCENT'], padx=2, pady=2)
+        head = tk.Frame(frame, bg=c['PANEL'])
+        head.pack(fill='x')
+        tk.Label(head, text=label[:70], fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 8, 'bold'), anchor='w').pack(side='left', padx=4)
+        result = {'done': False}
+
+        def finish(save, nxt=0):
+            if result['done']:
+                return 'break'
+            result['done'] = True
+            if save:
+                self._commit_inline(target, kind, focus, get(), page, rect, value)
+            wv.close_editor()
+            self._apply_deferred_render()
+            if nxt:
+                self.after(30, lambda: self._edit_next(target, nxt))
+            return 'break'
+        tk.Button(head, text='✕', command=lambda: finish(False), bg=c['PANEL'], fg=c['MUTED'], relief='flat', bd=0, cursor='hand2',
+                  highlightthickness=0).pack(side='right', padx=2)
+        tk.Button(head, text='✓ Done', command=lambda: finish(True), bg=c['PANEL'], fg=c['ACCENT'], relief='flat', bd=0, cursor='hand2',
+                  font=('Segoe UI', 8, 'bold'), highlightthickness=0).pack(side='right', padx=2)
+        tk.Button(head, text='Form…', command=lambda: (finish(True), self.open_in_form(target)), bg=c['PANEL'], fg=c['MUTED'],
+                  relief='flat', bd=0, cursor='hand2', font=('Segoe UI', 8), highlightthickness=0).pack(side='right', padx=2)
+        if kind == 'field' and f['kind'] in ('dropDownList', 'comboBox'):
+            opts = [i['text'] for i in f['items'] if not i.get('prompt')]
+            var = tk.StringVar(value=value)
+            ed = ttk.Combobox(frame, textvariable=var, values=[''] + opts, state='readonly' if f['kind'] == 'dropDownList' else 'normal')
+            ed.pack(fill='both', expand=True)
+            ed.bind('<<ComboboxSelected>>', lambda e: finish(True))
+
+            def get():
+                return var.get()
+            min_h = 24
+        elif multiline:
+            ed = tk.Text(frame, wrap='word', bg='#ffffff', fg='#111111', insertbackground='#111111', relief='flat', bd=0,
+                         font=('Segoe UI', 10), padx=6, pady=4, undo=True)
+            ed.insert('1.0', value)
+            ed.pack(fill='both', expand=True)
+            ed.bind('<Control-Return>', lambda e: finish(True))
+
+            def get():
+                return ed.get('1.0', 'end-1c')
+            min_h = 90 if kind == 'field' else 160
+        else:
+            var = tk.StringVar(value=value)
+            ed = ttk.Entry(frame, textvariable=var)
+            ed.pack(fill='both', expand=True)
+            ed.bind('<Return>', lambda e: finish(True))
+            ed.select_range(0, 'end')
+
+            def get():
+                return var.get()
+            min_h = 24
+        ed.bind('<Escape>', lambda e: finish(False))
+        ed.bind('<Tab>', lambda e: finish(True, 1))
+        ed.bind('<Shift-Tab>', lambda e: finish(True, -1))
+        wv.on_editor_click_away = lambda: finish(True)
+        wv.show_editor(frame, page, rect, min_w=320 if multiline else 240, min_h=min_h,
+                       max_h=440 if kind == 'section' else 220)
+        ed.focus_set()
+        self.inline_editor = (target, ed, finish)
+        return True
+
+    def _commit_inline(self, target, kind, focus, text, page, rect, old):
+        if text == old:
+            return
+        p = self.project['profile']
+        if kind == 'field':
+            f = self._field_of(target)
+            if f['kind'] == 'date' and text.strip() and not E.parse_date(text):
+                messagebox.showwarning('Date', '"%s" is not a date (YYYY-MM-DD or DD.MM.YYYY).' % text, parent=self)
+                return
+            self._set_value(f, text)
+        else:
+            tag = target[0]
+            note = B.export_note(p, focus)
+            if note.get('merged'):
+                parts = {r['clause']: r['value'] for r in B.split_import(p, [{'tag': tag, 'value': text}])}
+                clauses = note['siblings']
+            else:
+                parts, clauses = {focus: text}, [focus]
+            for cl in clauses:
+                row = next((r for r in self.project['sections'] if r['clause'] == cl), None)
+                if row is None:
+                    continue
+                G.set_report_text(p, row, parts.get(cl, ''))
+            self.mark_dirty()
+        self.wordview.patch(page, rect, text)
+        self._schedule_rerender()
+
+    def _edit_next(self, target, step):
+        wv = self.wordview
+        if wv is None:
+            return
+        order = [a for a in wv.found if len(a) >= 5 and self._target_info(a[0])[0] in ('field', 'section')]
+        k = next((i for i, a in enumerate(order) if a[0] == target), None)
+        if k is None or not (0 <= k + step < len(order)):
+            return
+        nxt = order[k + step]
+        self.inline_edit(nxt[0], nxt)
+
+    def _schedule_rerender(self):
+        if getattr(self, '_rerender_job', None):
+            self.after_cancel(self._rerender_job)
+        self._rerender_job = self.after(700, self._rerender_now)
+
+    def _rerender_now(self):
+        self._rerender_job = None
+        if self.page == 'word' and self.wordview is not None:
+            self.refresh_word()
+
+    def _apply_deferred_render(self):
+        st = self._word
+        if st.get('deferred') and self.wordview is not None and self.wordview.editor is None:
+            st['deferred'] = False
+            self.wordview.set_document(st['pdf'], st['found'])
+
     def _hover_target(self, target):
         if target is None:
-            text = 'Click anywhere on a page to edit that field or section in the form.'
+            text = 'Click a field or report box on the page to edit it here. Tab: next field · Enter: done · Esc: cancel'
         else:
             kind, _f, label = self._target_info(target)
-            text = 'Click to edit: %s' % (label or {'na': 'NA clauses', 'plan': 'NC Action Plan', 'tables': 'Official tables'}.get(kind, kind))
+            text = ('Click to edit: %s' % label) if kind in ('field', 'section') else \
+                ('Click to open %s in the form' % ({'na': 'NA clauses', 'plan': 'NC Action Plan', 'tables': 'Official tables'}
+                                                   .get(kind, 'this part')))
         try:
             if self.word_hover.cget('text') != text:
                 self.word_hover.configure(text=text)
         except tk.TclError:
             pass
 
-    def pick_target(self, target):
+    def pick_target(self, target, region=None):
+        """Word gorunumunde tiklama: alan/kutu ise yerinde duzenleyici, degilse formdaki sayfasi."""
+        if region is None and self.wordview is not None:
+            region = self.wordview.region_of(target)
+        if region is not None and self.page == 'word' and self.inline_edit(target, region):
+            return
+        self.open_in_form(target)
+
+    def open_in_form(self, target):
         kind, focus, _label = self._target_info(target)
         if kind == 'section':
             idx = next(i for i, r in enumerate(self.project['sections']) if r['clause'] == focus)

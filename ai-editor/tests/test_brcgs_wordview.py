@@ -57,7 +57,8 @@ class FakeRenderer:
     def to_pdf(self, blob):
         import agfo_pdf
         self.calls += 1
-        lines = [(t[:60] or '.').replace('\n', ' ') for _tag, t in leaf_texts(blob)]
+        import agfo_brcgs_view as V
+        lines = [(t[:60] or '.').replace('\n', ' ') for _tag, t in V.word_targets(blob)]   # Word gibi: etiketli hucreler dahil
         pages = [lines[i:i + 30] for i in range(0, len(lines), 30)] or [['empty']]
         p = os.path.join(tempfile.mkdtemp(dir=TMP), 'x.pdf')
         agfo_pdf.write_simple_pdf(p, pages)
@@ -170,28 +171,75 @@ class WordViewUiTests(unittest.TestCase):
         self.assertEqual(len(self.app.brcgs_store().list()), 1)
         # tiklama -> bolum
         from agfo_brcgs import boxes as B
-        (tag, occ), page, x, y = next(a for a in v._word['found'] if a[0][0] in B.detail_tags('ab'))
+        (tag, occ), page, x, y = next(a for a in v._word['found'] if a[0][0] in B.detail_tags('ab'))[:4]
         kind, focus, _label = v._target_info((tag, occ))
         self.assertEqual(kind, 'section')
-        v.pick_target((tag, occ))
+        v.pick_target((tag, occ))                                   # Word gorunumunde: yerinde duzenleyici
+        self.assertEqual(v.page, 'word')
+        self.assertIsNotNone(v.wordview.editor)
+        v.inline_editor[2](False)
+        v.open_in_form((tag, occ))                                  # "Form…": formdaki bolum
         self.pump(n=10)
         self.assertEqual(v.page, 'sections')
         self.assertEqual(v.current_row()[1]['clause'], focus)
-        # alan tiklamasi -> alan odakta
+        # alan: "Form…" ile formda acilir, alan odakta
         fld = next(a for a in v._word['found'] if a[0][0] == 'BRC_SITE_CODE')
         v.show('word')
-        v.pick_target(fld[0])
+        v.open_in_form(fld[0])
         self.pump(n=20)
         self.assertTrue(v.page.startswith('g:'))
         self.assertIs(self.app.focus_get() or self.app.focus_lastfor(), v._field_widgets[('BRC_SITE_CODE', 0)])
-        # duzenle -> kaydet -> dosyaya yazildi; Word gorunumu yeniden cizilir
-        f_ = next(x for x in v.fields if x['key'] == 'BRC_SITE_CODE')
-        v._set_value(f_, '7654321')
+        # Word gorunumunde yerinde duzenleme: alan -> Enter; Tab sonraki alana gecer; Esc vazgecer
+        v.show('word')
+        self.pump(lambda: v.wordview is not None and v.wordview.doc is not None)
+        v.pick_target(fld[0])
+        self.assertIsNotNone(v.wordview.editor)
+        tgt, ed, finish = v.inline_editor
+        self.assertEqual(tgt, fld[0])
+        self.pump(n=10)                                             # duzenleyici ekranda (tus olayi icin)
+        self.assertTrue(ed.winfo_ismapped())
+        ed.delete(0, 'end')
+        ed.insert(0, '7654321')
+        ed.focus_force()
+        ed.event_generate('<Tab>', when='now')
+        self.pump(n=10)
+        if v.inline_editor[0] == fld[0]:
+            # tus olayi ulasmadi (Windows derleme makinesinde pencere klavye odaginda olmayabilir): ayni adim dogrudan
+            v.inline_editor[2](True, 1)
+            self.pump(n=10)
+        self.assertEqual(v.project['values']['BRC_SITE_CODE'], '7654321')
+        self.assertTrue(v.dirty)
+        self.assertNotEqual(v.inline_editor[0], fld[0])                 # sonraki alan acildi
+        self.assertIsNotNone(v.wordview.editor)
+        nxt = v.inline_editor[0]
+        before = v.project['values'].get(nxt[0])
+        self.pump(n=10)
+        v.inline_editor[1].focus_force()
+        v.inline_editor[1].event_generate('<Escape>', when='now')
+        self.pump(n=5)
+        if v.wordview.editor is not None:
+            v.inline_editor[2](False)                               # tus olayi ulasmadiysa ayni adim
+            self.pump(n=5)
+        self.assertIsNone(v.wordview.editor)
+        self.assertEqual(v.project['values'].get(nxt[0]), before)       # Esc degistirmez
+        # rapor kutusu: yerinde cok satirli duzenleyici -> bolumun rapor metni
+        box = next(a for a in v._word['found'] if a[0][0] in B.detail_tags('ab') and v._target_info(a[0])[0] == 'section')
+        v.pick_target(box[0])
+        tgt, ed, finish = v.inline_editor
+        ed.delete('1.0', 'end')
+        ed.insert('1.0', 'Written in Word view.')
+        finish(True)
+        self.pump(n=5)
+        clause = v._target_info(box[0])[1]
+        row = next(r for r in v.project['sections'] if r['clause'] == clause)
+        self.assertEqual(row['value'], 'Written in Word view.')
+        self.assertTrue(self.pump(lambda: not v._word['busy'] and v._word['key'] == v._render_input()[0], 600))
         calls = self.app._doc_renderer.calls
         self.assertTrue(v.save())
         self.assertEqual(E.read_report(f)['values']['BRC_SITE_CODE'], '7654321')
         v.set_mode('word')
         self.assertTrue(self.pump(lambda: self.app._doc_renderer.calls > calls and not v._word['busy']))
+        self.assertIn('Written in Word view.', {s_['clause']: s_['value'] for s_ in E.read_report(f)['sections']}[clause])
         # Word'de degisti -> pencere odaga donunce yuklenir
         pay = S.Store.export_payload(v.project)
         pay['values']['BRC_SITE_CODE'] = '1112223'
