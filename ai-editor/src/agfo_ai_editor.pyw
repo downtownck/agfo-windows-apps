@@ -198,6 +198,17 @@ def selftest(out_path: str) -> int:
                          and _bg.form_for(_pf, _secs[0]['clause']) is not None
                          and _bd.excel_template_path(_pf).is_file())
         res['brcgs'] = _brs
+        # 2.3.0: Word gorunumu - PDF'te alan konumlari bulunur (cizici gerekmez), dil dosyasi pakette
+        import agfo_docrender as _dr
+        import agfo_wordview  # noqa: F401
+        from agfo_brcgs import i18n as _bi
+        _pp = os.path.join(tempfile.gettempdir(), 'agfo-editor-selftest-anchor.pdf')
+        _p.write_simple_pdf(_pp, [['Report', 'Company name Selftest Ltd', 'Scope of audit packing']])
+        with open(_pp, 'rb') as _fh:
+            _anc = _dr.anchors(_fh.read(), [('A', 'Selftest Ltd'), ('B', 'packing')])
+        os.unlink(_pp)
+        _brs['wordview'] = [a[0] for a in _anc] == ['A', 'B'] and _bi.guide('Hayır') == 'No'
+        res['renderer'] = _dr.Renderer(os.path.join(tempfile.gettempdir(), 'agfo-selftest-render')).engine or 'none'
         res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
                      and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset']
                      and all(_brs.values()))
@@ -775,6 +786,7 @@ class App(tk.Tk):
         if not self.docs:
             self.new_doc()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
+        self.bind('<FocusIn>', lambda e: self._brcgs_focus_check() if e.widget is self else None, add='+')
         self._timers = {}
         self._timers['poll'] = self.after(POLL_MS, self._poll)
         self._timers['autosave'] = self.after(AUTOSAVE_MS, self._autosave)
@@ -924,7 +936,8 @@ class App(tk.Tk):
         self.paned = ttk.PanedWindow(self, orient='horizontal')
         self.paned.pack(fill='both', expand=True, padx=8, pady=(6, 4))
         self.nb = ttk.Notebook(self.paned)
-        self.nb.bind('<<NotebookTabChanged>>', lambda e: (self._update_status(), self._sync_fmt_bar(), self._brcgs_panel_auto()))
+        self.nb.bind('<<NotebookTabChanged>>', lambda e: (self._update_status(), self._sync_fmt_bar(), self._brcgs_panel_auto(),
+                                                          self._brcgs_focus_check()))
         self.nb.bind('<Button-2>', self._middle_close)
         self.paned.add(self.nb, weight=3)
         side = ttk.Frame(self.paned, padding=(10, 8))
@@ -3115,18 +3128,11 @@ class App(tk.Tk):
         if os.path.splitext(path)[1].lower() in READ_ONLY_KINDS:
             return self.open_as_text(path)
         blocks = None
-        if os.path.splitext(path)[1].lower() == '.docx' and not self.smoke:
+        if os.path.splitext(path)[1].lower() == '.docx':
             prof = self._brcgs_profile_of(path)
             if prof:
-                from agfo_brcgs import data as brd
-                ans = messagebox.askyesnocancel('BRCGS report', '%s\n\nThis file is a BRCGS %s report template.\n\nYes: open it as a '
-                                                'BRCGS report form (fields are filled like a form; the Word output keeps the original format)\n'
-                                                'No: open it as a normal document'
-                                                % (os.path.basename(path), brd.PROFILE_LABELS.get(prof, prof)), parent=self)
-                if ans is None:
-                    return None
-                if ans:
-                    return self.import_brcgs_docx(path)
+                # 2.3.0: BRCGS raporu dogrudan Word gorunumunde acilir ve bu dosyaya baglanir (ice/disa aktarma yok)
+                return self.open_brcgs_docx(path)
         try:
             kind = core.detect_kind(path)
             page = None
@@ -3284,19 +3290,50 @@ class App(tk.Tk):
         except Exception:
             return None
 
-    def import_brcgs_docx(self, path):
+    def open_brcgs_docx(self, path):
+        """BRCGS DOCX'i acar: bu dosyaya bagli rapor varsa onu (dosya Word'de degistiyse gunceller), yoksa dosyayi baglayarak
+        yeni rapor olusturur. Kaydet dogrudan bu dosyaya yazar."""
+        if not self._brcgs_ready():
+            return None
+        uid = self.brcgs_store().find_linked(path)
+        if uid:
+            v = self.open_brcgs_report(uid)
+            if v is not None:
+                v.check_linked()
+            return v
+        return self.import_brcgs_docx(path, link=True)
+
+    def doc_renderer(self):
+        if getattr(self, '_doc_renderer', None) is None:
+            import agfo_docrender
+            self._doc_renderer = agfo_docrender.Renderer(core.data_dir() / 'render-cache')
+        return self._doc_renderer
+
+    def _brcgs_focus_check(self, _e=None):
+        """Pencere odaga donunce (or. Word'den) bagli DOCX degismis mi bak."""
+        import time
+        now = time.time()
+        if now - getattr(self, '_brcgs_focus_t', 0) < 1.5:
+            return
+        self._brcgs_focus_t = now
+        v = self.cur_brcgs()
+        if v is not None and v is not self.brcgs_explorer:
+            self.after(150, v.check_linked)
+
+    def import_brcgs_docx(self, path, link=False):
         if not self._brcgs_ready():
             return None
         try:
-            pr = self.brcgs_store().import_docx(path)
+            pr = self.brcgs_store().import_docx(path, link=link)
         except Exception as e:
             messagebox.showerror('BRCGS report', '%s\n\n%s' % (os.path.basename(path), e), parent=self)
             return None
         if self.brcgs_explorer is not None:
             self.brcgs_explorer.refresh()
         v = self.open_brcgs_report(pr['id'])
-        self.flash('BRCGS report imported (%d filled sections). The original DOCX is unchanged; "Write DOCX" writes a new file on the official template.'
-                   % sum(1 for s_ in pr['sections'] if str(s_.get('value') or '').strip()), 9000)
+        self.flash(('BRCGS report opened from %s (%d filled sections). Save writes straight into this file.' if link else
+                    'BRCGS report imported from %s (%d filled sections). The original DOCX is unchanged.')
+                   % (os.path.basename(path), sum(1 for s_ in pr['sections'] if str(s_.get('value') or '').strip())), 9000)
         return v
 
     def cur_brcgs(self):
@@ -3669,6 +3706,12 @@ class App(tk.Tk):
             self.busy.stop()
         except (tk.TclError, AttributeError):
             pass
+        r = getattr(self, '_doc_renderer', None)
+        if r is not None:
+            try:
+                r.close()                               # arka plandaki gorunmez Word'u kapat
+            except Exception:
+                pass
         super().destroy()
 
     def _offer_recovery(self):

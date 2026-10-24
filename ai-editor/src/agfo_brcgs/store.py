@@ -26,7 +26,8 @@ from . import boxes as B
 from . import data
 
 REVISION_LIMIT = 25
-META_BRANCHES = ('na_clauses', 'report_tables', 'section_findings', 'action_plan', 'final_context', 'final_acceptance', 'flags')
+META_BRANCHES = ('na_clauses', 'report_tables', 'section_findings', 'action_plan', 'final_context', 'final_acceptance', 'flags',
+                 'linked_docx', 'linked_sig')
 STATUSES = ('active', 'trash')
 
 
@@ -64,6 +65,14 @@ def _first(values, keys):
         if v and str(v).strip():
             return str(v).strip()
     return ''
+
+
+def file_sig(path):
+    try:
+        st = os.stat(str(path))
+        return [int(st.st_mtime_ns), int(st.st_size)]
+    except OSError:
+        return None
 
 
 def company_of(values):
@@ -319,13 +328,100 @@ class Store:
             d.rmdir()
 
     # ------------------------------------------------------------------ DOCX
-    def import_docx(self, path, title=''):
+    def import_docx(self, path, title='', link=False):
+        """Doldurulmus/bos BRCGS DOCX'ini rapor olarak alir. link=True: rapor bu dosyaya baglanir; Kaydet dosyanin kendisine
+        yazar (dosyadaki ust/alt bilgi, logo ve sablon disi her sey korunur)."""
         from . import docx_engine as E
         res = E.read_report(path, os.path.basename(str(path)))
         meta = {'na_clauses': res['na_clauses'], 'report_tables': res['report_tables'],
                 'action_plan': {'items': res['action_plan']['items'], 'updated_at': now()}}
+        if link:
+            meta['linked_docx'] = os.path.abspath(str(path))
+            meta['linked_sig'] = file_sig(path)
         return self.create(res['profile'], title, res['values'], res['sections'], meta, origin='docx-import',
                            source_file=os.path.basename(str(path)))
+
+    def find_linked(self, path):
+        """Bu DOCX'e bagli (cop kutusunda olmayan) rapor kimligi ya da None."""
+        want = os.path.normcase(os.path.abspath(str(path)))
+        for row in self.list('active'):
+            try:
+                pr = self.get(row['id'])
+            except (KeyError, OSError, ValueError):
+                continue
+            lp = (pr.get('meta') or {}).get('linked_docx')
+            if lp and os.path.normcase(os.path.abspath(lp)) == want:
+                return row['id']
+        return None
+
+    def write_linked(self, project):
+        """Bagli DOCX'e yazar: dosyanin kendisi sablon olarak kullanilir; onceki hali yedeklenir (son 10).
+        Donus: (yazildi_mi, istatistik). Dosya Word'de aciksa PermissionError yukari gecer."""
+        from . import docx_engine as E
+        meta = project.get('meta') or {}
+        path = meta.get('linked_docx')
+        if not path:
+            return False, None
+        src = pathlib.Path(path)
+        template = src.read_bytes() if src.is_file() else None
+        if template is not None:
+            bdir = self.root / 'docx-backups' / project['id']
+            bdir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+            _atomic_write_bytes(bdir / ('%s.docx' % stamp), template)
+            for old in sorted(bdir.glob('*.docx'))[:-10]:
+                try:
+                    old.unlink()
+                except OSError:
+                    pass
+        blob, st = E.write_report(self.export_payload(project), template=template)
+        tmp = src.with_name(src.name + '.agfo-tmp')
+        tmp.write_bytes(blob)
+        os.replace(tmp, src)
+        meta['linked_sig'] = file_sig(src)
+        return True, st
+
+    def reload_linked(self, project):
+        """Bagli DOCX disarida (Word'de) degistiyse oradan yeniden okur. Kaydedilmis hal once anlik goruntuye alinir.
+        Kanit kutulari ve AI/elle yazilmis metin isaretleri, metni degismeyen bolumlerde korunur."""
+        from . import docx_engine as E
+        from . import findings as F
+        meta = project.setdefault('meta', {})
+        path = meta.get('linked_docx')
+        res = E.read_report(path, os.path.basename(path))
+        self.snapshot(project['id'], 'pre-reload-from-docx')
+        old = {r['clause']: r for r in project.get('sections') or []}
+        rows = []
+        for r in res['sections']:
+            o = old.get(r['clause'])
+            if o is not None and F.with_closing(project, o).strip() == str(r.get('value') or '').strip():
+                rows.append(o)                              # Word'de degismemis: kanit kutulari yerinde
+            elif o is not None:
+                n = dict(o)
+                flags = dict(n.get('flags') or {})
+                if str(r.get('value') or '').strip():
+                    flags['report_text'] = r['value']
+                    flags.pop('report_stale', None)
+                else:
+                    flags.pop('report_text', None)
+                n['flags'], n['value'] = flags, r['value']
+                rows.append(n)
+            else:
+                rows.append(r)
+        project['values'] = res['values']
+        project['sections'] = rows
+        meta['na_clauses'] = res['na_clauses']
+        meta['report_tables'] = res['report_tables']
+        keep = {(i.get('type'), F.norm_clause(i.get('clause'))): i for i in (meta.get('action_plan') or {}).get('items') or []}
+        items = []
+        for it in res['action_plan']['items']:
+            o = keep.get((it.get('type'), F.norm_clause(it.get('clause'))))
+            items.append(dict(o, **{k: v for k, v in it.items() if v}) if o else it)
+        meta['action_plan'] = {'items': items, 'updated_at': now()}
+        meta['linked_sig'] = file_sig(path)
+        project['company'] = company_of(project['values']) or project.get('company')
+        project['site_code'] = site_code_of(project['values']) or project.get('site_code')
+        return project
 
     @staticmethod
     def export_payload(project):

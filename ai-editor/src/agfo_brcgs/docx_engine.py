@@ -452,6 +452,18 @@ def _strip_brs(container):
             br.getparent().remove(br)
 
 
+def _drop_extra_text(nodes):
+    """Ilk w:t disindakileri siler; bosalan kosuyu (yalniz rPr kalan w:r) da kaldirir. 2.3.0: once yalniz bosaltiliyordu ve
+    ayni dosyaya her yazista bos w:t'ler birikiyordu (kaydet -> dosya buyuyordu)."""
+    for t in nodes:
+        r = t.getparent()
+        r.remove(t)
+        if r.tag == w('r') and all(ch.tag == w('rPr') for ch in r):
+            par = r.getparent()
+            if par is not None:
+                par.remove(r)
+
+
 def replace_sdt_text(sdt, value):
     content = sdt.find(w('sdtContent'))
     if content is None:
@@ -459,8 +471,7 @@ def replace_sdt_text(sdt, value):
     _strip_brs(content)
     nodes = list(content.iter(w('t')))
     t = nodes[0] if nodes else _ensure_text_node(content)
-    for extra in nodes[1:]:
-        extra.text = ''
+    _drop_extra_text(nodes[1:])
     _set_text(t, value)
     _neutralize_run(t)
     _remove_placeholder_flag(sdt)
@@ -472,8 +483,7 @@ def replace_cell_text(cell, value):
     nodes = list(cell.iter(w('t')))
     if nodes:
         t = nodes[0]
-        for extra in nodes[1:]:
-            extra.text = ''
+        _drop_extra_text(nodes[1:])
     else:
         p = cell.find(w('p'))
         if p is None:

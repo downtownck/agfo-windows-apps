@@ -23,6 +23,7 @@ from agfo_brcgs import findings as F
 from agfo_brcgs import guide as G
 from agfo_brcgs import i18n as I18N
 from agfo_brcgs import store as S
+import agfo_wordview as WV
 
 try:
     from agfo_brcgs import coverage as COV
@@ -47,8 +48,71 @@ def _colors(app):
     return c
 
 
+SCROLLERS = []          # (canvas, kaydirma) - fare tekerlegi icin kayitli alanlar
+
+
+def _scrollable_under(widget):
+    w_ = widget
+    while w_ is not None:
+        for cv, fn in SCROLLERS:
+            if w_ is cv:
+                return fn
+        w_ = getattr(w_, 'master', None)
+    return None
+
+
+def _text_can_scroll(t, down):
+    try:
+        top, bot = t.yview()
+    except tk.TclError:
+        return False
+    return (bot < 0.999) if down else (top > 0.001)
+
+
+def install_wheel(root):
+    """Tek, genel tekerlek isleyicisi (2.3.0). Eskiden kaydirma alani <Enter>'da tekerlegi baglayip <Leave>'de cozuyordu;
+    Tk fare bir giris kutusuna/etikete gecince ust cerceveye <Leave> gonderdigi icin tekerlek surekli kopuyordu.
+    Simdi imlecin altindaki pencereden yukari cikilip kayitli kaydirma alani bulunur. Kendi icerigi tasan bir metin
+    kutusu once kendisi kayar; ucuna gelince sayfa kaymaya devam eder."""
+    if getattr(root, '_agfo_wheel', False):
+        return
+    root._agfo_wheel = True
+
+    def on_wheel(e, delta=None):
+        d = delta if delta is not None else (e.delta if e.delta else 0)
+        if not d:
+            return None
+        try:
+            w_ = root.winfo_containing(e.x_root, e.y_root)
+        except (KeyError, tk.TclError):
+            return None
+        if w_ is None:
+            return None
+        fn = _scrollable_under(w_)
+        if fn is None:
+            return None
+        down = d < 0
+        if isinstance(w_, tk.Text) and _text_can_scroll(w_, down):
+            return None                                     # metin kutusu kendi sinifi ile kayar
+        steps = int(-d / 120) if abs(d) >= 120 else (-1 if d > 0 else 1)
+        fn(steps * 3)
+        return 'break'
+    root.bind_all('<MouseWheel>', on_wheel, add='+')
+    root.bind_all('<Button-4>', lambda e: on_wheel(e, 120), add='+')
+    root.bind_all('<Button-5>', lambda e: on_wheel(e, -120), add='+')
+
+    # acilir liste: tekerlek secili degeri degistirmez; kayitli bir alandaysa sayfayi kaydirir
+    def combo_wheel(e, delta=None):
+        if _scrollable_under(e.widget) is None:
+            return 'break'
+        on_wheel(e, delta)
+        return 'break'
+    for seq, dl in (('<MouseWheel>', None), ('<Button-4>', 120), ('<Button-5>', -120)):
+        root.bind_class('TCombobox', seq, lambda e, d=dl: combo_wheel(e, d))
+
+
 class Scroll(tk.Frame):
-    """Dikey kaydirilabilir icerik alani (fare tekerlegiyle)."""
+    """Dikey kaydirilabilir icerik alani (fare tekerlegi: install_wheel). Odaklanan alan gorunur alana kaydirilir."""
 
     def __init__(self, master, bg, width=None):
         super().__init__(master, bg=bg)
@@ -61,23 +125,41 @@ class Scroll(tk.Frame):
         self._win = self.canvas.create_window(0, 0, window=self.body, anchor='nw')
         self.body.bind('<Configure>', lambda e: self.canvas.configure(scrollregion=self.canvas.bbox('all')))
         self.canvas.bind('<Configure>', lambda e: self.canvas.itemconfigure(self._win, width=e.width))
-        for w_ in (self.canvas, self.body):
-            w_.bind('<Enter>', lambda e: self._wheel(True))
-            w_.bind('<Leave>', lambda e: self._wheel(False))
+        entry = (self.canvas, lambda n: self.canvas.yview_scroll(n, 'units'))
+        SCROLLERS.append(entry)
+        self.bind('<Destroy>', lambda e: (SCROLLERS.remove(entry) if e.widget is self and entry in SCROLLERS else None), add='+')
+        install_wheel(self.winfo_toplevel())
+        # klavye ile (Tab) gelinen alan gorunur olsun
+        self.body.bind_class('AgfoScrollFocus', '<FocusIn>', self._focus_in)
+        self.after_idle(self._tag_children)
 
-    def _wheel(self, on):
-        if on:
-            self.bind_all('<MouseWheel>', self._on_wheel)
-            self.bind_all('<Button-4>', lambda e: self.canvas.yview_scroll(-3, 'units'))
-            self.bind_all('<Button-5>', lambda e: self.canvas.yview_scroll(3, 'units'))
-        else:
-            for seq in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
-                self.unbind_all(seq)
+    def _tag_children(self):
+        try:
+            stack = [self.body]
+            while stack:
+                w_ = stack.pop()
+                stack.extend(w_.winfo_children())
+                tags = w_.bindtags()
+                if 'AgfoScrollFocus' not in tags:
+                    w_.bindtags(tags + ('AgfoScrollFocus',))
+        except tk.TclError:
+            pass
 
-    def _on_wheel(self, e):
-        if isinstance(e.widget, tk.Text) and e.widget.winfo_height() < e.widget.winfo_reqheight() + 4:
-            return
-        self.canvas.yview_scroll(int(-e.delta / 120) * 3 or (-1 if e.delta > 0 else 1), 'units')
+    def _focus_in(self, e):
+        w_ = e.widget
+        try:
+            if not str(w_).startswith(str(self.body)):
+                return
+            self.canvas.update_idletasks()
+            y = w_.winfo_rooty() - self.body.winfo_rooty()
+            h = w_.winfo_height()
+            total = max(1, self.body.winfo_height())
+            view_top = self.canvas.canvasy(0)
+            view_h = self.canvas.winfo_height()
+            if y < view_top or y + h > view_top + view_h:
+                self.canvas.yview_moveto(max(0, (y - 40)) / total)
+        except tk.TclError:
+            pass
 
     def top(self):
         self.canvas.yview_moveto(0)
@@ -107,7 +189,7 @@ class BrcgsExplorer(tk.Frame):
         e.pack(side='right')
         e.bind('<KeyRelease>', lambda ev: self.refresh())
         tk.Label(top, text='🔍', fg=c['MUTED'], bg=c['PANEL']).pack(side='right', padx=(10, 2))
-        self.app.btn(top, '⤓ Import DOCX', self.import_docx, 'ghost', side='right')
+        self.app.btn(top, '⤓ Open DOCX', self.import_docx, 'ghost', side='right')
         self.new_btn = self.app.btn(top, '＋ New report ▾', self.new_menu, 'primary', side='right')
         tk.Label(top, text='📋  BRCGS Report Studio', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 13, 'bold')).pack(side='left')
         tk.Label(top, text='  FS · PM · CP · AB · SD', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9)).pack(side='left')
@@ -221,12 +303,13 @@ class BrcgsExplorer(tk.Frame):
         self.app.open_brcgs_report(pr['id'])
 
     def import_docx(self):
-        paths = filedialog.askopenfilenames(parent=self, title='Filled or blank BRCGS report (DOCX)',
+        paths = filedialog.askopenfilenames(parent=self, title='Open a filled or blank BRCGS report (DOCX); Save writes back into it',
                                             filetypes=[('Word document', '*.docx')])
         last = None
         for p in paths:
             try:
-                last = self.store.import_docx(p)
+                uid = self.store.find_linked(p)
+                last = self.store.get(uid) if uid else self.store.import_docx(p, link=True)
             except Exception as e:
                 messagebox.showerror('Import DOCX', '%s\n\n%s' % (os.path.basename(p), e), parent=self)
         self.refresh()
@@ -374,10 +457,15 @@ class BrcgsReportView(tk.Frame):
         self.tables = [(k, E.TABLE_LABELS[k], cols) for k, (_t, cols) in E.official_tables(self.template).items()] + \
                       [(k, title, cols) for k, title, _t, cols, _l in E.generic_tables(self.template)]
         self.table_col_labels = {k: labels for k, _t, _tb, _c, labels in E.generic_tables(self.template)}
+        self.form_page = 'overview'
+        self.wordview = None
+        self._word = {'key': None, 'pdf': None, 'found': [], 'busy': False, 'error': None, 'pending': None}
+        self._field_widgets = {}
         self._build()
-        self.show('overview')
+        self.show('word' if self.app.doc_renderer().engine else 'overview')
         if self.recovered:
             self.mark_dirty()
+        self.after(400, self.check_linked)
 
     def autosave(self):
         if self.dirty:
@@ -399,8 +487,17 @@ class BrcgsReportView(tk.Frame):
         top = tk.Frame(self, bg=c['PANEL'], padx=12, pady=8)
         top.pack(fill='x')
         self.app.btn(top, 'Save and close', self.save_and_close, 'ghost', side='right')
-        self.app.btn(top, '📄 Write DOCX', self.export_docx, 'normal', side='right')
+        self.open_word_btn = self.app.btn(top, 'Open in Word', self.open_in_word, 'ghost', side='right')
+        self.export_btn = self.app.btn(top, '📄 Save as DOCX…', self.export_docx, 'normal', side='right')
         self.app.btn(top, '💾 Save', self.save, 'primary', side='right')
+        sw = tk.Frame(top, bg=c['PANEL'])
+        sw.pack(side='right', padx=(0, 14))
+        self.mode_btns = {}
+        for key, label in (('word', '📄 Word view'), ('form', '✎ Form')):
+            b = tk.Button(sw, text=label, command=lambda k=key: self.set_mode(k), relief='flat', bd=0, highlightthickness=0, padx=12, pady=4,
+                          cursor='hand2', font=('Segoe UI', 9, 'bold'), activebackground=c['ACCENT'])
+            b.pack(side='left')
+            self.mode_btns[key] = b
         self.state_lbl = tk.Label(top, text='● Saved', fg=c.get('OK_C', '#6fd39b'), bg=c['PANEL'], font=('Segoe UI', 9, 'bold'))
         self.state_lbl.pack(side='right', padx=10)
         self.title_lbl = tk.Label(top, text='', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 12, 'bold'), anchor='w')
@@ -427,8 +524,14 @@ class BrcgsReportView(tk.Frame):
     def _refresh_header(self):
         p = self.project
         self.title_lbl.configure(text=p['title'])
-        self.sub_lbl.configure(text='%s · %s · %d sections' % (D.PROFILE_LABELS[p['profile']], p.get('company') or 'no company',
-                                                             len(p['sections'])))
+        linked = (p.get('meta') or {}).get('linked_docx')
+        self.sub_lbl.configure(text='%s · %s · %d sections%s' % (D.PROFILE_LABELS[p['profile']], p.get('company') or 'no company',
+                                                               len(p['sections']), ('   ·   🔗 ' + os.path.basename(linked)) if linked else ''))
+        self.export_btn.configure(text='📄 Save a copy as DOCX…' if linked else '📄 Save as DOCX…')
+        word = self.page == 'word'
+        for k, b in self.mode_btns.items():
+            on = (k == 'word') == word
+            b.configure(bg=self.c['SEL_BG'] if on else self.c['PANEL2'], fg=self.c['SEL_FG'] if on else self.c['FG'])
         for k, b in self.nav_btns.items():
             on = k == self.page or (k.startswith('g:') and self.page == k)
             b.configure(bg=self.c['SEL_BG'] if on else self.c['PANEL2'], fg=self.c['SEL_FG'] if on else self.c['FG'])
@@ -453,8 +556,11 @@ class BrcgsReportView(tk.Frame):
         for w_ in self.main.winfo_children():
             w_.destroy()
         self._refresh_header()
+        if page != 'word':
+            self.form_page = page
+        self.wordview = None
         fn = {'overview': self._page_overview, 'tables': self._page_tables, 'sections': self._page_sections, 'na': self._page_na,
-              'plan': self._page_plan, 'preview': self._page_preview, 'history': self._page_history}.get(page)
+              'plan': self._page_plan, 'preview': self._page_preview, 'history': self._page_history, 'word': self._page_word}.get(page)
         if fn:
             fn()
         elif page.startswith('g:'):
@@ -482,6 +588,241 @@ class BrcgsReportView(tk.Frame):
                         master.bind('<Configure>', fit, add='+')
                 except (tk.TclError, ValueError):
                     pass
+
+    # ------------------------------------------------------------------ Word gorunumu (2.3.0)
+    def set_mode(self, mode):
+        if mode == 'word':
+            self.show('word')
+        else:
+            self.show(self.form_page if self.form_page != 'word' else 'overview')
+
+    def _render_input(self):
+        """(anahtar, sablon_baytlari, yuk) - anahtar degismediyse sayfalar yeniden cizilmez."""
+        import hashlib
+        import json
+        payload = S.Store.export_payload(copy.deepcopy(self.project))
+        linked = self.project['meta'].get('linked_docx')
+        template = None
+        if linked and os.path.isfile(linked):
+            try:
+                with open(linked, 'rb') as fh:
+                    template = fh.read()
+            except OSError:
+                template = None
+        h = hashlib.sha1(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode('utf-8'))
+        h.update(hashlib.sha1(template).digest() if template else b'bundled')
+        return h.hexdigest(), template, payload
+
+    def _page_word(self):
+        c = self.c
+        bar = tk.Frame(self.main, bg=c['PANEL'], padx=10, pady=6)
+        bar.pack(fill='x')
+        ren = self.app.doc_renderer()
+        self.word_status = tk.Label(bar, text='', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9), anchor='w')
+        self.app.btn(bar, '⟳ Refresh', lambda: self.refresh_word(force=True), 'ghost', side='right')
+        self.app.btn(bar, '＋', lambda: self.wordview and self.wordview.set_zoom(self.wordview.zoom * 1.15), 'ghost', side='right')
+        self.app.btn(bar, '－', lambda: self.wordview and self.wordview.set_zoom(self.wordview.zoom / 1.15), 'ghost', side='right')
+        self.app.btn(bar, 'Fit width', lambda: self.wordview and self.wordview.fit(), 'ghost', side='right')
+        self.word_status.pack(side='left', fill='x', expand=True)
+        self.word_hover = tk.Label(self.main, text='Click anywhere on a page to edit that field or section in the form.', fg=c['MUTED'],
+                                   bg=c['PANEL2'], font=('Segoe UI', 8), anchor='w', padx=10)
+        self.word_hover.pack(fill='x')
+        self.wordview = WV.WordView(self.main, c, on_pick=self.pick_target, on_hover=self._hover_target,
+                                    wheel_register=lambda cv, fn: self._register_wheel(cv, fn))
+        self.wordview.pack(fill='both', expand=True)
+        if not ren.engine:
+            self.wordview.message('Word view needs Microsoft Word (or LibreOffice) on this computer to draw the pages exactly as '
+                                  'Word shows them.\n\nYou can still fill the report in Form view; Save writes the DOCX.')
+            self.word_status.configure(text='No renderer found')
+            return
+        self.refresh_word()
+
+    def _register_wheel(self, canvas, fn):
+        entry = (canvas, fn)
+        SCROLLERS.append(entry)
+        canvas.bind('<Destroy>', lambda e: (SCROLLERS.remove(entry) if entry in SCROLLERS else None), add='+')
+        install_wheel(canvas.winfo_toplevel())
+
+    def refresh_word(self, force=False):
+        st = self._word
+        if self.wordview is None:
+            return
+        key, template, payload = self._render_input()
+        if not force and st['key'] == key and st['pdf']:
+            self.wordview.set_document(st['pdf'], st['found'])
+            self.word_status.configure(text='Drawn by %s · %d pages' % (self.app.doc_renderer().engine, len(self.wordview.sizes)))
+            return
+        if st['pdf'] and self.wordview.doc is None:
+            self.wordview.set_document(st['pdf'], st['found'])          # eski hal, yenisi gelene kadar
+        elif not st['pdf']:
+            self.wordview.message('Drawing the pages with %s…' % self.app.doc_renderer().engine)
+        self.word_status.configure(text='Updating with %s…' % self.app.doc_renderer().engine)
+        if st['busy']:
+            st['pending'] = (key, template, payload)
+            return
+        self._start_render(key, template, payload)
+
+    def _start_render(self, key, template, payload):
+        import queue
+        import threading
+        st = self._word
+        st['busy'] = True
+        q = queue.Queue()
+        ren = self.app.doc_renderer()
+
+        def work():
+            try:
+                blob, _st = E.write_report(payload, template=template)
+                pdf = ren.to_pdf(blob)
+                tpl = E.DocxTemplate(blob)
+                targets, seen = [], {}
+                W = E.w
+                for name, sdt in tpl.all_sdts():
+                    if name != 'word/document.xml':
+                        continue
+                    cont = sdt.find(W('sdtContent'))
+                    if cont is None or next(cont.iter(W('sdt')), None) is not None or next(sdt.iter(W('tbl')), None) is not None:
+                        continue
+                    tag = E.sdt_props(sdt)['tag']
+                    occ = seen.get(tag, 0)
+                    seen[tag] = occ + 1
+                    targets.append(((tag, occ), E.sdt_text(sdt)))
+                import agfo_docrender as R
+                q.put(('ok', key, pdf, R.anchors(pdf, targets)))
+            except Exception as e:  # noqa: BLE001
+                q.put(('err', key, str(e), None))
+        threading.Thread(target=work, daemon=True).start()
+
+        def poll():
+            try:
+                kind, k, a, b = q.get_nowait()
+            except queue.Empty:
+                self.after(120, poll)
+                return
+            st['busy'] = False
+            if kind == 'ok':
+                st.update(key=k, pdf=a, found=b, error=None)
+                if self.wordview is not None and self.winfo_exists():
+                    self.wordview.set_document(a, b)
+                    self.word_status.configure(text='Drawn by %s · %d pages · %s' % (
+                        self.app.doc_renderer().engine, len(self.wordview.sizes),
+                        ('linked file: ' + os.path.basename(self.project['meta']['linked_docx']))
+                        if self.project['meta'].get('linked_docx') else 'official template'))
+            else:
+                st['error'] = a
+                if self.wordview is not None and self.winfo_exists():
+                    if not st['pdf']:
+                        self.wordview.message('The pages could not be drawn:\n%s\n\nForm view still works.' % a)
+                    self.word_status.configure(text='Drawing failed: %s' % a[:160])
+            if st['pending']:
+                nxt, st['pending'] = st['pending'], None
+                if nxt[0] != st['key']:
+                    self._start_render(*nxt)
+        self.after(120, poll)
+
+    def _target_info(self, target):
+        """(sayfa, odak, etiket) - Word gorunumunde tiklanan alanin formdaki yeri."""
+        tag, occ = target if isinstance(target, tuple) else (target, 0)
+        p = self.project['profile']
+        if not hasattr(self, '_tag_sections'):
+            m = {}
+            for row in self.project['sections']:
+                note = B.export_note(p, row['clause'])
+                if note.get('tag') and note['tag'] not in m:
+                    m[note['tag']] = row['clause']
+            self._tag_sections = m
+            self._field_by_tag = {}
+            for f in self.fields:
+                if f.get('tag'):
+                    self._field_by_tag.setdefault((f['tag'], f['occurrence']), f)
+        if tag in self._tag_sections:
+            c = self._tag_sections[tag]
+            row = next((r for r in self.project['sections'] if r['clause'] == c), None)
+            return 'section', c, '%s %s' % (c, (row or {}).get('title') or '')
+        f = self._field_by_tag.get((tag, occ)) or self._field_by_tag.get((tag, 0))
+        if f is not None:
+            return 'field', (f['key'], f['occurrence'], f['group']), f['label']
+        up = str(tag or '').upper()
+        if tag in B.na_tags(p) or up.endswith('NAC') or 'NON_APPLICABLE' in up:
+            return 'na', None, 'Not applicable clauses'
+        if up.startswith('NON_CONFORMITY') or 'NONCONFORM' in up or 'CRITICAL' in up:
+            return 'plan', None, 'NC Action Plan'
+        if '_TABLE' in up:
+            return 'tables', None, 'Official tables'
+        return 'overview', None, ''
+
+    def _hover_target(self, target):
+        if target is None:
+            text = 'Click anywhere on a page to edit that field or section in the form.'
+        else:
+            kind, _f, label = self._target_info(target)
+            text = 'Click to edit: %s' % (label or {'na': 'NA clauses', 'plan': 'NC Action Plan', 'tables': 'Official tables'}.get(kind, kind))
+        try:
+            if self.word_hover.cget('text') != text:
+                self.word_hover.configure(text=text)
+        except tk.TclError:
+            pass
+
+    def pick_target(self, target):
+        kind, focus, _label = self._target_info(target)
+        if kind == 'section':
+            idx = next(i for i, r in enumerate(self.project['sections']) if r['clause'] == focus)
+            self.jump_to(idx)
+        elif kind == 'field':
+            key, occ, group = focus
+            self.show('g:' + group)
+            w_ = self._field_widgets.get((key, occ))
+            if w_ is not None:
+                self.after(60, lambda: (w_.focus_set(), w_.event_generate('<FocusIn>')))
+        else:
+            self.show(kind)
+
+    def open_in_word(self):
+        linked = self.project['meta'].get('linked_docx')
+        if not linked:
+            if messagebox.askyesno('Open in Word', 'This report is not linked to a DOCX file yet. Save it as a DOCX now? '
+                                                   'The report will be linked to that file.', parent=self):
+                self.export_docx()
+            return
+        if self.dirty and not self.save():
+            return
+        self.app._open_external(linked)
+        self.app.flash('Opened in Word. When you save there and come back, the changes are loaded here.', 8000)
+
+    def check_linked(self):
+        """Bagli DOCX disarida (Word'de) degistirildiyse raporu dosyadan gunceller."""
+        meta = self.project.get('meta') or {}
+        path = meta.get('linked_docx')
+        if not path or not self.winfo_exists():
+            return
+        sig = S.file_sig(path)
+        if sig is None or sig == meta.get('linked_sig'):
+            return
+        if getattr(self, '_asking_reload', False):
+            return
+        if self.dirty:
+            self._asking_reload = True
+            try:
+                ok = messagebox.askyesno('File changed in Word', '"%s" was changed outside AGFO (for example in Word).\n\nLoad the '
+                                         'file\'s version? Your unsaved changes here are kept in the version history.'
+                                         % os.path.basename(path), parent=self)
+            finally:
+                self._asking_reload = False
+            if not ok:
+                meta['linked_sig'] = sig                    # bu degisiklik icin bir daha sorma
+                return
+        try:
+            self.store.save(self.project, force=True)
+            self.project = self.store.reload_linked(self.project)
+            self.project = self.store.save(self.project, force=True)
+        except Exception as e:
+            messagebox.showerror('Could not load the file', str(e), parent=self)
+            return
+        if hasattr(self, '_tag_sections'):
+            del self._tag_sections
+        self._mark_clean()
+        self.show(self.page)
+        self.app.flash('Loaded the changes made to %s.' % os.path.basename(path), 8000)
 
     # ------------------------------------------------------------------ yardimcilar
     def _scroll(self):
@@ -733,6 +1074,11 @@ class BrcgsReportView(tk.Frame):
                 t.grid(row=r, column=1, columnspan=2, sticky='ew', pady=3)
             if f.get('hint') and f['hint'] != f['label']:
                 lab.configure(text=label + '\n' + f['hint'])
+        self._field_widgets = {}
+        for r, f in enumerate(fields):
+            sl = grid.grid_slaves(row=r, column=1)
+            if sl:
+                self._field_widgets[(f['key'], f['occurrence'])] = sl[0]
 
     # ------------------------------------------------------------------ resmi tablolar
     def _page_tables(self):
@@ -1383,6 +1729,15 @@ class BrcgsReportView(tk.Frame):
 
     # ------------------------------------------------------------------ kaydet / disa aktar
     def save(self, force=False):
+        wrote_err = None
+        if (self.project.get('meta') or {}).get('linked_docx'):
+            try:
+                self.store.write_linked(self.project)
+            except PermissionError:
+                wrote_err = ('The file is open in Word, so it could not be updated:\n%s\n\nClose it in Word and save again. '
+                             'Your changes are saved in the report.' % self.project['meta']['linked_docx'])
+            except Exception as e:
+                wrote_err = 'The linked DOCX could not be updated:\n%s' % e
         try:
             self.project = self.store.save(self.project, force=force)
         except S.GuardError as e:
@@ -1395,7 +1750,11 @@ class BrcgsReportView(tk.Frame):
             return False
         self._mark_clean()
         self._refresh_header()
-        self.app.flash('Report saved: %s' % self.project['title'])
+        if wrote_err:
+            messagebox.showwarning('Linked DOCX', wrote_err, parent=self)
+        else:
+            linked = self.project['meta'].get('linked_docx')
+            self.app.flash('Report saved: %s%s' % (self.project['title'], (' → ' + os.path.basename(linked)) if linked else ''))
         return True
 
     def save_and_close(self):
@@ -1425,6 +1784,12 @@ class BrcgsReportView(tk.Frame):
                                                            for t, v in list(chk['merged_boxes'].items())[:6]))
         if chk['skipped']:
             msg.append('⚠ Not written because the template has no box for them: ' + ', '.join(chk['skipped']))
+        if not self.project['meta'].get('linked_docx'):
+            self.project['meta']['linked_docx'] = os.path.abspath(path)
+            self.project['meta']['linked_sig'] = S.file_sig(path)
+            self.project = self.store.save(self.project, force=True)
+            self._refresh_header()
+            msg += ['', 'The report is now linked to this file: Save writes straight into it.']
         msg += ['', 'Open the file in Word?']
         if messagebox.askyesno('DOCX written', '\n'.join(msg), parent=self):
             self.app._open_external(path)
