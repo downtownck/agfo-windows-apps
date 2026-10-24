@@ -85,7 +85,10 @@ def install_wheel(root):
         try:
             w_ = root.winfo_containing(e.x_root, e.y_root)
         except (KeyError, tk.TclError):
-            return None
+            w_ = None
+        if w_ is None:
+            # imlec altindaki pencere bulunamadiysa (Windows tekerlegi odaktaki pencereye de gonderebilir) olayin penceresi
+            w_ = e.widget if isinstance(e.widget, tk.Misc) else None
         if w_ is None:
             return None
         fn = _scrollable_under(w_)
