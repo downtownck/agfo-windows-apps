@@ -37,12 +37,18 @@ class WordView(tk.Frame):
         self.canvas.bind('<Button-1>', self._click)
         self.canvas.bind('<Motion>', self._motion)
         self.canvas.bind('<Control-MouseWheel>', self._ctrl_wheel)
+        for seq, n in (('<Next>', 1), ('<Prior>', -1)):
+            self.canvas.bind(seq, lambda e, d=n: self.scroll_to(max(0, min(len(self.tops) - 1, self.current_page() + d))))
         self.canvas.bind('<Control-Button-4>', lambda e: self.set_zoom(self.zoom * 1.1))
         self.canvas.bind('<Control-Button-5>', lambda e: self.set_zoom(self.zoom / 1.1))
         self.msg = None
         self.editor = None
         self.editor_widget = None
         self.on_editor_click_away = None
+        self.on_scroll = None
+        self.on_undo = None
+        for seq in ('<Control-z>', '<Control-Z>'):
+            self.canvas.bind(seq, lambda e: (self.on_undo() if self.on_undo else None, 'break')[1])
         if wheel_register:
             wheel_register(self.canvas, lambda n: self._scroll(n))
         self._resize_job = None
@@ -117,7 +123,32 @@ class WordView(tk.Frame):
         width = max(int(s[0] * self._k) for s in self.sizes) + 2 * PAD
         return max(PAD, (max(width, self.canvas.winfo_width()) - int(pw)) // 2)
 
+    def current_page(self):
+        if not self.tops:
+            return 0
+        if self.canvas.yview()[1] >= 0.999 and self.canvas.yview()[0] > 0:
+            return len(self.tops) - 1                    # son sayfa en uste gelemez: dipteyse son sayfa
+        y = self.canvas.canvasy(0) + 80                  # scroll_to sayfayi 60 piksel bosluk birakarak getirir
+        cur = 0
+        for i, t in enumerate(self.tops):
+            if t <= y:
+                cur = i
+        return cur
+
+    def scroll_to(self, page, y_pdf=0.0):
+        """Sayfa (ve PDF noktasi y) gorunur alanin ustune gelir."""
+        if not (0 <= page < len(self.tops)):
+            return
+        total = float(self.canvas.cget('scrollregion').split()[3] or 1)
+        self.canvas.yview_moveto(max(0, self.tops[page] + y_pdf * self._k - 60) / total)
+        self._draw_visible()
+
     def _draw_visible(self):
+        if self.on_scroll is not None and self.tops:
+            try:
+                self.on_scroll(self.current_page(), len(self.tops))
+            except tk.TclError:
+                pass
         if self.doc is None:
             return
         top = self.canvas.canvasy(0)
@@ -210,6 +241,7 @@ class WordView(tk.Frame):
         return next((a for a in self.found if a[0] == target and len(a) >= 5), None)
 
     def _click(self, e):
+        self.canvas.focus_set()                          # Ctrl+Z ve PageUp/PageDown icin
         if self.editor is not None and self.on_editor_click_away:
             self.on_editor_click_away()
         reg = self.region_at(e)
