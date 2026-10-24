@@ -1,0 +1,1176 @@
+BRCGS AGENTS AND BROKERS ISSUE 3 - TEKNIK GOZDEN GECIRME BIRLESIK KAYNAK DOSYASI
+Icerik: Skill talimati + AB309 raporlama rehberi + BRCGS Agents and Brokers Issue 3 requirements
+
+====================================================================================================
+BOLUM 1 - BRCGS AGENTS AND BROKERS TEKNIK GOZDEN GECIRME SKILL TALIMATI
+====================================================================================================
+
+---
+name: brcgs-agents-brokers-technical-review-responder
+description: Prepare or revise BRCGS Global Standard Agents and Brokers Issue 3 technical-review responses and audit-report text from uploaded audit evidence. Use for technical review questions, clause-by-clause responses, report-ready rewrites, evidence consolidation, applicability decisions, document references, traceability summaries, supplier and service-provider approval, product legality, authenticity, product development, incidents, recalls and auditor-recorded non-conformities. Apply the BRCGS AB309 audit-reporting guide, BRCGS Agents and Brokers Issue 3 requirements, and the user's reporting conventions. Never invent evidence or create new non-conformities.
+---
+
+# BRCGS Agents and Brokers Technical Review Responder
+
+## Source priority
+
+1. Use the current audit report, auditor notes and records from the audit period as the primary evidence.
+2. Use dated procedures, hazard and risk assessments, process-flow diagrams, supplier approval records, specifications, contracts, service-provider agreements, certificates, laboratory reports, traceability records, complaint records, incident and recall records, interview notes and sampled product records only when present in the supplied sources.
+3. Prefer the newest verified record when sources conflict. Retain older facts only when they remain relevant and no newer verified evidence supersedes them.
+4. Consult the AB309 reporting guide for mandatory reporting conventions and the Agents and Brokers Issue 3 requirements only to identify the applicable clause, product category, service context and required scope. Do not reproduce clause wording as audit-report evidence.
+5. State objectively when a requested detail is unsupported. Do not fill gaps using general knowledge, assumptions, industry practice or previous reports.
+
+## Workflow
+
+1. Identify the exact technical-review item, clause, requested detail, operation type, product category, service, office location and expected output range.
+2. Search all supplied evidence for the item, including alternate document titles, document codes, dates, supplier names, manufacturer or packer identities, product descriptions, batch or lot numbers, contracts, specifications, service-provider records, laboratory results, traceability exercises and related clauses.
+3. Separate verified facts from reviewer comments, placeholders, assumptions, inherited text, drafting instructions and information copied from a previous audit.
+4. Check whether transferred information remains applicable and is supported by current audit evidence.
+5. Draft a direct answer using only verified evidence from the audit under review.
+6. Remove placeholders, brackets, questions, confirmation requests, editorial notes and unsupported conformity statements.
+7. Check that no new non-conformity, root-cause statement, consequence, risk conclusion or corrective-action recommendation has been introduced.
+8. Perform the final quality check before delivery.
+
+## Report-writing rules
+
+- Write complete, connected paragraphs suitable for direct insertion into the BRCGS Agents and Brokers audit report.
+- Use passive voice and objective audit language.
+- Refer to the audited organisation as `the company` in English or `firma` in Turkish.
+- Match the report language requested by the user. Default to English when no report language is specified.
+- Audit Summary and Non-Conformity Summary content shall be prepared in English. The Detailed Report may be prepared in the requested language.
+- Translate document titles into the report language while preserving document codes, revisions, record IDs, product descriptions, supplier identities, batch or lot numbers, specification references and laboratory report numbers exactly as evidenced.
+- Use dates in `DD.MM.YYYY` format in narrative report text. Retain `YYYY-MM-DD` in Sections 1 and 2 of the official template where required by AB309.
+- Do not use conversational expressions, first- or second-person pronouns, or subjective words such as `appears`, `seems`, `probably`, `likely` or `may`.
+- Do not write statements such as “this meets Clause X”, “compliant with Clause X” or “in accordance with Clause X”. Present the evidence, controls, monitoring and implementation only.
+- Do not reproduce the Standard wording as a substitute for company-specific evidence.
+- Keep all relevant evidence while removing repetition and wording that does not answer the review point.
+- Do not include actual personnel names in Detailed Report summary boxes; use job titles or functions unless a name is mandatory in an Audit Summary, attendance, auditor, consultant or non-conformity review field.
+- For blended announced audits, mark information assessed remotely in the manner required by the official report template and guide.
+
+## Evidence and document references
+
+Use this format when all elements are available:
+
+`“Document Title” (Document Code, Rev. XX, DD.MM.YYYY)`
+
+Use verified elements only. Do not invent missing codes, revisions, dates, review frequencies, limits, acceptance criteria, test results, responsible persons, supplier identities, manufacturer identities, product identities or service-provider identities.
+
+For laboratory or technical evidence, use:
+
+`[Parameter]: [Value] (Laboratory: [Name], [Accreditation], [Date]; Product: [Name], Batch/Lot #[X])`
+
+For supplier or service-provider controls, use:
+
+`[Supplier/service provider]: approval method [method]; scope [scope]; review date [date]; performance evidence [record/result].`
+
+Include only fields supported by the evidence.
+
+## Agents and Brokers-specific reporting
+
+### Operation, scope and product categories
+
+- Confirm whether the company operates as an agent, broker, or both, based only on verified evidence.
+- Scope wording shall be clear, concise and unambiguous and shall identify the agent/broker role, product groups, relevant services and office locations.
+- Do not use the terms `trade`, `trader` or `trading` in scope wording.
+- Do not imply that the company directly performs storage, distribution, packing or processing when it only arranges these through third parties.
+- Include packaging materials, food products or consumer products only where supported.
+- Record exclusions only when explicitly supported and permitted by the Standard. If there are no exclusions, use `None` in the official field.
+
+### Hazard and risk assessment
+
+- Report competence, team involvement, scope, product and service coverage, process flow, hazards, controls, monitoring, verification, corrective actions and review only to the extent supported by evidence.
+- Confirm whether the assessment uses hazard and risk analysis or HACCP terminology as documented by the company.
+- Where the study is developed centrally, describe how it was verified for each local office or operation.
+- Include service-provider controls only where contracts, certifications, audits, questionnaires or technical reviews support them.
+- Do not infer that a hazard is adequately controlled merely because a service provider is used.
+
+### Supplier and manufacturer approval
+
+- Distinguish the immediate supplier from the last manufacturer, processor, packer or consolidation point.
+- Report initial approval, ongoing monitoring, risk assessment, certification, audit, questionnaire, contract, historical performance and exception controls only as evidenced.
+- Where products are purchased through another agent or broker, confirm how the identity and approval status of the last manufacturer, processor or packer is established.
+- Do not treat an agent or broker certification as automatic approval of the last manufacturer unless the Standard and evidence support that route.
+
+### Service-provider management
+
+- Distinguish product suppliers from service providers such as transport, storage, laboratories, labelling, inspection or processing providers.
+- Report service-provider approval, contracts, scope, subcontracting rules, performance monitoring and exception handling only where evidenced.
+- Confirm whether third-party storage, transport, import, product development or other services are arranged by the company.
+- Do not imply ownership or direct operation of storage or vehicles where the company only arranges services.
+
+### Product specifications, legality and labelling
+
+- Include verified product specifications, customer requirements, country-of-sale requirements, declarations, labels, quantity controls and legal reviews.
+- Where responsibility for legality or labelling is assigned to a customer or supplier, report the documented contractual arrangement.
+- Do not infer legal compliance from the presence of a specification alone.
+
+### Product inspection, laboratory testing and claims
+
+- Report the product sampling or verification programme, sample rate, test type, certificates of analysis or conformity, laboratory accreditation and follow-up of unsatisfactory results only where supported.
+- For claims involving provenance, chain of custody, identity preservation, authenticity or assured status, include only verified supporting evidence.
+- Do not add testing requirements, frequencies or acceptance limits not present in the evidence.
+
+### Product authenticity and fraud
+
+- Report sources of intelligence, vulnerability assessment, annual review, risk ranking and fraud mitigation controls only as evidenced.
+- Keep product authenticity separate from supplier approval and food defence, while showing verified links between the systems.
+- Do not classify a product as high risk unless the company’s documented assessment does so.
+
+### Product design and development
+
+- Apply this section only where the company manages product development as a service.
+- Report project briefs, sample review, formal approval, manufacturer hazard assessment, shelf-life verification, labelling review and claim validation only where evidenced.
+- Mark clauses as not applicable only where the absence of the service is explicitly supported.
+
+### Traceability
+
+- Summarise the traceability exercise using the verified product, manufacturer, supplier, customer, batch or lot, quantity, intermediate storage and service-provider records.
+- State the direction, records reviewed, quantity reconciliation, completion time and result.
+- Do not claim completion within four hours, or within 24 hours where external-party information was needed, unless recorded times support this.
+- Where multiple offices are in scope, confirm that annual testing covers each office only when evidenced.
+
+### Incidents, withdrawals and recalls
+
+- Report the incident, affected product, dates, notifications, traceability, actions, root cause and preventive action only as supported by records.
+- Confirm certification-body notification within three working days only when the evidence supports the timing.
+- Distinguish incidents originating in the supply chain from incidents caused by the agent’s or broker’s own activity.
+- Do not infer adequacy of supplier corrective actions without evidence of review.
+
+### Surplus products
+
+- Report customer-branded surplus disposal, donation, brand-owner approval and fitness-for-use controls only where applicable and evidenced.
+- Mark this section not applicable only when the company does not manage surplus products and the evidence supports that conclusion.
+
+### Multiple offices
+
+- Identify all offices included in the certificate scope and distinguish in-person and remote assessments.
+- Describe how centrally managed controls are implemented and accessed by each office.
+- Where a finding relates to a specific office, identify that office in the finding detail.
+
+### Module 6: Meeting FSMA requirements
+
+- Apply Module 6 only when it was included in the audit scope.
+- Report relevant 21 CFR Part 117, Part 507, Part 121, foreign supplier verification and sanitary transportation controls only where supplied.
+- Preserve the exact regulatory references and verified responsibility assignments.
+- Do not infer FDA registration, PCQI status, supplier verification activity or transportation responsibility without evidence.
+
+## Applicability
+
+- Mark a clause or section as not applicable only when the absence of the relevant operation, service, product category, activity, claim, product-development responsibility, positive release, surplus-product handling or module is explicitly supported.
+- Record `non-applicable` in the relevant Detailed Report section and provide concise justification in the non-applicable clauses box.
+- When applicability is uncertain, describe the verified practice without assigning `not applicable`.
+- Do not use non-applicability to conceal missing evidence or an unaudited requirement.
+
+## Non-conformities
+
+- Preserve only non-conformities raised by the auditor or explicitly recorded in the audit report.
+- Do not create, reclassify, strengthen, weaken, merge, split or imply a new non-conformity.
+- Retain sequential numbering and classification order for Critical, Major and Minor findings.
+- Classify each finding against one clause only, using the exact clause number without additional text or punctuation in the official template field.
+- Format an existing finding in narrative output as:
+
+`Clause X.X.X: [objective, specific, reproducible evidence].`
+
+- Include the specific document, record, office, supplier, service provider, manufacturer, date, product, batch or lot, test result or contract concerned when available.
+- Do not add causes, potential consequences, risk commentary or corrective-action advice unless explicitly requested and supplied.
+- For Module 6 findings, use a separate numbering sequence beginning at 1 as required by AB309.
+
+## Handling missing or incomplete evidence
+
+- Replace a placeholder with verified evidence when available.
+- When a specific detail cannot be found, remove the placeholder and retain only broader evidence-supported wording.
+- When no supporting evidence exists and a direct answer cannot be written without fabrication, state: `No records were provided for [specific subject].`
+- Do not convert an evidence gap into a non-conformity unless it was recorded by the auditor.
+- Do not carry forward specific dates, samples, document revisions, traceability exercises, supplier reviews, laboratory tests, incidents, recalls or complaints from a previous audit as if they were current evidence.
+
+## Output format
+
+For numbered technical-review responses, use:
+
+`[Review item number]. Clause [X.X.X] - [short subject]`
+
+Follow with one or more report-ready paragraphs. Do not include drafting notes, reviewer questions, assumptions or a `to be confirmed` section.
+
+For section-level Detailed Report text, use the applicable AB309 section heading and provide concise evidence covering the relevant clauses without repeating the Standard.
+
+When the user requests a file, provide UTF-8 TXT by default unless another format is specified. Keep the requested numbering range in one file and use a clear filename.
+
+## Final quality check
+
+Confirm internally that:
+
+- every specific fact is traceable to supplied evidence;
+- the newest relevant evidence has been preferred;
+- transferred text from a previous report has been checked against current evidence;
+- the technical-review question has been answered directly;
+- no clause requirement has been paraphrased as report content;
+- operation type, scope, product categories, services, offices and exclusions are evidence-based;
+- supplier, manufacturer and service-provider identities are correctly distinguished;
+- traceability and quantity reconciliation are evidence-based;
+- legal, labelling, authenticity and claim statements are supported;
+- no unsupported applicability decision has been made;
+- AB309 requirements for non-conformities, additional offices and Module 6 have been followed;
+- no new non-conformity, root cause, consequence or corrective action has been introduced;
+- document references and narrative dates follow the required format;
+- official template dates in Sections 1 and 2 remain in `YYYY-MM-DD` format;
+- the text can be pasted into the report without further editing.
+
+====================================================================================================
+BOLUM 2 - AB309: HOW TO COMPLETE THE AUDIT REPORT
+====================================================================================================
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 1 of 27
+Global Standard Agents and Brokers, Issue 3 AB 309: How to complete the audit report
+Document Scope:
+This document covers the mandatory requirements on how to complete the audit report for the Global Standard Agents and Brokers, Issue 3. The areas covered include the format and functionality of the audit report and detail on what shall be provided for compulsory sections within the audit report. The audit report is one of the key outputs from the audit process and it is used to provide information for the site, specifiers and retailers.
+Change Log:
+Version no.
+Date
+Description
+1
+03/03/2022
+First Issue for Global Standard Agents and Brokers, Issue 3. Includes the mandatory requirements, associated with AB306 Agents and Brokers Audit Report Template v1.
+2
+14/07/2022
+Updated to include:
+• Correction made to the requirement for Section 3 Detail Requirements, 1. Senior Management Commitment.
+• Minor formatting and rewording amendments.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 2 of 27
+Contents Page
+1. Audit report – Sections
+i. Audit Summary
+ii. Non - Conformity Summary Sheet
+iii. Detailed audit report
+3
+2. Audit report – Template
+3
+3. Audit report – Functionality
+3
+4. Audit report – Upload
+4 5. Generation of the PDF Audit Report
+5 Section 1– Audit Summary
+5
+Section 2 – Non-Conformity Summary Sheets
+How to complete the Non-Conformity Summary Sheet
+13
+Non-Conformity Summary Sheets (Critical, Major and Minor)
+15
+How to complete the Additional Modules Non-Conformity Summary Sheet
+(Critical, Major, Minor).
+16
+Additional modules - Non-Conformity Summary Sheet (Critical, Major and Minor)
+16 Section 3 – Detailed report How to complete the Detailed Section of the Audit Report 18
+1. Senior management commitment
+19
+2. Hazard and Risk Assessment
+19
+3. Product Safety and Quality Management System
+20
+4. Supplier and Sub-contracted Service Management
+22
+5. Personnel
+23
+6. Module 6: Meeting FSMA requirements (*Previously referred to as FSMA Preparedness Module)
+23
+Appendix 1– Definition of services providers
+25
+Appendix 2 – Scope of audit requirements
+25
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 3 of 27
+1. Audit Report – Sections BRCGS has a set format for the reporting of audits to ensure that consistent information is provided to make it easier for users of reports to find information within the report. The audit report must be submitted to BRCGS in the detail and format explained within this document.
+The BRCGS Audit Report has three main sections:
+i. Audit summary
+• Confirming company audited, the scope, outcome of the audit and details how it was undertaken.
+ii. Non-Conformity Summary Sheets
+• Details of the non-conformities found during the audit and their subsequent close out by the company after the audit.
+iii. Detailed Report
+• The report contains a summary box for each Statement of Intent and section.
+• This shall capture sufficient information to explain to the reader how the company meets the Statement of Intent and the controls in place to satisfy the requirements.
+2. Audit report – Template
+• Certification Bodies shall download the latest available template for the audit report from the MyBRCGS platform in the Certification Bodies committee section.
+• The only changes permitted to the audit report template are the Certification Body logo (in jpeg format) and Certification Body address details which should be added as appropriate-– No other changes are permitted to the audit report template.
+• The report must be provided as Microsoft Word document.
+3. Audit report template- Functionality There are 5 types of field in an audit report template: 1. UNTAGGED – Content in untagged fields does not import into the Directory and is instead populated by the associated Site Code or Auditor Number. For example, the Address field is ‘untagged’ - Whatever detail is entered into the report master, will be overridden by the detail held by the Directory for that site code. 2. MANDATORY TEXT - Content of text fields are mandatory and shall be completed in the correct format or the upload will not be successful. 3. FREE TEXT TAGS - Any content can be added within the tag will be uploaded to the Directory. 4. DROPDOWN TAGS – Users must select one of the pre-entered values in the drop-down selection. Content shall not be overwritten, moved or otherwise distorted.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 4 of 27
+5. TABLES – New tables shall not be added or inserted because the Directory cannot upload them, and their contents would be distorted. Additional rows can be inserted by the user to existing tables, but no additional columns should be added, or changes made to header content. Several free text and table columns fields will accept content in any format during document population – but content validation rules will identify and prohibit submission of data which does not adhere to predefined format rules: • Dates – must adhere to the international YYYY-MM-DD format in section 1 and 2. • Site codes and auditor numbers – numeric values only with no text or punctuation. • Emails – valid and complete email addresses only with no additional text or punctuation. • Audit duration day values – numeric values only with no text or punctuation. • Non-conformity numbers – numeric values only with no text or punctuation. • Non-conformity clause reference numbers – must adhere exactly to the clause numbers detailed in the Standard with no additional text or punctuation. • XML tags should never be amended, duplicated, deleted or re-located.
+4. Audit report – Upload
+A core function of BRCGS Directory is the Audit Template upload function. This process takes data from a completed audit report and instantly transfers that data to the system. During the automated data extraction process, the database looks for a number of specific areas in the Word document which are then mapped to corresponding areas of the database (i.e. XML tags).
+A number of the text fields are mandatory and must be completed in the correct format or the upload will not be successful – these are highlighted below in the audit report as MANDATORY TEXT.
+• There are numerous control points on submission – primarily tailored around the content of the report relative to the requirements of the Standard. These include the following:
+• grade vs number and severity of non-conformities
+• grade vs audit programme
+• date validity relative to each-other
+• audit programme and audit outcome.
+Thereafter all documents are checked for completeness (content in mandatory fields), document version, auditor competencies versus scope. Rejected audits will be confirmed on submission, including either a reject message or a warning (which will alert the user to unexpected values in the document).
+Upload Control Points
+During the upload, the BRCGS Directory will look for two key control points:
+1. BRCGS Site Code: If the site code (5-8 digits) in the Audit Template does not match that of the selected site, the upload will be prevented. This ensures that only appropriate audits are linked to a site’s record.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 5 of 27
+2. BRCGS Auditor Number: At the final stage of the upload, the database will compare the scope of the audit with the registered competencies of the auditor(s). The auditors number is 5 digits in length and the auditor(s) profile must be pre-created, validated by BRCGS and contain the correct product categories in the database prior to the audit being carried out and upload of the final audit report. Any discrepancy between auditor(s) registered categories and the audit scope categories will result in the audit report to be stored in the ‘Audit Holding Area’ for investigation by BRCGS. These are manually checked daily and if the auditor or audit team/technical experts are clearly identified to cover the audit scope and audit categories the report will be released. 5. Generation of the PDF Audit Report
+The Directory creates audit report PDFs at the time of user export, not the point of initial import. This ensures report content reflects the most recent data-set contained in the source record.
+The footer within the Word template should be completed by the Certification Body. However, it should be noted that although the footer will match the appearance of the Word template, the values are auto-populated as follows:
+• Certification Body name address – populates from CB listing on the Directory
+• Auditor – populates from the name associated with the auditor number
+• Audit Report number - the unique reference number assigned by the CB for that particular report as populated in the ‘Document Control’ table.
+The PDF will be populated with the CB logo in the header where it is held on file by BRCGS in jpeg format.
+Section 1 – Audit Summary 1. Audit Summary Company name UNTAGGED
+The name the company is known and trades by and, this should correspond to the address of the audited site.
+This is the Audit owner (i.e. the entity that will have control of the audit report details on the BRCGS Directory and be able to share the audit report with retailers and customers). BRCGS Site Code MANDATORY TEXT
+Unique site code provided by BRCGS. It is located in the ‘sites’ listing within the ‘Directory’ tab.
+If a BRCGS site code does not exist a new record is created where the site code is generated by the BRCGS Directory. The site code will be unique to that location and will be used for all subsequent audits of that site irrespective of the Certification Body carrying out the audit. Operation DROPDOWN TAG MANDATORY TEXT
+Select the option which accurately describes the activities performed by the company – whether an agent, broker or both.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 6 of 27
+Services DROPDOWN TAG MANDATORY TEXT
+Select the option which accurately describes the services offered by the company.
+For further information on the definition of services, please refer to Appendix 1.
+Product categories
+DROPDOWN TAG
+MANDATORY TEXT
+Select the option which accurately describes the product categories.
+2. Audit Results Audit result DROPDOWN TAG MANDATORY TEXT
+Select ‘Certificated’or ‘Not Certificated’. Audit grade DROPDOWN TAG MANDATORY TEXT
+Select relevant audit grade, probably completed by Certification Body on issue of report and certificate Audit Programme DROPDOWN TAG MANDATORY TEXT
+Select ‘Announced’ ‘Unannounced’, or ‘Blended Announced’. Scope of audit FREE TEXT TAG MANDATORY TEXT
+The scopes shall be clear, succinct and unambiguous and not include brand names or provide a long list of products.
+For further information on scope of audit requirements, please refer to Appendix 2. Exclusions from scope FREE TEXT TAG MANDATORY TEXT
+This must not be left blank. If there are no exclusions, record “None”.
+For further information on acceptable exclusions, please refer to Appendix 2. Audit start date DROPDOWN TAG MANDATORY TEXT
+Choose first date of audit
+The first day of the audit - where the audit is a blended audit, the audit start date shall specify the first day of the first part of the audit. Audit finish date DROPDOWN TAG MANDATORY TEXT
+Choose last date of audit.
+Where the audit is a blended audit, the audit finish date shall specify the last day of the second part of the audit. Re-audit due date MANDATORY TEXT
+Choose re-audit due date if the site is certificated.
+Probably completed by Certification Body on issue of report and certificate.
+Shall be calculated from the first day of the initial audit. Audit frequency MANDATORY TEXT
+Record audit frequency, probably completed by Certification Body on issue of report and certificate.
+Shall be based on the grade.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 7 of 27
+Certificate issue date DROPDOWN TAG MANDATORY TEXT
+Choose certificate issue date, if the company is certificated.
+Probably completed by Certification Body on issue of report and certificate. Certificate expiry date DROPDOWN TAG MANDATORY TEXT
+Choose certificate expiry date if the company is certificated.
+Probably completed by Certification Body on issue of report and certificate. Previous audit grade DROPDOWN TAG MANDATORY TEXT
+Select audit grade if reaudit of the same site code and Standard.
+Leave blank if no previous grade.
+Probably completed by the Certification Body. Previous audit date DROPDOWN TAG MANDATORY TEXT
+Select last date of previous audit date, if reaudit of the same site code and Standard.
+Leave blank if no previous audit.
+Probably completed by the Certification Body.
+Additional modules included Modules DROPDOWN TAG Result DROPDOWN TAG Scope FREE TEXT TAG Exclusions from scope. FREE TEXT TAG
+Select from the drop down list all the additional modules that have been included within this audit or leave blank.
+Select result
+Passed’ or ‘Failed’ or leave blank if no additional modules
+Include any information on addition module scope or products included as part of the audit or leave blank if no additional modules.
+Provide clear wording to describe what is excluded from the scope of the additional module or products included as part of the audit or leave blank if no additional modules.
+Number of Non-Conformities Critical 0 MANDATORY TEXT Indicate the total number of non-conformities for each type in the box. Where there are no non-conformities of that type specify ‘0’. This shall only include the total number of non-conformities of the Global Standard Agents and Brokers audit and must not include those from additional modules. Major 0 Minor 0
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 8 of 27
+3. Company Details Address UNTAGGED
+Indicate the address of where the audit took place.
+Where a physical address is not precise enough to enable easy location, for example when using satellite navigation, or an address that could encompass a large area, this should be enhanced with a GPS reference (easily taken from most smartphones) and recorded in the Company Profile section of the report to enable visitors and auditors to be able to locate the site easily.
+NOTE - The content of the Address field is untagged and when submitted to the Directory the address is taken directly from the sites directory entry linked to the site code, not from the report.
+The Certification Body must ensure that the Directory address is correct for the specific site code, otherwise an incorrect address will be imported into the online report potentially available when reports are shared through the Directory. Country UNTAGGED
+Country where the audit took place Site Telephone Number FREE TEXT TAG MANDATORY TEXT
+Main telephone number of the company. Please include the country dialling code
+Enter in the following format:
++ 44 (0) 116 2345678 Commercial representative Name FREE TEXT TAG MANDATORY TEXT
+This shall be the nominated contact for commercial queries.
+Email FREE TEXT TAG MANDATORY TEXT
+This shall be the nominated contact for commercial queries. Technical representative Name FREE TEXT TAG MANDATORY TEXT
+This shall be the nominated contact for Food safety and quality queries. Email FREE TEXT TAG MANDATORY TEXT
+This shall be the nominated contact for technical queries.
+4. Company Profile No. of employees DROPDOWN TAG MANDATORY TEXT
+Select the range that includes full time equivalent employees per main shift including agency/seasonal workers. (Details of shifts and total employee numbers can be given in the Company profile below). No. of suppliers of products/ services. DROPDOWN TAG MANDATORY TEXT
+Select the number of suppliers of products/services
+No. of product categories traded DROPDOWN TAG MANDATORY TEXT
+Select the number of product categories traded. Other certificates held Confirm certificates relevant to product legality/safety held by the site.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 9 of 27
+FREE TEXT TAG MANDATORY TEXT Where no other certificates are applicable, record ‘Not Applicable’. (The status of items with claims on packaging should be verified in the Traceability/Mass-balance test). Product safety incident (e.g. recalls) in the last 12 months FREE TEXT TAG MANDATORY TEXT
+Confirm whether any significant product safety incident (e.g. recalls) have taken place since the last audit date or in the previous 12 months if this is an initial audit. State ‘yes’ or ‘no’ in section 3.11 of the audit report outline the incident, product affected and recall date(s), and confirm whether the corrective action, root cause, and preventative actions taken by the site are sufficient to prevent reoccurrence). Regions actively exporting to DROPDOWN TAG
+Select countries actively exported to from drop down list. Regions actively importing from DROPDOWN TAG
+Select countries actively importing from drop down list. Major changes since last BRCGS audit FREE TEXT TAG MANDATORY TEXT
+Outline the relevant major changes regarding company, product or personnel changes (e.g. capital expenditure, or personnel changes, new products or processes).
+4. Company Profile (Cont’d) FREE TEXT TAG MANDATORY TEXT
+Provide the following details as a minimum:
+• Background of the company:
+o Ownership of the company (e.g. privately owned, public, part of larger company, or explain links to other sites).
+o History, age of company.
+o Turnover/Volume, summary of product and customer types.
+These should not contain specifics such as individual retailer names but can detail
+‘major retailer’ as this may infringe confidentiality agreements.
+Information deemed confidential by the site such as turnover but should provide enough detail to the reader to envisage the type of company.
+• Description of the operations of the company (e.g. product range and services offered to customers).
+• Where a company has more than one office or location identify the company head office and record all of the company locations/offices – differentiated those that are in scope of this certification audit from those offices that are not certificated.
+• How the audit was undertaken where relevant: Explain here any audit logistics that are ‘out of the ordinary’ (e.g. audit undertaken late or early, head office audited or multiple sites).
+• Include explanation of any offices that may be out of scope and the justification.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 10 of 27
+Company Locations
+• Record site details where the audits took place and specify the audit programme.
+• For a company which has a number of office locations within the scope of the audit, only one site code will be used. This is usually the Head Office or the site that the auditor has physically visited.
+• Where a certificate is issued to an organisation with more than one office, the addresses of each office within the audit scope shall be included on the certificate, with a clear indication of where a remote office assessment has been completed. Site Name Country Audit type (In person/remote) Name of additional site UNTAGGED FREE TEXT TAG Country where additional site is located. FREE TEXT TAG Select audit type DROPDOWN TAG
+5. Audit Duration Details Total audit duration FREE TEXT TAG MANDATORY TEXT
+Specify the total time (in whole hours) spent on the BRCGS audit and any additional modules at the site and include the total time spent at all audited locations as part of this audit. The text ‘hours’ is outside the tagged box.
+For example, if the audit was carried out in conjunction with another audit, a calculation shall be made to specify the time spent on BRCGS only.
+The total time shall not include time spent on writing the report and significant time for lunch breaks.
+Please note this shall be specified in working hours. Adjustments shall be made when formed by an audit team.
+For further details on the requirements refer to AB305 Audit Duration calculator. Reasons for deviation from typical or expected audit duration FREE TEXT TAG MANDATORY TEXT
+Where there is a deviation from the expected duration, as defined in the relevant Audit Duration Calculator document, reasons must be provided.
+Specify here if the audit was carried out in combination with another audit – this may lead to the audit duration times given per day not matching the total specified above.
+Record “None” if audit duration was as expected.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 11 of 27
+Key Personnel
+All personnel present at the audit need to be included. The audit report only currently allows two audit personnel to be described here. They shall be described here where they have validated BRCGS auditor numbers. Where there are more than two, or they do not have validated auditor registration numbers they shall be included within the 'Present at audit' table.
+Note: The content of the Name field when submitted to the Directory is taken directly from the entry linked to the registered auditor number, not from the report. Auditor number Name Role
+Enter BRCGS auditor number
+FREE TEXT TAG
+MANDATORY TEXT
+Enter name
+UNTAGGED
+Select role
+DROPDOWN TAG
+MANDATORY TEXT
+Enter second BRCGS auditor number
+FREE TEXT TAG
+Enter name
+UNTAGGED
+Select role
+DROPDOWN TAG
+Audit Duration per day • The time of the start and finish of the audit on each day shall be recorded. • Include all dates (e.g. multiple audits, blended audits, audits at different offices and where a revisit to close out non-conformities is made). • The reason for any difference from expected audit duration (According to relevant Audit Duration Calculator) will be high-lighted in the Reasons for Deviation section. • Additional days can be added by inserting extra rows ensuring that functionality (i.e. text fields) are included. Audit day Date Start Time Finish Time
+1
+FREE TEXT TAG
+MANDATORY TEXT
+Enter date as
+yyyy-mm-dd
+Enter time as (24 hour format)
+5 characters
+(format HH:MM)
+Enter time as (24 hour format)
+5 characters
+(format HH:MM)
+2
+FREE TEXT TAG
+MANDATORY TEXT
+Enter date as
+yyyy-mm-dd
+Enter time as (24 hour format)
+5 characters
+(format HH:MM)
+Enter time as (24 hour format)
+5 characters
+(format HH:MM)
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 12 of 27
+Present at audit Note: The most senior manager on site should be listed first and be present at both opening & closing meetings. • Record persons present at the audit. • Presence of personnel shall be indicated as Onsite or Remote for each stage of the audit. • The most senior manager on site should be listed first and be present at both opening & closing meetings (Ref: clause 1.1.11). • This list will be used for validating requests for access to data on the BRCGS Directory. It is therefore important that the correct full names and job titles are recorded • Include within the job title their office location if the audit involves multiple locations. • Observers, witness auditors, technical experts associated with the certification process, must be recorded at the end of the list and clearly identified as such. • Unused rows may be deleted to improve the visual appearance of the report. Additional rows may also be inserted ensuring that functionality (i.e. text fields) are included. Name Title Opening meeting Procedure Review Closing meeting
+Enter name
+FREE TEXT TAG
+MANDATORY TEXT
+Ente job title
+FREE TEXT TAG
+MANDATORY TEXT
+Onsite/Remote
+FREE TEXT TAG
+MANDATORY TEXT
+Onsite/Remote
+FREE TEXT TAG
+MANDATORY TEXT
+Onsite/Remote
+FREE TEXT TAG
+MANDATORY TEXT
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 13 of 27
+Section 2: Non-Conformity Summary Sheet
+Non-Conformity Summary Sheet How to complete the Non-conformity Summary Sheets (Critical, Major, Minor). For each additional module, non-conformities shall be recorded in the Additional Module Non-Conformity Summary Sheet.
+No.
+FREE TEXT TAG
+• The non-conformities for the standard shall be sequentially numbered and grouped by type i.e. Critical, Major, Minor. (e.g. If a company has one major, then it should be numbered as 1 in report, then when numbering the minors the numbering should be 2, 3 etc).
+• For additional locations (e.g. Head Office) the numbering sequence shall be continued, rather than renumbering again from 1.
+Clause
+FREE TEXT TAG
+• The non-conformity should be classified against one clause only highlighting the main issue of the non-conformity. Requirements should be specified in exact format as they are listed in the Standard and additional module, any other format will cause upload to fail.
+• Within each type the “non-conformances” shall be listed in order of requirement clause numbers.
+Detail
+FREE TEXT TAG
+• The detail of the non-conformity should be specific and unambiguous, and actions taken by the site can be specifically identified as correcting the issue. (e.g. Information about conformity should only be provided where it provides context to the non-conformity raised).
+• Where there are multiple office locations, highlight within the detail of the non-conformity to which location it relates.
+Correction
+FREE TEXT TAG
+• This should contain a short description of the correction taken by the site, confirming that it has been completed prior to the BRCGS certificate being issued.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 14 of 27
+Proposed preventive action plan
+FREE TEXT TAG
+• This should contain a short description on what they propose to undertake to ensure that the non-conformity does not re-occur. This may need more than 28 days after the audit date to complete and therefore maybe an action plan that can be reviewed at the next audit. (At the next audit a non-conformity against clause 1.1.12 may be appropriate if the proposed action or root cause has not been completed to prevent recurrence of the original non-conformity).
+Root cause analysis
+FREE TEXT TAG
+• This should contain a short description of the analysis by the company of how they have identified the root cause of the problem. The preventive action plan should address this root cause.
+• For further guidance, refer to BRCGS Guidelines on Root Cause Analysis.
+Date reviewed
+FREE TEXT TAG
+• The date of final sign off of the corrective action shall be specified and this must be in the correct format YYYY-MM-DD.
+Reviewed by
+FREE TEXT TAG
+• Name of person reviewing and accepting the evidence provided.
+• Where all of the evidence has been reviewed and accepted by the same person, initials will be sufficient after the first entry.
+Comments on non-conformities
+FREE TEXT TAG
+• This space is to explain where a large number of minor non conformities (>20) have been raised without a major non-conformity given.
+• This text box can also be used for commentary on corrective action where appropriate e.g. late or no submission of evidence.
+• This box is not tagged, just free text box.
+• It is not mandatory that this box is completed and can be left blank.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 15 of 27
+Non-Conformity Summary Sheet
+Critical No.
+Clause
+Detail
+Re-audit date
+Major No.
+Clause
+Details
+Correction
+Proposed preventive action plan
+Root cause analysis
+Date reviewed
+Reviewed by
+Minor No.
+Clause
+Details
+Correction
+Proposed preventive action plan
+Root cause analysis
+Date reviewed
+Reviewed by
+Comments on non-conformities
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 16 of 27
+Additional Module Non-Conformity Summary Sheet - Meeting FSMA requirements (Module 6)
+Non-Conformity Summary Sheets How to complete the Additional Modules Non-Conformity Summary Sheets (Critical, Major, Minor). These tables are completed in the same way as those above. For each Additional Module, the numbering sequence shall start from ‘1’, within the Non-Conformity Summary Sheet for the additional modules and must indicate which module these apply to (Module 6: Meeting FSMA requirements).
+Critical No.
+Clause
+Detail
+Re-audit date
+Major No.
+Clause
+Detail
+Correction
+Proposed preventive action plan
+Root cause analysis
+Date reviewed
+Reviewed by
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 17 of 27
+Minor No.
+Clause
+Detail
+Correction
+Proposed preventive action plan
+Root cause analysis
+Date reviewed
+Reviewed by
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 18 of 27
+Section 3- Detailed Section How to complete the Detailed Section of the Audit Report
+• The Detailed Section of the Audit Report shall highlight the minimum key information, listed in this Guidance Document, to demonstrate fulfilment of the requirements. Auditors are expected to include these key details within the text of the report.
+• The text of the Audit Report must clearly and concisely record that the auditor has considered and effectively challenged all requirements, and provides evidence of the level of compliance of the company.
+• The Audit Report contains one summary box for each section and Statement of Intent. It is not necessary to record a comment against every requirement of the Standard, but each summary box must capture sufficient specific information to explain the controls in place to satisfy each of the Statements of Intent.
+• It is expected that content of sections of the Audit Report will indicate objective evidence that the auditor has reviewed to demonstrate level of compliance with requirements. It should not include significant levels of detail, such as all test results being recorded. Where relevant, the commentary shall provide some detail of objective evidence observed, including titles, reference numbers, version and/or issue dates.
+• The summary box should not contain actual names of staff but can include positions ( e.g. Senior Logistics Manager, Procurement Manager and Technical Manager).
+• All sections of the Audit Report must be completed unless justified as a non-applicable section. Where a section is not relevant to a particular audit, ‘non-applicable’ must be recorded in the section and summarised with basic justification in the Non-applicable requirement box at end of each section.
+• It is accepted that many aspects will not change year on year, such as HACCP details, and transferring data from the previous Audit Report is considered acceptable, providing that the content is checked, updated and new and sufficient objective evidence is presented to demonstrate the requirement has been audited to ensure ongoing fulfilment and compliance with the requirements of the Standard.
+• Non-conformities where identified, shall be recorded in the relevant sections of the Detailed Section of the Audit Report with the requirement number and summary details.
+• BRCGS expect auditor notes in addition to the final audit report to be available. BRCGS provide ‘checklists’ that may be used by auditors to capture audit notes during the audit. These are optional in their use as internal documents, and they do not need to be provided to the BRCGS or users of the scheme, unless requested.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 19 of 27
+1. Senior Management Commitment
+Outcome
+The reader should understand the level of commitment of the organisation to the production of safe, legal and quality products.
+o Outline the product safety and culture plan and activities in-place involving all sections of the site. Evidence of demonstration of two-way communication and how is it communicated to all staff. Outline how is the success of the plan measured and whether it is ongoing.
+o Summarise the targets set and how and who reviews the targets . Outline key results or significant trends which confirm how well the company is doing against their targets.
+o Outline the frequency and typical attendance and review process at the management review meetings for product safety, quality authenticity & legality issues. Note date of last meeting and detail how actions are communicated and recorded by the company.
+o Provide an explanation where an audit is undertaken late. Include details such as the reason and any concession reference number from BRCGS.
+o Comment on the close-out of non-conformities from the previous audit summarising effective identification of root cause and the recurrence these non-conformities have been effectively prevented.
+o Summarise the management structure and key roles for product safety, authenticity, legality and quality and confirm documents reflecting current structure and reporting are up to date. Non-applicable clauses Clause/Section reference Justification
+Enter Non-applicable Clause/Section reference, where relevant
+Generally expected that the company will meet all requirements in section 1. Any genuine justification for non-applicability must be recorded in this section.
+2. Hazard and Risk Assessment
+Outcome
+The services and operations handled by the company will be clearly outlined. The reader will have confidence in the hazard and risk management process at the company and will be aware of the company’s product safety assessment, the controls, monitoring systems and ongoing effectiveness of the implementation.
+The report should clearly indicate that the auditor has used their knowledge to confirm that the process is suitably robust, appropriately detailed, implemented and reflects the operation in place, and is appropriate for industry sector expectations.
+o Outline the company’s hazard and risk assessment – Is this complete and effective. Are the hazards based on the Codex Alimentarius HACCP principles?
+o Provide an overview of the hazard and risk analysis team demonstrating diversity of the team and competency. Confirm who has day-to day responsibility for the product safety system.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 20 of 27
+2. Hazard and Risk Assessment (Continued)
+o Where the hazard and risk analysis has been completed by a central office (e.g. head office) describe how this is communicated and verified at the site.
+o Detail the key aspects of how the scope of the hazard and risk analysis plan have been reached. (i.e. products and services handled adequately reflect the product and services on site by the Agent/Broker and include exclusions to the scope (where applicable).
+o Where there are a variety of products covered in the hazard and risk analysis provide a summary of the products/product groups .
+o Provide an overview on the available process-flow diagrams with confirmation that all steps in the process and hazards are identified correctly.
+o Describe the method of developing the hazard analysis and how hazards that need control have been identified and include other criteria such as control points, if they have been established.
+o Describe the process(es) for managing identified hazards and reviewing service provider’s hazard management plans. Confirm they are adequate and accurate.
+o Summarise the responsibility for the correction relating to control points and product safety incidents.
+o Provide the date of last annual review of the hazard and risk analysis. Non-applicable clauses Clause/Section reference Justification
+Enter Non-applicable Clause/Section reference, where relevant
+Generally expected that the company will meet all requirements in section 2. Any genuine justification for non-applicability must be recorded in this section.
+3. Product Safety and Quality Management System
+Outcome
+The reader will have confidence in the systems and procedures in place at the company; to ensure that products are handled consistently in line with customer expectations and that support processes are in place.
+The report should clearly indicate that the auditor has used their knowledge to confirm that the quality management system of the company is suitably robust, and capable of being operational at all times.
+o Explain how the quality manual is used by the company – how it is made available to staff, access controlled and if any translations are required for example.
+o Throughout the report we would expect objective evidence of records reviewed during the BRCGS audit
+o Define retention period and retrieval method of records (e.g. third parties).
+o Outline customer specific requirements and processes in place for communication of these requirements.
+o Define the scope of the internal audit system (what is covered) and confirm the schedule (i.e. frequency of audits/year) is at least two different audit dates spread throughout the year).
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 21 of 27
+3. Product Safety and Quality Management System (Continued)
+o Define the auditors and their competence/training/independence from the audited activity.
+o Explain how audits are reported and followed up – how is it ensured that corrective actions are appropriately actioned i.e. whose responsibility and timescale. Describe details of internal audits seen (activities audited, frequency of audits, NCs, corrective actions and completed actions).
+o Outline of the process for control of specifications and detail what was sampled at the audit.
+o Explain the process in-place to ensure product specifications or information to meet legal requirements are available for all products.
+o Explain how customer-specified requirements are communicated out to relevant staff and outline how the company ensures these are kept up to date e.g., frequency of review.
+o Details of specification review to be given. Where this is a head office controlled function – details are required including how the company can access printed, electronic or online specification system.
+o Describe how the traceability system operates – for instance computer based or paperwork based.
+o The status of raw material with claims on packaging should be verified. N.B. if this spans different time zones then it is acceptable to forward the details to the auditor post audit and this should be noted in the audit report. Where applicable, the traceability system shall meet legal requirements in the country of sale or intended use.
+o Record a summary of documents reviewed during a traceability test. Provide details of the records and include dates, batch/lot numbers, quantities reconciled, key documentation reviewed.
+o Outline of specific trends noted in complaints data including the level of complaints.
+o If necessary, comment on the corrective action taken.
+o Indicate highest complaint type and identified cause.
+o Describe how non-conforming product is handled, quarantined and released and what records are maintained and who has authority for returning stock.
+o Outline the incident and recall/withdrawal procedure in place and if it is adequate for the type of business being assessed and if it covers all requirements of the Standard.
+o Provide an overview on whether any significant product safety incident (e.g. recalls) have taken place since the last audit date (or in the previous 12 months if this is an initial audit). Include details such as an outline of the incident, product affected and recall date(s), and confirm whether the corrective action, root cause, and preventative actions taken by the site are sufficient to prevent a reoccurrence.
+o Confirm details of the last recall/withdrawal test completed– this may be covered by an actual product safety incident (e.g. recall). Where an actual product safety incident (e.g. recall) took place confirm this was notified to the certification body in the correct timeframe. Non-applicable clauses Clause/Section reference Justification
+Enter Non-applicable
+Generally expected that the company will meet all requirements in section 3. Any genuine justification for non-applicability must be recorded in this section.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 22 of 27
+Clause/Section reference, where relevant
+4. Supplier and Sub-contracted Service Management
+Outcome
+The reader will understand the supplier and sub-contracted service management activities and controls in place to ensure the products are compliant with their expected specification as appropriate.
+The auditor will demonstrate their knowledge of industry standards by commenting on the robustness and suitability of the control systems audited.
+o Describe the supplier approval process (both initial and ongoing approval) including those for services and where products are purchased from other agents or brokers.
+o List examples with method of assessment assessed during the BRCGS audit.
+o Frequency of ongoing approval of suppliers.
+o Detail how the identity of the last manufacturer, processor, packer, or for bulk commodity products the consolidation place of the product, is confirmed when the products are purchased from other agents or brokers?
+o Outline the service approval and management process and confirm how risks identified to product safety are evaluated and controlled.
+o Describe how the company ensures product security.
+o Outline the company’s product sampling or verification programme.
+o Describe the documented processes for verifying how the product safety, authenticity, legality requirements are met in country of manufacture and country of sale including customer requirements.
+o Describe the controls in-place to manage product design and development services where this is a service managed by the company. (N.B. This requirement may be N.A for some companies).
+o Outline the processes in place to ensure that new products traded comply with the legal requirements in the country of manufacture and the country of sale, where known. (N.B. This requirement may be N.A for some companies).
+o Explain the positive release procedures in-place for products requiring formal release with facilities holding products? (N.B. This requirement may be N.A for some companies).
+o Outline the controls in place to ensure the safety and legality of surplus products (N.B. This requirement may be N.A for some companies) Non-applicable clauses Clause/Section reference Justification
+Enter Non-applicable Clause/Section reference, where relevant
+Generally expected that the company will not meet all requirements in section 4. Any genuine justification for non-applicability must be recorded in this section. Include any N/A clauses and the reasons – within this section clauses 4.2, 4.6, 4.7 and 4.9 may be N/A in some companies.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 23 of 27
+5. Personnel
+Outcome
+The reader will understand the controls in place at the company to ensure that staff are clearly aware of their responsibilities and that the company takes effective precautions to minimise potential associated hazards.
+The auditor will demonstrate their knowledge of industry standards by commenting on the robustness and suitability of the control systems audited.
+o Detail the site training programme and the competency review that staff undertake and include temporary staff.
+o Non-applicable clauses Clause/Section reference Justification
+Enter Non-applicable Clause/Section reference, where relevant
+Generally expected that the company will meet all requirements in section 5. Any genuine justification for non-applicability must be recorded in this section.
+6. *Meeting FSMA requirements. (*Previously referred to as FSMA Preparedness Module) The requirements in this section are for Module 6: Meeting FSMA requirements and apply to suppliers and agents or brokers who arrange transportation into or within the US. Where the company is audited to Module 6: Meeting FSMA requirements, the details of compliance/non-compliance to the requirements of the module are recorded in this section. Refer to Global Standard Agents and Brokers, Module 6: Meeting FSMA requirements for further details.
+Outcome
+The reader will understand the controls in place at the company to meet the FSMA requirements. The auditor will demonstrate their knowledge of industry standards by commenting on the robustness and suitability of the control systems audited.
+o Describe how the company assesses its suppliers and services for the need to meet the US Regulation 21 CFR Part 117 for human food. Explain how it determines whether it is required to register with the FDA, and how it documents its compliance (where required).
+o Describe how the company assesses its suppliers and services for the need to meet the US Regulation 21 CFR Part 507 for human food. Explain how it determines whether it is required to register with the FDA, and how it documents its compliance (where required).
+o Provide details of how the company assesses suppliers and services for the need to meet the US Regulation 21 CFR Part 121 for food defence, how it determines whether it is required to register with the FDA and how the documented food defence plan is implemented.
+o Summarise the company’s supplier verification program and comment how the company meets compliance of the requirements of US Regulation 21 CFR Part 1 subpart L. 6.4.5 Including onsite auditing activities.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 24 of 27
+6. *Meeting FSMA requirements. (*Previously referred to as FSMA Preparedness Module) (Continued)
+o Provide details for the individuals responsible for the supplier program activities. This should include job titles their qualifications and training details from the organisational chart.
+o Explain how the company confirms identity of the supplier’s designated preventive controls qualified individual (PCQI).
+o Summarise the written hazard analysis. Comment on the assessment for supplier performance and verification. This should also include justification for when the company utilises the suppliers hazard analysis as well as temporary situations which requires the use of an unapproved supplier.
+o Describe how known or reasonably foreseeable hazards not controlled by the supplier are managed and how this is documented.
+o Outline the steps taken when a supplier non-conformity is identified.
+o Provide confirmation that the supplier verification program review is signed and dated by the company upon initial review and following any changes, all records are stored for a minimum of 2 years and off-site records are retrievable within 24 hours.
+o Describe how the company ensures US shippers, receivers, loaders, and carriers specify their responsibility for compliance with FSMA’s Sanitary Transportation rule and outline training requirements specified in contracts with carriers.
+o Detail the documented processes in-place to inform and confirm responsibility of the loader and carrier about complying to sanitary requirements for transportation.
+o Detail how temperature controlled product is monitored for temperature abuse where required.
+o Confirm how and if relevant records relating to US transportation are retained for 12 months minimum. Confirm how and if off site records are retrievable within 24 hours. Non-applicable clauses Clause/Section reference Justification
+Enter Non-applicable Clause/Section reference, where relevant
+There is no requirement to complete this section if the company has not requested the Global Standard Agents and Brokers (Issue 3), Module 6: Meeting FSMA requirements as part of their audit.
+Where the Module 6: Meeting FSMA requirements is requested, it is generally expected that company will meet all requirements in section 6. Any genuine justification for non-applicability must be recorded in this section.
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 25 of 27
+Appendix 1. Definition of services providers
+It is important that accurate data is provided by the company of the services provided so that the certification body and the auditor can plan well and execute the audit accurately.
+Distribution service - The agent or broker has direct involvement in arranging the distribution of products for suppliers or customers, but this would not be with their own company owned vehicles, otherwise they would require certification to the Global Standard for Storage and Distribution.
+Storage service - The agent/broker organises third-party storage of products, but not in facilities that they own, as ownership of storage facilities would require certification to the Global Standard for Storage and Distribution.
+Import service- The agent or broker is facilitating the movement and acceptance of products into specific countries or geographic regions by satisfying legal and customs requirements for entry into that country or region. This should only be included if the agent/broker has an active involvement in the import processes.
+Product development service - This may be provided if the process is managed by the agent or broker, this does not require the company undertaking the work themselves to be on site i.e. This could be a paperwork trail only.
+Appendix 2. Scope of audit requirements
+• Outline the main activity of the company. It should be operating as an agent or a broker or agent and broker. The terms ‘trade’, ‘trader’ and ‘trading’ must not be used.
+• Confirm what the company do and where they are located. (e.g. including location of additional offices where appropriate).
+• Confirm what products (i.e. include packaging materials) and the services offered by the company and which offices of the company undertake the service.
+• Specify the activities of an agent and/or broker. It should not imply that the agent or broker is directly performing activities such as storage (or distribution) , although they may organise storage(or distribution)for their customers, otherwise the scope will suggest it is a Storage and Distribution audit). Refer to examples below.
+• Confirm the services offered by the company and which offices of the company undertake the service.
+For example:
+ Agent for import of frozen cooked chicken products, herbs and vegetables, from offices in the UK, Brazil and Thailand.
+(Acceptable as agent, products, geographic locations and services are all mentioned).
+X Storage and distribution of frozen cooked chicken products, herbs and vegetables.
+(Not acceptable as it implies that the site should be certificated to the Storage and Distribution Standard).
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 26 of 27
+
+
+ Broker for glass bottles. Arranging third-party storage and distribution.
+(Acceptable as broker, product and 3rd party services are mentioned. However, this scope can only be used where there is only a single office within the audit scope as no additional offices are mentioned).
+ Broker of cereal grains. Management of contracted, third-party repacking of products by an additional office in the US.
+(Acceptable as broker, products, 3rd party services and the location of an additional office are mentioned).
+ Agent and broker in UK, for fish and meat products with additional purchasing (brokering) of fish by Thai office.
+(Acceptable as agent and broker roles, products and geographic offices are listed)
+X Purchase of fresh fish in China and distribution to customers in Europe.
+(Not acceptable, purchase implies that the site is a broker, but this is not clearly stated. Distribution may be a third party service but in this context sounds as if the site should be certificated to the Storage and Distribution Standard. Correct wording could be: Broker of fresh fish purchased in China. Arranging third-party distribution to customers in Europe).
+X Trade of fresh fruit and vegetables.
+(Not acceptable as it does not indicate whether the site operates as an agent or broker)
+X Importer of herbs and spices.
+(Not acceptable as it does not indicate whether the site operates as an agent or broker)
+X Import, export, trading and distribution for ambient stable prepacked foods (sterilised ready to eat meals, ready to eat rice; bread, breakfast cereals, baby food, sugar, biscuits and long life milk); chilled prepacked foods (sandwiches, yogurt, toasties and wraps); frozen prepacked foods (ready meals) and ambient stable prepacked drinks (water, carbonated soft drinks, fruit juices), coffee and tea bags.(Not acceptable as it does not indicate if the site is an agent or broker, has an extensive product list instead of a succinct summary of products and the list of sevices sounds like the services are completed onsite rather than managed as 3rd party activities. Correct wording could be: Broker for prepacked foods (ambient stable, chilled and frozen) and ambient prepacked drinks. Arranging import, export and 3rd party distribution of these products).
+Exclusions from scope shall not be left blank. If there are no exclusions, then ‘none’ shall be specified.
+Justification for exclusion must be given for any exclusions from scope and must fit the rules of the Standard. There are two situations where an exclusion may be permitted:
+• Certificates are issued to the company for specific office locations (sites). It is permissible for a company to have some offices certificated under the scheme and other offices not to be included;
+or
+AB309: How to complete the audit report BRCGS Global Standard Agents and Brokers, Issue 3
+Version 2: 14/07/2022 Page 27 of 27
+• The Standard is applicable to three types of products: food, packaging, and consumer products. Sites are permitted to exclude a type of product (e.g. consumer products); however, it is only permitted to exclude the entire type of product. It is not acceptable to include some food products in scope and exclude others (e.g. include chilled and frozen foods but exclude ambient foods), or to include some consumer products and exclude others. For example, a site handling both food and consumer products shall have a scope that either:
+• includes all food products and all consumer products
+or
+• includes all food products and excludes all consumer products
+or
+• excludes all food products and includes all consumer products.
+The BRCGS logo can only be used by sites that have no exclusions.
+Where exclusions are requested, these shall be agreed with the certification body in advance of the audit. Exclusions shall be clearly stated on the audit report and certificate, and the justification recorded on the audit report.
+Copyright © BRCGS 2022 protected under UK and international law.
+====================================================================================================
+BOLUM 3 - BRCGS GLOBAL STANDARD AGENTS AND BROKERS ISSUE 3 REQUIREMENTS
+====================================================================================================
+
+Global Standard Agents and Brokers, Issue 3
+AB307a:  Auditor Checklist / Site Self-Assessment Tool 
+Clause	Requirements
+1	Senior management commitment
+Summary
+
+1.1	Senior management commitment and continual improvement
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company’s senior management shall demonstrate that they are fully committed to the implementation of the requirements of the Standard and to the operation of processes that facilitate product authenticity and legality, and the continual improvement of their product safety and quality management services.		
+1.1.1	The company shall have a documented policy that states the company’s intention to meet its obligation to supply safe, legal and authentic products to the specified quality, and its responsibility to its customers. This shall be:
+•	signed by the person with overall responsibility for the company
+•	communicated to all staff.		
+1.1.2	The site’s senior management shall define and maintain a clear plan for the development and continuing improvement of a product safety and quality culture within the company. This shall include:
+•	defined activities involving all sections of the company that have an impact on product safety and quality. As a minimum, these activities shall be designed around:
+•	communication within both the supply chain and the company
+•	training
+•	feedback from employees
+•	performance measurement on product safety and quality-related activities
+•	an action plan indicating how the activities will be undertaken and measured, and the intended timescales
+•	a review of the effectiveness of completed activities.		
+1.1.3	The company’s senior management shall ensure that clear objectives are defined to maintain and improve services, ensuring product safety, authenticity, legality and quality in accordance with the quality policy and the requirements of this Standard. These objectives shall be:
+•	documented and include targets or clear measures of success
+•	clearly communicated to relevant staff
+•	monitored, and the results reported at least six-monthly to the company’s senior management.		
+1.1.4	Management review meetings, attended by the company’s senior management, shall be undertaken at appropriate planned intervals, at a minimum annually, to review the company’s performance against the Standard and the objectives as described in clause 1.1.3. The review process shall include the evaluation of:
+•	the previous management review action plans and timescales
+•	the results of internal, second-party and/or third-party audits
+•	any customer complaints and the results of any customer performance reviews
+•	any incidents, corrective actions, out-of-specification results and non-conforming materials
+•	supplier performance
+•	the management of the systems for hazard and risk assessment (e.g. product safety system, HACCP or HACCP-based plan), food defence or product security, and authenticity of products
+•	resource requirements.
+Records of the meeting shall be kept and documentation shall be used to revise the objectives, thereby encouraging continual improvement.
+
+The decisions and actions agreed within the review process shall be effectively communicated to the appropriate staff, and the actions implemented within the agreed timescales.		
+1.1.5	The company shall have a demonstrable system to ensure that significant product safety, authenticity, legality and quality issues are brought to the attention of senior management to allow those issues requiring immediate action to be resolved.		
+1.1.6	The company’s senior management shall provide the resources required to ensure the product safety, authenticity, legality and specified quality of products supplied, in compliance with the requirements of this Standard and its customers.		
+1.1.7	The company’s senior management shall have a system in place to ensure that the company is kept informed of, and reviews, any emerging product safety, authenticity, quality or legality issues, industry codes of practice, and all relevant legislation applicable in the country where the product is intended to be sold or used.		
+1.1.8	Where required by legislation, the company shall be registered with, or approved by, the appropriate authority.		
+1.1.9
+	The company shall have a genuine, original, hard copy or electronic version of the current Standard available and be aware of any changes to the Standard or protocol that are published on the BRCGS website.
+	
+1.1.10	Where the company is certificated to the Standard, it shall ensure that announced recertification audits occur on or before the audit due date indicated on the certificate.		
+1.1.11	The opening and closing meetings of the audit for the Standard shall be attended by a senior manager of the site.
+
+If the most senior manager within the site is absent on the day of the audit because of other commitments, a nominated deputy shall be available (see clause 1.2.1).		
+1.1.12	The company’s senior management shall ensure that the root causes of non-conformities identified at the previous audit against the Standard have been effectively addressed to prevent their recurrence.		
+1.1.13	The BRCGS logo and references to certification status shall only be used in accordance with the conditions of use detailed in the audit protocol section (Part III, section 6.1) of the Standard.		
+1.2	Organisational structure, responsibilities and management authority
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall have a clear organisational structure and lines of communication to enable the effective management of services ensuring product safety, authenticity, legality and quality.		
+1.2.1	The company shall have an organisation chart demonstrating its management structure. The responsibilities for the management of activities that ensure product safety, authenticity, legality and quality shall be clearly allocated and understood by the managers responsible. It shall be clearly documented who deputises in the absence of the responsible person.		
+1.2.2	The company’s senior management shall ensure that all employees are aware of their responsibilities. Employees whose role or activity could affect product safety, authenticity, legality or quality shall have access to documented work instructions or procedures and shall be able to demonstrate that work is carried out in accordance with these instructions.		
+Clause	Requirements
+2	Hazard and Risk Assessment
+Summary
+
+
+Statement of Intent	The company shall operate a product safety plan for the processes for which it is responsible. This shall be based on the principles of hazard and risk analysis, including the Codex Alimentarius HACCP principles.  The plan shall be documented, systematic, comprehensive, fully implemented and maintained.		
+Clause	Requirements
+	     Conforms      	Comments
+2.1	The person responsible for leading the hazard analysis shall be able to demonstrate competence in the understanding of hazard and risk analysis principles (e.g. HACCP principles) and their application. Where a team is used, the team members shall have knowledge of the hazard and risk analysis principles. In the event of the company not having appropriate in-house knowledge it may seek external expertise, but the day-to-day management of the product safety system shall remain the responsibility of the company.		
+2.2	Where the hazard and risk analysis study has been undertaken centrally, it shall be possible to demonstrate that the study has been verified to meet the specific activities of the local operations to which the study applies.		
+2.3	The hazard analysis, and the resulting procedures, shall have senior management commitment, and shall be implemented through the company’s documented product safety and quality management systems.		
+2.4
+	The company shall define the scope of the hazard and risk analysis in terms of the products and services that are included. This shall include:
+•	a description of the nature of products traded (e.g. canned fish, fresh produce, corrugated board, household chemicals such as bleach, cosmetics or household electric goods)
+•	details of any particular specified storage or handling conditions (e.g. temperature control requirements or propensity to water damage)
+•	a description of any services provided directly or arranged while the product is the responsibility of the company.		
+2.5	A process flow diagram shall be prepared to cover each step in the process from the purchase or acceptance of responsibility for products to acceptance of the products by the company’s customer. As a guide, this should include the following where applicable:
+•	import and export processes
+•	product checks or testing
+•	subcontracted transport or distribution
+•	subcontracted storage of products
+•	processes for damaged or rejected product
+•	any subcontracted processes undertaken on products (e.g. relabelling or further processing).		
+2.6	The company shall identify and record all potential hazards associated with each step of the product flow. The company shall include consideration of the following types of hazard:
+•	microbiological growth (e.g. resulting from temperature abuse of products that require temperature control, or exposure of unpacked products to environmental micro- organisms such as pathogens)
+•	physical contamination (e.g. glass contamination, wood splinters from pallets, dust or pests)
+•	chemical or radiological contamination (including product tainting)
+•	physical damage (e.g. breakage, puncturing of packaging, water damage or electrical faults)
+•	fraud (e.g. substitution or deliberate/intentional adulteration)
+•	malicious contamination of products
+•	allergens (e.g. cross-contamination during storage or transportation of open product in silos or tankers)
+•	hazards impacting the functional integrity of packaging materials and their performance
+•	any other hazards mandated by the customer or relevant regulatory authorities.		
+2.7	The company shall complete a documented risk analysis of the potential hazards in order to identify which need to be controlled. The following should be considered:
+•	the likely occurrence of the hazard
+•	the severity of the hazard (e.g. injurious to health, potential to cause food poisoning, rejection or a product recall)
+•	existing prerequisite programmes that effectively prevent the hazard or reduce it to acceptable limits.		
+2.8	For each hazard that requires control, processes shall be established to ensure that service providers effectively manage their operations to prevent or eliminate a significant hazard or reduce it to acceptable limits. Such processes may include:
+•	specifications and contracts with service providers
+•	a review of HACCP or hazard and risk management plans operated by service providers to confirm that the identified hazard is being controlled.		
+2.8.1	Where controls are managed by HACCP or hazard and risk management plans operated by service providers, either the plans and controls shall be reviewed by a competent person to determine their effectiveness or the plans and controls shall be within the scope of an accredited certification of the service provider.
+Contracts or trading agreements shall ensure that any significant changes to the service provider’s hazard and risk management plans are communicated to the company before the changes are implemented. Any changes shall be reviewed by a competent person to determine the ongoing effectiveness of the plan before the changes are implemented by the service provider.
+Records shall be maintained to demonstrate the results of these reviews.		
+2.9	There shall be effective processes to monitor and verify that the processes operated by service providers are effectively controlling the hazards identified.		
+2.10	Corrective action plans shall be defined for instances where monitoring identifies a failure of the controls or where results indicate that products or services are out of specification.		
+2.11
+	The hazard and risk analysis shall be formally reviewed at least annually and whenever:
+•	new product types are traded (i.e. products with different characteristics from those included within the original study)
+•	new services or process steps are introduced
+•	a new risk emerges
+•	following a product recall, where the agent’s or broker’s processes are implicated.
+Changes resulting from the review shall be incorporated into the hazard and risk assessment and product safety and quality management systems.
+Where appropriate, the changes shall also be reflected in the company’s product safety policy and product safety objectives.		
+Clause	Requirements
+3	Product Safety and Quality Management System
+Summary
+
+
+3.1	Product Safety and Quality Systems Manual
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company’s processes and procedures to meet the requirements of this Standard shall be documented to allow their consistent application, to facilitate training, and to support due diligence and the supply of a safe product.		
+3.1.1	The company’s procedures, working methods and practices shall be collated in a navigable and readily accessible system, in the form of a printed or electronic product safety and quality manual.
+Consideration shall be given to the need for translation into appropriate languages.		
+3.1.2	The product safety and quality manual shall be fully implemented, and the manual, or the relevant components of it, shall be readily available to relevant staff.		
+3.1.3	All procedures and work instructions shall be clearly legible, unambiguous, in the relevant languages and sufficiently detailed to enable their correct application by appropriate staff.		
+3.2	Documentation control
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall operate an effective document control system to ensure that only the correct versions of documents are available and in use.		
+3.2.1	The company shall have a procedure to manage the documents that form part of the quality system. This shall include:
+•	a list of all controlled documents, indicating the latest version number
+•	the method for identifying and authorising controlled documents
+•	a record of the reason for any changes or amendments to documents
+•	the method for ensuring documents are maintained in good condition and are retrievable
+•	a system for the replacement of existing documents when these are updated. Archived documents shall be retained for a defined period, taking into consideration any legal or customer requirements.
+
+Where documents are stored in electronic form these shall also be:
+•	stored securely (e.g. with authorised access, control of amendments, or password- protected)
+•	suitably backed up to prevent loss.		
+3.3	Record completion 
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall maintain genuine records to demonstrate the effective control of product safety, authenticity, legality and quality.
+		
+3.3.1	Records shall be legible, retained in good condition and retrievable. Any alterations to records shall be authorised and the justification for any alterations shall be recorded. Where records are in electronic form these shall be suitably backed up to prevent loss.		
+3.3.2	Records shall be retained for a defined period, taking into consideration any legal or customer requirements, the shelf life of the product or the usage of packaging materials.
+For food products this shall take into account, where it is specified on the label, the possibility that the shelf life may be extended by the consumer (e.g. by freezing).
+Records shall be stored securely (e.g. in designated storage with access restricted to authorised personnel).
+Records shall be accessible in a timely manner.		
+3.3.3	Where records are held by third parties, the company shall be able to obtain copies of the records typically within 1 working day (e.g. warehouse intake checks).		
+3.4	Customer Focus and Communication
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall ensure that any customer-specific policies or requirements are understood, implemented and clearly communicated to the relevant staff and relevant suppliers of products and services.		
+3.4.1	The company shall have a system for identifying whether customers have specific requirements. Where there are specific requirements, they shall be made known to the relevant staff within the company and kept up to date.		
+3.4.2	Where specific customer policies need to be enacted by the manufacturing, processing or packing site, the company shall have effective processes to communicate them to the relevant suppliers of products and services (e.g. product specifications, contracts with suppliers/service providers or codes of practice).
+Records shall be available to demonstrate that where the company has been notified of relevant requirements, these have been communicated to the relevant immediate suppliers, and there is supporting documentation to confirm that the suppliers have understood and implemented the requirements.		
+3.4.3	Where required by the customer, the company shall provide information to enable the last manufacturer or processor of the product to be approved. This shall include the identity of this manufacturer or processor.		
+3.5	Internal Audit
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall be able to demonstrate that it verifies the effective application of its product safety and quality system and the implementation of the requirements of this Standard.		
+3.5.1	There shall be a scheduled programme of internal audits.
+As a minimum, the programme shall include at least two different audit dates spread throughout the year. The frequency at which each activity is audited shall be established in relation to the risks associated with the activity and previous audit performance. All activities shall be covered at least once each year.
+As a minimum, the scope of the internal audit programme shall include the:
+•	implementation of the product safety and quality management system
+•	HACCP plan or product safety plan (i.e. the documents and outputs from section 2)
+•	product security or food defence (see section 4.3)
+•	product fraud mitigation plan (see clause 4.8.3)
+•	procedures implemented to achieve the Standard.
+
+Each internal audit within the programme shall have a defined scope and consider a specific activity or section of the product safety activities.		
+3.5.2	Internal audits shall be carried out by appropriately trained, competent auditors who are independent from the audited activity.		
+3.5.3	The internal audit programme shall be fully implemented.
+Internal audit reports shall identify conformity as well as non-conformity and include objective evidence of findings.
+The results shall be reported to the personnel responsible for the activity audited. Corrective and preventive actions, and timescales for their implementation, shall be agreed, and completion of the actions shall be verified in a timely manner.		
+3.6	Specification for Products
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	Product specifications or information to meet legal requirements and to assist customers in the safe usage of the product shall be maintained and available to customers.		
+3.6.1	Specifications shall be available for all products. They shall either be in the agreed format of the customer or, where this is not specified, include key data to meet legal requirements and assist the customer in the safe usage of the product.		
+3.6.2 	The company shall seek formal agreement of specifications with the relevant parties. Where specifications are not formally agreed, the company shall be able to demonstrate that it has taken steps to ensure that formal agreement is in place.		
+3.6.3 	Companies shall operate demonstrable processes to ensure that any customer-specified requirements are met. This may be by including customer requirements within buying specifications, or by undertaking further work on purchased product to meet the customer specification (e.g. sorting or grading of product).		
+3.6.4 	Specifications shall be reviewed whenever products, packaging or suppliers change, or at least every 3 years. The date of review and the approval of any changes shall be recorded. The company shall seek formal agreement of any changes (in accordance with clause 3.6.2).		
+3.7	Traceability
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall be able to trace all product lots back to the last manufacturer and forward to the customer of the company. 
+		
+3.7.1	The company shall maintain a traceability system for all products, which identifies the last manufacturer or place of last significant change of the product (in the case of primary agricultural products this may be the packer). Records shall also be maintained to identify the recipient of each batch of product from the company.
+Where applicable, the traceability system shall meet the legal requirements in the country of sale or intended use.		
+3.7.2 	The company shall test the traceability system to ensure traceability can be determined back to the last manufacturer and forward to the customer. This shall include identification of the movement of the product through the chain from the manufacturer to receipt by the customer (e.g. each movement and intermediate place of storage).
+The company shall complete at least one traceability test annually. Where the agent or broker subcontracts activity to multiple service providers, additional tests may be required to confirm the effectiveness of the traceability system within the different supply chains.
+Where a company has multiple office locations, then at least one traceability test annually shall involve products traded or managed by each office.
+The traceability test shall include the reconciliation of quantities of product traded by the company for the chosen batch or product lot. Traceability should be achievable within 4 hours (24 hours when information is required from external parties).		
+3.7.3	Where product is further processed on behalf of the company, relabelled or returned, traceability shall be maintained.		
+3.7.4	The company shall ensure that its suppliers of products have an effective traceability system. Where a supplier has been approved based on a questionnaire, a legally enforceable contract or specification, or a historical trading relationship (instead of certification or audit), verification of the supplier’s traceability system shall be carried out at the time of the initial approval of that supplier and then at least every 3 years.		
+3.8	Complaint Handling
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	Customer complaints shall be handled effectively and the information used to reduce recurring complaint levels.  		
+3.8.1	All complaints shall be recorded and investigated, and the results of the investigation recorded. Corrective action appropriate to the seriousness and frequency of the problems identified shall be carried out promptly and effectively by appropriately trained staff.		
+3.8.2	Complaints arising from the action of a service provider or supplier shall be communicated to that supplier for further investigation.
+Corrective actions appropriate to the seriousness and frequency of the problems identified shall be agreed and the implementation confirmed with the relevant supplier or service provider.		
+3.8.3	Complaint data relating to products and services shall be analysed for significant trends.
+Where there has been either a serious complaint or a significant increase in incidences of a complaint, root cause analysis shall be undertaken and used to implement ongoing improvements to product safety, legality and quality, and to avoid recurrence.
+This analysis shall be made available to the relevant staff, suppliers and/or service providers.		
+3.9	Corrective and Preventive Actions
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall be able to demonstrate that it uses the information from identified failures in the product safety and quality management system (e.g. non-conforming products, internal audits, complaints, product recalls, product testing, second and third-party audits) to make necessary corrections and prevent their recurrence.		
+3.9.1	The company shall have a procedure for handling and correcting non-conformities identified within the scope of the product safety and quality management system.
+Where a non-conformity places the safety, authenticity, legality or quality of products at risk, this shall be investigated and recorded. The investigation shall include:
+•	clear documentation of the non-conformity
+•	assessment of the consequences by a suitably competent and authorised person
+•	identification of the corrective action to address the immediate issue
+•	assignment of responsibilities for action
+•	appropriate timescales to ensure correction
+•	verification that the correction has been implemented and is effective.		
+3.9.2	The site shall have a procedure for the completion of root cause analysis.
+As a minimum, root cause analysis shall be used to implement any necessary action to prevent recurrence of significant or recurring non-conformities.		
+3.10	Control of non-conforming product
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall ensure that any out-of-specification product is effectively managed.		
+3.10.1	There shall be procedures for managing products that do not conform to buying or customer specifications, or product safety requirements. This shall include:
+•	a process for subcontractors handling the product to report potentially non- conforming product
+•	clear identification of non-conforming product to prevent its release (e.g. stock management IT systems)
+•	agreed procedures with subcontractors for secure storage to prevent accidental release of implicated product
+•	referral to the brand owner or customer where required
+•	defined responsibilities for decision-making on the use or disposal of products appropriate to the issue (i.e. acceptance by concession, redesignation to an alternative customer (e.g. distressed stock), reworking or destruction)
+•	records of the decision taken on the use or disposal of the product
+•	records of destruction where the product is destroyed for product safety reasons.		
+3.11	Management of Incidents, Product Withdrawal and Product Recall
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall have a plan and system in place to manage incidents effectively and enable the effective withdrawal and recall of products should this be required.		
+3.11.1	The company shall have clear processes to enable subcontractors and suppliers to report incidents and potential emergency situations that impact product safety, authenticity, legality or quality. The company shall have procedures and assigned responsibilities for the review of incidents and to define the appropriate action.		
+3.11.2	The company shall have documented procedures designed to report and effectively manage incidents and potential emergency situations that impact food safety, legality or quality, including a product withdrawal and recall procedure. This product recall and withdrawal procedure shall include, as a minimum:
+•	identification of the key personnel constituting the recall management team, with clearly identified responsibilities
+•	guidelines for deciding whether a product needs to be recalled or withdrawn, and the records to be maintained
+•	an up-to-date list of key contacts or reference to the location of such a list (e.g. recall management team, emergency services, suppliers, customers, certification body and regulatory authority)
+•	a communication plan that includes:
+•	the process for providing information to customers and regulatory authorities in a timely manner
+•	instructions for customers on the return or safe disposal of recalled product
+•	details of external agencies providing advice and support as necessary (e.g. specialist laboratories, regulatory authority and legal expertise)
+•	a plan to handle the logistics of product traceability, recovery or disposal of affected product and stock reconciliation
+•	a plan to conduct root cause analysis and to implement ongoing improvements to avoid recurrence (this may be an assessment or verification of the supplier’s root cause and preventive action plan where the incident occurred within the supply chain, rather than within the agent/broker’s operations)
+•	a plan to record timings of key activities.
+
+The procedure shall be operable at any time.		
+3.11.3	The product incident management procedures (including those for recall and withdrawal) shall be tested at least annually, in a way that ensures their effective operation. Results of the test shall be retained and shall include timings of key activities. The results of the test and of any actual recall shall be used to review the procedure and implement improvements as necessary.		
+3.11.4	In the event of a significant product safety incident, including a product recall or regulatory product safety non-conformity (e.g. a regulatory enforcement notice), the certification body issuing the current certificate for the site against the Standard shall be informed within
+3 working days.
+The company shall provide sufficient information to enable the certification body to assess any effects of the incident on the ongoing validity of the current certificate (as detailed in the audit protocol, Part III, section 6.4). As a minimum:
+•	where the agent or broker is facilitating an incident originating in the supply chain, this will include the agent’s or broker’s corrective action, and a review of the relevant supplier’s or service provider’s actions.
+•	where the incident is the result of the agent’s or broker’s activity, this will include corrective action, root cause analysis and a preventive action plan.		
+Clause	Requirements
+4	Supplier and subcontracted service management
+Summary
+
+4.1        Approval and performance monitoring of manufacturers/packers of traded products
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall operate procedures for supplier approval and monitoring of the last manufacturer or packer of products for which it provides a service, to ensure that traded products are safe, legal and manufactured in accordance with any defined product specifications.
+		
+4.1.1	The company shall have a supplier approval procedure that identifies the process for initial and ongoing approval of suppliers and the manufacturer/processor/packer of each product traded. The requirements shall be based on the results of a risk assessment. This risk assessment shall include consideration of:
+•	the nature of each product and its associated risks
+•	customer-specific requirements
+•	legislative requirements in the country of sale or importation of the product
+•	source or country of origin
+•	potential for adulteration or fraud
+•	the brand identity of products (i.e. whether it is the customer’s own brand or a branded product).
+
+The risk assessment shall be updated:
+•	when there is a change in product, processing or supplier
+•	if a new risk emerges
+•	following a product recall or withdrawal, where a specific product has been implicated 
+•	at least once every 3 years.		
+4.1.2	The process for the initial and ongoing approval of manufacturers of products shall be based on risk. It shall include one or a combination of the following:
+•	Valid certification of the manufacturing or packing site to the applicable BRCGS Standard or a standard benchmarked by the Global Food Safety Initiative (GFSI). The scope of the certification shall include the products traded by the agent or broker.
+•	A supplier audit with a scope to include product safety, traceability testing, HACCP or hazard and risk management review, the product security (food defence) plan, the product authenticity plan, and good manufacturing practices. The audit shall include confirmation that these plans form part of the supplier’s product safety management system and that any resultant actions are implemented. The supplier audit shall be undertaken by an experienced and demonstrably competent product safety auditor. Where it is completed by a second or third party, the company shall be able to:
+•	demonstrate the competency of the auditor
+•	confirm that the scope of the audit includes product safety, traceability, HACCP or hazard and risk management review, the product security (food defence) plan, the product authenticity plan, and good manufacturing practices
+•	obtain and review a copy of the full audit report.
+
+For products (food or non-food) assessed as low-risk only, and where a valid risk-based justification is provided, initial and ongoing approval may be based on a completed manufacturing site questionnaire. As a minimum, the questionnaire shall demonstrate that the supplier has effective action plans to control product safety, product security (food defence) and product authenticity. The questionnaire shall be reviewed and verified by a demonstrably competent person.
+For non-food products assessed as low-risk only, and where a valid risk-based justification is provided, initial and ongoing approval may also be based on at least one of the following:
+•	a legally enforceable contract/specification from the supplier
+•	a historical trading relationship, supported by documented evidence of performance reviews that demonstrate satisfactory performance.
+
+This clause may not be applicable where it is a customer requirement that products are supplied by a specific manufacturer and the liability is with that customer. A record of the customer’s requirement for the use of a specific supplier shall be maintained.		
+4.1.3	The site shall have an up-to-date list or database of approved suppliers. This may be on paper (hard copy) or it may be controlled on an electronic system.		
+4.1.4	Where products are purchased from other agents or brokers, the company being certificated shall know the identity of the last manufacturer, processor or packer or, for bulk commodity food products, the consolidation place of the product.		
+4.1.5	Where products are purchased from other agents or brokers, the company being certificated shall obtain information to enable the approval of the manufacturer, packer or, for bulk commodity products, the consolidation place of the raw material (as in clause 4.1.2), unless the other agent or broker is itself certificated to the Standard or a standard benchmarked by the Global Food Safety Initiative (GFSI).
+This information may be obtained from the other agent or broker or directly from the supplier.		
+4.1.6	Records shall be maintained of the manufacturer or packer approval process, including audit reports or verification of certificates, confirming the product safety status of the manufacturing or packing sites supplying products traded. There shall be a process of review, and records shall be kept of the follow-up of any issues identified at the manufacturing or packing sites that have the potential to affect products traded by the company.		
+4.1.7	There shall be a documented process for the ongoing review of manufacturers or packers, based on risk and using defined performance criteria; these may include complaints, results of any product tests, regulatory warnings or alerts, customer rejections or feedback. The process shall be fully implemented.
+Where approval is based on questionnaires, these shall be reissued at least every 3 years.
+Contracts or formal agreements shall require suppliers to notify the company of any significant changes that take place between these formal reviews; this shall include any change in certification status.		
+4.1.8	The procedures shall define how exceptions to the supplier approval process in clause 4.1.2 are handled (e.g. where product suppliers are prescribed by a customer) or where information for effective supplier approval is not available (e.g. bulk agricultural products) and instead product testing is used to verify product quality and safety.
+When a company trades customer-branded product, the customer shall be made aware of the relevant exceptions.		
+4.2	Management of service providers
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall be able to demonstrate that service providers have been approved, that they are managed to ensure that any risks to product safety have been evaluated, and that effective controls are in place.		
+4.2.1	There shall be a procedure for the approval and monitoring of service providers (e.g. transport, storage, laboratory testing or labelling).
+The approval process shall be risk-based and shall take into consideration:
+•	risk to the safety and quality of products
+•	compliance with legal requirements (e.g. weight or label controls)
+•	customer-specific requirements
+•	potential risks to the security of the product (i.e. risks identified in the vulnerability and food defence assessments).		
+4.2.2	The service provider approval process shall be based on one or more of the following options:
+•	certification of the supplier (e.g. BRCGS Standards or another applicable GFSI- benchmarked or ISO standard)
+•	a supplier audit with a scope that includes product safety, traceability testing, hazard analysis review, the product security (food defence) plan, the product authenticity plan, and good operating practices, undertaken by an experienced and demonstrably competent product safety auditor
+•	historical performance, supported by documented evidence of performance reviews demonstrating satisfactory performance
+•	a supplier questionnaire that has been reviewed and verified by a demonstrably competent person
+•	a licence to operate (e.g. a licensed waste management contractor).
+
+This clause may not be applicable where it is a customer requirement that services are provided by a specific service provider and the liability is with that customer. A record of the customer’s requirement for the use of a specific service provider shall be maintained.		
+4.2.3	Contracts or formal agreements shall be in place with the service providers. These shall clearly specify the service requirements and shall ensure that potential product safety risks associated with the service have been addressed.		
+4.2.4	There shall be a formal process of review of the service providers. This review shall be undertaken at a frequency based on risk, but as a minimum annually. It shall use defined performance criteria, which may include complaints, results of any product tests, customer rejections or feedback. The process shall be fully implemented.		
+4.2.5	Where activities covered by a service provider are subcontracted by that supplier to another company (e.g. third-party distribution or pallet-sharing schemes), the subcontractor shall be required to:
+•	work in accordance with the relevant legislation
+•	maintain product traceability
+•	work in accordance with the requirements identified by the risk assessment of the supplier of services (e.g. its HACCP plan), such that identified risks are prevented or reduced to an acceptable level.
+•	
+The contract or formal agreement with the service provider shall include details of any permitted or prohibited subcontracting.		
+4.2.6	The procedures shall define how exceptions to the approval process for service providers detailed in clause 4.2.2 are handled (e.g. where service providers are prescribed by a customer), or where information for effective approval is not available (e.g. emergency transport) and instead product testing is used to verify product quality and safety.
+When a company trades customer-branded product, the customer shall be made aware of the relevant exceptions.		
+4.3	Product Security/Food Defence
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	Security systems shall be in place to protect products from theft, substitution or malicious contamination or damage while they are under the management control of the agent or broker.
+		
+4.3.1	The company shall assess the potential risks to the security of the products from any attempt to steal, contaminate, substitute or damage the products during subcontracted transportation and storage by the service providers appointed by the company.
+Security measures identified by the risk assessment shall be documented and form part of the contract or terms and conditions for the service providers that have access to the product.		
+4.3.2	The security arrangements of the service providers that handle the product shall be verified at the start of a contract and thereafter at a frequency based on risk, unless they are certificated to a BRCGS Standard or a GFSI-benchmarked standard which includes requirements for food defence or product security.		
+4.4	Product Inspection and Laboratory Testing
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall operate processes to ensure that products received comply with buying specifications and that the supplied product is in accordance with any customer specification.
+		
+4.4.1	The company shall have a product sampling or verification programme to ensure that products are in accordance with buying specifications and meet legal and safety requirements.
+Product verification may be completed by the agent or broker or by the supplier. Selection of the appropriate verification techniques shall be based on risk, and may include:
+•	product safety testing (e.g. microbiological, chemical, physical or allergen contaminants, or flammability testing of home furnishings)
+•	testing for authenticity/integrity
+•	product quality assessment (e.g. organoleptic testing of food, integrity testing of packaging, colourfastness in fabrics, or fragrance testing of cosmetics)
+•	verification and product testing by the manufacturer (e.g. certificates of analysis or conformance).
+
+Where verification is based on sampling, the sample rate and assessment process shall be risk-based and documented.
+
+Records of the results of the assessments or analysis shall be maintained.		
+4.4.2	Where verification of conformity is provided by the supplier (e.g. certificates of conformance or analysis), the level of confidence in the information provided shall be substantiated.
+Procedures shall be in place to ensure the reliability of the supplier’s laboratory results; this may include confirmation of recognised laboratory accreditation or laboratory operation in accordance with the requirements and principles of ISO/IEC 17025.		
+4.4.3	Where claims are made about the products handled, including the provenance, chain of custody, and assured or ‘identity preserved’ status (see Appendix 8, Glossary) of a product or raw materials used, supporting information shall be available from the supplier or independently to verify the claim.		
+4.4.4	Where the company undertakes or subcontracts analyses that are critical to product safety or legality, the laboratory or subcontractors shall have gained recognised laboratory accreditation or shall operate in accordance with the requirements and principles of ISO/ IEC 17025. Documented justification shall be available where non-accredited test methods are used.		
+4.4.5	The significance of external laboratory results shall be understood and acted upon accordingly. Appropriate actions shall be implemented promptly to address any unsatisfactory results or trends.		
+4.5	Product Legality and Labelling
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall have processes in place to ensure that the products traded comply with the legal requirements in the country of manufacture and the country of sale, where known.
+		
+4.5.1	The company shall have documented processes to verify the legality of products that are traded. This shall include, as applicable:
+•	labelling information
+•	compliance with the relevant legal requirements, such as export or compositional requirements (e.g. ingredients list, allergen labelling, INCI list) or specific product safety legislation (e.g. directions for safe use, warning labels, flammability)
+•	compliance with quantity or volume requirements.
+
+Where such responsibilities are undertaken by the customer, this shall be clearly stated in the contracts.		
+4.5.2	The company shall have documented processes to verify that the product bears the appropriate information according to the customer’s requirements.		
+4.6	Product Design and Development
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	Product design and development procedures shall be in place for new manufactured product development processes, where this is a service managed by the company, to ensure that safe and legal products are developed, meeting the appropriate quality and customer- specified requirements.		
+4.6.1	The company shall have a process for managing new product development activities with potential suppliers, which shall include:
+•	a project brief defining the requirements for the products to be developed
+•	a process for reviewing product samples against the brief
+•	a formal product approval process.		
+4.6.2	The company shall ensure that all new manufactured products have been included within the manufacturing site’s HACCP or hazard and risk management plan. This shall ensure that hazards have been assessed and that suitable controls are implemented.		
+4.6.3	The company shall be able to demonstrate that the shelf life attributed to new food products has been verified through:
+•	shelf-life testing assessment or
+•	documented protocols reflecting the conditions experienced during storage and handling.
+
+Where these methods are not practicable, verification shall be by a documented, science- based justification.		
+4.6.4	The company shall have processes to ensure that new products are labelled to meet legal requirements for the designated country of use. Depending on the legislation, this shall include information to allow the safe handling, display, storage, preparation and use of the product within the supply chain or by the customer. There shall be a process to verify that labelling of ingredients, allergens and allergen cross-contamination is correct based on the product recipe and the expected country of sale.		
+4.6.5	Where a product is designed to enable a claim to be made to satisfy a consumer group (e.g. a nutritional claim, ‘reduced sugar’, ‘dermatologically tested’), the company shall ensure that the product formulation and production process is fully validated to meet the stated claim.
+
+
+		
+4.7	Product Release
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	Where products require formal release by a customer or legal authority, the company shall ensure that an effective product release procedure is in place with the facilities holding products on behalf of the company.		
+4.7.1	Where products require positive release, procedures shall be in place to ensure that release does not occur until all the release criteria have been completed, and the release has been authorised by the company.		
+4.8	Product Authenticity
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	Systems shall be in place to minimise the risk of trading fraudulent or adulterated products and to ensure that all product descriptions are legal, accurate and verified.		
+4.8.1	The company shall have processes in place to access information on historical and developing threats to the supply chain that may present a risk of adulteration or substitution of products. Such information may come from:
+•	trade associations
+•	government sources
+•	private resource centres.		
+4.8.2	A documented vulnerability assessment shall be carried out on all products, or groups of products, to assess the potential risk of adulteration or substitution. This shall take into account:
+•	any historical evidence of substitution or adulteration
+•	any economic factors that may make adulteration or substitution more attractive
+•	ease of access to products
+•	the sophistication of routine testing to identify adulterants 
+•	the nature of the product.
+
+The vulnerability assessment shall be kept under review to reflect changing economic circumstances and market intelligence that may alter the potential risk. It shall be formally reviewed annually.		
+4.8.3	Where products are identified as being at particular risk of adulteration or substitution, the company shall have a documented fraud mitigation plan which details the appropriate assurance and/or testing processes that are in place to reduce the risk.		
+4.9	Management of Surplus Products
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	Effective processes shall be in place to ensure the safety and legality of surplus products donated to charities or other organisations.		
+4.9.1	Surplus customer-branded products shall be disposed of, or rendered unusable, in accordance with customer-specific requirements.		
+4.9.2	Where customer-branded products that do not meet specification are passed on to charities or other organisations, this shall be with the prior consent of the brand owner.		
+4.9.3	Where products are donated, processes shall be in place to ensure that all donated products are fit for consumption or use and meet legal requirements.
+
+
+		
+Clause	Requirements
+5	Personnel
+Summary
+
+
+5.1        Training and Competency
+Clause	Requirements	Conforms	           Comments
+Statement of Intent	The company shall ensure that all personnel performing work that affects product safety, authenticity, legality and quality are demonstrably competent to carry out their activity, through training, work experience or qualification.		
+5.1.1	All personnel, including temporary staff, shall be appropriately trained before commencing work and adequately supervised throughout the working period.		
+5.1.2	The company shall have a documented training procedure and records to demonstrate that the training is appropriate and effective.		
+5.1.3	The company shall routinely review the competencies of staff directly involved with product safety, authenticity, legality and quality. As appropriate, it shall provide relevant training. This may be in the form of new training, refresher training, coaching, mentoring or on-the-job experience.		
+
+
+
+
+
+
+
+
+Copyright © BRCGS 2021 protected under UK and international law.		

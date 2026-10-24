@@ -208,6 +208,12 @@ def selftest(out_path: str) -> int:
             _anc = _dr.anchors(_fh.read(), [('A', 'Selftest Ltd'), ('B', 'packing')])
         os.unlink(_pp)
         _brs['wordview'] = [a[0] for a in _anc] == ['A', 'B'] and _bi.guide('Hayır') == 'No'
+        # 2.5.0: teknik gozden gecirme kaynaklari pakette (5 standart) ve kontroller calisiyor
+        from agfo_brcgs import review as _rv, review_pack as _rp
+        _brs['review'] = all(len(_rp.pack(_x)['skill']) > 3000 and len(_rp.pack(_x)['guide']) > 30000 for _x in _bd.PROFILES) and \
+            any(f['rule'] == 'clause_claim' for f in _rv.run(
+                {'profile': 'fs', 'values': {}, 'sections': [{'clause': '1.1', 'value': 'It meets the requirements of clause 1.1.1.'}],
+                 'meta': {}}, []))
         res['renderer'] = _dr.Renderer(os.path.join(tempfile.gettempdir(), 'agfo-selftest-render')).engine or 'none'
         res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
                      and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset']
@@ -3405,16 +3411,60 @@ class App(tk.Tk):
 
     BRCGS_NC_MARK = '=== NON-CONFORMITIES ==='
 
+    @staticmethod
+    def brcgs_skill_rules(profile, limit=3800):
+        """Teknik gozden gecirme skill'inin yazim kurallari (rapor yazimi, kanit/dokuman referansi, standarda ozel bolumler)."""
+        try:
+            from agfo_brcgs import review_pack as brp
+        except Exception:
+            return ''
+        keep = ('report-writing', 'evidence and document', 'specific', 'applicability', 'non-conformities', 'scope', 'reporting')
+        lines, n = [], 0
+        for head, rule in brp.skill_rules(profile):
+            if not any(k in head.lower() for k in keep):
+                continue
+            ln = '- ' + rule
+            if n + len(ln) > limit:
+                break
+            lines.append(ln)
+            n += len(ln) + 1
+        return '\n'.join(lines)
+
+    def brcgs_ai_call(self, label, instruction, src, on_text, language='English'):
+        """Genel BRCGS AI cagrisi (arka planda); on_text(metin, model) ana is parcaciginda."""
+        try:
+            backends = self.backends()
+        except Exception as e:
+            messagebox.showerror('AI', str(e), parent=self)
+            return None
+        action = {'key': 'brcgs_review', 'label': label, 'template': 'custom', 'extra': instruction, 'mode': 'replace', 'description': ''}
+        options = self._ai_options()
+        options.update(language=language, rich=False, from_scratch=False, preserve_facts=True, user_extra=instruction)
+
+        def work():
+            return ai.run_with_fallback(backends, 'transform', src, action, options)
+
+        def done(ok, r):
+            if not ok:
+                messagebox.showerror('AI', r, parent=self)
+                return
+            on_text((r.get('text') or '').strip(), self.model_label(r))
+        return self._start_job(label, work, done)
+
     def brcgs_ai_prompt(self, profile, row, ncs):
         from agfo_brcgs import data as brd
         clause, title = row['clause'], row.get('title') or ''
         text = ('You are writing the "%s %s" section of an official BRCGS %s audit report. Turn the auditor\'s evidence below '
-                '(often Turkish, sometimes fragmentary notes or answers to guideline questions) into clear, factual, past-tense English '
-                'audit report prose in the third person (e.g. "The site has…", "Records were reviewed…"). Keep every fact, number, '
-                'document code, issue/revision, name and date exactly; do not invent evidence, results or conformity statements that the '
-                'evidence does not support, and do not repeat the guideline questions. Do NOT write non-conformity statements or NC '
-                'references: they are added automatically after your text. No headings, bullet points, clause number at the start or '
-                'markdown.' % (clause, title, brd.PROFILE_LABELS.get(profile, 'Global Standard')))
+                '(often Turkish, sometimes fragmentary notes or answers to guideline questions) into clear, factual English audit '
+                'report prose: complete connected paragraphs, passive voice, objective audit language, the audited organisation '
+                'referred to as "the company". Keep every fact, number, document code, issue/revision and date exactly; write dates '
+                'as DD.MM.YYYY and document references as "Document Title" (Code, Rev. XX, DD.MM.YYYY) using only the elements that '
+                'are evidenced. Use job titles or functions instead of personal names. Do not invent evidence, results or conformity '
+                'statements the evidence does not support; do not repeat the guideline questions or the Standard wording; do not '
+                'write "meets / compliant with / in accordance with Clause X"; do not use "appears", "seems", "probably", "likely" '
+                'or "may". Do NOT write non-conformity statements or NC references: they are added automatically after your text. '
+                'No headings, bullet points, clause number at the start or markdown.'
+                % (clause, title, brd.PROFILE_LABELS.get(profile, 'Global Standard')))
         if ncs:
             text += (' End with a sentence summarising how the requirements of this clause are met apart from the non-conformity '
                      'listed after the text.')
@@ -3423,6 +3473,9 @@ class App(tk.Tk):
                      'style of BRCGS audit reports, based only on the evidence, e.g. "Records sampled during the audit were found to be '
                      'complete, legible, appropriately authorised where required and readily retrievable." or "The traceability system '
                      'complies with the legal requirements of the countries of sale."')
+        rules = self.brcgs_skill_rules(profile)
+        if rules:
+            text += '\n\nReport-writing rules of the certification body (follow them):\n' + rules
         if ncs:
             text += (' After the report text, write a line containing exactly "%s" and then translate each of the %d non-conformity '
                      'statements listed at the end of the input into concise English audit wording, one per line, in the same order, '
