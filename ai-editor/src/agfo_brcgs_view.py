@@ -22,6 +22,8 @@ from agfo_brcgs import docx_engine as E
 from agfo_brcgs import findings as F
 from agfo_brcgs import guide as G
 from agfo_brcgs import i18n as I18N
+from agfo_brcgs import review as RV
+from agfo_brcgs import review_pack as RP
 from agfo_brcgs import store as S
 import agfo_wordview as WV
 
@@ -32,7 +34,8 @@ except Exception:  # pragma: no cover
 
 NAV_FIXED_HEAD = (('overview', 'ℹ  Report information'),)
 NAV_FIXED_TAIL = (('tables', '▦  Official tables'), ('sections', '☰  Report sections'), ('na', '⊘  NA clauses'),
-                  ('plan', '⚑  NC Action Plan'), ('preview', '👁  Preview'), ('history', '⟲  Version history'))
+                  ('plan', '⚑  NC Action Plan'), ('review', '✔  Technical review'), ('preview', '👁  Preview'),
+                  ('history', '⟲  Version history'))
 PLAN_FIELDS = (('clause', 'Clause', 1), ('nc_text', 'Non-conformity details', 2), ('correction', 'Correction', 2),
                ('root_cause', 'Root cause analysis', 2), ('proposed_preventive_action', 'Proposed preventive action plan', 2),
                ('date_reviewed', 'Date reviewed', 1), ('reviewed_by', 'Reviewed by', 1))
@@ -501,6 +504,7 @@ class BrcgsReportView(tk.Frame):
         self._word = {'key': None, 'pdf': None, 'found': [], 'busy': False, 'error': None, 'pending': None, 'deferred': False}
         self.inline_editor = None
         self._field_widgets = {}
+        self.review = None
         self._build()
         self.show('word' if self.app.doc_renderer().engine else 'overview')
         if self.recovered:
@@ -576,6 +580,9 @@ class BrcgsReportView(tk.Frame):
             on = k == self.page or (k.startswith('g:') and self.page == k)
             b.configure(bg=self.c['SEL_BG'] if on else self.c['PANEL2'], fg=self.c['SEL_FG'] if on else self.c['FG'])
         counts = {'sections': len(p['sections']), 'na': len(p['meta']['na_clauses']), 'plan': len(p['meta']['action_plan'].get('items') or [])}
+        if getattr(self, 'review', None) is not None:
+            rc = RV.counts(self.review)
+            counts['review'] = rc['error'] + rc['warning']
         for k, n in counts.items():
             base = dict(NAV_FIXED_TAIL)[k]
             self.nav_btns[k].configure(text='%s  (%d)' % (base, n))
@@ -600,7 +607,8 @@ class BrcgsReportView(tk.Frame):
             self.form_page = page
         self.wordview = None
         fn = {'overview': self._page_overview, 'tables': self._page_tables, 'sections': self._page_sections, 'na': self._page_na,
-              'plan': self._page_plan, 'preview': self._page_preview, 'history': self._page_history, 'word': self._page_word}.get(page)
+              'plan': self._page_plan, 'preview': self._page_preview, 'history': self._page_history, 'word': self._page_word,
+              'review': self._page_review}.get(page)
         if fn:
             fn()
         elif page.startswith('g:'):
@@ -782,9 +790,21 @@ class BrcgsReportView(tk.Frame):
             return 'na', None, 'Not applicable clauses'
         if up.startswith('NON_CONFORMITY') or 'NONCONFORM' in up or 'CRITICAL' in up:
             return 'plan', None, 'NC Action Plan'
-        if '_TABLE' in up:
+        if '_TABLE' in up or tag in self._table_tags():
             return 'tables', None, 'Official tables'
         return 'overview', None, ''
+
+    def _table_tags(self):
+        """Resmi ve genel tablolarin icindeki denetim etiketleri (ATFNAME, GFSIHOUTCOME ...): tiklama 'Official tables'."""
+        if getattr(self, '_tbl_tags', None) is None:
+            tags = set()
+            tbls = [t for _k, (t, _c) in E.official_tables(self.template).items()] + \
+                   [t for _k, _ti, t, _c, _l in E.generic_tables(self.template)]
+            for t in tbls:
+                for sdt in t.iter(E.w('sdt')):
+                    tags.add(E.sdt_props(sdt)['tag'])
+            self._tbl_tags = tags
+        return self._tbl_tags
 
     # ---- yerinde duzenleme (2.4.0)
     def _field_of(self, target):
@@ -880,9 +900,12 @@ class BrcgsReportView(tk.Frame):
         ed.bind('<Tab>', lambda e: finish(True, 1))
         ed.bind('<Shift-Tab>', lambda e: finish(True, -1))
         wv.on_editor_click_away = lambda: finish(True)
-        wv.show_editor(frame, page, rect, min_w=320 if multiline else 240, min_h=min_h,
+        is_combo = kind == 'field' and f['kind'] in ('dropDownList', 'comboBox')
+        wv.show_editor(frame, page, rect, min_w=320 if (multiline or is_combo) else 240, min_h=min_h,
                        max_h=440 if kind == 'section' else 220)
         ed.focus_set()
+        if is_combo:
+            ed.after(80, lambda: ed.winfo_exists() and ed.event_generate('<Down>'))      # liste hemen acik
         self.inline_editor = (target, ed, finish)
         return True
 
@@ -1313,6 +1336,8 @@ class BrcgsReportView(tk.Frame):
         self.show('tables')
 
     def _table_del(self, key, r):
+        if not self.app.smoke and not messagebox.askyesno('Remove', 'Remove this table row? (It can be restored from the version history after saving.)', parent=self):
+            return
         del self.project['meta']['report_tables'][key][r]
         self.mark_dirty()
         self.show('tables')
@@ -1465,6 +1490,18 @@ class BrcgsReportView(tk.Frame):
         wrap = tk.Frame(b, bg=c['PANEL'], padx=6)
         wrap.pack(fill='x')
         self._box_banner(wrap, row)
+        note = B.export_note(p, row['clause'])
+        if note.get('merged') and not str(row.get('value') or '').strip():
+            holder = next((c_ for c_ in note['siblings'] if str((next((r for r in self.project['sections'] if r['clause'] == c_), {})
+                                                                     ).get('value') or '').strip()), None)
+            if holder and holder != row['clause']:
+                hb = tk.Frame(wrap, bg=c['PANEL2'], padx=10, pady=6)
+                hb.pack(fill='x', pady=(0, 8))
+                tk.Label(hb, text='The text of this merged box is written under %s. You can keep it there, or move this clause\'s '
+                                  'part here with its heading.' % holder, fg=c.get('WARN', '#e2b356'), bg=c['PANEL2'],
+                         font=('Segoe UI', 9), anchor='w', justify='left', wraplength=700).pack(side='left', fill='x', expand=True)
+                idx_ = next(i for i, r in enumerate(self.project['sections']) if r['clause'] == holder)
+                self.app.btn(hb, 'Open %s' % holder, lambda k=idx_: self.jump_to(k), 'ghost', side='right')
         u = B.unit(p, row['clause']) or {}
         if u.get('requirement'):
             rq = tk.Frame(wrap, bg=c['PANEL2'], padx=10, pady=6)
@@ -1627,6 +1664,8 @@ class BrcgsReportView(tk.Frame):
         self.show('sections')
 
     def _sec_del_na(self, row, item):
+        if not self.app.smoke and not messagebox.askyesno('Remove', 'Remove this NA clause? (It can be restored from the version history after saving.)', parent=self):
+            return
         self.project['meta']['na_clauses'].remove(item)
         self.mark_dirty()
         self.show('sections')
@@ -1639,6 +1678,8 @@ class BrcgsReportView(tk.Frame):
         self.show('sections')
 
     def _sec_del_nc(self, row, item):
+        if not self.app.smoke and not messagebox.askyesno('Remove', 'Remove this non-conformity? (It can be restored from the version history after saving.)', parent=self):
+            return
         self.project['meta']['action_plan']['items'].remove(item)
         self.mark_dirty()
         self.show('sections')
@@ -1808,6 +1849,8 @@ class BrcgsReportView(tk.Frame):
         self.show('na')
 
     def _na_del(self, r):
+        if not self.app.smoke and not messagebox.askyesno('Remove', 'Remove this NA clause? (It can be restored from the version history after saving.)', parent=self):
+            return
         del self.project['meta']['na_clauses'][r]
         self.mark_dirty()
         self.show('na')
@@ -1858,6 +1901,8 @@ class BrcgsReportView(tk.Frame):
         self.show('plan')
 
     def _plan_del(self, k):
+        if not self.app.smoke and not messagebox.askyesno('Remove', 'Remove this non-conformity? (It can be restored from the version history after saving.)', parent=self):
+            return
         del self.project['meta']['action_plan']['items'][k]
         self.mark_dirty()
         self.show('plan')
@@ -1901,6 +1946,306 @@ class BrcgsReportView(tk.Frame):
                                               self.app.flash('Preview copied to the clipboard.')), 'ghost')
         self.app.btn(bar, 'Open in editor', lambda: self.app.new_doc(t.get('1.0', 'end-1c'), title=self.project['title'] + ' (preview)',
                                                                   rich=False), 'ghost')
+
+    # ------------------------------------------------------------------ teknik gozden gecirme (2.5.0)
+    LEVEL_ICON = {'error': '⛔', 'warning': '⚠', 'info': 'ℹ'}
+
+    def run_review(self):
+        self.review = RV.run(self.project, self.fields)
+        return self.review
+
+    def _where_label(self, where):
+        kind = where[0]
+        if kind == 'field':
+            f = next((x for x in self.fields if x['key'] == where[1] and x['occurrence'] == where[2]), None)
+            return 'Field · %s' % (f['label'] if f else where[1])
+        if kind == 'section':
+            row = next((r for r in self.project['sections'] if r['clause'] == where[1]), None)
+            return '%s %s' % (where[1], ((row or {}).get('title') or '')[:48])
+        if kind == 'na':
+            na = (self.project['meta'].get('na_clauses') or [])[where[1]]
+            return 'NA %s' % (na.get('clause_ref') or '?')
+        if kind == 'nc':
+            it = self.project['meta']['action_plan']['items'][where[1]]
+            return 'NC %s' % (it.get('clause') or '?')
+        return 'Report'
+
+    def _page_review(self):
+        c = self.c
+        found = self.run_review()
+        n = RV.counts(found)
+        top = tk.Frame(self.main, bg=c['PANEL'], padx=14, pady=8)
+        top.pack(fill='x')
+        tk.Label(top, text='Technical review', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 12, 'bold')).pack(side='left')
+        tk.Label(top, text='   against %s and the technical-review rules' % RV.guide_name(self.project['profile']), fg=c['MUTED'],
+                 bg=c['PANEL'], font=('Segoe UI', 9)).pack(side='left')
+        self.app.btn(top, '⟳ Check again', lambda: self.show('review'), 'ghost', side='right')
+        self.show_info = getattr(self, 'show_info', tk.BooleanVar(value=False))
+        ttk.Checkbutton(top, text='Show info', variable=self.show_info, command=lambda: self.show('review')).pack(side='right', padx=8)
+        chips = tk.Frame(self.main, bg=c['PANEL'], padx=14)
+        chips.pack(fill='x')
+        for lvl, label, col in (('error', 'errors', c.get('BAD_C', '#ff8a80')), ('warning', 'warnings', c.get('WARN', '#e2b356')),
+                                ('info', 'info', c['MUTED'])):
+            tk.Label(chips, text='%s %d %s' % (self.LEVEL_ICON[lvl], n[lvl], label), fg=col, bg=c['PANEL'],
+                     font=('Segoe UI', 10, 'bold')).pack(side='left', padx=(0, 16))
+        if not n['error'] and not n['warning']:
+            tk.Label(chips, text='No errors or warnings. Check the info items and the coverage before submitting.', fg=c['MUTED'],
+                     bg=c['PANEL'], font=('Segoe UI', 9)).pack(side='left')
+        body = ttk.PanedWindow(self.main, orient='vertical')
+        body.pack(fill='both', expand=True, padx=8, pady=8)
+        upper = tk.Frame(body, bg=c['PANEL'])
+        body.add(upper, weight=3)
+        cols = ('where', 'title', 'source')
+        tv = ttk.Treeview(upper, columns=cols, show='tree headings', selectmode='browse', height=12)
+        tv.heading('#0', text='')
+        tv.column('#0', width=34, stretch=False)
+        for k, lab, w in (('where', 'Where', 260), ('title', 'Finding', 560), ('source', 'Rule', 120)):
+            tv.heading(k, text=lab)
+            tv.column(k, width=w, anchor='w')
+        ys = ttk.Scrollbar(upper, orient='vertical', command=tv.yview)
+        tv.configure(yscrollcommand=ys.set)
+        ys.pack(side='right', fill='y')
+        tv.pack(fill='both', expand=True)
+        shown = [f for f in found if f['level'] != 'info' or self.show_info.get()]
+        for f in shown:
+            tv.insert('', 'end', iid=str(f['id']), text=self.LEVEL_ICON[f['level']],
+                      values=(self._where_label(f['where']), f['title'], f['source']))
+        self.review_tree = tv
+        lower = tk.Frame(body, bg=c['PANEL'])
+        body.add(lower, weight=2)
+        nb = ttk.Notebook(lower)
+        nb.pack(fill='both', expand=True)
+        det = tk.Frame(nb, bg=c['PANEL'], padx=10, pady=8)
+        nb.add(det, text='Selected finding')
+        self.review_detail = det
+        tr = tk.Frame(nb, bg=c['PANEL'], padx=10, pady=8)
+        nb.add(tr, text='Reviewer comments → responses')
+        self._review_responses_ui(tr)
+        tv.bind('<<TreeviewSelect>>', lambda e: self._review_select())
+        tv.bind('<Double-1>', lambda e: self._review_go())
+        tv.bind('<Return>', lambda e: self._review_go())
+        if shown:
+            tv.selection_set(str(shown[0]['id']))
+            tv.focus(str(shown[0]['id']))
+        else:
+            tk.Label(det, text='Nothing to show.', fg=c['MUTED'], bg=c['PANEL']).pack(anchor='w')
+        self.review_nb = nb
+
+    def _review_current(self):
+        sel = self.review_tree.selection() if getattr(self, 'review_tree', None) else ()
+        if not sel:
+            return None
+        return next((f for f in self.review if str(f['id']) == sel[0]), None)
+
+    def _review_select(self):
+        c = self.c
+        f = self._review_current()
+        for w_ in self.review_detail.winfo_children():
+            w_.destroy()
+        if f is None:
+            return
+        d = self.review_detail
+        tk.Label(d, text='%s  %s' % (self.LEVEL_ICON[f['level']], f['title']), fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 10, 'bold'),
+                 anchor='w', justify='left', wraplength=900).pack(fill='x')
+        tk.Label(d, text=self._where_label(f['where']) + '   ·   ' + f['source'], fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8),
+                 anchor='w').pack(fill='x')
+        if f.get('detail'):
+            tk.Label(d, text=f['detail'], fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 9), anchor='w', justify='left',
+                     wraplength=900).pack(fill='x', pady=(6, 0))
+        bar = tk.Frame(d, bg=c['PANEL'])
+        bar.pack(fill='x', pady=(10, 0))
+        self.app.btn(bar, '→ Go to', self._review_go, 'primary')
+        if f['where'][0] == 'section':
+            self.app.btn(bar, '✨ AI: revise this section by the rules', lambda: self.ai_review_section(f['where'][1]), 'ghost')
+        self._autowrap(d)
+
+    def _review_go(self):
+        f = self._review_current()
+        if f is None:
+            return
+        w = f['where']
+        if w[0] == 'section':
+            idx = next((i for i, r in enumerate(self.project['sections']) if r['clause'] == w[1]), None)
+            if idx is not None:
+                self.jump_to(idx)
+        elif w[0] == 'field':
+            fld = next((x for x in self.fields if x['key'] == w[1] and x['occurrence'] == w[2]), None)
+            if fld is not None:
+                self.show('g:' + fld['group'])
+                wid = self._field_widgets.get((fld['key'], fld['occurrence']))
+                if wid is not None:
+                    self.after(60, lambda: (wid.focus_set(), wid.event_generate('<FocusIn>')))
+        elif w[0] == 'na':
+            self.show('na')
+        elif w[0] == 'nc':
+            self.show('plan')
+
+    def _section_review_source(self, row):
+        p = self.project['profile']
+        parts = ['CURRENT REPORT TEXT:\n' + (row.get('value') or '(empty)')]
+        ev = self.ai_source(row)
+        if ev.strip():
+            parts.append('AUDITOR EVIDENCE (guide answers and notes, may be Turkish):\n' + ev)
+        ncs = [F.nc_line(it) for it in F.section_ncs(self.project, row['clause']) if F.nc_detail(it)]
+        if ncs:
+            parts.append('NON-CONFORMITIES RAISED BY THE AUDITOR IN THIS SECTION (added automatically after the text):\n' + '\n'.join(ncs))
+        nas = ['%s - %s' % (n.get('clause_ref'), n.get('justification')) for n in F.section_nas(self.project, row['clause'])]
+        if nas:
+            parts.append('NOT APPLICABLE CLAUSES:\n' + '\n'.join(nas))
+        g = RV.section_guidance(p, row['clause'], row.get('title') or '')
+        if not g and COV is not None:
+            exp = COV.guide_expectations(p, row['clause']) or {}
+            g = '\n'.join('- ' + I18N.guide(x) for x in (exp.get('expected_content') or []) + (exp.get('must_include') or []) if x)
+        if g:
+            parts.append('%s GUIDANCE FOR THIS SECTION:\n%s' % (RV.guide_name(p), g))
+        req = RV.requirement_text(p, row['clause'])
+        if req:
+            parts.append('STANDARD REQUIREMENTS (scope only; do not copy into the report):\n' + req)
+        probs = [f for f in RV.run(self.project, self.fields) if f['where'] == ('section', row['clause']) and f['level'] != 'info']
+        if probs:
+            parts.append('REVIEW FINDINGS TO RESOLVE:\n' + '\n'.join('- %s. %s' % (f['title'], f['detail']) for f in probs))
+        return '\n\n'.join(parts)
+
+    def ai_review_section(self, clause):
+        p = self.project['profile']
+        row = next((r for r in self.project['sections'] if r['clause'] == clause), None)
+        if row is None:
+            return
+        if not str(row.get('value') or '').strip() and not self.ai_source(row).strip():
+            messagebox.showinfo('AI', 'This section has no report text or evidence to revise.', parent=self)
+            return
+        instruction = (RP.pack(p)['skill'][:9000] + '\n\n---\nTASK: Revise the report text of section %s "%s" so that it follows the '
+                       'report-writing rules above and the %s guidance, and resolves the review findings. Use ONLY facts present in '
+                       'the current report text and the auditor evidence; never invent evidence, dates, codes or results. Keep every '
+                       'verified fact. Do not add non-conformities and do not write NC lines (they are added automatically). Write in '
+                       'English. Return ONLY the revised report text - no headings, no notes, no markdown.'
+                       % (clause, row.get('title') or '', RV.guide_name(p)))
+        src = self._section_review_source(row)
+        before = row.get('value') or ''
+
+        def done(text, model):
+            if not text or row not in self.project['sections']:
+                return
+            self.store.snapshot(self.uid, 'pre-ai-review-%s' % clause, self.project)
+            G.set_report_text(p, row, text)
+            self.mark_dirty()
+            self._last_ai_undo = (row, before)
+            if self.page == 'review':
+                self.show('review')
+            self.app.flash('%s revised by %s following the review rules. The previous text is in the version history.' % (clause, model),
+                           9000)
+        self.app.brcgs_ai_call('BRCGS review %s' % clause, instruction, src, done)
+
+    # ---- teknik gozden gecirici yorumlarina yanitlar
+    def _review_responses_ui(self, parent):
+        c = self.c
+        tk.Label(parent, text='Paste the certification body\'s technical-review comments (numbered). The AI answers each one in the '
+                              'review format, using only this report\'s text and evidence.', fg=c['MUTED'], bg=c['PANEL'],
+                 font=('Segoe UI', 9), anchor='w', justify='left', wraplength=900).pack(fill='x')
+        row_ = tk.Frame(parent, bg=c['PANEL'])
+        row_.pack(fill='both', expand=True, pady=(6, 0))
+        self.tr_in = self._text(row_, (self.project['meta'].get('flags') or {}).get('tr_comments') or '', rows=8, width=50,
+                                on_change=lambda v: (self.project['meta'].setdefault('flags', {}).__setitem__('tr_comments', v),
+                                                     self.mark_dirty()))
+        self.tr_in.pack(side='left', fill='both', expand=True)
+        right = tk.Frame(row_, bg=c['PANEL'])
+        right.pack(side='left', fill='both', expand=True, padx=(8, 0))
+        self.tr_out = self._text(right, (self.project['meta'].get('flags') or {}).get('tr_responses') or '', rows=8, width=50,
+                                 on_change=lambda v: (self.project['meta'].setdefault('flags', {}).__setitem__('tr_responses', v),
+                                                      self.mark_dirty()))
+        self.tr_out.pack(fill='both', expand=True)
+        bar = tk.Frame(parent, bg=c['PANEL'])
+        bar.pack(fill='x', pady=(6, 0))
+        self.app.btn(bar, '✨ Draft responses', self.ai_tr_responses, 'primary')
+        self.app.btn(bar, 'Copy responses', lambda: (self.clipboard_clear(), self.clipboard_append(self.tr_out.get('1.0', 'end-1c')),
+                                                     self.app.flash('Responses copied.')), 'ghost')
+        self.app.btn(bar, 'Apply a response to its section…', self.apply_tr_response, 'ghost')
+
+    @staticmethod
+    def parse_responses(text):
+        """'[n]. Clause [X.X.X] - [konu]' bloklari -> [(n, madde, konu, metin)]."""
+        out = []
+        rx = re.compile(r'^\s*(\d+)\.\s*Clause\s+([\d.]+?)\.?\s*[-–—:]\s*(.*)$', re.M)
+        ms = list(rx.finditer(text or ''))
+        for k, m in enumerate(ms):
+            end = ms[k + 1].start() if k + 1 < len(ms) else len(text)
+            out.append((int(m.group(1)), m.group(2), m.group(3).strip(), text[m.end():end].strip()))
+        return out
+
+    def ai_tr_responses(self):
+        p = self.project['profile']
+        comments = self.tr_in.get('1.0', 'end-1c').strip()
+        if not comments:
+            messagebox.showinfo('Technical review', 'Paste the reviewer\'s comments on the left first.', parent=self)
+            return
+        refs = []
+        for m in re.finditer(r'\b(\d{1,2}(?:\.\d{1,2}){1,3})\b', comments):
+            sec = F.section_for_clause(self.project['sections'], m.group(1))
+            if sec and sec not in refs:
+                refs.append(sec)
+        parts = ['TECHNICAL REVIEWER COMMENTS:\n' + comments]
+        for sec in refs[:12]:
+            row = next(r for r in self.project['sections'] if r['clause'] == sec)
+            block = ['SECTION %s %s - CURRENT REPORT TEXT:\n%s' % (sec, row.get('title') or '', F.with_closing(self.project, row) or '(empty)')]
+            ev = self.ai_source(row)
+            if ev.strip():
+                block.append('AUDITOR EVIDENCE:\n' + ev)
+            parts.append('\n'.join(block))
+        if not refs:
+            fields = ['%s: %s' % (f['label'], self._value_of(f)) for f in self.fields if self._value_of(f)]
+            parts.append('REPORT FIELDS:\n' + '\n'.join(fields[:120]))
+        instruction = (RP.pack(p)['skill'][:9000] + '\n\n---\nTASK: Answer every numbered technical-review comment above, in order, '
+                       'using ONLY the report text and auditor evidence supplied. For each item write the heading line exactly as '
+                       '"[n]. Clause [X.X.X] - [short subject]" followed by report-ready paragraph(s) in English. When the evidence '
+                       'does not contain the requested detail, write "No records were provided for [subject]." Never invent '
+                       'evidence and never create, strengthen or weaken a non-conformity. No notes, no markdown.')
+        src = '\n\n'.join(parts)
+
+        def done(text, model):
+            self.tr_out.delete('1.0', 'end')
+            self.tr_out.insert('1.0', text)
+            self.project['meta'].setdefault('flags', {})['tr_responses'] = text
+            self.mark_dirty()
+            self.app.flash('%d responses drafted by %s.' % (len(self.parse_responses(text)), model), 8000)
+        self.app.brcgs_ai_call('BRCGS technical-review responses', instruction, src, done)
+
+    def apply_tr_response(self):
+        items = self.parse_responses(self.tr_out.get('1.0', 'end-1c'))
+        if not items:
+            messagebox.showinfo('Responses', 'No responses in the "[n]. Clause X.X.X - subject" format were found.', parent=self)
+            return
+        win = tk.Toplevel(self)
+        win.title('Apply a response to its section')
+        win.configure(bg=self.c['PANEL'], padx=12, pady=10)
+        win.transient(self)
+        lb = tk.Listbox(win, height=min(14, len(items)), width=90)
+        for n, cl, subj, _t in items:
+            sec = F.section_for_clause(self.project['sections'], cl)
+            lb.insert('end', '%d. Clause %s - %s   →  section %s' % (n, cl, subj[:50], sec or '(none)'))
+        lb.pack(fill='both', expand=True)
+        lb.selection_set(0)
+
+        def apply(mode):
+            sel = lb.curselection()
+            if not sel:
+                return
+            n, cl, subj, txt = items[sel[0]]
+            sec = F.section_for_clause(self.project['sections'], cl)
+            row = next((r for r in self.project['sections'] if r['clause'] == sec), None)
+            if row is None:
+                messagebox.showinfo('Responses', 'Clause %s is not a section of this report.' % cl, parent=win)
+                return
+            self.store.snapshot(self.uid, 'pre-tr-response-%s' % sec, self.project)
+            cur = str(row.get('value') or '').rstrip()
+            G.set_report_text(self.project['profile'], row, txt if mode == 'replace' or not cur else cur + '\n\n' + txt)
+            self.mark_dirty()
+            self.app.flash('Response %d applied to section %s (%s).' % (n, sec, 'replaced' if mode == 'replace' else 'appended'))
+        bar = tk.Frame(win, bg=self.c['PANEL'])
+        bar.pack(fill='x', pady=(8, 0))
+        self.app.btn(bar, 'Append to the section text', lambda: apply('append'), 'primary')
+        self.app.btn(bar, 'Replace the section text', lambda: apply('replace'), 'ghost')
+        self.app.btn(bar, 'Close', win.destroy, 'ghost', side='right')
+        self.tr_apply_win = win
 
     def _page_history(self):
         c = self.c

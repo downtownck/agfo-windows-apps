@@ -1,0 +1,802 @@
+BRCGS CONSUMER PRODUCTS ISSUE 4 - PERSONAL CARE AND HOUSEHOLD (PCH)
+TEKNİK GÖZDEN GEÇİRME BİRLEŞİK KAYNAK DOSYASI
+
+İçerik: Skill talimatı + CP417 raporlama rehberi + BRCGS Consumer Products PCH Issue 4 requirements
+
+====================================================================================================
+BÖLÜM 1 - BRCGS CP PCH TEKNİK GÖZDEN GEÇİRME SKILL TALİMATI
+====================================================================================================
+
+---
+name: brcgs-cp-pch-review
+description: Prepare and revise BRCGS Consumer Products Issue 4 Personal Care and Household (PCH) audit-report text and technical-review responses. Use for CP415 Foundation or CP416 Higher reports, clause-by-clause review responses, evidence consolidation, scope and applicability decisions, product and process risk assessment summaries, traceability, testing, hygiene controls, and auditor-recorded non-conformities. Apply CP417 reporting conventions and never invent evidence or create new non-conformities.
+---
+
+# BRCGS Consumer Products PCH Technical Review
+
+## Source priority
+
+1. Use the current audit report and records from the audit period as primary evidence.
+2. Use dated procedures, risk assessments, specifications, technical files, test reports, certificates, traceability records, interview notes and site observations only when present in supplied sources.
+3. Prefer the newest verified record when sources conflict. Do not remove an older fact solely because it is old when it remains relevant.
+4. Consult Bölüm 2’de yer alan CP417 raporlama rehberini report structure, required content and formatting için kullan.
+5. Use Bölüm 3’te yer alan Consumer Products Issue 4 PCH Standardını only to identify clause scope and Foundation/Higher applicability. Do not reproduce clause requirements as report narrative.
+6. State objectively when a requested detail is unsupported. Do not fill gaps from general knowledge.
+
+## Workflow
+
+1. Identify the exact technical-review item, clause, audit level, requested detail and expected output range.
+2. Confirm whether the report is CP415 PCH Foundation or CP416 PCH Higher.
+3. Search all supplied evidence for alternate document titles, codes, dates, product names, product categories, product technologies, test references, batch or lot numbers, equipment IDs and related clauses.
+4. Separate verified facts from reviewer comments, placeholders, assumptions and drafting instructions.
+5. Draft a direct answer using verified evidence only.
+6. Remove placeholders, brackets, ellipses, questions, confirmation requests and editorial notes.
+7. Check that no new non-conformity, root-cause statement, consequence or corrective-action recommendation has been introduced.
+8. Perform the final quality check before delivery.
+
+## Report-writing rules
+
+- Write complete, connected paragraphs suitable for direct insertion into the audit report.
+- Use passive voice and objective audit language.
+- Refer to the audited organisation as `the site` in English or `tesis` in Turkish.
+- Default to English unless another report language is requested. CP417 requires English for the main report fields; translations may follow the English text where needed.
+- Preserve document codes, revision numbers, record IDs, product names, test methods, batch or lot numbers and equipment identities exactly as evidenced.
+- Use `YYYY-MM-DD` for audit-template date fields. Use the date format requested by the user for narrative text when it does not conflict with the template.
+- Do not use first- or second-person pronouns or subjective wording such as `appears`, `seems`, `probably`, `likely` or `may`.
+- Do not write statements such as “this complies with Clause X”. Present the evidence and implementation only.
+- Keep all relevant evidence while removing repetition and content unrelated to the review point.
+- Do not include personnel names in detailed report summaries unless the template specifically requires them; use job titles or functions instead.
+
+## Audit level and applicability
+
+- Distinguish Foundation from Higher requirements before drafting.
+- Do not report a Higher-level control as mandatory for a Foundation audit unless the supplied report or evidence confirms it was assessed.
+- Mark a requirement as not applicable only when the absence of the relevant product, process, claim, equipment, subcontracted activity or risk is explicitly supported.
+- Provide a brief, factual justification for every not-applicable decision.
+- Do not exclude a process step undertaken at the certified site. Scope exclusions must be supported as clearly differentiated products manufactured in physically segregated areas and agreed with the certification body.
+
+## CP PCH-specific evidence
+
+When relevant, retain verified evidence on:
+
+- product category numbers and product technology codes A1-A9;
+- intended use, user group and foreseeable misuse;
+- product design, materials, chemical composition, component compatibility and mechanical assembly;
+- applicable legislation, safety standards, technical files and competent-person assessments;
+- product labels, warnings, instructions and validated claims;
+- packaging fitness for purpose;
+- product and process risk assessments, process flow, hazards, control measures, CCPs, critical limits, monitoring, validation and verification;
+- microbiological, chemical, physical, allergen and foreign-body hazards at the specific level supported by evidence;
+- testing schedules, methods, acceptance limits, laboratory competence or accreditation and result trends;
+- traceability across raw materials, components, packaging, subcontracted work and finished product;
+- line clearance, in-process checks, product release, calibration and contamination controls;
+- PCH hygiene controls such as hair and beard covering, fingernails, jewellery, plasters, health declarations and protective clothing, where relevant to the product risk assessment.
+
+## Document and technical references
+
+Use this structure when all elements are available:
+
+`“Document Title” (Document Code, Rev. XX, YYYY-MM-DD)`
+
+Use verified elements only. Do not invent missing codes, revisions, dates, test frequencies, limits, results, responsible persons or equipment identities.
+
+For technical results, use:
+
+`[Parameter]: [Result] (Method/Laboratory: [verified detail], Date: [YYYY-MM-DD]; Product: [name], Batch/Lot: [identifier])`
+
+Include only supported fields.
+
+## Scope and site profile
+
+- Draft the scope clearly, succinctly and unambiguously in English.
+- Include the finished product types and key manufacturing processes sufficient to understand the operation.
+- Do not include brand names, long product lists, product claims, countries of sale, sales, marketing, trade, distribution or delivery wording in the scope.
+- Record `None` where there are no scope exclusions.
+- Include subcontracted processes, homeworkers and relevant controls only when evidenced.
+- Preserve company-profile detail sufficient to understand ownership, history, site scale, employees, shifts, key processes, products, technologies and significant changes.
+- Keep the company-profile text within the template character limit where applicable.
+
+## Traceability summaries
+
+Include, when available:
+
+- product, lot or batch selected and rationale for selection;
+- direction tested, including forward and backward traceability;
+- raw materials, components, packaging and subcontracted stages covered;
+- key records linking each stage;
+- test start and completion time or total duration;
+- mass-balance result where assessed;
+- result of the site’s most recent internal traceability test.
+
+Do not list every transaction when a concise, reproducible summary is sufficient.
+
+## Non-conformities
+
+- Preserve only findings raised by the auditor or explicitly recorded in the audit report.
+- Do not create, reclassify, strengthen, weaken or imply a new finding.
+- Number Standard non-conformities sequentially. A voluntary module may restart numbering from 1.
+- Classify each finding against one clause only, using the exact clause format with full stops and no added punctuation.
+- Within each classification, order findings by clause number.
+- Format an existing finding as:
+
+`Clause X.X.X: [specific, objective and reproducible evidence].`
+
+- Include available product, document, record, equipment, date, sample, batch or location detail.
+- Do not add potential consequences, risk commentary, causes or corrective-action advice unless explicitly requested.
+- Do not include a conformity statement elsewhere for the same specific issue.
+- For critical findings or a major against the statement of intent of a fundamental requirement, do not invent correction or preventive-action content.
+
+## Corrective-action review
+
+When asked to review close-out evidence, keep these elements separate:
+
+- correction completed;
+- root-cause analysis supplied by the site;
+- proposed preventive action;
+- evidence type provided;
+- reviewer and review date.
+
+Do not rewrite a correction as a preventive action or invent a root cause. Use past tense for completed corrections.
+
+## Handling missing or incomplete evidence
+
+- Replace a placeholder with verified evidence when available.
+- When a precise detail cannot be found, remove the placeholder and retain only a broader statement supported by evidence.
+- When no supporting evidence exists and a direct answer would require fabrication, state: `No records were provided for [specific subject].`
+- Do not convert an evidence gap into a non-conformity unless the auditor recorded it.
+
+## Output format
+
+For numbered technical-review responses, use:
+
+`[Review item number]. Clause [X.X.X] - [short subject]`
+
+Follow with one or more report-ready paragraphs. Do not include reviewer questions, evidence-search commentary, drafting notes or a `to be confirmed` section.
+
+When a file is requested, provide UTF-8 TXT by default unless another format is specified. Keep the requested numbering range in one file and use a clear filename.
+
+## Final quality check
+
+Confirm internally that:
+
+- every specific fact is traceable to supplied evidence;
+- the correct PCH Foundation or Higher level has been applied;
+- the newest relevant evidence has been preferred;
+- the technical-review question has been answered directly;
+- product categories and technologies are correctly represented;
+- product and process risk evidence is specific and not generic;
+- no evidence has been lost through over-compression;
+- no clause requirement has been paraphrased as report content;
+- no unsupported applicability or scope decision has been made;
+- no new non-conformity, root cause or corrective action has been introduced;
+- template date and clause-reference formats are correct;
+- the text can be pasted into the report without further editing.
+
+====================================================================================================
+BÖLÜM 2 - CP417: HOW TO COMPLETE THE ISSUE 4 AUDIT REPORT
+====================================================================================================
+
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 1 of 27
+BRCGS
+Consumer Products: General
+Merchandise and Personal Care and
+Household
+CP417
+How to complete the Issue 4
+audit report
+Document Scope
+Guidance on how to complete the audit report for Issue 4 of the BRC Global Standard for Consumer Products.
+Change log
+Version no.
+Date
+Description
+1
+Nov 2016
+First Issue for Issue 4 of the Standard
+2
+07/08/2019
+New BRCGS logo and footer changed
+3
+4
+5
+6
+7
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 2 of 27
+Objective
+The report produced as a result of an audit against the Global Standard for Consumer Products is one of the key outputs from the audit process. It is used both to provide real information about the site for retailers and other customers and to substitute fully or in part for the need for their own audit.
+The report format
+The BRCGS has a set format for the reporting of audits to ensure that consistent information is provided and to make it easier for users of reports to find information within the report.
+The report is in 3 parts:
+1. Audit summary
+2. Non-conformity and corrective action summary
+3. Detailed audit report
+All audit reports must be submitted to the BRCGS Directory in the prescribed format as typed word documents.
+The ‘interim’ report
+The ‘interim’ report consists of the first two sections of the report to the non conformities – not including the corrective action which will be subsequently completed by the site for review.
+The ‘interim’ report shall be uploaded to the BRCGS Directory within 10 calendar days of the last audit day. The ‘audit result’ shall be specified as pending; and ‘audit grade’ shall be left blank (this will not prevent upload). It is not a mandatory requirement that the ‘interim’ report shall have been through a review process before upload. Audits shall follow their Certification Bodies internal process for submission and handling of the interim report.
+Note that once uploaded, the report will be visible (downloadable and printable) to the Certification Body, the site and any nominated customers in ‘pending’ status.
+The audit checklists
+In addition to the final audit report, BRCGS auditor checklists are available so that auditors may capture audit notes during the audit. These should be used as internal
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 3 of 27
+documents and do not need to be provided to the BRCGS or users of the scheme unless otherwise requested. They do form part of the audit documentation and should be appropriately handled. These are offered in the translations available for the Standard and are downloadable from the BRCGS websites.
+Self-assessment checklists
+For sites, self-assessment checklists are available which may assist sites in gap analyses or internal audits. These are also offered in the translations available for the Standard and are downloadable from the BRCGS websites.
+Report language
+The report language shall be primarily English, with alternative languages (where required) placed after the English information.
+The report shall be completed in English but may include a translation following the English statement. Additional space for text is available after the ‘tagged’ fields.
+• Audit scope, exclusions and justifications for exclusions
+• Company profile (beware this box has a maximum size of 2,000 characters)
+• Product and process characteristics
+• Non conformity summary and corrective action details (including for voluntary modules)
+Where both the auditor and the users of the report require the entire report in another language, providing the detailed section of the report (requirements) in the language of the user is acceptable, although there may be a requirement to translate parts of the report into English if requested by the BRCGS in order for KPI assessment.
+Audit Report Templates
+Located within the Templates Module of the Global Standards Directory (brcdirectory.co.uk - after log-in), are the blank Audit Report templates. These should be downloaded and the Certification Body logo (in jpeg format) and address details added as appropriate – no other changes are permitted to the audit report template.
+The following audit report templates are available, which differ in detail so it is vital that the correct template is selected.
+The report templates are:
+CP413 – Issue 4 Audit Report - GM Foundation Level
+CP414 – Issue 4 Audit Report – GM Higher Level
+CP415 – Issue 4 Audit Report - PCH Foundation Level
+CP416 – Issue 4 Audit Report – PCH Higher Level
+Audit Report Functionality
+A core function of The Global Standards Directory is the Audit Template import function. This process takes data from a completed audit report and instantly transfers that data to the system. During the automated data extraction process, the database looks for a number of specific areas in the Word document which are then
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 4 of 27
+mapped to corresponding areas of the database. Those areas are XML tagged. It is essential that those areas of the document are completed correctly. Document format, tables, xml tag locations, headers and footers shall not be altered.
+Document Format
+Audit report templates are Microsoft Word documents with compatibility with Office 2007 and 2010.
+Principles of the template
+The templates feature drop-down lists to aid consistent completion. These make completion errors and therefore upload problems less likely.
+Templates also have text fields which automatically expand when typing begins. Pressing return or ‘enter’ will exit the text box.
+Upload Control Points
+During the import/upload process – the database will look for two key control points:
+1. BRC Site Code:
+If the site code in the Audit Template does not match that of the selected site, the upload will be prevented. This ensures that only appropriate audits are linked to a site’s record.
+2. Auditor Number:
+At the final stage of the upload, the database will compare the audits scope with the registered attributes of the auditor(s). The auditor(s) number will generally be 6 digits in length and the auditor(s) profile must be pre-created, validated by BRCGS and contain the correct product technologies in the database prior to the audit being carried out and upload of the final audit report. Any discrepancy between auditor(s) registered technologies and the audit scope technologies will result in the audit report being sent to the ‘Audits Holding Area’ for investigation by the BRCGS. Auditor numbers which do not correspond to a validated auditor profile will not allow report upload. Auditor numbers for trainee auditors not yet validated should not be included.
+Data format
+A number of the text fields will accept specified formats only, e.g. maximum of 6 digits for auditor number, where this is in place it is specified in the detail below. A number of the text fields are mandatory and must be completed in the correct format or the upload will not be successful.
+Some text fields will only accept numbers (integers) for example and some are ‘free text’ meaning that they will accept any combination of characters – words, numbers, punctuation etc.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 5 of 27
+Some text fields have a maximum number of characters that they will accept (otherwise upload may fail) and this is specified below. Additional characters maybe included in the report outside the text fields but this text will not be uploaded onto the Directory fields.
+The template contains text prompts, e.g. ‘choose a region’ ensure any ‘unused’ text is deleted to make the report look tidier but do not delete the text fields.
+Additional rows can be added to part 3 (the summary) of the report if there is not enough space to add details to the report.
+Date format
+The Directory and Audit Report templates will be used world-wide and so a universal date format has been adopted. This format shall be adhered for all date fields within the document and database:
+All dates shall be completed in YYYY-MM-DD format
+Time Format
+All time related fields shall be completed as 24-hour clock and/or to the nearest whole hour, i.e. 14.00 rather than 2.15. The exception is start and finish times which may use 15 minute intervals.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 6 of 27
+Completing the audit report
+This portion of the guideline addresses each portion of the audit report. This information forms the basis for the review and assessment of reports for the six-monthly KPIs.
+Audit summary
+Company name – this should be the name the company (supplier) is known by and will generally be the ‘audit owner’ i.e. will have control of the audit report details on the BRCGS Directory and be able to allocate which retailers and customers can view its audit details. The Company may be a single site or maybe a Company group.
+BRCGS site code – this can be located in the ‘sites’ listing within the ‘Directory’ tab. If a site code does not exist a new record is created where the site code is generated by the BRCGS Directory. The site code will be unique to that location and will be used for all subsequent audits of that site irrespective of the Certification Body carrying out the audit.
+Site name – this should be any distinguishing name of a site within a company group such as their location.
+It is important that this is set correctly by the Certification Body since this allows a hierarchy of access to the audit reports to be created within the BRCGS Directory database.
+Audit level – the audit report templates are specific to either Foundation or Higher level so this value cannot be changed.
+Scope of audit –The scope describes the products produced and the manufacturing processes which has been agreed between the site and the certification body before the audit. Scopes should be clear, succinct and unambiguous. Scopes should not include brand names, nor a long list of products or processes. The scope shall be
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 7 of 27
+stated in English within the text fields. Any other language should be included outside the text field as in the example above.
+There shall be an outline of the key processes carried out by the site. It does not require detail of every step but should use appropriate words to provide enough detail so that the product manufacturing characteristics can be understood. This should reflect the nine product technologies where appropriate. Use of general terms such as ‘manufacture’, ‘production’, or ‘processing’ should be used with care but may be acceptable where the resultant products are clear.
+Use of words within the scope of the Standard, for example procurement, intake, receipt, storage, product design and development, print handling, storage, dispatch, transport are not required since they are already included within the scope of the Standard and are assessed during the audit.
+Use of claims such as FSC, SPF, organic, Fairtrade, anti-bacterial are NOT permitted.
+Use of words such as sales, marketing, trade, distribution and delivery are NOT permitted because these are outside the scope of the Standard.
+Country of sale is no longer required in the scope as there is now a drop-down list on the audit report.
+Scope
+Depositing of nonwoven skin care wipes into detergent and emollient solution packing into flow-wrap and plastic containers ✓ The process is clear, as is the resulting final product with an outline of the product packaging.
+Scope
+Manufacture of extruded, moulded and poured ornamental and scented candles packed in glass. ✓ The process is clear, as is the resulting final product with an outline of the product packaging.
+Exclusions from scope
+Where there are no exclusions from the scope of the audit, i.e. all products and areas on site are addressed in the audit, then ‘none’ shall be specified. Justification for exclusion must be given for any exclusion from scope and shall comply with the following:
+• the excluded products can be clearly differentiated from products within scope
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 8 of 27
+AND
+• the products are produced in a physically segregated area of the factory.
+Exclusions shall be agreed with the certification body in advance of the audit. The certification of products must include audit of the entire process from raw material to end-product dispatch. It is not possible to exclude either parts of the process undertaken at the site or parts of the Standard.
+The BRCGS logo can only be used by sites that have no exclusions.
+Audit Finish Date –this is the last day of the audit.
+Re-audit due date – this should be calculated from the first day of the initial audit.
+Previous audit date – this should be obtained from the previous audit report.
+Voluntary Modules Included
+Select from the drop down list all the voluntary modules that have been included within the audit. The relevant amount of additional time shall be added to the audit duration as a result of any included voluntary modules. Include the result ‘pass or fail’ from the drop down list. Outline details of the scope of the voluntary module here.
+Audit results
+The audit result shall be stated as certificated or not certificated.
+Audit grade – the final audit grade for higher level, based on the number and severity of non-conformities raised at the audit shall be stated. Foundation level shall specify ‘no grade’.
+Audit type shall be selected from the drop-down box as announced.
+Previous audit grade - where the site has had a previous audit with a grade, the previous audit grade shall be stated.
+Previous audit date – list the start date of the previous audit.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 9 of 27
+Site details
+It is vital that this information is kept up to date and should be checked at each audit. The site should be notified that if this information changes they are required to notify their CB who can update the information on the BRCGS Directory.
+Address - the address required is the address of the location of the production facilities audited. Note these fields are not tagged and the details should match that entered in the BRCGS Directory according to the site code. The Directory requires the ‘city’, ‘region/state’ and ‘post / zip code’ to be completed (in separate fields) – ensure this is captured on the audit report. Ensure that all addresses are completed in full and do not use abbreviations, e.g. ‘New York’, not ‘NY’ – this aids consistency in Directory information and therefore trending and analysis of data.
+Country – add standard country description.
+Telephone – the main telephone number of the site, with country code.
+Commercial representative name and email address – the nominated contact for commercial queries.
+Technical representative name and email address – the nominated contact of the company for technical queries.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 10 of 27
+Site profile
+The Issue 4 Audit Duration Calculator (CP412) shall be referenced to determine audit duration prior to the audit.
+Plant Size – choose the size range from the drop-down list that most accurately reflects the size of the manufacturing facility including storage facilities on site. This shall be stated in square metres.
+The converter from square feet to metres is 10.76. For example, 86,000 feet equals 8,000 metres
+Number of employees (of the site including administration) – as full time equivalent employees per main shift including seasonal workers. Details of shifts and total employee numbers can be given in the company description.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 11 of 27
+Key processes – as a guide, a key process is defined as the main operation that a site has.
+Subcontracted processes – confirm yes or no if the company uses another company to complete part of the process. This would be where the raw material is supplied by the company (i.e. still owned) and this is then received back in a finished or part finished state. Where this is undertaken by homeworkers, for example, details should be provided. Details must be given in the company description.
+Other Certificates Held – This is a free text box where the details of other certifications that are held by the site such as ISO 9001, ISO 22000, etc. shall be listed.
+Regions Exported to – specified text as a drop down list: None, Asia, North America, South America, Europe, Oceania, Other.
+Major changes since last BRCGS audit – outline the relevant major changes, e.g. capital expenditure, structural or personnel changes, new products or processes.
+Site Profile - The company description shall provide an overview of the set-up of the company, its history and any relevant information.
+Product Characteristics
+Product categories – specify the applicable categories from the drop down list (1 – 21) and list them in numerical order.
+Product technologies - specify the applicable product technologies from the drop down list (A1 – A9) and list them in numerical order. This will be cross checked with the auditors registered technologies on upload
+Product claims made – where products produced on site have marketable claims, these claims shall be listed eg sun protection factors (SPFs), absorbability or anti-bacterial properties.
+Product recalls in last 12 months – where a site’s products have been implicated in a product recall (products returned from stores or consumers), these shall be listed.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 12 of 27
+Products in production at time of audit – this should indicate the products in production but not the brand names.
+Audit duration details
+On-site audit duration – this should be completed to the nearest hour. This should specify the total time spent on the BRCGS audit and any voluntary modules at the site. If, for example the BRCGS audit was carried out in conjunction with another audit, a calculation shall be made to specify the time spent on BRCGS only. This should not include time spent on writing the report and significant time for lunch breaks off site
+Duration of production facility inspection – again this should be completed to the nearest hour and should be a proportion of the total site audit which was spent actively looking around the production facility. BRCGS expectation is that at least 50% of the total audit time is to be spent touring the production facility, interviewing operators and walking through the product and process risk assessment plan to ensure it is a true reflection of the site operations and controls that have been put in place.
+Reasons for deviation from typical or expected audit duration - where there is a deviation from specified guidance on audit times justification shall be given. For example, where a BRCGS audit is undertaken in conjunction with ISO 9001 audit, the audit duration times given for each day may differ from the total specified. If the production facility audit duration varies, an explanation shall be given here.
+Next audit type selected – the site has up to 3 months from the date of the audit to opt into any optional unannounced scheme. An announced, option 1 unannounced, or option 2 unannounced audit may be selected. This should be completed with the information known at the time.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 13 of 27
+Audit duration per day
+The time of arrival and leaving the site on each day of the audit shall be recorded. This should be completed in 24-hour clock, e.g. 17:00 not 5:00. If the option 2 unannounced audit option is used, or the audit includes a head office audit, then all the dates and durations on site shall be given. If the audit was a grade D and included a revisit to close out non-conformities this shall also be detailed here but not included within the total audit duration. Additional days can be added by inserting extra rows ensuring that functionality (i.e. text fields or drop down selection boxes) are included.
+Auditor information
+Auditor(s) Number – this must be one number only in each box and consist of the 6-digit number of each auditor unique to the auditor and Certification Body. The Directory now has the ability to check the combination of numbers for teams of more than one auditor against their registered category competencies. Any discrepancies will lead to the audit report being held in the audit holding area. The Auditor number will usually be 6 digits in length and the auditor profile must be pre-created and validated by BRCGS in the database prior to the audit being undertaken and uploaded. Any auditors without a validated profile such as a trainee should be listed in the ‘auditor names and roles’ box but no auditor number shall be given.
+Auditor Name and roles- where other personnel are present all names and roles should be included, e.g. a technical expert, accreditation body shadow audit.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 14 of 27
+Personnel present at audit
+Personnel attending – personnel from the company should be listed in order of seniority. The name and title of the person shall be indicated. Where large numbers of people have attended the list can be restricted to key managers. Auditor names do not need to be in the list above.
+Unused rows may be deleted to improve the visual appearance of the report. Additional rows may also be inserted ensuring that functionality (i.e. text fields or drop down selection boxes) are included.
+Non-conformity summary
+Critical and major non-conformities against the statement of intent of a fundamental clause.
+For non-conformities raised that are deemed to be critical, or that are a major against the statement of intent of a fundamental clause, no correction, proposed preventive action plan or evidence is required as the site cannot be certificated. However, the report shall be completed and uploaded to the BRCGS Directory.
+Major and minor non-conformities
+Non conformities shall be grouped by type i.e. fundamental (critical, or major against the statement of intent of a fundamental requirement), critical, major, minor.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 15 of 27
+Numbering – The non-conformities for the BRCGS Standard should be sequentially numbered. For each voluntary module, the sequence can start again from ‘1’.
+Clause – the relevant clause of the Standard should be listed. Non-conformities may be raised against the statement of intent, e.g. 1.1, or an individual requirement, e.g. 1.1.1.
+The non-conformity shall be classified against one clause only highlighting the main issue of the non-conformity. Requirements shall be specified in exact format with ‘.’ separators only (e.g. 1.1.1). Within each category, non-conformities shall be listed in order of requirement numbers. It should be noted that some voluntary modules have specific clause references that are sequentially numbered.
+Detail of non-conformity – this is a free text box with a maximum of 2000 characters. The detail of the non-conformity must be specific and unambiguous, so that actions taken by the site can be specifically identified as correcting the issue.
+Correction – a free text box with a maximum of 2000 characters This should contain a short description of the corrective action taken by the site, confirming in the past tense that it has been completed prior to the BRCGS certificate being issued.
+Proposed preventive action plan (based on root cause analysis) – a free text box with a maximum of 5000 characters. This should contain a short description of the analysis by the company of how they have identified the root cause of the problem and what they propose to undertake to ensure that the non-conformity does not re-occur.
+Evidence provided: document, photograph, visit, other –
+Reviewed by and date reviewed – name of person reviewing and accepting the evidence provided. Where all of the evidence has been reviewed and accepted by the same person initials will be sufficient after the first entry. The date of final sign-off of the corrective action shall be specified.
+Comments on non-conformities – this free text box may be used to explain a large number of minor non conformities (>20) where no major non conformity is given. It may also be used for commentary on corrective action where appropriate, e.g. late or no submission of evidence.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 16 of 27
+Detailed Section
+Requirements
+There is no requirement for a statement against each individual requirement or clause but the report contains one summary box per main clause. This summary box needs to capture sufficient specific information to explain the controls in place to satisfy each of the requirements.
+Information can be as a bullet pointed list but shall contain relevant detail of objective evidence demonstrating compliance, where applicable.
+Non-applicable clauses
+Where requirements are identified as not applicable the reason for this must be stated. A simple statement will suffice, but it should be clear to the user of the report why a requirement has been deemed non-applicable.
+Detailed Audit Report
+1. Senior management commitment 1.1 Senior management commitment and continual improvement Give an overview of the evidence seen for demonstrating management commitment with a summary of targets and results. It may be appropriate to outline what the policies cover and how the policies are communicated to staff including details of dates and who sanctions the policies. Give a summary of objectives set / how and who reviews them and how this is communicated. Outline any results or a significant trend which confirms how well the company is doing against their objectives. Confirm the structure of this management meeting programme eg frequency, who attends, outline of discussion. Example of records reviewed. HIGHER confirmation that all aspects required within the meeting are covered and an outline of how issues are actioned. It is not expected that the final report contains any specific positive comments against requirement 1.1.4. It will be assumed to be met via other detail within the report such as the company description summary unless non-conformities are detailed. Explanation needed if the audit is late including any concession reference numbers from BRCGS. It is not expected in the audit report to contain details that the site had a copy of the Standard. Auditor notes, however, should include confirmation of BRCGS standard present. Detail any requirements for government registration and the registration detail where appropriate.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 17 of 27
+Details of number and type of nonconformities raised at BRCGS audit and review of effectiveness of actions taken, i.e. any recurrence. HIGHER A summary of trends from internal, second and third party audits non conformities should be included. 1.2 Organisational structure, responsibilities and management authority
+Give a brief overview of management structure to paint a picture of the size and structure of the site eg ‘site management team includes a Production Manager reporting to MD with 15 shift managers; Technical and QA Managers backed by a group head office technical team. NPD and purchasing departments located with head office group.’
+Describe what process is in place that all staff are aware of their responsibilities and have access to relevant procedures. Identify the senior manager with the authority to stop production.
+HIGHER confirm organisation structure in place identifying deputees. Non-applicable clauses
+2. Product risk management 2.1 Legislation and safety requirements An outline of how the company keeps up to date with legislation and product issues eg Membership of trade association, Subscription to legal update service, help from government offices, review of websites, external consultants. Evidence seen should be summarised. HIGHER the processes of validation of customer information shall be summarised. Processes for keeping staff up to date shall be outlined. 2.2 Product risk assessment Within this section sufficient information should be given to demonstrate that the site has effectively carried out a risk assessment on each product. This section must be sufficiently detailed for the reader to fully understand the product produced and the hazards and legislation that have been considered. Give an overview of who has been responsible for this review and their competence. This clause ensures that proposed designs and materials allow for the production of safe and legal products. A risk assessment of the product design and materials is essential to ensure a safe and legal product. This assessment should address matters such as: the materials used in the make-up – to ensure that they have the correct mechanical properties such as strength and durability the chemical composition of materials – to ensure that toxic or banned substances are not used the assembly of the parts – to ensure that the materials work together (for example, the correct type of adhesive) the mechanical assembly – for example, screwing or gluing the technical features of the design – such as the shape of moulds or the fit of components.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 18 of 27
+FOUNDATION outline of the process, how it has been undertaken and the outcome. HIGHER. Give a description of the products particularly if there are a number of key processes and their intended use. Outline the legislation reference. Outline the testing undertaken and how this has been undertaken. 2.3 Product labelling and claims
+Outline the details contained on labels and outline the verification process and evidence seen. Detail any claims made and how they have been validated.
+Where applicable, outline what testing and evaluations have been undertaken and their conclusions. 2.4 Packaging Materials
+Describe the packaging and outline how this has been assessed as fit for purpose. Non-applicable clauses
+3 Product safety and quality management 3.1 Product safety and quality management system Overview of Quality Manual structure and how it is available to staff – outline in which languages it is made available. This Standard does not specifically demand a quality manual, although there are many instances where documentation is required and many sites will find it easiest to collate this into some kind of manual. If a manual is used it must be readily accessible to those who need it. 3.2 Documentation control Define systems in place. Auditor notes should have evidence of the detail of which documents were seen with dates etc 3.3 Record completion and maintenance
+Define the retention period of documents.
+Auditor notes should have evidence of the detail of which records were seen 3.4 Internal audit
+This is a key section as ensures compliance with the requirements of the Standard.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 19 of 27
+FOUNDATION Outline who completes the audits and what training they have received. Describe the schedule (how often) and what is inspected. Outline to whom results are reported and state any trend in results seen.
+HIGHER Define the scope of the audit system (what is covered) and the schedule of audits (how often).
+Give details of the auditors and their competence/training/independence. Auditors at higher level shall not audit their own work.
+Describe how audits are reported and followed up – how is it ensured that corrective actions are appropriately actioned i.e. whose responsibility and timescale.
+Auditor notes may give more examples of actual specific audits seen.
+3.5 Supplier approval and performance monitoring 3.5.1 Management of suppliers of raw materials, components and packaging
+Confirmation that materials bought onto site which form part of the final product – including packaging are sourced through approved suppliers and are monitored.
+Where this is part of a head office controlled function then this should be stated. Where an audit has been made of a head office, this should also be mentioned. Details of how the site accesses this information is needed.
+Describe how suppliers are assessed e.g. if by audit; third party certification or questionnaire, state the frequency and link to risk assessment.
+HIGHER detail what ongoing monitoring processes are in place and how exceptions are handled or that there are no exceptions.
+Auditor notes should list the evidence seen to demonstrate compliance
+3.5.2 Control and acceptance of incoming raw materials, components and packaging materials
+Detail what’s done & how information on raw materials requirements and checks is communicated to goods in personnel. Outline the checks made in the case of use of homeworkers or confirm that there is no homeworking.
+Outline the control processes in place to confirm authenticity and prevent fraud. For example fake certificates for organic claims in cotton or counterfeit fragrances in cosmetics 3.6 Specifications and technical files
+This section refers to raw material; intermediate and finished product specifications and also packaging materials. Specifications must be available for all products packed on site. Examples should be given of those checked – but not an exhaustive list.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 20 of 27
+Again where this is a head office controlled function – details of this is required including how the site can access the specifications and who has access.
+Confirm specifications include all details required. Overview of system for specifications should be given
+3.7 Corrective and preventive action
+Describe how corrective actions are captured and how they are actioned to prevent re-occurrence.
+HIGHER state who is responsible for ensuring action. Confirm annual review with details of when this was undertaken and the outcome
+Auditors notes should Detail / List the evidence seen to demonstrate compliance 3.8 Control of non-conforming materials
+Confirm how non-conforming product is handled; quarantined and released.
+Detail how carried out and confirm review of any potential trends 3.9 Traceability
+Give a brief overview of how the trace system operates – for instance computer based or paperwork based – this should include traceability of all raw materials, components and packaging. Outline the need for any extended traceability and any subcontracted work undertaken and how this is handled.
+It is expected that a full traceability exercise will be conducted during the audit that proves that there is a suitable traceability system in place to track products and raw materials forwards and backwards. Details of the product traced to be given. It is not necessary to give all trace details in the final report but a summary of what was chosen and why and the outcome of the test.
+Confirm time that trace test took.
+Confirm that the site completes at minimum annual traceability checks (with dates) and how long this took.
+3.10 Complaint handling
+Confirmation that there are suitable systems in place to record and monitor complaints.
+HIGHER Give an overview of any specific trends noted and the level of complaints noted
+3.11 Management of incidents, product withdrawal and product recall
+Confirmation of procedure in place and that it is adequate for the type of business and that the procedure is in sufficient detail for the company to be able to undertake a timely product withdrawal or recall.
+Outline of how materials will be destroyed especially for intellectual property.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 21 of 27
+Details of last test required.
+HIGHER Confirmation that procedures detail how agents and brokers will be involved.
+HIGHER Summary of how business continuity has been assessed
+Auditor notes may confirm that customer/key contacts have been checked.
+Auditor notes list the evidence seen to demonstrate compliance including date and any resulting action
+Confirm any product recalls Non-applicable clauses
+4 Site Standards 4.1 External standards An overview of the site and that there are no potential risks associated with the site that may affect product safety or integrity. The report may confirm that there is a suitable clear zone surrounding the site; details of other factories in the area that may pose a risk to the sites; rivers, train lines that could present possible issues. Overview summary description of the site and any local activities Include confirmation of adequate maintenance of the site HIGHER Confirmation of site plan and any specific protection methods 4.2 Security This section should demonstrate that access to the site is controlled. Outline the system for control of contractors 4.3 Layout, product flow and segregation
+It is key to explain how the site ensures that the products they manufacture are not at risk from the layout of the premises.
+Describe the layout and any segregation. Where appropriate detail different areas; personnel access point; routes for travel of equipment, people, rework and waste; process flow etc to be made.
+Reference any allergenic materials or any materials requiring special handling.
+It is not easy to describe in words the layout of the plant, however it needs to be relatively clear how the site is set out and allow the reader to get a visual picture of the layout of the site.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 22 of 27
+4.4 Building interiors
+Comments made in this section should be of sufficient detail for the reader to get a visual picture of the fabric of the building and its suitability to the operation.
+Give general comments on the state/finish of the walls, floors, ceilings, doors, lighting etc.
+Give more relevant detail when this is associated with specific conditions such as controlled temperature and humidity, electrostatic etc.
+Confirm sufficient lighting suitable for the purpose.
+Overview of control of water and water quality. 4.5 Staff facilities
+This section should confirm that the site has adequate facilities in line with the type of production.
+Confirm if food preparation occurs on site.
+For all sites the basics must be confirmed – adequate changing/locker facilities; hand washing; toilets; smoking; canteen facilities/staff food.
+Overview description of facilities provided. Detail any risk assessment & confirm the workwear provided 4.6 Housekeeping and hygiene
+Sufficient detail needs to be given to demonstrate that adequate cleaning and disinfection measures are in place in line with the risk of the factory.
+Confirmation of who is responsible for cleaning and how this is completed, give scope of any contracted work. Comments on the type of chemical cleaning employed where appropriate.
+HIGHER overview of cleaning processes and who is responsible shall be given. Confirm how cleaning standards have been verified and validated.
+4.7 Waste and waste disposal
+This section needs to confirm that the site is handling/disposing of waste material with no risk to end product contamination.
+Overview of legal requirements for waste handling and confirmation that the site holds licenses/contracts where applicable.
+HIGHER overview of handling processes and quarantine as necessary and description of external containers 4.8 Pest control
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 23 of 27
+If there is a justification for no pest control, then full justification shall be given.
+Outline the scope of any external contract, or if pest control is undertaken by the site, or partially completed by the site.
+Give an outline of the pest types covered by any contract and the frequency of visits. If internal, state pests considered and how often checks are carried out.
+Ensure that where the site conducts some or all pest control that adequate detail is given to show how staff are trained in pest control; how they keep up to date with pesticide legislation and confirm the safe storage and handling of pesticides – where appropriate.
+Outline if any fumigation is undertaken and if so, what controls are in place.
+Confirm whether there have been any recent/current infestations and how these have been managed. 4.9 Product storage, dispatch and transport
+Give an overview of the types of storage and any vehicles/containers used. Confirm their suitability in relation to the operation.
+If there is product vulnerable to weather damage, detail handling processes
+Detail whether contracts have been seen where appropriate for hauliers. Non-applicable clauses
+5 Product Inspection and Testing 5.1 Product inspection and laboratory testing Comments on schedules of testing – what is tested and how often and an overview of how this has been concluded based on risk assessment. Outline the methods and specified limits. Confirm process for corrective actions. Outline the records reviewed and what trends of results are evident. Outline who undertakes the testing and give accreditation details or justification as to why the site is not accredited given. Outline procedures in place to ensure reliability of test results. Confirmation of controls of third party testing. 5.2 Quantity control
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 24 of 27
+Outline on process for quantity control and any customer or legislative requirements 5.3 Product sample control
+Outline of customer or legislative requirements for sample retention and selection.
+Outline system for storage and handling of samples. Non-applicable clauses
+6 Process Control 6.1 Control of operations 6.1.1 Process risk assessment Outline who is responsible for the process risk assessment. HIGHER Where this has been undertaken by a head office, outline what details are available at the site and how they have been verified. Confirm process flow steps available. Details of the hazards considered should be given – this should give specific details - to the level and type of micro-organism for example and not just ‘micro’ such as Staphylococcus Aureus, Candida albicans, Other examples of hazards include • specific chemicals (e.g. radiological contaminants, cleaning chemicals or machinery lubricants) • specific foreign bodies (e.g. glass, metal or plastic) specific allergens (e.g. peanuts or latex). Describe the process steps. Give details of the steps of the production process that are within scope – this is often omitted. Details need to be given for all key processes - do not give an example of one or two although they can be summarised if similar – audit duration is based on the number of key processes and therefore the detail of the audit report needs to reflect the variety of processes at the site. Describe the CCP’s; their critical limits and the monitoring points. This forms the back bone of the whole report as this will set the standard for information that would be expected in other later sections. If there are no CCP’s identified through hazard analysis this should be clearly stated. Explanation of how and when the company have validated and verified critical limits. Outline of legislative requirement for testing with detail of the competence of the person producing the safety review where required. Information on last review and date of each HARA study. Confirm if there are any in-line monitoring devices and how these are controlled.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 25 of 27
+6.1.2 Line clearance and in-process checks Outline what are the control processes in place through observation and interviewing staff. 6.2 Equipment and equipment maintenance This section should give detail about the key equipment on site and its suitability of design and construction for use. Give an outline of the types of equipment and numbers and where they are setup. As appropriate outline any significant breakdown hazards. Outline the maintenance programme – frequency and responsibility. Summarise how lubricants etc have been assessed as suitable for use. 6.3 Product contamination control 6.3.1 Identification and prevention of risk of product contamination
+Summarise the risks assessed from foreign bodies. 6.3.2 Chemical and biological control
+Chemical control should detail how the site stores and handles chemicals. Information regarding approved chemicals, suitable for use and adequate storage and labelling of containers.
+6.3.3 Metal control
+Metal controls should define the types of metal risks on site and how they are controlled. Knife registers may be mentioned or blade checks etc. Also site policies on items such as clips, staples etc. 6.3.4 Glass, brittle plastics, ceramics, wood and similar materials control
+Glass (and brittle plastic) usage should be clearly defined. Confirmation of the glass policy, breakage procedure and a register of glass that is audited and the frequency. Detail may be given on breakage procedures and clear up.
+Auditor notes may record dates of audits checked 6.3.5 Foreign body detection and removal equipment 6.3.5.1 Filters and sieves
+Where sieves and filters are used give clear detail on their use – their design, where they are place, the mesh size and gauge size.
+Detail how they are controlled.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 26 of 27
+6.3.5.2 Metal detectors and x-ray equipment
+Detail the result of the risk assessment.
+Detail sizes of metal test pieces, frequency of checks.
+Describe the metal detection equipment and how rejected product is controlled. Describe what product type (not brand) was tested on the day of the audit as a demonstration that equipment is in working order. 6.3.5.3 Magnets and optical sorting equipment
+Detail if in use – type, location and strength and how these are tested and controlled 6.4 Calibration and control of measuring and monitoring devices
+This section should detail how the site ensures that all key pieces of equipment that are used to monitor and control product processes and CCP’s are effectively calibrated.
+Examples of the key equipment should be given to demonstrate that they are being checked at a defined frequency that is within industry guidelines; nature of use and historical reliability. Also comment on how measuring equipment is identified and in particular equipment that is critical to safety and legality and agreed quality.
+HIGHER Confirm that measuring equipment being calibrated to a traceable, recognised standard.
+Auditor notes to give specific examples where appropriate
+Comment on corrective action procedures relating to calibration failures 6.5 Final product packing and control
+Outline the process for packing control. Include any customer or legislative requirements.
+6.6 Stock control and product release
+Confirm how product is released for despatch from site – the checks implemented. Include if any sub contracted work is included. Non-applicable clauses
+7 Personnel 7.1 Training and competency Confirmation how the site manages the training of staff including temporary or home working staff to ensure that they can comply with both legal requirements and in-house requirements.
+P417 – How to complete the Issue 4 audit report BRCGS Consumer Products
+Version 2, 07/08/2019 Page 27 of 27
+Auditor notes should list the evidence seen to demonstrate compliance 7.2 Protective clothing Confirm the outcome of the risk assessment and describe the protective clothing provided. HIGHER outline process for laundry 7.3 Hygiene practices
+Outline the jewellery policy
+HIGHER confirm control of plasters. Confirm health declaration processes on site.
+PCH
+Note additional hygiene requirements for certain PCH products as defined by the risk assessment
+Covering and containing head, facial and beard hair
+Keeping fingernails short, clean and unvarnished and no false fingernails
+This would be a typical scenario in sites manufacturing cosmetic products Non-applicable clauses
+Note comments on any clauses deemed to be not applicable or excluded on the basis of the risk assessment.
+
+====================================================================================================
+BÖLÜM 3 - BRCGS CONSUMER PRODUCTS PCH ISSUE 4 REQUIREMENTS
+====================================================================================================
+
+1	Senior management commitment 	 
+1.1	Senior management commitment and continual improvement 	 Fundamental Statement of Intent The site’s senior management shall demonstrate they are fully committed to the implementation of the requirements of the Global Standard for Consumer Products and to processes which facilitate continual improvement of product safety and quality management.  1.1.1 The site shall have a documented policy which states the site’s intention to meet its obligation to produce safe and legal products to the specified quality and its responsibility to its customers. This shall be:  - authorised and signed by the person with overall responsibility for the site - communicated to all staff.  
+1.1.2 The site’s senior management shall ensure that clear objectives are defined to maintain safety and legality and improve the quality of products manufactured, in accordance with the site’s product safety and quality policy and commitment to implementing the requirements of this Standard. These objectives shall be clearly communicated to relevant staff and monitored, and results reported at least annually to site senior management.  
+1.1.3 Management review meetings attended by the site’s senior management shall be undertaken at appropriate planned intervals, at least annually, to review the site’s performance against the Standard and objectives set in clause 1.1.2. The review process shall include the evaluation of:
+previous management review action plans and timeframes
+results of internal, second-party and/or third-party audits (relevant to the scope of this Standard)
+customer complaints and results of any customer feedback
+product safety and quality incidents, corrective actions, out-of-specification results and non-conforming materials
+output of review of the management of the systems for product risk assessment, changes in legal requirements and process performance
+resource requirements. Records of the meeting shall be documented and used to revise the objectives. The decisions and actions agreed within the review process shall be effectively communicated to appropriate staff and actions implemented within agreed timescales.  
+1.1.4 The site’s senior management shall provide sufficient human and financial resources required to produce and improve products safely and in compliance with the requirements of this Standard.  
+1.1.5 Where the site is certificated to the Standard, it shall ensure that announced recertification audits occur on or before the audit due date indicated on the certificate.  
+1.1.6 The site shall have a genuine hard copy or electronic version of the current Standard available with a position statement and be aware of any changes to the Standard or protocol that are published on the BRCGS website.  
+1.1.7 Where required by legislation, the site shall be registered with or approved by the appropriate government agency and evidence of this shall be available.  
+1.1.8 The site’s senior management shall ensure that the root causes of non-conformities identified at the previous audit against the Standard have been effectively addressed to prevent recurrence.
+A system shall be in place to close out non-conformities raised at internal, second-party and third-party audits, with consideration of the root cause.  
+1.2 Organisational structure, responsibility and management authority 	 Statement of Intent The site shall have a clear organisational structure and lines of communication to enable effective management of product safety, legality and quality.  
+1.2.1 The site shall have an up-to-date organisation chart for key staff demonstrating the management structure of The site. The responsibilities for the management of activities which ensure product safety, legality and quality shall be clearly allocated and understood by the managers responsible. There shall be clear evidence of who deputises in the absence of the responsible person.  
+1.2.2 The site’s senior management shall ensure that all employees are aware of their responsibilities. Where documented work instructions exist for activities undertaken, the relevant employees shall have access to these and be able to demonstrate that work is carried out in accordance with the instructions. A senior member of staff should be identified with responsibility and authority to stop production, if required.  
+2 Product risk management 	 Fundamental Statement of Intent The site shall have a management process in place to ensure that a risk assessment is completed on each product group to ensure safety, legality and quality in the regions of intended sale, where known.  
+2.1	Legislation and safety requirements 	 
+2.1.1 The site shall have a system to demonstrate knowledge of all applicable legislation, product standards and product safety issues in the place of production and regions of intended sale of each product. This may be within The site or by use of external expertise. 
+2.1.2 If the site relies on information concerning product safety, quality and legality provided by their customer or a third party, it shall have a process in place to validate the credibility of the provider of the information and retain evidence of this validation.  
+2.1.3 The site’s senior management shall have a system in place to ensure that the site is kept informed of and reviews:
+changes in legislation
+scientific and technical developments
+industry codes of practice
+new risks to raw materials, components, packaging and finished product. Any changes shall be implemented in a timely and controlled manner or as defined by legal requirements.  
+2.1.4 Copies of applicable legislation, standards, codes of practice and similar documents shall be available to relevant staff.  
+2.2	Product risk assessment 	 
+2.2.1 The site shall ensure that a product hazard and risk assessment is undertaken for each product or product group. The assessment shall be documented and include:   - a description of the product assessed (for example, approved samples or mock-ups, sample drawings, computer graphics, photographs, specification)  - the intended use of the product and foreseeable abuse conditions  -the hazards, the risk level for each hazard and whether the risk is acceptable  - the date performed, name of the person responsible and the evidence from which the assessment was derived.  If the assessment indicates that a product may present an unacceptable risk to consumers, that product shall not be produced by the site. If the product requires modification, a new risk assessment shall be completed on the modified design.  
+2.2.2 The risk assessment shall be produced by suitably trained and competent internal or external resources. Evidence of this shall be available unless the risk assessment is provided by the customer.
+Staff with responsibility for decision-making shall be trained to ensure they understand risk assessment procedures or outcomes necessary for their activity.  
+2.2.3 The site shall determine and maintain up-to-date information about the legislation and mandatory standards applicable to each product and to the materials from which it is made, relevant in the regions of intended sale.  
+2.2.4 The risk assessment shall be reviewed at least annually, and following any significant complaints or incidents, to ensure that the assessment remains up to date, and reflects any changes in specification, manufacturing process and legislation.  
+2.2.5 Where there is a legal requirement to do so or when it is necessary to confirm its safety or legality, a representative product should be submitted for testing to a suitably qualified and, where applicable, an accredited laboratory (internal or external). The results of the test should form part of the risk assessment.  
+2.2.6 Where legally required, the identity, competence, qualifications and/or licence of the person producing the safety review or risk assessment shall be documented and verified.  
+2.3	Product labelling and claims 	 
+2.3.1 The site shall verify that information shown on primary (consumer) package labels and outer cartons is correct and meets the regulatory and safety requirements of the region of intended sale.  2.3.2 The site shall have a process in place to ensure that any claims made about a product shall be fully validated to ensure that products meet the stated claim.  
+2.3.3 Where applicable, the site shall ensure that product-in-use evaluation (internal or external), reliability trials and shelf-life tests are validated. It shall be verified that the production of a safe and legal product is maintained, taking account of the category of consumers at risk.  
+2.4	Packaging materials 	 
+2.4.1 Packaging shall be assessed for fitness for purpose and found suitable with regard to: protecting the product from damage maintaining product integrity  protecting the consumer from injury preventing contamination.  	 
+3.1.1	Product safety and quality management system 	 Statement of Intent The site’s processes and procedures to meet the requirements of this Standard shall allow consistent application, facilitate training, and support due diligence in the production of a safe and legal product to agreed quality.  
+3.1.1 The site shall have an established quality management system (QMS) in place which is appropriate to the size of business and risk associated with the products.
+The QMS shall be fully implemented, collated in a navigable and readily accessible way, and translated into appropriate languages if necessary.  
+3.2	Documentation control 	 Statement of Intent The site shall operate an effective document control system to ensure that only the correct approved versions of documents, including recording forms, are available and in use.  
+3.2.1 The site shall have a document control procedure to ensure that all key documents which form part of the product safety and quality system are effectively managed.
+This shall include:
+a list of all controlled documents indicating the latest version number
+the method for the identification and authorisation of controlled documents
+a record of the reason for any changes or amendments to documents
+the system for replacement of existing documents when these are updated.
+Documents which are in electronic form shall be suitably protected to prevent loss or malicious intervention.  
+3.3	Record completion and maintenance 	 Statement of Intent The site shall maintain original, accurate, timely and legible records to demonstrate the effective control of product safety, legality and quality.  
+3.3.1 Records shall be maintained in good condition and retrievable. Any alterations to records shall be authorised and justification for alteration shall be recorded. Where records are in electronic form these shall be suitably backed up to prevent loss.  
+3.3.2 Records shall be retained for a defined minimum period with consideration given to:   - legal requirements  - the shelf life of the product  - customer requirements.  
+3.4	Internal audit 	 Statement of Intent The site shall be able to demonstrate that it verifies the effectiveness of the product safety and quality requirements implemented from the Global Standard for Consumer Products.  
+3.4.1 There shall be a scheduled programme of internal audits throughout the year with a scope which covers the implementation of the process risk assessment, GMP and documented procedures to achieve this standard. The scope and frequency of the audits shall be established in relation to the risks associated with the activity and previous audit performance.  3.4.2 Internal audits shall be carried out by appropriately trained, competent auditors. Auditors shall be independent (i.e. not audit their own work).  
+3.4.3 The internal audit programme shall be fully implemented and tracked. Internal audit reports shall identify conformity as well as non-conformity and the results shall be reported to the personnel responsible for the activity audited. Corrective actions and timescales for their implementation shall be agreed and completion of the actions verified.  
+3.5	Supplier approval and performance monitoring 	 
+3.5.1 Management of suppliers of raw materials, components and packaging 	 Statement of Intent The site shall have an effective supplier approval and monitoring system to ensure that any potential risks from raw materials, components or packaging to the safety, legality and quality of the final product are understood and managed.  
+3.5.1.1 The site shall have a documented procedure for supplier approval, including a list of approved suppliers for products, materials and services impacting product safety, legality or quality. The approval of these suppliers shall be based on at least one or a combination of the following:   - supplier questionnaire  - certificate of analysis  - supplier audits  - supplier certification with a scope covering the products supplied.  
+3.5.1.2 Documented procedures shall be established which include clear criteria for ongoing assessment of the standards of performance required. Ongoing assessment may employ one or more of the following or other acceptable methods:   - in-house checks  - certificate of conformity  - supplier audits  - traceability checks.  Records of this monitoring shall be retained with consideration given to legal requirements, product shelf life and customer requirements.  
+3.5.1.3 Documented procedures shall define how exceptions are handled; for example, the use of products where audit or monitoring has not been undertaken. 
+Based on a batch or delivery basis, the procedure may involve the assessment of certificates of analysis.  
+3.5.2	Control and acceptance of incoming raw materials, components and packaging materials 	 Fundamental Statement of Intent The site shall have an effective process to ensure that incoming raw materials, components and packaging materials are suitable for use and do not adversely affect the safety, legality or quality of the finished product.  
+3.5.2.1 Raw materials, components and packaging shall have documented approval procedures to ensure they conform to agreed specifications and requirements, and documented positive batch release.
+Incoming goods, including materials returned to site from subcontractors (and home workers), shall be subject to a documented positive batch release procedure.  
+3.5.2.2 The site shall have a documented procedure to ensure that raw materials, components and packaging used by home workers (when used and if authorised by the customer) are approved.  
+3.5.2.3 The site shall have in place a documented procedure to ensure the authenticity of raw materials, components, packaging and documentation to prevent fraud.  
+3.6	Specifications and technical files 	 Statement of Intent A system shall be in place to manage specifications and technical data for raw materials, components and packaging materials.  
+3.6.1 Suitably detailed and accurate specifications shall be held for all raw materials, components, packaging materials and finished products to ensure compliance with relevant safety, legislative, quality and customer requirements. The specifications shall be accessible to relevant staff and The site shall seek formal agreement of specifications with relevant parties.  3.6.2 A specification shall be available for each finished product and shall have been verified to ensure it is fit for purpose, meets customer requirements and is compliant with relevant safety and legislative requirements in the regions of intended sale. As a minimum, the specification may include the following, although this is not an exhaustive list:    - product name and description  - composition  - physical and/or chemical parameters  - assembly diagrams  - packaging  - labelling  - intended shelf life  - warnings  - instructions for use.  
+3.6.3 Companies shall maintain the data in a technical file that is accessible to relevant staff containing all relevant data (or details of where such data is located) to ensure that products meet the requirements of the specification and legislative and customer requirements. Relevant data may include:   - bill of materials  - safety data sheets on all chemicals used where relevant to the    - safety, legality or quality of the product  - risk assessment(s)  - description of the conformity assessment procedure  - test reports  - inspection reports  - list of the legislation and product standards with which the   - products are manufactured to comply  - production control procedures and charts  - approvals by any government body (if applicable)  - declarations of conformity to legal requirements (if applicable)  - self-inspection reports  - corrective actions.  
+3.7	Corrective and preventive action  	 Fundamental Statement of Intent The site shall operate an effective system for the capture, recording and timely corrective actions of non-conformities or matters reported as possible non-conformities critical to product safety, legality or quality.  
+3.7.1 The site shall operate an effective documented process for the capture, recording and timely investigation of non-conformities or matters reported as possible non-conformities critical to product safety, legality or quality.  
+3.7.2 An appropriate staff member shall be identified and assigned the responsibility and accountability for each corrective action. This shall be documented.  
+3.7.3 The site shall ensure that effective corrective actions are taken to prevent recurrence of the problem and shall monitor and record their completion within an appropriate timescale.  
+3.7.4 The site shall review its processes at least annually and adopt preventive measures as they become available.  
+3.8	Control of non-conforming materials 	 Statement of Intent The site shall ensure that non-conforming raw materials, packaging, components and products are clearly identified, labelled, quarantined, investigated and documented.  
+3.8.1 Clear procedures for the control of non-conforming materials and products, including customer returns, shall be in place and understood by all relevant, authorised personnel. These shall include effective identification and quarantining before a decision has been made on the final disposition of the non-conforming product by rejection, acceptance by concession or regrading for an alternative use.  
+3.9	Traceability 	 Fundamental Statement of Intent The site shall be able to trace all raw materials, components and packaging from its suppliers through all stages of processing and dispatch to its primary customers, and from the customer back to the supplier.  
+3.9.1 The site shall have a system in place which has the ability to trace and follow all raw materials, components and packaging materials from the supplier through all stages of processing and distribution of the finished product, and vice versa, in a timely manner.  
+3.9.2 Identification of lots/batches of raw materials, including packaging, processing aids, intermediate/semi-processed products, part-used materials, rework, finished products and materials pending investigation, shall be sufficient to ensure traceability.  
+3.9.3 Finished product shall be identified with a unique code such as a batch code applied to the product or packaging.  Documented procedures must be in place to trace a finished product back to the batch of raw materials or packaging used.  
+3.9.4 Subcontracted manufacture of products or components shall have prior customer approval and shall be traceable to a level appropriate to the risk.  
+3.9.5 The system shall be tested to ensure traceability can be determined from raw-material receipt to finished product and vice versa. This shall occur at a predetermined frequency, at least annually, and results shall be retained. The time taken to complete the exercise shall be measured and recorded.  
+3.9.6 The need for extended traceability through the chain should be established on the basis of risk and any legal or specific customer requirements. Where required, extended traceability shall be implemented.  
+3.10	Complaint handling 	 Statement of Intent The site shall operate an effective system for the capture, recording and investigation of product complaints at all levels of severity.  
+3.10.1 All complaints shall be recorded, investigated using root analysis and the results of the investigation recorded where sufficient information is provided. Actions appropriate to the seriousness and frequency of the problems identified shall be carried out to reduce the likelihood of recurrence.  
+3.10.2 The site shall have a process in place to respond in a timely manner to consumers and customers regarding complaints.  
+3.10.3 Complaint data shall be analysed for significant trends. This analysis shall be made available to relevant staff.  
+3.11	Management of incidents, product withdrawal and product recall 	 Statement of Intent The site shall have a plan and system in place to manage incidents effectively and enable the withdrawal and recall of products should this be required.  
+3.11.1 The site shall determine and provide written or other guidance to relevant staff regarding the type of event that would constitute an incident or emergency situation that impacts product safety, legality or quality, and a documented reporting procedure shall be in place which shall include informing their customers in a timely manner.  
+3.11.2 The site shall have a documented procedure in place to effectively manage product withdrawals and recalls. Procedures shall exist to ensure that customers are notified immediately on issues of significance to the customer or consumer in terms of product safety, quality or legality.  
+3.11.3 The documented product withdrawal and recall procedures shall include as a minimum:  identification of key staff constituting the incident management team and their key responsibilities an up-to-date list of key contacts, with details of agencies providing advice and support a list of persons who can initiate a recall.  
+3.11.4 The site shall have written technical and quality agreements in place with agents and distributors and other parties in the supply chain where these are necessary to ensure effective withdrawal/recall.  
+3.11.5 In the event of a product recall, the certification body issuing the current certificate and the appropriate enforcement authorities shall be informed in a timely manner. The site shall be aware of and adhere to any legal reporting obligations in the regions of sale.  
+3.11.6 Products which are to be disposed of on safety grounds, as the result of a recall or withdrawal or as substandard trademarked materials, shall be disposed of securely. This may be delegated to a specialist in secure waste disposal. Records of such material destruction or disposal shall be maintained.  
+3.11.7 The product recall and withdrawal procedures shall be regularly tested, at least annually, in a way that ensures their effective operation. Results of the test shall include timings of key activities and shall be retained.
+The site's senior management shall ensure that results of this test shall be used to implement improvements as necessary.  
+3.11.8 The site shall develop contingency planning for business continuity in the event of major incidents such as:  disruption to key services (e.g. water, energy, staff availability) events such as flood, fire and natural disaster malicious contamination or sabotage.  
+4	Site standards 	 
+4.1	External standards 	 Statement of Intent Sites used for manufacturing, storage or distribution shall be of suitable size, location, construction and design to facilitate maintenance, prevent contamination and enable the production of safe and legal products.  
+4.1.1 The site to be included in the audit shall be clearly defined, and shall be located and maintained so as to allow the production of safe and legal products.
+The external areas and surroundings shall be maintained in good order.
+A site plan shall be retained and readily available.  
+4.1.2 Consideration shall be given to local activities and the site environment and measures shall be taken to prevent contamination.
+Where measures have been put into place to protect the site (from potential contaminants, flooding, etc.), they shall be regularly reviewed in response to any changes.  
+4.2	Security 	 Statement of Intent Security shall be maintained to prevent access of unauthorised persons to production and storage areas.  
+4.2.1 Access to the site by employees, contractors and visitors shall be controlled and a visitor-reporting system shall be in place.  
+4.2.2 Contractors involved in maintenance or repair shall be qualified or supervised, and a nominated staff member shall be responsible for their activities with regard to potential effects on the safety, legality or quality of products.  
+4.3	Layout, product flow and segregation 	 Fundamental Statement of Intent The factory layout, flow of processes and movement of personnel shall be adequate to prevent the risk of product contamination and mix-ups and to comply with relevant legislation.  
+4.3.1 The layout process flow of machinery and equipment shall be arranged to minimise the risk of product contamination and damage.  
+4.3.2 Premises shall allow sufficient working space and storage capacity to enable all operations to be carried out and, if necessary, in hygienic conditions. The necessary level of hygiene shall be maintained for each product.  
+4.3.3 The location of facilities and services, including toilets, cleaning and catering facilities, shall be segregated and separated from production areas and shall not jeopardise the integrity of the product.  
+4.3.4 There shall be effective segregation to minimise the risk of product cross-contamination taking into account the flow of product, nature of materials, equipment, personnel, waste, airflow, air quality and utilities.
+Documented control procedures shall be in place.  
+4.3.5 Where materials or products require special handling procedures to be in place, these shall be maintained to ensure product safety, quality and legality are not compromised.  
+4.3.6 The site shall determine whether allergenic or sensitising materials are used and, if so, documented policies shall exist for the handling of such materials including:  physical or time segregation from other products use of identified, dedicated equipment if necessary adequate labelling of final products.  
+4.3.7 Materials and products requiring segregation (e.g. materials intended for different geographical regions) shall have documented control procedures in place to ensure that product integrity is maintained.  
+4.4	Building interiors 	 Statement of Intent The interior of the site, buildings and facilities shall be suitable for the intended purpose.  
+4.4.1 The site shall be maintained to minimise potential for product contamination The quality and finish of site buildings and facilities, including any pipework and drainage, shall be suitable for the intended purpose with due regard to the risk to product safety, legality and quality, and shall be maintained to an appropriate standard. This shall include, as defined by the risk assessment:  a clean, tidy and organised factory adequate lighting adequate ventilation walls, floors, windows, doors and ceilings maintained in a good condition to prevent foreign body risks suitable and sufficient removal of any by-products and contaminants.  
+4.4.2 Suitable and sufficient lighting shall be provided for correct operation of processes, inspection of products, and effective cleaning.  
+4.4.3 The site shall be assessed for any particular requirements relevant to the products being produced, such as temperature, humidity and electrostatic discharge. Any identified requirements shall be adopted, calibrated, documented, monitored and regularly reviewed.  
+4.4.4 Where water quality presents a risk to the final product it shall comply with the required specification (as defined in the region of intended product sale), suitably treated to prevent contamination and regularly monitored.  
+4.5	Staff facilities 	 Statement of Intent Staff facilities shall be sufficient to accommodate the required number of personnel, and shall be designed and operated to minimise the risk of product contamination. The facilities shall be maintained in a good and clean condition.  
+4.5.1 Staff facilities such as washrooms and break areas must be provided and maintained in a clean condition and segregated from production areas to prevent product contamination.
+Where a site provides food service the food preparation areas must be clean and fit for purpose and adequately segregated from production areas.  
+4.5.2 Where smoking or use of electronic cigarettes is allowed under national law, it shall only be permitted in designated controlled smoking areas which shall be isolated from production and storage areas and fitted with air extraction to the exterior of the building. Adequate arrangements for dealing with smokers’ waste shall also be provided at smoking facilities, both inside buildings and at external locations. 
+4.5.3 Storage facilities of sufficient size to accommodate all reasonable personal items shall be provided for all personnel who work in areas where they are unable to keep possessions with them.  
+4.5.4 The site shall use risk assessment to determine where a change to workwear in different areas is required. Any required changing facilities shall be provided for all personnel: staff, visitors and contractors. Changing areas should be sited to allow direct access to the production, packing or storage areas without exposure to any external area. Where this is not possible, the site shall use the risk assessment to help determine the activities required to mitigate any risk. This procedure shall be documented.  
+4.5.5 Suitable and sufficient hand-cleaning facilities shall be provided at access to production areas, and at other appropriate points within these areas, based on appropriate risk.  
+4.6	Housekeeping and hygiene 	 Fundamental Statement of Intent Housekeeping and cleaning systems shall be in place which ensure appropriate standards of hygiene are maintained at all times and the risk of product contamination is minimised.  
+4.6.1 Equipment, production and storage areas shall be maintained in a state of cleanliness appropriate to the operations undertaken. Cleaning practices shall be completed so as to minimise risk of contamination and records kept.  
+4.6.2 Suitable cleaning chemicals shall be identified, clearly labelled and controlled to prevent the risk of product contamination. Chemicals shall not be decanted unless into properly labelled and identified containers. Adequate storage facilities shall be provided and sited so as not to compromise the safety, legality and quality of the product.  
+4.6.3 If cleaning services are outsourced, the service providers shall have signed a contract which identifies the scope and frequency of the work, and records shall be maintained. A defined company representative shall be responsible for ensuring that the work is carried out satisfactorily.  
+4.6.4 Documented cleaning procedures shall be in place, validated and maintained for the building, utilities, plant and all equipment. Where more than basic cleaning is required, cleaning procedures shall include the following information as a minimum:  responsibility for cleaning item/area to be cleaned frequency of cleaning method of cleaning cleaning materials to be used cleaning records and responsibility for verification. Cleaning and housekeeping shall be carried out by trained personnel in accordance with documented procedures, and records shall be maintained.  
+4.6.5 The standard of cleaning shall be appropriate to the product being manufactured and shall be verified and documented and, where relevant, agreed with the customer. Corrective actions shall be documented.
+Cleaning procedures shall be revalidated following building work, maintenance, changes to equipment or new product introduction.  
+4.7	Waste and waste disposal 	 Statement of Intent Waste disposal shall be managed in accordance with legal requirements and to prevent accumulation, mix-up, risk of contamination and the attraction of pests.  
+4.7.1 Waste disposal shall be managed in accordance with legal requirements and to prevent accumulation, mix-up, risk of contamination and the attraction of pests.  
+4.7.2 Where legally necessary, waste shall be removed by identified, licensed contractors, and records of disposal shall be maintained by the site.  
+4.7.3 Waste materials shall be controlled, clearly labelled and where necessary quarantined to ensure that they are not reintroduced into non-waste production flows.  
+4.7.4 External waste collection containers and compactors shall be managed in such a manner as to minimise risk to the product if necessary.  
+4.8	Pest control 	 Statement of Intent The whole site shall have an effective preventive pest control programme in place to minimise the risk of pests. Sufficient resources shall be available to respond rapidly to any issues that occur, in order to prevent risk to products.  
+4.8.1 The pest control programme shall be based on a documented risk assessment which should include the product, the material included, the location and type of premises, the possible types of pest, and the process.
+The pest control provider shall be a specialist or a trained employee. The pest control programme shall include a documented inspection schedule.  
+4.8.2 The site shall either have a clearly defined contract with external contractors which reflects the activities of the site, or have trained staff.
+During each visit activity/action reports shall be completed. These should include observations of pests or evidence of pest activity and recommendations for action by the site.  
+4.8.3 When necessary, materials or products shall be fumigated, and records of this process shall be kept.Fumigated goods may not be supplied to customers without full professional safety clearance and correct clearance documentation. All fumigation operations shall be controlled by staff with appropriate professional qualifications and/or training.  
+4.8.4 Full material safety data sheets for all chemical pest control agents used shall be controlled, available to relevant staff at all times and kept in a designated place.  
+4.9	Product storage, dispatch and transport 	 Statement of Intent Facilities for the storage and transportation of products shall be suitable for purpose and minimise the risk of product contamination, damage and malicious intervention  
+4.9.1 All materials, work in progress and product shall be properly identified and protected during storage by appropriate packaging to protect the product from contamination.  
+4.9.2 Where storage of raw materials, components, packaging, intermediate or finished product is necessary it shall be maintained in good condition and be securely protected from contamination, deterioration and damage.
+All handling operations during storage shall be managed to prevent product damage  
+4.9.3 Vehicles or containers used for transportation and dispatch of product shall be inspected prior to loading to ensure that they are fit for purpose. Records of inspection shall be maintained.  
+4.9.4 Documented procedures to maintain product safety and quality during loading and transportation shall be developed and implemented.  
+4.9.5 Where product is vulnerable to weather damage, vehicles and containers for transportation shall be loaded and unloaded so as to protect the product.  
+4.9.6 Where a third-party haulage contractor is used, all the requirements shall be defined within a contract and effectively managed.  5	Product inspection and testing 
+5.1	Product inspection and laboratory testing 	 Fundamental Statement of Intent The site shall have a programme for product inspection and testing to control products during and after production to ensure that products are safe, legal and meet the quality specification.  
+5.1.1 There shall be a scheduled product-testing programme according to risk for each product or product group as defined in the specifications. This shall be based on information such as:  the outcome of the product and process risk assessments any legal requirements for testing in the regions(s) of intended sale the site’s requirements for demonstrating the production of safe products. The methods, frequency and specified limits of testing shall be clearly defined.  
+5.1.2 The testing programme shall be implemented and records kept of all test results. Results which are outside the defined specification shall be reviewed promptly by an authorised competent person. The need for corrective action shall be assessed and documented, and any action carried out as necessary.  
+5.1.3 Where The site undertakes or subcontracts analyses which are critical to product safety or legality, the laboratory or subcontractors shall have gained recognised laboratory accreditation or operate in accordance with the requirements and principles of ISO/IEC 17025. Documented justification shall be available where accredited methods are not undertaken.  
+5.1.4 Procedures shall be in place to ensure reliability of test results, other than those critical to safety and legality. These shall include:  use of recognised test methods and reference standards, where available documented testing procedures ensuring staff are suitably qualified and/or trained and competent to carry out the analysis required use of a system to verify the accuracy of test results (e.g. ring or proficiency testing) use of appropriately calibrated and maintained equipment.  
+5.1.5 Test and inspection results shall be reviewed regularly to identify trends. The significance of external laboratory results must be understood and acted upon accordingly.
+Appropriate actions shall be implemented promptly to address any unsatisfactory trends.  
+5.1.6 Where testing is submitted to third parties, the required testing shall be clearly defined, including reference to the number, date and version of the test standard or method to be used.
+In cases where The site relies on the expertise of third-party testing organisations to determine appropriate test requirements, The site shall ensure that the third party receives a clear written briefing on the purpose of the test and that the testing programme is formally agreed and documented.  
+5.2	Quantity control 	 Statement of Intent The site shall operate a quantity control system which conforms to the legal requirements in the country where the product is sold and any additional customer requirements.  
+5.2.1 Where necessary The site shall operate a quantity control system which conforms to legal requirements and/or specified customer requirements in the region where the product is available for sale.
+Documentary evidence shall be available on site to substantiate claims.  
+5.2.2 Where quantity checking is required, the frequency and methodology used based on valid sampling plans shall meet the minimum requirements of any legislation governing quantity verification.  
+5.3	Product sample control 	 Statement of Intent The site shall ensure that procedures are in place for the selection, handling, storage, approval and use of reference samples taken from pre-production, subcontracted and finished production in accordance with customer requirements.  
+5.3.1 Where legally required or specified by a customer, a sample of the product which has been approved by the customer or a representative of the agreed specification shall be retained.
+The site shall document a process to identify, select and categorise reference samples. If customers have a defined system of sealed samples referring to different stages of sample approval, the customer’s procedure shall be documented and followed.  
+5.3.2 Reference samples shall be stored and recorded in suitable environmental conditions to maintain their original status for a specified period.  
+5.3.3 A secure and tamper-evident system shall be in place for the storage and tracking of samples, with access by authorised personnel. The removal and return of samples to storage shall be documented and authorised by a designated responsible person.  
+5.3.4 Documented procedures shall be in place to determine the retention time for samples. This should normally be the foreseeable lifetime of the product unless otherwise justified.  
+6.	Process control 	 
+6.1	Control of operations 	 Fundamental Statement of Intent The site’s programme of process and quality controls to ensure the production of safe and legal products of consistent quality shall be based on a risk assessment of the production process and the potential for product contamination.  
+6.1.1.1 A hazard and risk analysis shall be carried out by a multi-disciplinary team including representatives who are experienced in the particular activities undertaken by the site. The team members shall have knowledge of the hazard and risk analysis principles.  
+6.1.1.2 The person responsible for leading the hazard analysis shall receive sufficient training to be able to demonstrate competence in the understanding of hazard and risk management principles and their application.
+In the event of the site not having appropriate in-house knowledge, external expertise may be sought but the day-to-day management of the system shall remain the responsibility of the site.  
+6.1.1.3 Where the hazard and risk analysis study has been undertaken centrally by the head office, accurate flow diagrams shall be available on site.
+It must be possible to demonstrate that a central hazard and risk analysis has been verified to meet the specific activities of the local operation. Verification activities include internal audits and complaints analysis.  
+6.1.1.4 The scope of the hazard and risk analysis shall be defined in terms of the products and processes that are covered. The site shall establish precise process flow diagrams identifying each step in the production of the products.  
+6.1.1.5 The site shall consider the potential product safety and quality issues which could occur at each process stage. This should include:  physical or chemical product contamination microbiological contamination product quality or safety issues as appropriate to the products manufactured. The results of this assessment shall be documented.  
+6.1.1.6 An analysis of any identified issues shall be undertaken in order to decide which need to be controlled. The following should be considered:  the likely occurrence of the issue the severity of the hazard (e.g. injurious to health, potential to cause, rejection or a product recall) existing activities that effectively prevent or reduce the issue to acceptable limits.  
+6.1.1.7 For each issue which requires control, control points shall be reviewed to identify those that are critical to prevent, eliminate or reduce a significant issue to acceptable limits.  
+6.1.1.8 If there are identified critical control points (CCPs) where product safety and legality require control measures to be in place, then for each CCP the site shall:  establish and validate critical limits establish a system to monitor control of the CCPs establish the corrective action to be taken when monitoring indicates that a particular CCP is not under control establish procedures of validation and verification to confirm that the system is working effectively, including auditing of the system establish appropriate documentation concerning all procedures and records.  
+6.1.1.9 Corrective action shall be taken in the event of deviation of the process from specification. This shall be recorded.  
+6.1.1.10 The hazard and risk analysis shall be reviewed whenever new product types are manufactured or significant changes are made to production methods.  
+6.1.1.11 The hazard and risk analysis shall also be formally reviewed at least annually and this review shall be documented.  
+6.1.2	Line clearance and in-process checks 	 
+6.1.2.1 Before the start of any manufacturing operation, documented checks shall be carried out to ensure that the production line and the relevant areas around it have been cleared and, where necessary, cleaned, to avoid mixing with materials from the previous operations. All documentation, raw materials, components and packaging with the necessary equipment shall be available for use. It shall be possible to identify the production line with its name or identifying code as determined by the risk assessment.  
+6.2	Equipment and equipment maintenance 	 Statement of Intent Equipment shall be suitable for the intended purpose and shall be used in such a way as to minimise the risk of contamination of product.  
+6.2.1 All equipment shall be fit for purpose and constructed of appropriate materials.  The design and placement of equipment shall ensure it can be effectively cleaned and maintained.  
+6.2.2 In the case of equipment failure, procedures shall be in place to establish the safety and legal status of the product prior to release.  
+6.2.3 A documented planned preventive maintenance programme based on risk assessment and covering all items of equipment and plant which are critical to product safety, legality and quality shall be in place.  
+6.2.4 Materials (e.g. chemical lubricating oils and paints) used for equipment and plant maintenance shall be assessed to establish whether they pose a risk by direct or indirect contact with raw materials, intermediates, components, packaging and finished products. If necessary, they shall be suitably identified for the intended use and controlled.  
+6.2.5 Repairs or servicing of equipment shall be completed by competent maintenance personnel.  6.2.6 When possible, equipment shall be positioned so as to give access beneath, inside and around it for ease of cleaning and servicing.  
+6.3	Product contamination control 	 Statement of Intent Appropriate facilities and procedures shall be in place to control the risk of foreign body, chemical or biological contamination.  
+6.3.1	Identification and prevention of risk of product contamination 	 
+6.3.1.1 The site shall ensure that all necessary steps are taken to identify and prevent the risks of foreign body, chemical and biological contamination as identified by risk assessment. This shall include any contamination potentially introduced by raw materials, components or packaging.  
+6.3.2	Chemical and biological control 	 
+6.3.2.1 Processes shall be in place to manage the use, storage and handling of non-production chemicals and biological materials to prevent contamination. These shall include as a minimum:
+a list of approved chemicals for purchase
+availability of material safety data sheets the labelling and/or identification of containers of chemicals and biological materials at all times a designated storage area with access restricted to authorised personnel.  
+6.3.3	Metal control 	 
+6.3.3.1 Tools and other sharp metal implements including knives, cutting blades, needles, perforation blades and wires used in production shall be controlled where there is a risk of product contamination. Methods such as, but not limited to, the following may be used: tools permanently attached to equipment to prevent loss items controlled by an issue listing and registration procedure recovery of all parts of broken needles before the issue of a replacement needle. Snap-off-blade knives shall be prohibited.  
+6.3.3.2 Staples, paper clips and drawing pins shall not be used in open product areas. Where staples or other items are present as packaging materials or closures, appropriate precautions shall be taken to minimise the risk of product contamination.  
+6.3.4	Glass, brittle plastic, ceramics, wood and similar materials control 	 
+6.3.4.1 Glass or other brittle materials shall be excluded or protected against breakage in areas where there is a risk of product contamination.  
+6.3.4.2 Where there is a potential risk to product all glass, ceramic, wood and brittle-plastic items in production areas (except where the item is part of the product) shall be included in the risk assessment and listed in a register. Documented procedures for handling these materials shall include:
+regular checks of the condition of these materials carried out at specified intervals and recorded
+recording of all breakages in an incident report
+segregation of contaminated product
+recording details of cleaning or replacement to minimise potential for product contamination.  
+6.3.5	Foreign body detection and removal equipment 	 Statement of Intent The risk assessment shall identify the potential use of equipment to detect or remove foreign body contamination.  
+6.3.5.1	Filters and sieves 	 
+6.3.5.1.1 Filters and sieves used for foreign body control shall be of a specified mesh size or gauge and designed to provide the maximum protection that is practical for the product. Material retained or removed by the system shall be examined and recorded to identify risks.  
+6.3.5.1.2 Filters and sieves shall be regularly inspected and tested for damage at a documented frequency determined by the risk assessment. Defective sieves and filters shall be segregated and appropriate action taken to replace them. Records shall be maintained.  
+6.3.5.2 Metal Detectors and X-ray equipment 	 
+6.3.5.2.1 Where a metal or other foreign body detector is required based on risk assessment, The site shall establish documented procedures specifying the methods and frequency of testing, critical limits for detection, and recording of test results.  
+6.3.5.2.2 The metal detector or X-ray equipment shall incorporate one of the following:
+an automatic rejection device
+a belt stop system with an alarm where the product cannot be automatically rejected (e.g. for very large packs)
+in-line detectors which identify the location of the contaminant to allow effective segregation of the affected product.  
+6.3.5.2.3 Systems shall be in place to segregate product rejected by the metal detector to prevent accidental reintroduction and allow investigation of the source of the metal contaminant.  
+6.3.5.2.4 There shall be a documented procedure to examine product rejected by the metal detector and to retain any metal contaminant. The source of the contamination shall be investigated and appropriate corrective action taken to minimise the risk of further contamination.   Records shall be maintained.  
+6.3.5.3	Magnets 	 
+6.3.5.3.1 The type, location and strength of magnets shall be recorded in a register. Documented procedures shall be in place for inspection, cleaning, strength testing and integrity checks. Records of all checks shall be maintained.  
+6.3.5.3.2 Optical sorting equipment shall be checked on the basis of the manufacturer’s instructions or recommendations. Records of all checks shall be maintained.  
+6.4	Calibration and control of measuring and monitoring devices 	 Statement of Intent Measuring equipment used to monitor product safety, quality and legality shall be calibrated and of suitable accuracy for its intended purpose.  
+
+6.4.1 The site shall identify equipment used to make measurements relevant to product safety, legality and quality.  
+6.4.2 The equipment used to accept or reject a product shall be calibrated to a specified accuracy and precision at a defined frequency (or before use).  
+6.4.3 The calibration of identified equipment shall be traceable to a recognised national standard. Where such a standard does not exist, the basis by which calibration is declared shall be verified.  
+6.4.4 Records of the results of calibration and verification shall be maintained for a suitable period, taking account of the life of the products being produced.  
+6.4.5 Adjustment of identified equipment by unauthorised staff shall be prevented and the equipment shall be marked to show its calibration status and period of validity.
+Procedures shall be in place for actions to be taken if equipment is found not to be operating within specified tolerances and/or limits.  
+6.5	Final product packing and control 	 Statement of Intent The site shall ensure that products are packed in accordance with customer-specified requirements and any relevant safety criteria, quality and legal requirements.  
+6.5.1 Before the start of the packaging operation, documented checks shall be carried out to ensure that the packing line and the relevant areas around it have been cleared, and where necessary cleaned, to avoid mixing with materials from the previous operations. All documentation and packaging materials shall be available for use. The packing line shall be identifiable by its name or identifying code as determined by the risk assessment.  
+6.5.2 The site shall have a validated, documented procedure for the packing of products taking particular account of customer requirements. This shall include methods of ensuring that the correct product(s) and components are correctly packaged and placed in the correct outer packaging.  
+6.5.3 The quantity of product should match the quantity markings, which should be accurate, verified and in accordance with the legal requirements in the country of sale.  
+6.6	Stock control and product release 	 Statement of Intent The site shall ensure that stock and finished product are not released unless all agreed procedures have been followed and the release is suitably controlled  
+6.6.1 Controls shall be in place to ensure correct stock rotation and that materials and products are used in the correct order and within the allocated shelf or usage life as applicable.  
+6.6.2 The site shall ensure that product brought in from off-site subcontractors shall be included in the product release procedure.  
+6.6.3 A documented procedure shall be in place to ensure that only products conforming to specification are released for dispatch. Procedures may include, but are not limited to:  positive final release by authorised staff online test methods automatic rejection process (which shall be validated and monitored). If a risk assessment determines that no such control is required, The site shall have a full justification for its absence, which is documented in the customer agreement and shall be reviewed at least annually.  
+7	Personnel 	 
+7.1	Training and competency 	 Fundamental Statement of Intent The site shall ensure that personnel performing work that affects product safety, legality and quality are demonstrably competent to carry out their activity, through training, work experience or qualification  
+7.1.1 The site shall ensure that all employees are able to demonstrate competence with regard to their activity.  The site shall:  identify the need for training document training procedures and records to demonstrate that training is effective and regularly reviewed ensure that training includes both general information on The site and specific job training retain all training records. 
+7.1.2 Training records shall be stored in such a way as to ensure privacy of personnel is protected and legal compliance with data protection laws in the country of operation are respected, while also allowing auditors access to necessary information. Training shall be traceable to an individual employee.  
+7.2	Protective clothing 	 Statement of Intent The site's standards shall be documented and adopted by all personnel, including contractors and visitors to the production facility.  
+7.2.1 The site shall use risk assessment to determine the need for protective clothing. Where a need for protective clothing has been identified by the risk assessment, this shall not pose a contamination risk to the product.  
+7.2.2 Based on the assessment of risk to the product integrity, suitable footwear shall be worn within the factory environment.  
+7.2.3 Protective clothing, where provided, shall be effectively laundered at an appropriate frequency. Disposable protective clothing, if used, shall be subject to adequate control to avoid product contamination.  
+7.3	Hygiene practices 	 Statement of Intent Standards of hygiene shall be applied with due regard to the risk of product contamination.  
+7.3.1 The site shall have a policy to control the wearing of jewellery so that it poses no risk of product contamination. 
+7.3.2 All cuts and grazes on exposed skin shall be covered by a contrasting coloured plaster that is issued and monitored by the site, to avoid contamination of product.  
+7.3.3 Where metal foreign body detection is in place, detectable plasters shall be used and shall be regularly tested through the detector.  
+7.3.4 Hand-cleaning shall be performed at a suitable frequency to maintain hygienic conditions.  
+7.3.5 Eating, drinking or smoking shall only be permitted within designated areas and where there is no risk of contamination of products.  
+7.3.6 The site shall use risk assessment to determine the need for all head and facial hair to be covered and fully contained to prevent product contamination.  
+7.3.7 Where there is a risk to product safety and quality, fingernails shall be kept short, clean and unvarnished.  False fingernails shall not be permitted.  
+7.3.8 The site shall have a documented procedure for the notification by personnel, including temporary personnel, visitors and contractors, of any relevant infections, diseases or conditions which they may have been in contact with or be suffering from.
