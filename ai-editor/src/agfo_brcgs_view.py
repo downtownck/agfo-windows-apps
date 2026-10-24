@@ -558,7 +558,7 @@ class BrcgsReportView(tk.Frame):
         self.nav_btns = {}
         items = list(NAV_FIXED_HEAD) + [('g:' + g, '▸  ' + g) for g in self.groups] + list(NAV_FIXED_TAIL)
         for key, label in items:
-            b = tk.Button(self.nav, text=label, anchor='w', command=lambda k=key: self.show(k), bg=c['PANEL2'], fg=c['FG'], relief='flat',
+            b = tk.Button(self.nav, text=label, anchor='w', command=lambda k=key: self.nav_click(k), bg=c['PANEL2'], fg=c['FG'], relief='flat',
                           bd=0, activebackground=c['SEL_BG'], activeforeground=c['SEL_FG'], font=('Segoe UI', 9), padx=12, pady=4,
                           cursor='hand2', wraplength=190, justify='left', highlightthickness=0)
             b.pack(fill='x')
@@ -671,6 +671,22 @@ class BrcgsReportView(tk.Frame):
         self.app.btn(bar, '＋', lambda: self.wordview and self.wordview.set_zoom(self.wordview.zoom * 1.15), 'ghost', side='right')
         self.app.btn(bar, '－', lambda: self.wordview and self.wordview.set_zoom(self.wordview.zoom / 1.15), 'ghost', side='right')
         self.app.btn(bar, 'Fit width', lambda: self.wordview and self.wordview.fit(), 'ghost', side='right')
+        self.undo_btn = self.app.btn(bar, '↶ Undo', self.undo_last, 'ghost', side='right')
+        self._sync_undo_btn()
+        nav = tk.Frame(bar, bg=c['PANEL'])
+        nav.pack(side='left', padx=(0, 12))
+        tk.Label(nav, text='Page', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9)).pack(side='left')
+        self.page_var = tk.StringVar(value='1')
+        pe = ttk.Entry(nav, textvariable=self.page_var, width=4, justify='center')
+        pe.pack(side='left', padx=3)
+        pe.bind('<Return>', lambda e: self._goto_page())
+        self.page_total = tk.Label(nav, text='/ –', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9))
+        self.page_total.pack(side='left')
+        tk.Label(nav, text='   Go to', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9)).pack(side='left')
+        self.goto_var = tk.StringVar()
+        self.goto_cb = ttk.Combobox(nav, textvariable=self.goto_var, state='readonly', width=34, values=self._goto_items())
+        self.goto_cb.pack(side='left', padx=3)
+        self.goto_cb.bind('<<ComboboxSelected>>', lambda e: self._goto_selected())
         self.word_status.pack(side='left', fill='x', expand=True)
         self.word_hover = tk.Label(self.main, text='Click a field or report box on the page to edit it here. Tab: next field · Enter: done · '
                                                    'Esc: cancel', fg=c['MUTED'],
@@ -679,6 +695,8 @@ class BrcgsReportView(tk.Frame):
         self.wordview = WV.WordView(self.main, c, on_pick=self.pick_target, on_hover=self._hover_target,
                                     wheel_register=lambda cv, fn: self._register_wheel(cv, fn))
         self.wordview.pack(fill='both', expand=True)
+        self.wordview.on_scroll = self._on_word_scroll
+        self.wordview.on_undo = self.undo_last
         if not ren.engine:
             self.wordview.message('Word view needs Microsoft Word (or LibreOffice) on this computer to draw the pages exactly as '
                                   'Word shows them.\n\nYou can still fill the report in Form view; Save writes the DOCX.')
@@ -852,6 +870,9 @@ class BrcgsReportView(tk.Frame):
         def finish(save, nxt=0):
             if result['done']:
                 return 'break'
+            if not save and get() != value and not self.app.smoke and \
+                    not messagebox.askyesno('Discard changes', 'Discard the changes made to this field?', parent=self):
+                return 'break'
             result['done'] = True
             if save:
                 self._commit_inline(target, kind, focus, get(), page, rect, value)
@@ -882,6 +903,7 @@ class BrcgsReportView(tk.Frame):
             ed.insert('1.0', value)
             ed.pack(fill='both', expand=True)
             ed.bind('<Control-Return>', lambda e: finish(True))
+            self.spell_attach(ed)
 
             def get():
                 return ed.get('1.0', 'end-1c')
@@ -918,6 +940,18 @@ class BrcgsReportView(tk.Frame):
             if f['kind'] == 'date' and text.strip() and not E.parse_date(text):
                 messagebox.showwarning('Date', '"%s" is not a date (YYYY-MM-DD or DD.MM.YYYY).' % text, parent=self)
                 return
+            key = f['key']
+            prev = copy.deepcopy(self.project['values'].get(key))
+            had = key in self.project['values']
+
+            def restore(k=key, v=prev, h=had):
+                if h:
+                    self.project['values'][k] = v
+                else:
+                    self.project['values'].pop(k, None)
+                self.project['company'] = S.company_of(self.project['values'])
+                self.project['site_code'] = S.site_code_of(self.project['values'])
+            self._push_undo(f['label'], restore)
             self._set_value(f, text)
         else:
             tag = target[0]
@@ -927,6 +961,17 @@ class BrcgsReportView(tk.Frame):
                 clauses = note['siblings']
             else:
                 parts, clauses = {focus: text}, [focus]
+            saved = [(r, copy.deepcopy(r.get('value')), copy.deepcopy(r.get('flags'))) for r in self.project['sections']
+                     if r['clause'] in clauses]
+
+            def restore(items=saved):
+                for r, v, fl in items:
+                    r['value'] = v
+                    if fl is None:
+                        r.pop('flags', None)
+                    else:
+                        r['flags'] = fl
+            self._push_undo('section %s' % focus, restore)
             for cl in clauses:
                 row = next((r for r in self.project['sections'] if r['clause'] == cl), None)
                 if row is None:
@@ -935,6 +980,117 @@ class BrcgsReportView(tk.Frame):
             self.mark_dirty()
         self.wordview.patch(page, rect, text)
         self._schedule_rerender()
+
+    # ---- geri al (2.6.0)
+    def _push_undo(self, label, restore):
+        stack = self.__dict__.setdefault('_undo', [])
+        stack.append((label, restore))
+        del stack[:-50]
+        self._sync_undo_btn()
+
+    def _sync_undo_btn(self):
+        b = getattr(self, 'undo_btn', None)
+        stack = getattr(self, '_undo', [])
+        try:
+            if b is not None and b.winfo_exists():
+                b.configure(state='normal' if stack else 'disabled',
+                            text=('↶ Undo: %s' % stack[-1][0][:28]) if stack else '↶ Undo')
+        except tk.TclError:
+            pass
+
+    def undo_last(self):
+        stack = getattr(self, '_undo', [])
+        if not stack:
+            self.app.flash('Nothing to undo.')
+            return False
+        if self.wordview is not None and self.wordview.editor is not None and self.inline_editor:
+            self.inline_editor[2](False)
+        label, restore = stack.pop()
+        restore()
+        self.mark_dirty()
+        self._sync_undo_btn()
+        self.app.flash('Undone: %s' % label)
+        if self.page == 'word':
+            self._schedule_rerender()
+        else:
+            self.show(self.page)
+        return True
+
+    # ---- Word gorunumunde gezinme (2.6.0)
+    def _goto_items(self):
+        items = ['Report information (first page)']
+        items += ['Fields · %s' % g for g in self.groups]
+        items += ['%s %s' % (r['clause'], (r.get('title') or '')[:60]) for r in self.project['sections']]
+        items += ['Not applicable clauses', 'Non-conformities', 'Official tables']
+        return items
+
+    def _goto_selected(self):
+        v = self.goto_var.get()
+        if v.startswith('Report information'):
+            key = 'overview'
+        elif v.startswith('Fields · '):
+            key = 'g:' + v[len('Fields · '):]
+        elif v == 'Not applicable clauses':
+            key = 'na'
+        elif v == 'Non-conformities':
+            key = 'plan'
+        elif v == 'Official tables':
+            key = 'tables'
+        else:
+            key = 'clause:' + v.split(' ', 1)[0]
+        if not self.word_goto(key):
+            self.app.flash('That part was not found on the pages.')
+
+    def _goto_page(self):
+        try:
+            n = int(self.page_var.get())
+        except ValueError:
+            return
+        if self.wordview is not None:
+            self.wordview.scroll_to(max(0, min(len(self.wordview.tops) - 1, n - 1)))
+            self.wordview.canvas.focus_set()
+
+    def _on_word_scroll(self, page, total):
+        try:
+            self.page_var.set(str(page + 1))
+            self.page_total.configure(text='/ %d' % total)
+        except (tk.TclError, KeyError):
+            pass
+
+    def word_goto(self, key):
+        """Word gorunumunde bir bolume/alan grubuna/tabloya kaydirir. Bulunamazsa False."""
+        wv = self.wordview
+        if wv is None or not wv.found:
+            return False
+        if key == 'overview':
+            wv.scroll_to(0)
+            return True
+        hit = None
+        for a in wv.found:
+            kind, focus, _l = self._target_info(a[0])
+            if key.startswith('g:') and kind == 'field' and focus[2] == key[2:]:
+                hit = a
+            elif key == 'sections' and kind == 'section':
+                hit = a
+            elif key.startswith('clause:') and kind == 'section' and focus == key[7:]:
+                hit = a
+            elif key in ('na', 'plan', 'tables') and kind == key:
+                hit = a
+            if hit is not None:
+                break
+        if hit is None and key.startswith('clause:'):          # birlesik kutu: kardes maddenin kutusu
+            tag = B.export_note(self.project['profile'], key[7:]).get('tag')
+            hit = next((a for a in wv.found if tag and a[0][0] == tag), None)
+        if hit is None:
+            return False
+        wv.scroll_to(hit[1], hit[3])
+        return True
+
+    def nav_click(self, key):
+        """Sol menu: Word gorunumundeyken belgede o yere gider; belgede olmayan sayfalar (inceleme, gecmis...) formda acilir."""
+        if self.page == 'word' and self.wordview is not None and self.wordview.doc is not None and self.word_goto(key):
+            return
+        self.show(key)
 
     def _edit_next(self, target, step):
         wv = self.wordview
@@ -1477,8 +1633,34 @@ class BrcgsReportView(tk.Frame):
         idx, row = self.current_row()
         if row is None:
             return
-        body = Scroll(parent, c['PANEL'])
-        body.pack(fill='both', expand=True)
+        # 2.6.0: iki sutun - solda kanit (kayar), sagda sabit Ingilizce rapor metni + AI + gezinme
+        split = ttk.PanedWindow(parent, orient='horizontal')
+        split.pack(fill='both', expand=True)
+        body = Scroll(split, c['PANEL'])
+        split.add(body, weight=3)
+        rp = tk.Frame(split, bg=c['PANEL'], padx=8, pady=6)
+        split.add(rp, weight=2)
+
+        def place_sash(_e=None, tries=[0]):
+            w = split.winfo_width()
+            if w < 50 and tries[0] < 20:                 # henuz yerlesmedi
+                tries[0] += 1
+                split.after(30, place_sash)
+                return
+            try:
+                split.sashpos(0, int(w * getattr(self, '_split_frac', 0.5)))
+            except tk.TclError:
+                pass
+
+        def keep_sash(_e=None):                          # kullanicinin surukledigi oran sonraki bolumde de kalir
+            try:
+                w = split.winfo_width()
+                if w > 50:
+                    self._split_frac = max(0.25, min(0.75, split.sashpos(0) / float(w)))
+            except tk.TclError:
+                pass
+        split.bind('<ButtonRelease-1>', keep_sash, add='+')
+        split.after_idle(place_sash)
         b = body.body
         head = tk.Frame(b, bg=c['PANEL'], padx=6, pady=6)
         head.pack(fill='x')
@@ -1529,7 +1711,8 @@ class BrcgsReportView(tk.Frame):
                          font=('Segoe UI', 8)).pack(side='right')
             tk.Label(fb, text='Enter the audit evidence in any language; the AI button turns it into English report text.',
                      fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x', pady=(2, 0))
-            if str(struct.get(G.LEGACY_KEY) or '').strip():
+            legacy = str(struct.get(G.LEGACY_KEY) or '').strip()
+            if legacy and legacy != str(row.get('value') or '').strip():
                 tk.Label(fb, text='Previously written text (move it into the boxes below and clear this one if you like)', fg=c['MUTED'],
                          bg=c['PANEL'], font=('Segoe UI', 9), anchor='w').pack(fill='x', pady=(6, 0))
                 self._text(fb, struct[G.LEGACY_KEY], rows=5, on_change=lambda v: self._answer(row, G.LEGACY_KEY, v)).pack(fill='x')
@@ -1567,33 +1750,46 @@ class BrcgsReportView(tk.Frame):
         tk.Label(wrap, text='Audit evidence / reminder notes (not exported)', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 9),
                  anchor='w').pack(fill='x', pady=(10, 2))
         self._text(wrap, row.get('note') or '', rows=4, on_change=lambda v: self._note(row, v)).pack(fill='x')
-        # ---- Ingilizce rapor metni (DOCX'e giden)
-        rt = tk.Frame(wrap, bg=c['PANEL'])
-        rt.pack(fill='x', pady=(12, 2))
-        tk.Label(rt, text='Report text (English) — written to the official report', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 10, 'bold'),
-                 anchor='w').pack(side='left')
-        self.ai_btn = self.app.btn(rt, '✨ AI: write English report text from the evidence', lambda: self.ai_draft(row), 'primary', side='right')
-        self._stale_lbl = tk.Label(wrap, text='', fg=c.get('WARN', '#e2b356'), bg=c['PANEL'], font=('Segoe UI', 8), anchor='w')
+        # ---- Ingilizce rapor metni (DOCX'e giden) - sag sutun, her zaman gorunur
+        nav = tk.Frame(rp, bg=c['PANEL'])
+        nav.pack(side='bottom', fill='x', pady=(8, 0))
+        self.app.btn(nav, '← Previous', lambda: self.step(-1), 'ghost')
+        self.app.btn(nav, 'Save', self.save, 'primary')
+        self.app.btn(nav, 'Next →', lambda: self.step(1), 'ghost', side='right')
+        self._closing_lbl = tk.Label(rp, text='', fg=c['MUTED'], bg=c['PANEL2'], font=('Consolas', 9), anchor='w', justify='left',
+                                     wraplength=420, padx=8, pady=6)
+        self._closing_lbl.pack(side='bottom', fill='x', pady=(8, 0))
+        tk.Label(rp, text='Report text (English) — written to the official report', fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 10, 'bold'),
+                 anchor='w').pack(fill='x')
+        self.ai_btn = self.app.btn(rp, '✨ AI: write English report text from the evidence', lambda: self.ai_draft(row), 'primary',
+                                   side=None)
+        self.ai_btn.pack(anchor='w', pady=(4, 2))
+        self._stale_lbl = tk.Label(rp, text='', fg=c.get('WARN', '#e2b356'), bg=c['PANEL'], font=('Segoe UI', 8), anchor='w',
+                                   justify='left', wraplength=420)
         self._stale_lbl.pack(fill='x')
-        self._report_box = self._text(wrap, row.get('value') or '', rows=8, on_change=lambda v: self._report_edit(row, v))
-        self._report_box.pack(fill='x')
-        tk.Label(wrap, text='You can edit this text. Clearing it returns to the text built from the evidence boxes.', fg=c['MUTED'],
-                 bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x')
+        self._report_box = self._text(rp, row.get('value') or '', rows=8, on_change=lambda v: self._report_edit(row, v))
+        self._report_box.pack(fill='both', expand=True)
+        self.spell_attach(self._report_box)
+        self._wc_lbl = tk.Label(rp, text='', fg=c['MUTED'], bg=c['PANEL'], font=('Segoe UI', 8), anchor='w', justify='left')
+        self._wc_lbl.pack(fill='x')
+        self._update_wc(row)
+
+        def rewrap(e, labels=(self._closing_lbl, self._stale_lbl, self._wc_lbl)):
+            for lb in labels:
+                try:
+                    lb.configure(wraplength=max(200, e.width - 24))
+                except tk.TclError:
+                    pass
+        rp.bind('<Configure>', rewrap, add='+')
+        rp.bind('<Configure>', lambda e: [w_.configure(wraplength=max(200, e.width - 30)) for w_ in (self._closing_lbl, self._stale_lbl)
+                                          if w_.winfo_exists()], add='+')
         self._section_findings(wrap, row)
-        self._closing_lbl = tk.Label(wrap, text='', fg=c['MUTED'], bg=c['PANEL2'], font=('Consolas', 9), anchor='w', justify='left',
-                                     wraplength=780, padx=8, pady=6)
-        self._closing_lbl.pack(fill='x', pady=(8, 0))
         self._refresh_closing(row)
         old = str((self.project['meta'].get('section_findings') or {}).get(row['clause']) or '').strip()
         if old:
             tk.Label(wrap, text='Findings notes (from an earlier version or Excel; not exported)', fg=c['MUTED'], bg=c['PANEL'],
                      font=('Segoe UI', 9), anchor='w').pack(fill='x', pady=(10, 2))
             self._text(wrap, old, rows=3, on_change=lambda v: self._finding(row, v)).pack(fill='x')
-        nav = tk.Frame(wrap, bg=c['PANEL'])
-        nav.pack(fill='x', pady=12)
-        self.app.btn(nav, '← Previous', lambda: self.step(-1), 'ghost')
-        self.app.btn(nav, 'Save section', self.save, 'primary')
-        self.app.btn(nav, 'Next →', lambda: self.step(1), 'ghost', side='right')
         self._show_stale(row)
 
     # ---- bolum bazinda NA / NC
@@ -1621,6 +1817,7 @@ class BrcgsReportView(tk.Frame):
             t = self._text(r, na.get('justification') or '', rows=2,
                            on_change=lambda v, it=na: (it.__setitem__('justification', v), self._findings_changed(row)))
             t.pack(side='left', fill='x', expand=True, padx=(8, 0))
+            self.spell_attach(t)
         box2 = tk.Frame(parent, bg=c['PANEL'], highlightthickness=1, highlightbackground=c['LINE'], padx=10, pady=8)
         box2.pack(fill='x', pady=(8, 0))
         hdr = tk.Frame(box2, bg=c['PANEL'])
@@ -1648,8 +1845,9 @@ class BrcgsReportView(tk.Frame):
             cv.trace_add('write', lambda *a, x=it, vv=cv: (x.__setitem__('clause', vv.get()), self._findings_changed(row)))
             tk.Button(top, text='✕ Remove', command=lambda x=it: self._sec_del_nc(row, x), bg=c['PANEL'], fg=c.get('BAD_C', '#ff8a80'),
                       relief='flat', bd=0, cursor='hand2', highlightthickness=0).pack(side='right')
-            self._text(r, F.nc_detail(it), rows=2, on_change=lambda v, x=it: (x.__setitem__('nc_text', v), self._findings_changed(row))
-                       ).pack(fill='x', pady=(2, 0))
+            nt = self._text(r, F.nc_detail(it), rows=2, on_change=lambda v, x=it: (x.__setitem__('nc_text', v), self._findings_changed(row)))
+            nt.pack(fill='x', pady=(2, 0))
+            self.spell_attach(nt)
         if ncs:
             tk.Label(box2, text='Correction, root cause and preventive action are entered on the NC Action Plan page.', fg=c['MUTED'],
                      bg=c['PANEL'], font=('Segoe UI', 8), anchor='w').pack(fill='x', pady=(4, 0))
@@ -1699,6 +1897,95 @@ class BrcgsReportView(tk.Frame):
         except tk.TclError:
             pass
 
+    # ---- Ingilizce yazim denetimi (2.6.0)
+    def spell_attach(self, t):
+        """Ingilizce rapor kutusu: hatali sozcukler kirmizi alti cizili; sag tik: oneriler, sozluge ekle, yoksay."""
+        sp = self.app.english_speller()
+        if sp is None:
+            return
+        try:
+            t.tag_configure('spell', underline=1, underlinefg='#e0524b')
+        except tk.TclError:
+            t.tag_configure('spell', underline=1)
+        state = {'job': None}
+
+        def run():
+            state['job'] = None
+            self.spell_check(t)
+
+        def later(_e=None):
+            if state['job']:
+                try:
+                    t.after_cancel(state['job'])
+                except (tk.TclError, ValueError):
+                    pass
+            state['job'] = t.after(500, run)
+        t.bind('<KeyRelease>', later, add='+')
+        t.bind('<Button-3>', lambda e: self._spell_menu(t, e), add='+')
+        t.after_idle(run)
+
+    def spell_check(self, t):
+        sp = self.app.english_speller()
+        if sp is None or not t.winfo_exists():
+            return 0
+        text = t.get('1.0', 'end-1c')
+        t.tag_remove('spell', '1.0', 'end')
+        try:
+            errs = sp.check(text)
+        except Exception:
+            return 0
+        for st, n, _act, _rep in errs:
+            t.tag_add('spell', '1.0+%dc' % st, '1.0+%dc' % (st + n))
+        return len(errs)
+
+    def _spell_menu(self, t, e):
+        sp = self.app.english_speller()
+        here = t.index('@%d,%d' % (e.x, e.y))
+        m = tk.Menu(t, tearoff=0)
+        if sp is not None and 'spell' in [str(x) for x in t.tag_names(here)]:
+            r = t.tag_prevrange('spell', here + '+1c')
+            if r:
+                s0, e0 = str(r[0]), str(r[1])
+                word = t.get(s0, e0)
+                sugg = []
+                try:
+                    sugg = sp.suggest(word)[:7]
+                except Exception:
+                    pass
+
+                def repl(w, a=s0, b=e0):
+                    t.delete(a, b)
+                    t.insert(a, w)
+                    t.edit_modified(True)
+                    t.event_generate('<<Modified>>')
+                    self.spell_check(t)
+                for w_ in sugg:
+                    m.add_command(label=w_, font=('Segoe UI', 9, 'bold'), command=lambda x=w_: repl(x))
+                if not sugg:
+                    m.add_command(label='(no suggestions)', state='disabled')
+                m.add_command(label='Add to dictionary: "%s"' % word, command=lambda: (sp.add(word), self.spell_check(t)))
+                m.add_command(label='Ignore all', command=lambda: (sp.ignore(word), self.spell_check(t)))
+                m.add_separator()
+        m.add_command(label='Cut', command=lambda: t.event_generate('<<Cut>>'))
+        m.add_command(label='Copy', command=lambda: t.event_generate('<<Copy>>'))
+        m.add_command(label='Paste', command=lambda: t.event_generate('<<Paste>>'))
+        self._spell_menu_obj = m
+        m.tk_popup(e.x_root, e.y_root)
+        return 'break'
+
+    def _update_wc(self, row):
+        lbl = getattr(self, '_wc_lbl', None)
+        if lbl is None:
+            return
+        rule = (G.form_for(self.project['profile'], row['clause']) or {}).get('rule') or {}
+        n = len(re.findall(r"\w[\w'’.-]*", str(row.get('value') or '')))
+        mw = int(rule.get('minimum_words') or 0)
+        try:
+            lbl.configure(text='%d words%s · Clearing the text returns to the text built from the evidence boxes.' % (
+                n, (' (about %d expected)' % mw) if mw else ''))
+        except tk.TclError:
+            pass
+
     def _show_stale(self, row):
         if self._stale_lbl is None:
             return
@@ -1743,6 +2030,7 @@ class BrcgsReportView(tk.Frame):
         self.mark_dirty()
 
     def _report_edit(self, row, value):
+        self.after_idle(lambda: self._update_wc(row))
         p = self.project['profile']
         if G.form_for(p, row['clause']) or G.report_text(row):
             built = G.assemble_text(p, row, G.struct_of(row)) if isinstance((row.get('flags') or {}).get('struct'), dict) else ''
@@ -1892,8 +2180,9 @@ class BrcgsReportView(tk.Frame):
                     ttk.Entry(grid, textvariable=var).grid(row=r, column=1, sticky='ew', pady=2)
                     var.trace_add('write', lambda *a, x=it, k=key, vv=var: (x.__setitem__(k, vv.get()), self.mark_dirty()))
                 else:
-                    self._text(grid, val, rows=2, on_change=lambda v, x=it, k=key: (x.__setitem__(k, v), self.mark_dirty())
-                               ).grid(row=r, column=1, sticky='ew', pady=2)
+                    pt = self._text(grid, val, rows=2, on_change=lambda v, x=it, k=key: (x.__setitem__(k, v), self.mark_dirty()))
+                    pt.grid(row=r, column=1, sticky='ew', pady=2)
+                    self.spell_attach(pt)
 
     def _plan_add(self):
         self.project['meta']['action_plan'].setdefault('items', []).append({'type': 'minor', 'clause': '', 'nc_text': ''})

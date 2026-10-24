@@ -3430,6 +3430,27 @@ class App(tk.Tk):
             n += len(ln) + 1
         return '\n'.join(lines)
 
+    def english_speller(self):
+        """BRCGS rapor kutulari icin Ingilizce yazim denetimi (Windows yazim servisi: en-GB, yoksa en-US). Yoksa None."""
+        sp = getattr(self, '_en_speller', None)
+        if sp is False:
+            return None
+        if sp is not None:
+            return sp if getattr(sp, 'available', True) else None
+        if self.smoke or not self.settings.get('spellcheck', True):
+            return None
+        for lang in ('en-GB', 'en-US'):
+            try:
+                cand = spell.create(lang)
+            except Exception as e:
+                self._log_error('english spell: %r' % (e,))
+                continue
+            if cand.available:
+                self._en_speller = cand
+                return cand
+        self._en_speller = False
+        return None
+
     def brcgs_ai_call(self, label, instruction, src, on_text, language='English'):
         """Genel BRCGS AI cagrisi (arka planda); on_text(metin, model) ana is parcaciginda."""
         try:
