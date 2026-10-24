@@ -249,10 +249,11 @@ def _compact_map(text):
     return ''.join(chars), idx
 
 
-def anchors(pdf_bytes, targets, snippet=28):
+def anchors(pdf_bytes, targets, snippet=28, with_rect=False):
     """targets: belge sirasinda [(hedef, gorunen_metin)]. Her hedefin metnini PDF metin akisinda SIRAYLA arar
     (ayni yer tutucu metni bircok kez gecse de sira dogru yeri verir). Donus: [(hedef, sayfa, x, y)] PDF noktasi,
-    y yukaridan asagi. Bulunamayan hedef atlanir, imlec ilerlemez."""
+    y yukaridan asagi. Bulunamayan hedef atlanir, imlec ilerlemez.
+    with_rect=True: [(hedef, sayfa, x, y, (x0, y0, x1, y1), tamami_bu_sayfada)] - metnin bu sayfadaki kutusu."""
     import pypdfium2 as pdfium
     doc = pdfium.PdfDocument(pdf_bytes)
     pages = []
@@ -268,9 +269,9 @@ def anchors(pdf_bytes, targets, snippet=28):
             pages.append((pi, tp, page, comp, idx, h, boxes))
         out = []
         cur_page, cur_pos = 0, 0
-        for target, shown in targets:
-            key, _ = _compact_map(str(shown or ''))
-            key = key[:snippet]
+        keys = [_compact_map(str(sh or ''))[0][:snippet] for _t, sh in targets]
+        for ti, (target, shown) in enumerate(targets):
+            key = keys[ti]
             if len(key) < 3:
                 continue
             # kisa/genel metinler ("Result", "Category") uzakta da gecer: arama penceresi metin uzunluguyla sinirlanir,
@@ -290,13 +291,37 @@ def anchors(pdf_bytes, targets, snippet=28):
             if not found:
                 continue
             pi, at = found
+            # sicrama korumasi: kisa/genel bir metin ileride bulunduysa ve bir sonraki alanin metni imlec ile bu nokta
+            # arasinda geciyorsa, bu eslesme yanlistir (or. bos hucrenin etiketi 'Country' sayfanin sonunda da var)
+            if len(key) < 16 and (pi > cur_page or at - (cur_pos if pi == cur_page else 0) > 120):
+                nk = next((k for k in keys[ti + 1:ti + 4] if len(k) >= 3), None)
+                if nk:
+                    lo = cur_pos if pi == cur_page else 0
+                    if pages[pi][3].find(nk, lo, at) >= 0 or (pi > cur_page and pages[cur_page][3].find(nk, cur_pos) >= 0):
+                        continue
             _p, tp, _page, comp, idx, h, _b = pages[pi]
             try:
                 left, bottom, _right, top = tp.get_charbox(idx[at])
             except Exception:
                 continue
-            out.append((target, pi, float(left), float(h - top)))
-            cur_page, cur_pos = pi, at + len(key)
+            # metnin bu sayfadaki kismi: tum degerin ne kadari burada ardisik eslesiyor -> kutu (duzenleyici yeri)
+            full, _ = _compact_map(str(shown or ''))
+            n = len(key)
+            while n < len(full) and at + n < len(comp) and comp[at + n] == full[n]:
+                n += 1
+            x0, y0, x1, y1 = float(left), float(h - top), float(_right), float(h - bottom)
+            step = max(1, n // 400)                         # uzun kutularda her karakter yerine ornekleme
+            for k in list(range(at, at + n, step)) + [at + n - 1]:
+                try:
+                    l2, b2, r2, t2 = tp.get_charbox(idx[k])
+                except Exception:
+                    continue
+                x0, x1 = min(x0, l2), max(x1, r2)
+                y0, y1 = min(y0, h - t2), max(y1, h - b2)
+            out.append((target, pi, float(left), float(h - top), (x0, y0, x1, y1), n >= len(full)))
+            cur_page, cur_pos = pi, at + n
+        if not with_rect:
+            return [a[:4] for a in out]
         return out
     finally:
         for _pi, tp, page, *_r in pages:
@@ -308,10 +333,29 @@ def anchors(pdf_bytes, targets, snippet=28):
         doc.close()
 
 
+def hit(found, page, x, y, pad=3):
+    """Tiklanan nokta bir alanin kutusunun icindeyse o alan (en kucuk kutu); yoksa None."""
+    best, area = None, None
+    for a in found:
+        if len(a) < 5 or a[1] != page:
+            continue
+        x0, y0, x1, y1 = a[4]
+        if x0 - pad <= x <= x1 + pad and y0 - pad <= y <= y1 + pad:
+            ar = (x1 - x0) * (y1 - y0)
+            if area is None or ar < area:
+                best, area = a, ar
+    return best
+
+
 def nearest_anchor(found, page, x, y):
-    """Tiklanan noktaya (PDF noktasi) gore en uygun hedef: ayni sayfada noktanin ustunde/hizasinda kalan en yakin baslangic."""
+    """Tiklanan noktaya (PDF noktasi) gore en uygun hedef: once kutusu noktayi iceren alan; yoksa ayni sayfada noktanin
+    ustunde/hizasinda kalan en yakin baslangic."""
+    h = hit(found, page, x, y)
+    if h is not None:
+        return h[0]
     best, score = None, None
-    for target, pi, ax, ay in found:
+    for a in found:
+        target, pi, ax, ay = a[:4]
         if pi != page or ay > y + 6:
             continue
         s = (y - ay) + 0.35 * abs(x - ax)

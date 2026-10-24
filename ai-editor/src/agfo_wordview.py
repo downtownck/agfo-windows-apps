@@ -40,6 +40,9 @@ class WordView(tk.Frame):
         self.canvas.bind('<Control-Button-4>', lambda e: self.set_zoom(self.zoom * 1.1))
         self.canvas.bind('<Control-Button-5>', lambda e: self.set_zoom(self.zoom / 1.1))
         self.msg = None
+        self.editor = None
+        self.editor_widget = None
+        self.on_editor_click_away = None
         if wheel_register:
             wheel_register(self.canvas, lambda n: self._scroll(n))
         self._resize_job = None
@@ -67,6 +70,7 @@ class WordView(tk.Frame):
         self._draw_visible()
 
     def close_doc(self):
+        self.close_editor()
         self.images.clear()
         self.items.clear()
         self.canvas.delete('all')
@@ -196,10 +200,69 @@ class WordView(tk.Frame):
             return None
         return R.nearest_anchor(self.found, *pt)
 
+    def region_at(self, e):
+        """Tiklanan nokta bir alanin kutusundaysa o alanin kaydi (hedef, sayfa, x, y, kutu, tamami)."""
+        import agfo_docrender as R
+        pt = self.point_at(e)
+        return R.hit(self.found, *pt) if pt else None
+
+    def region_of(self, target):
+        return next((a for a in self.found if a[0] == target and len(a) >= 5), None)
+
     def _click(self, e):
-        t = self.target_at(e)
+        if self.editor is not None and self.on_editor_click_away:
+            self.on_editor_click_away()
+        reg = self.region_at(e)
+        t = reg[0] if reg else self.target_at(e)
         if t is not None and self.on_pick:
-            self.on_pick(t)
+            self.on_pick(t, reg)
+
+    # ---------------------------------------------------------------- yerinde duzenleyici
+    def page_rect(self, page, rect):
+        """PDF noktasi kutusu -> tuval koordinati (x, y, w, h)."""
+        x0, y0, x1, y1 = rect
+        k = self._k
+        return (self._page_x(page) + x0 * k, self.tops[page] + y0 * k, (x1 - x0) * k, (y1 - y0) * k)
+
+    def show_editor(self, widget, page, rect, min_w=280, min_h=0, max_h=420):
+        """widget'i sayfadaki alanin uzerine yerlestirir; alan gorunur degilse kaydirir."""
+        self.close_editor()
+        x, y, w, h = self.page_rect(page, rect)
+        pw = self.sizes[page][0] * self._k
+        left = self._page_x(page)
+        w = max(min_w, w + 16)
+        x = max(left + 4, min(x - 8, left + pw - w - 4))
+        h = min(max_h, max(min_h, h + 16))
+        self.editor = self.canvas.create_window(x, y - 30, window=widget, anchor='nw', width=w, height=h + 34)
+        self.editor_widget = widget
+        top = self.canvas.canvasy(0)
+        vh = self.canvas.winfo_height()
+        if y - 40 < top or y + h + 10 > top + vh:
+            total = float(self.canvas.cget('scrollregion').split()[3] or 1)
+            self.canvas.yview_moveto(max(0, y - 120) / total)
+            self._draw_visible()
+
+    def close_editor(self):
+        if self.editor is not None:
+            self.canvas.delete(self.editor)
+            try:
+                self.editor_widget.destroy()
+            except tk.TclError:
+                pass
+        self.editor = None
+        self.editor_widget = None
+
+    def patch(self, page, rect, text):
+        """Yeniden cizim gelene kadar degistirilen alanin uzerine yeni metni gosterir."""
+        x, y, w, h = self.page_rect(page, rect)
+        w = max(w, 120)
+        tid = self.canvas.create_text(x + 1, y, text=text, anchor='nw', fill='#1a1a1a', width=w,
+                                      font=('Segoe UI', max(7, int(9 * self._k / 1.3))), tags=('patch',))
+        bx = self.canvas.bbox(tid)
+        rid = self.canvas.create_rectangle(x - 2, y - 2, max(x + w, bx[2]) + 2, max(y + h, bx[3]) + 2, fill='#fffbe6',
+                                           outline='#e2b356', tags=('patch',))
+        self.canvas.tag_lower(rid, tid)
+        self.canvas.tag_raise('patch')
 
     def _motion(self, e):
         if self.on_hover:

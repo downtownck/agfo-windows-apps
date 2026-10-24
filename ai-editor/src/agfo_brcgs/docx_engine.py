@@ -369,13 +369,23 @@ def _remove_placeholder_flag(node):
         p = p.getparent()
 
 
-def _neutralize_run(t):
+_HEADING_STYLE = re.compile(r'^(heading|ba[sş]l[ıi]k|balk|titre|berschrift|encabezado|titolo|kop)\s*\d', re.I)
+
+
+def _neutralize_run(t, placeholder=True):
+    """Yer tutucu bicimini (gri/italik/kalin, PlaceholderText) kaldirir. 2.4.0: placeholder=False ise (kutu zaten denetcinin
+    metniyle doluydu) kosunun bicimine dokunulmaz: Word'de yazilmis siyah metin, baslik stilli kutuda maviye donuyordu."""
     run = t.getparent()
     while run is not None and run.tag != w('r'):
         run = run.getparent()
     if run is None:
         return
     rpr = run.find(w('rPr'))
+    if not placeholder:
+        rs = rpr.find(w('rStyle')) if rpr is not None else None
+        if rs is not None and 'placeholder' in str(wval(rs) or '').lower():
+            rpr.remove(rs)
+        return
     if rpr is not None:
         for child in list(rpr):
             if child.tag in (w('rStyle'), w('b'), w('bCs'), w('color'), w('highlight'), w('shd')):
@@ -386,7 +396,7 @@ def _neutralize_run(t):
     while par is not None and par.tag != w('p'):
         par = par.getparent()
     ps = par.find(w('pPr') + '/' + w('pStyle')) if par is not None else None
-    if ps is not None and str(wval(ps) or '').lower().startswith(('heading', 'baslik', 'başlık')):
+    if ps is not None and _HEADING_STYLE.match(str(wval(ps) or '')):
         if rpr is None:
             rpr = etree.Element(w('rPr'))
             run.insert(0, rpr)
@@ -446,6 +456,10 @@ def _ensure_text_node(container):
     return t
 
 
+def nodes_text(container):
+    return ''.join(x.text or '' for x in container.iter(w('t')))
+
+
 def _strip_brs(container):
     for br in list(container.iter(w('br'))):
         if br.get(w('type')) in (None, 'textWrapping'):
@@ -468,12 +482,13 @@ def replace_sdt_text(sdt, value):
     content = sdt.find(w('sdtContent'))
     if content is None:
         return False
+    placeholder = sdt_props(sdt)['placeholder_showing'] or not nodes_text(content).strip()
     _strip_brs(content)
     nodes = list(content.iter(w('t')))
     t = nodes[0] if nodes else _ensure_text_node(content)
     _drop_extra_text(nodes[1:])
     _set_text(t, value)
-    _neutralize_run(t)
+    _neutralize_run(t, placeholder)
     _remove_placeholder_flag(sdt)
     return True
 
