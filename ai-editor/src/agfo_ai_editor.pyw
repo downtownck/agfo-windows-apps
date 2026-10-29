@@ -4137,6 +4137,7 @@ class App(tk.Tk):
     def _start_job(self, label, fn, on_done, *args):
         jid = uuid.uuid4().hex
         self.jobs[jid] = on_done
+        ai.PACER.stop.clear()                          # 2.6.1: "Durdur" yogunluk beklemesini de keser
         self.ai_var.set(label + '…')
         self.busy.pack(side='right', padx=(8, 0))
         self.cancel_btn.pack(side='right', padx=(8, 0))
@@ -4183,9 +4184,13 @@ class App(tk.Tk):
         if sp_prog and self.jobs:
             self.ai_var.set('Seslendirme: ' + sp_prog)
         prog = getattr(self, '_tr_progress', None)
+        wait = ai.PACER.status() if self.jobs else ''
         if prog and self.jobs:
             model = getattr(self, '_tr_model', None)
-            self.ai_var.set('Belge çevriliyor… %d / %d parça grubu tamam%s…' % (prog[0], prog[1], (' · ' + model) if model else ''))
+            self.ai_var.set('Belge çevriliyor… %d / %d parça grubu tamam%s%s…' % (
+                prog[0], prog[1], (' · ' + model) if model else '', (' · ⏳ ' + wait) if wait else ''))
+        elif wait:
+            self.ai_var.set('⏳ %s…' % wait)
         if self._timers:
             self._timers['poll'] = self.after(POLL_MS, self._poll)
 
@@ -4208,6 +4213,7 @@ class App(tk.Tk):
             self._tr_cancel.set()
         if getattr(self, '_sp_cancel', None):
             self._sp_cancel.set()
+        ai.PACER.stop.set()
         self.jobs.clear()
         self.busy.stop()
         self.busy.pack_forget()

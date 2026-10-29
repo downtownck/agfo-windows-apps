@@ -157,6 +157,90 @@ class FakeHTTP:
         return status, raw, {}
 
 
+class FakeClock:
+    def __init__(self):
+        self.t = 1000.0
+        self.slept = 0.0
+
+    def now(self):
+        return self.t
+
+    def sleep(self, s):
+        self.t += s
+        self.slept += s
+
+
+class BusyRetryTests(unittest.TestCase):
+    """2.6.1: 429 / 'Proxy at capacity' -> ortak bekleme ve yeniden deneme."""
+
+    def setUp(self):
+        self.clock = FakeClock()
+        self.old = ai.PACER
+        ai.PACER = ai.Pacer(sleep=self.clock.sleep, clock=self.clock.now)
+
+    def tearDown(self):
+        ai.PACER = self.old
+
+    def http(self, responses):
+        calls = []
+
+        def req(url, method='GET', headers=None, payload=None, timeout=0):
+            calls.append(url)
+            status, body, hdrs = responses.pop(0)
+            return status, json.dumps(body).encode('utf-8'), hdrs
+        req.calls = calls
+        return req
+
+    def test_manager_429_waits_and_retries(self):
+        busy = {'code': 'agfo_ai_http', 'message': 'AI HTTP hata: 429 - Proxy at capacity (shared capacity). Retry with backoff.'}
+        http = self.http([(429, busy, {}), (429, busy, {'Retry-After': '7'}), (200, {'plugin_version': '17.6.0'}, {})])
+        b = ai.ManagerBackend('https://agfo.app', 'u', 'p', request=http)
+        self.assertEqual(b.info()['plugin_version'], '17.6.0')
+        self.assertEqual(len(http.calls), 3)
+        self.assertGreaterEqual(self.clock.slept, 2 + 7)          # 2 sn, sonra sunucunun istedigi 7 sn
+        self.assertLess(self.clock.slept, 2 * 1.25 + 7 * 1.25 + 1)
+        self.assertEqual(ai.PACER.status(), '')
+
+    def test_gives_up_with_clear_message(self):
+        busy = {'code': 'agfo_ai_http', 'message': 'Proxy at capacity'}
+        http = self.http([(429, busy, {})] * ai.Pacer.MAX_TRIES)
+        b = ai.ManagerBackend('https://agfo.app', 'u', 'p', request=http)
+        with self.assertRaises(ai.AIError) as cm:
+            b.info()
+        self.assertEqual(len(http.calls), ai.Pacer.MAX_TRIES)
+        self.assertIn('yoğun', str(cm.exception))
+        self.assertIn('Aynı anda', str(cm.exception))
+        self.assertLessEqual(self.clock.slept, 2 + 4 + 8 + 16 + 30 + 20)   # ust sinir: yaklasik bir dakika
+
+    def test_config_503_is_not_retried(self):
+        http = self.http([(503, {'code': 'agfo_content_config', 'message': 'Model yok'}, {})])
+        b = ai.ManagerBackend('https://agfo.app', 'u', 'p', request=http)
+        with self.assertRaises(ai.AIError) as cm:
+            b.info()
+        self.assertEqual(len(http.calls), 1)
+        self.assertIn('Model yok', str(cm.exception))
+        self.assertEqual(self.clock.slept, 0)
+
+    def test_direct_overloaded_retries(self):
+        http = self.http([(529, {'type': 'error', 'error': {'type': 'overloaded_error', 'message': 'Overloaded'}}, {}),
+                          (200, {'content': [{'type': 'text', 'text': 'Merhaba'}], 'stop_reason': 'end_turn'}, {})])
+        d = ai.DirectBackend('anthropic', 'k', 'claude-x', request=http)
+        self.assertEqual(d.complete('s', 'u', 100)['text'], 'Merhaba')
+        self.assertEqual(len(http.calls), 2)
+
+    def test_shared_wait_and_cancel(self):
+        p = ai.PACER
+        p.busy(10)
+        self.assertIn('sn sonra', p.status())
+        p.stop.set()                                                 # "Durdur"
+        with self.assertRaises(ai.AIError):
+            p.wait()
+        p.stop.clear()
+        p.wait()                                                     # diger is parcaciklari da bekler
+        self.assertGreaterEqual(self.clock.slept, 10)
+        self.assertEqual(p.status(), '')
+
+
 class ManagerTests(unittest.TestCase):
     def test_url_rules(self):
         self.assertEqual(ai.ManagerBackend.normalize_url('agfocert.com/'), 'https://agfocert.com')

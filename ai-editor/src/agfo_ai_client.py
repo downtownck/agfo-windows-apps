@@ -11,8 +11,10 @@ from __future__ import annotations
 import base64
 import json
 import os
+import random
 import re
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -26,6 +28,99 @@ TIMEOUT = 180
 
 class AIError(Exception):
     pass
+
+
+# --------------------------------------------------------------------------- yogunluk (429) beklemesi
+BUSY_STATUSES = (429, 502, 503, 504, 529)
+
+
+_BUSY_WORDS = re.compile(r'capacity|overload|rate.?limit|too many|busy|retry|temporarily|unavailable|yoğun|kapasite', re.I)
+
+
+def is_busy(status, decoded) -> bool:
+    """Gecici yogunluk mu? 429 her zaman; 502/503/504/529 ancak yanit bir yapilandirma hatasi degilse
+    (AI Manager 'Model yok' gibi kalici hatalari da 503 ile dondurur - onlar beklemekle duzelmez)."""
+    if status == 429:
+        return True
+    if status not in BUSY_STATUSES:
+        return False
+    if isinstance(decoded, dict) and decoded.get('code'):
+        return bool(_BUSY_WORDS.search('%s %s' % (decoded.get('code'), decoded.get('message', ''))))
+    return True
+
+
+def _retry_after(headers) -> float:
+    """Retry-After basligi (saniye) - yoksa 0."""
+    for k, v in (headers or {}).items():
+        if k.lower() == 'retry-after':
+            try:
+                return max(0.0, float(str(v).strip()))
+            except ValueError:
+                return 0.0
+    return 0.0
+
+
+class Pacer:
+    """2.6.1: sunucu 'yogun' dediginde (429/503...) tum is parcaciklari birlikte bekler; bekleme Retry-After'a
+    uyar, yoksa 2-4-8-16-30 sn (rastgele kaydirmali) buyur. Basarili yanit bekleme serisini sifirlar.
+    stop: threading.Event - kurulursa bekleme kesilir (Durdur dugmesi). Arayuz nesnesine baglanti tutulmaz:
+    Tk nesneleri arka plan is parcaciginda toplanirsa Tk coker."""
+
+    MAX_TRIES = 6           # ilk istek + 5 yeniden deneme
+    MAX_WAIT = 30.0         # tek beklemenin ust siniri (Retry-After daha uzunsa 60 sn'ye kadar uyulur)
+
+    def __init__(self, sleep=time.sleep, clock=time.monotonic):
+        self._lock = threading.Lock()
+        self._until = 0.0
+        self._streak = 0
+        self._sleep, self._clock = sleep, clock
+        self.stop = threading.Event()
+        self.note = ''
+
+    def wait(self):
+        """Bekleme suresi dolana kadar uyur (0.25 sn dilimlerle; iptal edilirse AIError)."""
+        while True:
+            with self._lock:
+                left = self._until - self._clock()
+            if left <= 0:
+                return
+            if self.stop.is_set():
+                raise AIError('Durduruldu.')
+            self._sleep(min(0.25, left))
+
+    def busy(self, retry_after=0.0) -> float:
+        with self._lock:
+            self._streak += 1
+            delay = min(self.MAX_WAIT, 2.0 * (2 ** (self._streak - 1)))
+            if retry_after:
+                delay = min(60.0, max(retry_after, 1.0))
+            delay += random.uniform(0, 0.25 * delay)
+            self._until = max(self._until, self._clock() + delay)
+            left = self._until - self._clock()
+            self.note = 'Sunucu yoğun; %d sn sonra yeniden deneniyor' % round(left)
+            return left
+
+    def ok(self):
+        with self._lock:
+            if self._streak:
+                self._streak = max(0, self._streak - 1)
+            if self._clock() >= self._until:
+                self.note = ''
+
+    def status(self) -> str:
+        with self._lock:
+            left = self._until - self._clock()
+        if left <= 0:
+            return ''
+        return 'Sunucu yoğun; %d sn sonra yeniden deneniyor' % max(1, round(left))
+
+
+PACER = Pacer()
+
+
+def busy_message(name, status, msg, tries):
+    return ('%s şu anda yoğun (%s). %d kez denendi, yanıt alınamadı; birkaç dakika sonra yeniden deneyin '
+            'ya da "Aynı anda" istek sayısını azaltın. Sunucu yanıtı: %s' % (name, status, tries, msg))
 
 
 # --------------------------------------------------------------------------- HTTP
@@ -138,9 +233,17 @@ class ManagerBackend:
         headers = self.auth_headers() if auth else dict(extra_headers or {})
         styles = [self._route_style] if self._route_style else ['pretty', 'query']
         last = None
+        tries = 0
         for style in styles:
-            status, body, resp_headers = self._request(self._url(route, style), 'POST' if payload is not None else 'GET', headers, payload, timeout)
-            decoded = _json(body)
+            while True:
+                PACER.wait()
+                tries += 1
+                status, body, resp_headers = self._request(self._url(route, style), 'POST' if payload is not None else 'GET', headers, payload, timeout)
+                decoded = _json(body)
+                if is_busy(status, decoded) and tries < PACER.MAX_TRIES:
+                    PACER.busy(_retry_after(resp_headers))
+                    continue
+                break
             if 300 <= status < 400:
                 loc = next((v for k, v in (resp_headers or {}).items() if k.lower() == 'location'), '')
                 target = urllib.parse.urlsplit(loc)
@@ -152,6 +255,7 @@ class ManagerBackend:
                 continue          # kalici baglantilar kapali olabilir -> ?rest_route=
             if 200 <= status < 300 and isinstance(decoded, dict):
                 self._route_style = style
+                PACER.ok()
                 return decoded
             last = (status, decoded)
             break
@@ -164,6 +268,8 @@ class ManagerBackend:
             raise AIError('Bu WordPress kullanıcısının AI Manager editör yetkisi yok: ' + _error_message(decoded, status))
         if status == 404 and code in ('rest_no_route', ''):
             raise AIError('Sitede AI Manager editör ucu bulunamadı. AGFO AI Manager 17.5.0 veya üstüne güncelleyin.')
+        if is_busy(status, decoded):
+            raise AIError('AI Manager: ' + busy_message('AI Manager', status, _error_message(decoded, status), tries))
         raise AIError('AI Manager: ' + _error_message(decoded, status))
 
     @staticmethod
@@ -486,11 +592,15 @@ class DirectBackend:
         url = self.spec['url'].replace('{model}', urllib.parse.quote(self.model.replace('models/', ''), safe=''))
         token_field = 'max_completion_tokens'
         started = time.time()
-        for attempt in range(3):
+        tries = 0
+        for attempt in range(PACER.MAX_TRIES + 2):
             body = build_direct_body(style, self.model, system, user, max_tokens, token_field)
+            PACER.wait()
+            tries += 1
             status, raw, _h = self._request(url, 'POST', self._headers(), body)
             decoded = _json(raw)
             if 200 <= status < 300:
+                PACER.ok()
                 text = extract_text(decoded)
                 if not text.strip():
                     raise AIError('%s boş yanıt döndürdü.' % self.spec['name'])
@@ -504,9 +614,11 @@ class DirectBackend:
             if status == 400 and 'max' in low and 'token' in low and max_tokens > 4096:
                 max_tokens = 4096       # modelin cikti siniri dusuk
                 continue
-            if status in (429, 500, 502, 503, 529) and attempt < 2:
-                time.sleep(2 + attempt * 3)
+            if (is_busy(status, decoded) or status == 500) and tries < PACER.MAX_TRIES:
+                PACER.busy(_retry_after(_h))
                 continue
+            if is_busy(status, decoded):
+                raise AIError(busy_message(self.spec['name'], status, redact(msg), tries))
             if status in (401, 403):
                 raise AIError('%s anahtarı reddedildi (%s).' % (self.spec['name'], redact(msg)))
             if status == 404:
