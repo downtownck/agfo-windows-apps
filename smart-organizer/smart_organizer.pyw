@@ -88,7 +88,7 @@ class App(tk.Tk):
         self.settings = self._load_settings()
         self.desktop_var = tk.BooleanVar(value=True)
         self.docs_var = tk.BooleanVar(value=True)
-        self.ai_model = tk.StringVar(value=self.settings.get('ollama_model', 'qwen2.5:3b'))
+        self.ai_model = tk.StringVar(value=self.settings.get('ollama_model', 'gemma3:1b'))
         self.ai_limit = tk.StringVar(value=str(self.settings.get('ai_limit', '30')))
         self.filter_var = tk.StringVar(value='')
         self.status_filter = tk.StringVar(value='Tümü')
