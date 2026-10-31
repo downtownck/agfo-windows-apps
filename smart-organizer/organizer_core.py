@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable
-from urllib import request
+from urllib import request, error
 from xml.etree import ElementTree as ET
 
 APP_FOLDER = 'AGFO Düzenlenenler'
@@ -289,6 +289,36 @@ def scan(roots: dict[str, Path], source_labels: Iterable[str],
     return items, warnings
 
 
+def list_ollama_models(timeout: float = 3.0) -> list[str]:
+    """Read only the local Ollama model list; never pull models silently."""
+    try:
+        with request.urlopen('http://127.0.0.1:11434/api/tags', timeout=timeout) as response:
+            data = json.load(response)
+    except (error.URLError, OSError, ValueError) as exc:
+        raise RuntimeError('Ollama yerel sunucusuna bağlanılamadı (127.0.0.1:11434). '
+                           'Ollama uygulamasını açın veya KUR-GEMMA.cmd dosyasını çalıştırın.') from exc
+    if not isinstance(data, dict) or not isinstance(data.get('models'), list):
+        raise RuntimeError('Ollama model listesini beklenen biçimde döndürmedi.')
+    models = []
+    for row in data['models']:
+        if not isinstance(row, dict):
+            continue
+        name = row.get('name') or row.get('model')
+        if isinstance(name, str) and name.strip() and name not in models:
+            models.append(name)
+    return models
+
+
+def pick_ollama_model(current: str, models: list[str]) -> str | None:
+    """Preserve installed user selection; prefer installed lightweight Gemma otherwise."""
+    if current in models:
+        return current
+    for candidate in ('gemma3:1b', 'gemma3:270m'):
+        if candidate in models:
+            return candidate
+    return models[0] if models else None
+
+
 def ollama_refine(item: PlanItem, model: str = 'gemma3:1b', timeout: float = 120.0) -> tuple[str, float, str]:
     """Only localhost Ollama. Files stay on the computer; snippets sent to localhost."""
     snippet = item.snippet or sample_text(item.path)
@@ -305,8 +335,19 @@ def ollama_refine(item: PlanItem, model: str = 'gemma3:1b', timeout: float = 120
                           'options': {'temperature': 0, 'num_predict': 100, 'num_ctx': 2048}}).encode('utf-8')
     req = request.Request('http://127.0.0.1:11434/api/generate', data=payload,
                           headers={'Content-Type': 'application/json'}, method='POST')
-    with request.urlopen(req, timeout=timeout) as result:
-        outer = json.load(result)
+    try:
+        with request.urlopen(req, timeout=timeout) as result:
+            outer = json.load(result)
+    except error.HTTPError as exc:
+        if exc.code == 404:
+            try:
+                available = list_ollama_models()
+            except RuntimeError:
+                available = []
+            choices = ', '.join(available) or 'kurulu model yok'
+            raise RuntimeError(f'Ollama modeli bulunamadı: {model}. Kurulu modeller: {choices}. '
+                               f'Öneri: model listesinden birini seçin veya `ollama pull {model}` komutunu çalıştırın.') from exc
+        raise
     raw = str(outer.get('response', ''))
     match = re.search(r'\{[^{}]*\}', raw, re.S)
     if not match:
