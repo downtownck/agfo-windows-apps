@@ -18,9 +18,11 @@ Windows'la gelen varsayılan Türkçe/İngilizce klasör adları yerine gerçek 
 
 Hızlı analiz, uzantı/dosya adı ve desteklenen belgelerde kısa içerik örneği kullanarak **tamamen yerel** çalışır. Gerçek bir dil modeliyle sınıflandırma için:
 
-1. Ollama'yı Windows'a yükleyin: https://ollama.com/download/windows
-2. PowerShell'de `ollama pull qwen2.5:3b` çalıştırın.
-3. Ollama'nın çalıştığından emin olun. Uygulamada `Yerel AI ile iyileştir` düğmesine basın.
+1. Ekran kartı gerektirmeyen otomatik kurulum için `KUR-GEMMA.cmd` çalıştırın. Ollama yoksa yükler; RAM'e göre `gemma3:1b` (6 GB+) veya `gemma3:270m` (6 GB altı) modelini indirir ve uygulama ayarını günceller.
+2. Uygulamayı yeniden açıp `Yerel AI ile iyileştir` düğmesine basın.
+3. Elle kurulum alternatifi: https://ollama.com/download/windows adresinden Ollama'yı yükleyip `ollama pull gemma3:1b` çalıştırın.
+
+CPU'da ilk yanıtın uzun sürme ihtimali için AI istek zaman aşımı 120 saniyedir. Model metin sınıflandırma içindir; görüntü analizi yapmaz.
 
 AI yalnızca **bekleyen, belirsiz** öğeleri belirlenen sayıya kadar işler. Örnek metinler yalnızca `127.0.0.1:11434` adresindeki yerel Ollama'ya gider; bulut API bağlantısı yoktur. Ollama'nın ve modelin kurulumu isteğe bağlıdır; kurulu değilse yerel kurallara dayalı düzenleme sorunsuz çalışır. AI sınıflandırması hatalı olabileceğinden sonuçlar yine kullanıcı onayına tabidir.
 
