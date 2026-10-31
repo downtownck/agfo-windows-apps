@@ -1,4 +1,4 @@
-# AGFO Smart Desktop Organizer v1.0
+# AGFO Smart Desktop Organizer v1.0.1
 
 Windows masaüstü ve Belgeler klasöründeki dosyaları/kısayolları **önce sınıflandıran, onay almadan hiçbirini taşımayan** masaüstü uygulaması.
 
@@ -19,7 +19,8 @@ Windows'la gelen varsayılan Türkçe/İngilizce klasör adları yerine gerçek 
 Hızlı analiz, uzantı/dosya adı ve desteklenen belgelerde kısa içerik örneği kullanarak **tamamen yerel** çalışır. Gerçek bir dil modeliyle sınıflandırma için:
 
 1. Ekran kartı gerektirmeyen otomatik kurulum için `KUR-GEMMA.cmd` çalıştırın. Ollama yoksa yükler; RAM'e göre `gemma3:1b` (6 GB+) veya `gemma3:270m` (6 GB altı) modelini indirir ve uygulama ayarını günceller.
-2. Uygulamayı yeniden açıp `Yerel AI ile iyileştir` düğmesine basın.
+2. Uygulamayı yeniden açıp **Modelleri bul** düğmesine basın. Yüklü modeller listelenir; eski ama bulunamayan `qwen2.5:3b` tercihi otomatik olarak yüklü Gemma modeliyle değiştirilir.
+3. **Yerel AI ile iyileştir** düğmesine basın. Model bulunamadığında kurulu seçenekler gösterilir.
 3. Elle kurulum alternatifi: https://ollama.com/download/windows adresinden Ollama'yı yükleyip `ollama pull gemma3:1b` çalıştırın.
 
 CPU'da ilk yanıtın uzun sürme ihtimali için AI istek zaman aşımı 120 saniyedir. Model metin sınıflandırma içindir; görüntü analizi yapmaz.
