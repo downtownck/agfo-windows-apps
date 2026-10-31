@@ -1,4 +1,4 @@
-# AGFO Smart Desktop Organizer v1.0.1
+# AGFO Smart Desktop Organizer v1.0.2
 
 Windows masaüstü ve Belgeler klasöründeki dosyaları/kısayolları **önce sınıflandıran, onay almadan hiçbirini taşımayan** masaüstü uygulaması.
 
@@ -25,7 +25,7 @@ Hızlı analiz, uzantı/dosya adı ve desteklenen belgelerde kısa içerik örne
 
 CPU'da ilk yanıtın uzun sürme ihtimali için AI istek zaman aşımı 120 saniyedir. Model metin sınıflandırma içindir; görüntü analizi yapmaz.
 
-AI yalnızca **bekleyen, belirsiz** öğeleri belirlenen sayıya kadar işler. Örnek metinler yalnızca `127.0.0.1:11434` adresindeki yerel Ollama'ya gider; bulut API bağlantısı yoktur. Ollama'nın ve modelin kurulumu isteğe bağlıdır; kurulu değilse yerel kurallara dayalı düzenleme sorunsuz çalışır. AI sınıflandırması hatalı olabileceğinden sonuçlar yine kullanıcı onayına tabidir.
+AI yalnızca **bekleyen, belirsiz** öğeleri belirlenen sayıya kadar işler. Örnek metinler yalnızca `127.0.0.1:11434` adresindeki yerel Ollama'ya gider; bulut API bağlantısı yoktur. Ollama'nın ve modelin kurulumu isteğe bağlıdır; kurulu değilse yerel kurallara dayalı düzenleme sorunsuz çalışır. AI kategori için numaralı seçim ve Ollama JSON şeması kullanır. İngilizce/tekil kategori adlarının güvenli eşdeğerleri de tanınır. Geçersiz yanıtlarda dosyanın eski önerisi korunur; art arda 3 geçersiz cevapta AI analizi durdurulur. AI sınıflandırması hatalı olabileceğinden sonuçlar yine kullanıcı onayına tabidir.
 
 PDF içerik çıkarımı isteğe bağlı `pypdf` paketi ile çalışır. Kurmak için: `py -3 -m pip install pypdf`. DOCX, XLSX, XLSM, PPTX, TXT, CSV gibi dosyalarda kısa içerik örneği Python standart araçlarıyla okunur. Şifreli, taranmış veya desteklenmeyen dosyalarda yalnızca ad/uzantı sınıflandırması yapılabilir. OCR yoktur.
 
