@@ -13,10 +13,10 @@ from tkinter import filedialog, messagebox, ttk
 
 from organizer_core import (
     APP_FOLDER, CATEGORIES, MoveJournal, PlanItem, app_state_dir,
-    execute_approved, ollama_refine, scan, standard_roots, valid_subfolder,
+    execute_approved, list_ollama_models, pick_ollama_model, ollama_refine, scan, standard_roots, valid_subfolder,
 )
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 BG = '#F4F7FB'
 TEXT = '#17283D'
 BLUE = '#2363A5'
@@ -99,6 +99,7 @@ class App(tk.Tk):
         self._build_ui()
         self.filter_var.trace_add('write', lambda *_: self.refresh())
         self.after(110, self._poll_queue)
+        self.after(500, self.find_models)
 
     def _load_settings(self):
         try:
@@ -146,8 +147,11 @@ class App(tk.Tk):
         self.ai_btn = ttk.Button(toolbar, text='2  Yerel AI ile iyileştir', command=self.start_ai)
         self.ai_btn.pack(side='left', padx=(0, 11))
         ttk.Label(toolbar, text='Ollama modeli:').pack(side='left')
-        ttk.Entry(toolbar, width=16, textvariable=self.ai_model).pack(side='left', padx=5)
-        ttk.Label(toolbar, text='En çok:').pack(side='left', padx=(10, 2))
+        self.model_combo = ttk.Combobox(toolbar, width=16, textvariable=self.ai_model)
+        self.model_combo.pack(side='left', padx=5)
+        self.models_btn = ttk.Button(toolbar, text='Modelleri bul', command=self.find_models)
+        self.models_btn.pack(side='left', padx=(2, 4))
+        ttk.Label(toolbar, text='En çok:').pack(side='left', padx=(6, 2))
         ttk.Entry(toolbar, width=5, textvariable=self.ai_limit).pack(side='left')
 
         controls = ttk.Frame(outer)
@@ -239,6 +243,7 @@ class App(tk.Tk):
         self.progress_var.set('İşlem sürüyor...')
         self.scan_btn.configure(state='disabled')
         self.ai_btn.configure(state='disabled')
+        self.models_btn.configure(state='disabled')
         self.apply_btn.configure(state='disabled')
         def work():
             try:
@@ -255,11 +260,31 @@ class App(tk.Tk):
                 if kind == 'progress':
                     self.progress_var.set(str(payload))
                     continue
+                if kind == 'model_selected':
+                    self.ai_model.set(str(payload))
+                    self._save_settings()
+                    continue
                 self.busy = False
                 self.scan_btn.configure(state='normal')
                 self.ai_btn.configure(state='normal')
+                self.models_btn.configure(state='normal')
                 self.apply_btn.configure(state='normal')
-                if kind == 'scan':
+                if kind == 'models':
+                    models, at_start, failure = payload
+                    self.model_combo.configure(values=models)
+                    if failure:
+                        self.progress_var.set(failure)
+                    elif models:
+                        current = self.ai_model.get().strip()
+                        if current == at_start:
+                            chosen = pick_ollama_model(current, models)
+                            if chosen != current:
+                                self.ai_model.set(chosen)
+                                self._save_settings()
+                        self.progress_var.set('Ollama modelleri: ' + ', '.join(models[:5]))
+                    else:
+                        self.progress_var.set('Ollama çalışıyor ancak hiç model indirilmemiş. KUR-GEMMA.cmd çalıştırın.')
+                elif kind == 'scan':
                     self.items, warnings = payload
                     self.by_id = {it.item_id: it for it in self.items}
                     self.refresh()
@@ -271,8 +296,7 @@ class App(tk.Tk):
                     self.refresh()
                     self.progress_var.set(f'AI: {updated} öneri güncellendi')
                     if warnings:
-                        messagebox.showwarning('AI notları', '\n'.join(warnings[:5]) +
-                                               '\n\nOllama kurulu/çalışır olmalı; model önceden indirilmiş olmalı.')
+                        messagebox.showwarning('AI notları', '\n'.join(warnings[:5]))
                 elif kind == 'move':
                     count, errors, batch = payload
                     self.refresh()
@@ -305,6 +329,17 @@ class App(tk.Tk):
         self._worker('scan', lambda: scan(self.roots, labels,
                      progress=lambda n: self.q.put(('progress', f'{n} öğe incelendi...'))))
 
+    def find_models(self):
+        if self.busy:
+            return
+        selected = self.ai_model.get().strip()
+        def work():
+            try:
+                return list_ollama_models(), selected, None
+            except RuntimeError as exc:
+                return [], selected, str(exc)
+        self._worker('models', work)
+
     def start_ai(self):
         candidates = [i for i in self.items if i.decision == 'Bekliyor' and i.confidence < 0.90 and not i.is_dir]
         if not candidates:
@@ -324,12 +359,22 @@ class App(tk.Tk):
         candidates = candidates[:limit]
         self._save_settings()
         def work():
+            try:
+                models = list_ollama_models()
+            except RuntimeError as exc:
+                return 0, [str(exc)]
+            if not models:
+                return 0, ['Ollama çalışıyor fakat hiç model indirilmemiş. KUR-GEMMA.cmd çalıştırın.']
+            selected = pick_ollama_model(model, models)
+            if selected != model:
+                self.q.put(('model_selected', selected))
+                self.q.put(('progress', f'{model} yüklü değil; kurulu {selected} modeli seçildi.'))
             changed = 0
             warnings = []
             for n, item in enumerate(candidates, 1):
                 self.q.put(('progress', f'Yerel AI: {n}/{len(candidates)} — {item.path.name[:30]}'))
                 try:
-                    cat, conf, reason = ollama_refine(item, model=model)
+                    cat, conf, reason = ollama_refine(item, model=selected)
                     # Worker changes objects; main UI reads after completion only.
                     item.category, item.folder, item.confidence, item.reason = cat, cat, conf, reason
                     changed += 1
