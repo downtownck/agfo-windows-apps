@@ -20,7 +20,8 @@ from typing import Callable, Iterable
 from urllib import request, error
 from xml.etree import ElementTree as ET
 
-APP_FOLDER = 'AGFO Düzenlenenler'
+APP_FOLDER = 'AGFO Düzenlenenler'  # Legacy folder: scanned items under it remain excluded.
+# User's handwritten project hierarchy. Keep IAS and ASI separate.
 TOPIC_FOLDERS = ('BRCGS', 'IFS', 'ASI', 'GLOBALGAP', 'IAS', 'AGFO TR', 'AGFO SP',
                  'CSI', 'ATECQ', 'SPAIN', 'EGYPT', 'SES', 'VIDEO', 'GORSEL',
                  'WP', 'CYBERPANEL', 'WINAPP', 'FELSEFE', 'ROMAN', 'EDEBIYAT')
@@ -116,16 +117,76 @@ def valid_subfolder(value: str) -> str:
     return '/'.join(parts)
 
 
+# Never silently derive a destination from Windows Documents. In particular, a
+# redirected OneDrive Documents folder can be an archive/trash location.
+TRASH_PARTS = {'doc-cop', 'cop', 'çöp', 'trash', 'recycle', 'recycle bin',
+               '$recycle.bin', 'silinenler', 'çöp kutusu', 'recycle.bin'}
+
+
+
+def validate_destination_root(value: Path | str, roots: dict[str, Path]) -> Path:
+    """Require an existing, explicit user destination; refuse trash/system roots."""
+    if not str(value).strip():
+        raise ValueError('Önce Hedef kök klasörünü seçin.')
+    path = Path(value).expanduser()
+    if (not path.is_dir() or path.is_symlink() or
+            (hasattr(path, 'is_junction') and path.is_junction())):
+        raise ValueError('Hedef kök mevcut bir normal klasör olmalıdır.')
+    base = path.resolve(strict=True)
+    trash_keys = {_category_key(x) for x in TRASH_PARTS}
+    if any(_category_key(part) in trash_keys for part in base.parts):
+        raise ValueError('Seçilen konum çöp/geri dönüşüm klasörü içeriyor (ör. DOC-COP). Başka bir hedef seçin.')
+    if base == Path.home().resolve(strict=False) or base == Path(base.anchor):
+        raise ValueError('Ev dizini veya disk kökü doğrudan hedef seçilemez; ayrı bir çalışma klasörü seçin.')
+    if sys.platform == 'win32':
+        blocked = [os.environ.get(key) for key in ('WINDIR', 'PROGRAMFILES', 'PROGRAMDATA', 'APPDATA', 'LOCALAPPDATA')]
+        for entry in blocked:
+            if entry and base.is_relative_to(Path(entry).resolve(strict=False)):
+                raise ValueError('Windows sistem/uygulama dizini hedef seçilemez.')
+    for label in ('Masaüstü', 'Belgeler'):
+        source = roots.get(label)
+        if source:
+            source_path = Path(source).resolve(strict=False)
+            if base == source_path or source_path.is_relative_to(base):
+                raise ValueError(f'{label} klasörünün kendisini veya üst dizinini hedef seçmeyin; ayrı bir çalışma klasörü seçin.')
+    return base
+
+
 def destination(roots: dict[str, Path], root_label: str, folder: str, name: str) -> Path:
-    if root_label not in roots:
-        raise ValueError('Hedef Masaüstü veya Belgeler olmalıdır.')
+    if root_label not in ('Masaüstü', 'Belgeler'):
+        raise ValueError('Kaynak konum bilinmiyor.')
+    if 'Hedef' not in roots:
+        raise ValueError('Hedef kök klasörü seçilmedi. Dosya taşınmadı.')
     relative = valid_subfolder(folder)
-    base = roots[root_label].resolve(strict=False)
-    target_dir = base / APP_FOLDER / Path(*relative.split('/'))
+    if relative.split('/')[0] == 'İncelenecek':
+        raise ValueError('İncelenecek öğeye gerçek bir hedef klasör seçin.')
+    base = validate_destination_root(roots['Hedef'], roots)
+    target_dir = base / Path(*relative.split('/'))
     resolved = target_dir.resolve(strict=False)
-    if not resolved.is_relative_to(base / APP_FOLDER):
-        raise ValueError('Hedef klasör izin verilen dizin dışında.')
+    if not resolved.is_relative_to(base):
+        raise ValueError('Hedef klasör seçilen kök dizin dışında.')
+    if not name or name in ('.', '..') or Path(name).name != name:
+        raise ValueError('Geçersiz dosya adı.')
     return target_dir / name
+
+
+def create_topic_folders(roots: dict[str, Path], folders: Iterable[str] = TOPIC_FOLDERS) -> list[Path]:
+    """Create only explicitly requested top-level folders, without moving files."""
+    if 'Hedef' not in roots:
+        raise ValueError('Önce Hedef kök klasörünü seçin.')
+    base = validate_destination_root(roots['Hedef'], roots)
+    result = []
+    for folder in folders:
+        relative = valid_subfolder(folder)
+        if '/' in relative:
+            raise ValueError('Ana klasör adı alt dizin içeremez.')
+        target = base / relative
+        if _exists(target) and (not target.is_dir() or target.is_symlink() or
+                                (hasattr(target, 'is_junction') and target.is_junction())):
+            raise ValueError(f'Hedefte normal klasör olmayan öğe var: {target}')
+        target.mkdir(exist_ok=True)
+        result.append(target)
+    return result
 
 
 def _xml_text(data: bytes) -> str:
@@ -200,7 +261,7 @@ class PlanItem:
         return destination(roots, self.root, self.folder, self.path.name)
 
 
-
+# Project-specific topical classification, preferred over generic file types.
 TOPIC_PATTERNS = (
     ('BRCGS', (r'\bbrcgs\b', r'\bbrc\b')),
     ('IFS', (r'\bifs\b',)),
@@ -213,16 +274,18 @@ TOPIC_PATTERNS = (
     ('CYBERPANEL', (r'\bcyberpanel\b',)),
     ('WINAPP', (r'\bwinapp\b', r'\bwindows[ _-]?app',)),
     ('WP', (r'\bwordpress\b', r'\bwp[ _-]',)),
-    ('FELSEFE', (r'\bfelsefe\b', r'\bphilosophy\b', r'\bpanlektik\b')),
-    ('ROMAN', (r'\broman\b', r'\bnovel\b')),
-    ('EDEBIYAT', (r'\bedebiyat\b', r'\bliterature\b')),
-    ('SPAIN', (r'\bspain\b', r'\bespana\b')),
-    ('EGYPT', (r'\begypt\b', r'\bmisir\b')),
+    ('FELSEFE', (r'\bfelsefe\b', r'\bphilosophy\b', r'\bpanlektik\b',)),
+    ('ROMAN', (r'\broman\b', r'\bnovel\b',)),
+    ('EDEBIYAT', (r'\bedebiyat\b', r'\bliterature\b',)),
+    ('SPAIN', (r'\bspain\b', r'\bespana\b',)),
+    ('EGYPT', (r'\begypt\b', r'\bmisir\b',)),
 )
 
+
 def topical_folder(name: str, snippet: str = '') -> str | None:
-    for value in (name, snippet[:1200]):
-        normalized = _category_key(value)
+    # Filename first; content only when the filename has no clear topic.
+    for text in (name, snippet[:1200]):
+        normalized = _category_key(text)
         for folder, patterns in TOPIC_PATTERNS:
             if any(re.search(pattern, normalized) for pattern in patterns):
                 return folder
@@ -280,7 +343,12 @@ def classify(path: Path, include_content: bool = True) -> PlanItem:
         category = 'VIDEO'
     elif category == 'Ses Dosyaları':
         category = 'SES'
-    return PlanItem(path=path, category=category, folder=category, root=root,
+    # Generic types are informative labels, NOT permission to create generic
+    # destination folders. Keep them in place until a user picks a topic.
+    proposed_folder = category if category in TOPIC_FOLDERS else 'İncelenecek'
+    if proposed_folder == 'İncelenecek':
+        reason += ' | Ana konu belirsiz: hedef kullanıcı tarafından seçilmeli'
+    return PlanItem(path=path, category=category, folder=proposed_folder, root=root,
                     confidence=confidence, reason=reason, snippet=snippet,
                     size=stat.st_size, mtime_ns=stat.st_mtime_ns, is_dir=is_dir)
 
@@ -308,6 +376,9 @@ def scan(roots: dict[str, Path], source_labels: Iterable[str],
                 warnings.append(f'{limit} öğelik güvenlik sınırına ulaşıldı.')
                 return items, warnings
             try:
+                if ('Hedef' in roots and
+                    Path(roots['Hedef']).resolve(strict=False).is_relative_to(path.resolve(strict=False))):
+                    continue  # Never scan the selected destination or its parent.
                 if (path.name.casefold() in BLOCKED_NAMES or
                     path.name.casefold() == APP_FOLDER.casefold() or
                     path.name.startswith('~$') or _is_link(path)):
@@ -482,6 +553,7 @@ def ollama_refine(item: PlanItem, model: str = 'gemma3:1b', timeout: float = 120
     category, confidence = parse_ai_response(str(outer.get('response', '')))
     return category, confidence, 'Yerel AI önerisi (Ollama)'
 
+
 class MoveJournal:
     def __init__(self, file: Path):
         file.parent.mkdir(parents=True, exist_ok=True)
@@ -550,6 +622,9 @@ def execute_approved(items: Iterable[PlanItem], roots: dict[str, Path], journal:
             if item.is_dir != src.is_dir():
                 raise RuntimeError('Dosya/klasör türü değişmiş')
             dst = item.target(roots)
+            # Do not move a source directory containing the destination root.
+            if item.is_dir and validate_destination_root(roots['Hedef'], roots).is_relative_to(src.resolve(strict=False)):
+                raise ValueError('Seçilen hedef kaynak klasörün içinde; bu klasör taşınamaz')
             if src.resolve(strict=False) == dst.resolve(strict=False):
                 raise ValueError('Kaynak ve hedef aynı')
             if item.is_dir and dst.resolve(strict=False).is_relative_to(src.resolve(strict=False)):
