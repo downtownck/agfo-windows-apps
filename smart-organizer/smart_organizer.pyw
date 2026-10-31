@@ -13,10 +13,10 @@ from tkinter import filedialog, messagebox, ttk
 
 from organizer_core import (
     APP_FOLDER, CATEGORIES, MoveJournal, PlanItem, app_state_dir,
-    execute_approved, list_ollama_models, pick_ollama_model, ollama_refine, scan, standard_roots, valid_subfolder,
+    execute_approved, AICategoryError, list_ollama_models, pick_ollama_model, ollama_refine, scan, standard_roots, valid_subfolder,
 )
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 BG = '#F4F7FB'
 TEXT = '#17283D'
 BLUE = '#2363A5'
@@ -371,6 +371,7 @@ class App(tk.Tk):
                 self.q.put(('progress', f'{model} yüklü değil; kurulu {selected} modeli seçildi.'))
             changed = 0
             warnings = []
+            invalid_count = 0
             for n, item in enumerate(candidates, 1):
                 self.q.put(('progress', f'Yerel AI: {n}/{len(candidates)} — {item.path.name[:30]}'))
                 try:
@@ -378,6 +379,15 @@ class App(tk.Tk):
                     # Worker changes objects; main UI reads after completion only.
                     item.category, item.folder, item.confidence, item.reason = cat, cat, conf, reason
                     changed += 1
+                    invalid_count = 0
+                except AICategoryError as exc:
+                    invalid_count += 1
+                    if len(warnings) < 3:
+                        warnings.append(f'{item.path.name}: {exc}')
+                    if invalid_count >= 3:
+                        warnings.append('Model art arda 3 geçersiz yanıt verdi; CPU üzerinde daha fazla zaman '
+                                        'harcamamak için AI analizi durduruldu. Önceki öneriler korundu.')
+                        break
                 except Exception as exc:
                     warnings.append(f'{item.path.name}: {exc}')
                     # Connection/model errors affect all subsequent files.
