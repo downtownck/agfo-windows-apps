@@ -21,12 +21,15 @@ from urllib import request, error
 from xml.etree import ElementTree as ET
 
 APP_FOLDER = 'AGFO Düzenlenenler'
+TOPIC_FOLDERS = ('BRCGS', 'IFS', 'ASI', 'GLOBALGAP', 'IAS', 'AGFO TR', 'AGFO SP',
+                 'CSI', 'ATECQ', 'SPAIN', 'EGYPT', 'SES', 'VIDEO', 'GORSEL',
+                 'WP', 'CYBERPANEL', 'WINAPP', 'FELSEFE', 'ROMAN', 'EDEBIYAT')
 CATEGORIES = (
     'Denetimler', 'Raporlar', 'Faturalar', 'Sözleşmeler', 'Finans',
     'Sunumlar', 'Tablolar', 'Belgeler', 'Görseller', 'Videolar',
     'Ses Dosyaları', 'Yazılım', 'Kurulum Dosyaları', 'Arşivler',
     'Kısayollar', 'Klasörler', 'Diğer', 'İncelenecek',
-)
+) + TOPIC_FOLDERS
 BLOCKED_NAMES = {'desktop.ini', 'thumbs.db', 'ehthumbs.db', '.ds_store'}
 WINDOWS_RESERVED = re.compile(r'^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$', re.I)
 KEYWORDS = (
@@ -197,6 +200,35 @@ class PlanItem:
         return destination(roots, self.root, self.folder, self.path.name)
 
 
+
+TOPIC_PATTERNS = (
+    ('BRCGS', (r'\bbrcgs\b', r'\bbrc\b')),
+    ('IFS', (r'\bifs\b',)),
+    ('GLOBALGAP', (r'\bglobalgap\b', r'\bglobal\s*g\s*a\s*p\b', r'\bggap\b', r'\bglobal\s*gap\b')),
+    ('IAS', (r'\bias\b', r'\binternational accreditation service\b')),
+    ('ASI', (r'\basi\b', r'\basc\b')),
+    ('ATECQ', (r'\batecq\b',)), ('CSI', (r'\bcsi\b',)),
+    ('AGFO SP', (r'\bagfo[ _-]?(?:sp|spain)\b',)),
+    ('AGFO TR', (r'\bagfo[ _-]?(?:tr|turkiye|turkey)\b',)),
+    ('CYBERPANEL', (r'\bcyberpanel\b',)),
+    ('WINAPP', (r'\bwinapp\b', r'\bwindows[ _-]?app',)),
+    ('WP', (r'\bwordpress\b', r'\bwp[ _-]',)),
+    ('FELSEFE', (r'\bfelsefe\b', r'\bphilosophy\b', r'\bpanlektik\b')),
+    ('ROMAN', (r'\broman\b', r'\bnovel\b')),
+    ('EDEBIYAT', (r'\bedebiyat\b', r'\bliterature\b')),
+    ('SPAIN', (r'\bspain\b', r'\bespana\b')),
+    ('EGYPT', (r'\begypt\b', r'\bmisir\b')),
+)
+
+def topical_folder(name: str, snippet: str = '') -> str | None:
+    for value in (name, snippet[:1200]):
+        normalized = _category_key(value)
+        for folder, patterns in TOPIC_PATTERNS:
+            if any(re.search(pattern, normalized) for pattern in patterns):
+                return folder
+    return None
+
+
 def classify(path: Path, include_content: bool = True) -> PlanItem:
     stat = path.stat(follow_symlinks=False)
     is_dir = path.is_dir()
@@ -239,6 +271,15 @@ def classify(path: Path, include_content: bool = True) -> PlanItem:
             if any(w in sample for w in words):
                 category, confidence, reason = group, 0.81, 'Dosya içeriğindeki anahtar sözcük'
                 break
+    topic = topical_folder(path.stem, snippet)
+    if topic:
+        category, confidence, reason = topic, 0.94, 'Konu/proje klasörü eşleşmesi'
+    elif category == 'Görseller':
+        category = 'GORSEL'
+    elif category == 'Videolar':
+        category = 'VIDEO'
+    elif category == 'Ses Dosyaları':
+        category = 'SES'
     return PlanItem(path=path, category=category, folder=category, root=root,
                     confidence=confidence, reason=reason, snippet=snippet,
                     size=stat.st_size, mtime_ns=stat.st_mtime_ns, is_dir=is_dir)
@@ -354,6 +395,8 @@ _CATEGORY_ALIASES = {
     'folder': 'Klasörler', 'folders': 'Klasörler', 'klasor': 'Klasörler',
     'other': 'Diğer', 'others': 'Diğer', 'misc': 'Diğer', 'diger': 'Diğer',
     'needs review': 'İncelenecek', 'review': 'İncelenecek', 'incelenecek': 'İncelenecek',
+    'globalg a p': 'GLOBALGAP', 'global gap': 'GLOBALGAP', 'ggap': 'GLOBALGAP',
+    'international accreditation service': 'IAS',
 }
 
 
