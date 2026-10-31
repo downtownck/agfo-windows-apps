@@ -289,7 +289,7 @@ def scan(roots: dict[str, Path], source_labels: Iterable[str],
     return items, warnings
 
 
-def ollama_refine(item: PlanItem, model: str = 'qwen2.5:3b', timeout: float = 15.0) -> tuple[str, float, str]:
+def ollama_refine(item: PlanItem, model: str = 'gemma3:1b', timeout: float = 120.0) -> tuple[str, float, str]:
     """Only localhost Ollama. Files stay on the computer; snippets sent to localhost."""
     snippet = item.snippet or sample_text(item.path)
     prompt = (
@@ -302,7 +302,7 @@ def ollama_refine(item: PlanItem, model: str = 'qwen2.5:3b', timeout: float = 15
         + snippet[:2700]
     )
     payload = json.dumps({'model': model, 'prompt': prompt, 'stream': False,
-                          'options': {'temperature': 0, 'num_predict': 100}}).encode('utf-8')
+                          'options': {'temperature': 0, 'num_predict': 100, 'num_ctx': 2048}}).encode('utf-8')
     req = request.Request('http://127.0.0.1:11434/api/generate', data=payload,
                           headers={'Content-Type': 'application/json'}, method='POST')
     with request.urlopen(req, timeout=timeout) as result:
