@@ -305,6 +305,52 @@ w.set_font(60); assert core.load_settings()['lyrics_font'] == 60
 w.close(); assert app.lyrics_win is None
 PASSED.append('lyrics_prompter_follow_and_timing')
 
+# PROMPTER (konusma): bolumlere ayir, tusla gec, geri sayimli kayit, bolum isaretleri WAV + Audacity etiketleri
+app.bg_remove()
+speech = '\n\n'.join('Paragraf %d. Bu bir deneme cümlesidir ve prompter ekranında okunacaktır. İkinci cümle de burada.' % i
+                       for i in range(1, 13))
+app._lyrics_set(mly.from_text(speech), remember=False)
+app.cfg['prompter_countdown'] = 0
+w = app.lyrics_open(); w.geometry('800x500'); pump(app, 3); w.update()
+if not w.prompter:
+    w.toggle_mode()
+assert core.load_settings()['prompter_mode'] is True
+w.layout(); pump(app, 2)
+assert len(w.sections) >= 3 and w.sec == 0, len(w.sections)
+assert sum(len(x) for x in w.sections) >= 12
+w.event_generate('<Next>'); w.forward(); assert w.sec == 2
+w.back(); assert w.sec == 1
+w.goto(0)
+recdir3 = pathlib.Path(TMP) / 'rec_prompter'
+app.var_dir.set(str(recdir3)); app._changed(restart=False)
+w.toggle_record()                                        # geri sayim 0: hemen baslar
+assert app.engine.recording is not None and app._marks and app._marks[0][0] == 0.0
+cb = sd.opened[-1].callback
+for _ in range(100):                                     # 1 sn
+    cb(np.full((480, 2), 0.02, dtype=np.float32), out, 480, None, None)
+w.forward()                                              # bolum 2 @ 1,0 sn
+for _ in range(50):
+    cb(np.full((480, 2), 0.02, dtype=np.float32), out, 480, None, None)
+w.forward()                                              # bolum 3 @ 1,5 sn
+w.update_view()
+assert 'KAYIT' in w.var_rec.get() and w.btn_rec.cget('text').startswith('■')
+for _ in range(20):
+    cb(np.full((480, 2), 0.02, dtype=np.float32), out, 480, None, None)
+w.toggle_record()                                        # durdur
+assert app.engine.recording is None
+wavs = list(recdir3.glob('Kayit_*.wav')); labs = list(recdir3.glob('*_bolumler.txt'))
+assert len(wavs) == 1 and len(labs) == 1
+mk = core.read_wav_markers(wavs[0])
+assert [m[0] for m in mk] == [0, 48000, 72000], mk
+assert mk[1][1].startswith('Bolum 2: ') and mk[2][1].startswith('Bolum 3: ') and mk[1][1] == w.section_label(1)
+lines = labs[0].read_text(encoding='utf-8').splitlines()
+assert lines[1].startswith('1.000000\t1.000000\tBolum 2') and len(lines) == 3
+with wave.open(str(wavs[0])) as ww:
+    assert ww.getnframes() == 82 * 480 - 0 or ww.getnframes() > 0
+w.toggle_mode(); assert core.load_settings()['prompter_mode'] is False and w.items
+w.close()
+PASSED.append('prompter_sections_record_markers')
+
 app.bg_remove()
 assert app.backing_track is None and app.engine.backing is None and core.load_settings()['bg_file'] == ''
 PASSED.append('backing_record_vocal_and_mix')

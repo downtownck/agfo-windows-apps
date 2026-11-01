@@ -39,6 +39,12 @@ Hata olursa ayrıntılar `%LOCALAPPDATA%\AGFO\MicMonitor\build\last-build.txt` d
 
 Altyapı Mic Monitor'ün içinden çalar. Özel modda başka bir programdan çalınan altyapı duyulmaz; bu yüzden altyapıyı buradan çalın. Vokal kulağınıza hâlâ az erken ya da geç geliyorsa "Kayıt kaydırma" ile ince ayar yapın.
 
+### Prompter ile sesli metin kaydı
+Altyapı sekmesinde **Aç…** (TXT, Word, Markdown) ya da **Yapıştır…** ile metni yükleyip **Prompter / söz ekranı**'nı açın. Pencerede **Kip: Prompter (konuşma)** seçili olsun.
+- Metin ekrana sığan bölümlere ayrılır. İleri geçmek için Boşluk, PageDown ya da ↓; geri dönmek için PageUp ya da ↑. Sunum kumandası da çalışır.
+- **● Kayıt** geri sayımdan sonra kaydı başlatır. Her bölüm geçişi kayıtta işaretlenir. İşaretler WAV dosyasının içine yazılır (Cool Edit ve Audition gösterir), ayrıca `_bolumler.txt` olarak kaydedilir (Audacity: Dosya > İçe Aktar > Etiketler).
+- Fon müziği için Altyapı sekmesinde bir müzik seçip **Döngüde çal**'ı işaretleyin. Kayıt bitince ses ve karışım ayrı dosyalara yazılır.
+
 ### Şarkı sözü ekranı
 Altyapı sekmesinde **Söz aç…** (TXT, LRC, Word) ya da **Yapıştır…** ile sözleri yükleyin. Altyapıyla aynı adlı söz dosyası varsa kendiliğinden yüklenir.
 

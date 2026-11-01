@@ -171,6 +171,22 @@ def mix_contains_backing_and_vocal_without_clipping():
 
 
 @test
+def loop_plays_seamlessly_and_mix_tiles_with_fade():
+    p = mb.write_wav(TMP / 'bed.wav', np.arange(1000, dtype=np.float32)[:, None].repeat(2, 1) / 1000.0, 48000, 24)
+    bk = mb.BackingTrack(p); bk.prepare(48000); bk.loop = True
+    bk.play(from_start=True)
+    got = np.concatenate([bk.read(300) for _ in range(10)])        # 3000 ornek: 3 tur
+    exp = np.tile(bk.data, (3, 1))
+    assert np.allclose(got, exp) and bk.playing and not bk.ended
+    voc = np.zeros((48000 * 3, 1), dtype=np.float32)
+    vp = mb.write_wav(TMP / 'L_vokal.wav', voc, 48000, 16)
+    out = mb.make_mix(vp, bk, 1.0, loop=True)
+    mix, _ = mb.read_wav(out)
+    assert len(mix) == len(voc)                                     # vokal boyunca, kisa muzik dongude
+    assert np.abs(mix[-10:]).max() < 1e-3 and np.abs(mix[48500:48600]).max() > 0.3   # sonda kapanis, ortada muzik
+
+
+@test
 def stop_before_first_callback_returns_recording():
     _, data = make_backing(0.2, 48000, 'bg_s.wav')
     sd = FakeSD()

@@ -10,7 +10,9 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
-LYRIC_TYPES = (('Sarki sozu', '*.txt *.lrc *.docx'), ('Tum dosyalar', '*.*'))
+LYRIC_TYPES = (('Metin / sarki sozu', '*.txt *.md *.lrc *.docx'), ('Tum dosyalar', '*.*'))
+_MD_INLINE = (re.compile(r'!\[[^\]]*\]\([^)]*\)'), re.compile(r'\[([^\]]+)\]\([^)]*\)'),
+              re.compile(r'(\*\*|__)(.+?)\1'), re.compile(r'(\*|_)(.+?)\1'), re.compile(r'`([^`]*)`'))
 _STAMP = re.compile(r'\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]')
 _TAG = re.compile(r'^\[([a-zA-Z#]+):(.*)\]\s*$')
 
@@ -116,6 +118,28 @@ def read_docx(path):
     return '\n'.join(paras)
 
 
+def parse_markdown(text):
+    """Markdown -> duz satirlar: basliklar, madde imleri, vurgu, baglanti ve kod isaretleri atilir."""
+    out = []
+    in_code = False
+    for ln in text.replace('\r\n', '\n').replace('\r', '\n').lstrip('\ufeff').split('\n'):
+        if ln.strip().startswith('```'):
+            in_code = not in_code
+            continue
+        if in_code:
+            continue
+        ln = re.sub(r'^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)', '', ln)
+        if re.fullmatch(r'\s*([-*_]\s*){3,}', ln):
+            ln = ''
+        ln = _MD_INLINE[0].sub('', ln)
+        ln = _MD_INLINE[1].sub(r'\1', ln)
+        ln = _MD_INLINE[2].sub(r'\2', ln)
+        ln = _MD_INLINE[3].sub(r'\2', ln)
+        ln = _MD_INLINE[4].sub(r'\1', ln)
+        out.append(ln)
+    return parse_text('\n'.join(out))
+
+
 def _read_text_file(path):
     raw = pathlib.Path(path).read_bytes()
     for enc in ('utf-8-sig', 'utf-16', 'cp1254', 'latin-1'):
@@ -135,6 +159,8 @@ def load(path):
     if ext == '.docx':
         return Lyrics(parse_text(read_docx(path)), source=path)
     text = _read_text_file(path)
+    if ext in ('.md', '.markdown'):
+        return Lyrics(parse_markdown(text), source=path)
     if ext == '.lrc' or _STAMP.search(text[:2000] or ''):
         lines, times = parse_lrc(text)
         if lines:
@@ -260,3 +286,41 @@ def find_for_backing(backing_path):
         if c.is_file():
             return c
     return None
+
+
+# --------------------------------------------------------------------------- prompter (konusma)
+def paragraphs(lines):
+    """Prompter kipi: her dolu satir bir paragraf; bos satirlar yalniz ayiricidir."""
+    return [ln for ln in lines if ln.strip()]
+
+
+def split_sentences(text):
+    """Ekrana sigmayan uzun paragraf icin cumlelere bol (nokta / soru / unlem / uc nokta sonrasi)."""
+    parts = re.split(r'(?<=[.!?…])\s+', text.strip())
+    return [p for p in parts if p]
+
+
+def build_sections(paras, fits):
+    """Paragraflari ekrana sigan bolumlere grupla. fits(list_of_paragraphs) -> bool (olcum arayuzde).
+    Tek basina sigmayan paragraf cumlelere bolunur; tek cumle de sigmazsa oldugu gibi kendi bolumu olur."""
+    units = []
+    for p in paras:
+        if fits([p]):
+            units.append(p)
+        else:
+            units.extend(split_sentences(p) or [p])
+    sections, cur = [], []
+    for u in units:
+        if cur and not fits(cur + [u]):
+            sections.append(cur)
+            cur = [u]
+        else:
+            cur.append(u)
+    if cur:
+        sections.append(cur)
+    return sections
+
+
+def audacity_labels(marks):
+    """[(saniye, etiket)] -> Audacity etiket dosyasi metni (Dosya > Ice aktar > Etiketler)."""
+    return ''.join('%.6f\t%.6f\t%s\n' % (t, t, lab.replace('\t', ' ').replace('\n', ' ')) for t, lab in marks)

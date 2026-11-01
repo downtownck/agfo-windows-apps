@@ -108,4 +108,32 @@ def companion_files():
     assert ly.lrc_path_for(ly.from_text('a'), bg).name == 'Longa.lrc'
 
 
+@test
+def markdown_import():
+    md = '# Başlık\n\nBu **kalın** ve *eğik* bir [bağlantı](http://x).\n\n- madde bir\n1. sıra\n\n```\nkod\n```\n> alıntı `kod`\n---\n'
+    assert ly.parse_markdown(md) == ['Başlık', '', 'Bu kalın ve eğik bir bağlantı.', '', 'madde bir', 'sıra', '', 'alıntı kod']
+    (TMP / 'm.md').write_text(md, encoding='utf-8')
+    assert ly.load(TMP / 'm.md').lines[0] == 'Başlık'
+
+
+@test
+def sections_fit_and_split_long_paragraphs():
+    paras = ly.paragraphs(['Kısa bir.', '', 'İki.', 'Çok uzun bir paragraf. İkinci cümle burada! Üçüncü mü? Evet…', 'Son.'])
+    assert paras == ['Kısa bir.', 'İki.', 'Çok uzun bir paragraf. İkinci cümle burada! Üçüncü mü? Evet…', 'Son.']
+    fits = lambda ps: sum(len(p) for p in ps) <= 30            # ekran ~30 karakter alir
+    sec = ly.build_sections(paras, fits)
+    assert sec[0] == ['Kısa bir.', 'İki.']
+    assert all(fits(s) for s in sec[:-1])
+    flat = [u for s in sec for u in s]
+    assert 'İkinci cümle burada!' in flat and flat[-1] == 'Son.'
+    giant = ['x' * 100]                                         # tek cumle bile sigmiyor: kendi bolumu
+    assert ly.build_sections(giant, fits) == [giant]
+
+
+@test
+def audacity_label_format():
+    t = ly.audacity_labels([(0.0, 'Bölüm 1: Giriş'), (12.5, 'Bölüm\t2')])
+    assert t == '0.000000\t0.000000\tBölüm 1: Giriş\n12.500000\t12.500000\tBölüm 2\n'
+
+
 print('OK - %d test gecti: %s' % (len(PASSED), ', '.join(PASSED)))

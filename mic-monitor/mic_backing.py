@@ -97,6 +97,7 @@ class BackingTrack:
         self.pos = 0
         self.playing = False
         self.ended = False
+        self.loop = False                  # fon muzigi: sona gelince bastan devam
         self._lock = threading.Lock()
 
     @property
@@ -146,6 +147,13 @@ class BackingTrack:
         if not self.playing or data is None:
             return None
         p = self.pos
+        if self.loop and len(data):
+            p %= len(data)
+            out = data[p:p + n]
+            while len(out) < n:                      # sona geldi: bastan devam (dikissiz)
+                out = np.concatenate([out, data[:n - len(out)]])
+            self.pos = (p + n) % len(data)
+            return out
         out = data[p:p + n]
         if len(out) < n:
             out = np.concatenate([out, np.zeros((n - len(out), 2), dtype=F32)])
@@ -196,7 +204,7 @@ def mix_path_for(vocal_path):
     return p.with_name(stem + '_karisim.wav')
 
 
-def make_mix(vocal_path, backing, backing_gain, fx_cfg=None, bits=24, out_path=None):
+def make_mix(vocal_path, backing, backing_gain, fx_cfg=None, bits=24, out_path=None, loop=False):
     """Altyapi + vokal karisimi. Vokal kuru kaydedildiyse kulaklikta duyulan efektler (yanki/reverb)
     karisimda da uygulanir. Tepe -1 dBFS'yi asarsa tum karisim olceklenir (kirpilma olmaz)."""
     voc, sr = read_wav(vocal_path)
@@ -214,6 +222,14 @@ def make_mix(vocal_path, backing, backing_gain, fx_cfg=None, bits=24, out_path=N
         # kuyrugun sessiz kismini kirp
         nz = np.nonzero(np.abs(v2).max(axis=1) > 1e-4)[0]
         v2 = v2[:max(len(voc), (nz[-1] + 1) if len(nz) else 0)]
+    if loop and len(bg):
+        # fon muzigi: vokal (efekt kuyruguyla) boyunca dongude, sonda 2 sn yumusak kapanis
+        need = len(v2)
+        reps = int(np.ceil(need / float(len(bg)))) if need else 1
+        bg = np.tile(bg, (max(1, reps), 1))[:max(need, 1)]
+        fade = min(len(bg), int(2.0 * sr))
+        if fade:
+            bg[-fade:] *= np.linspace(1.0, 0.0, fade, dtype=F32)[:, None]
     n = max(len(bg), len(v2))
     mix = np.zeros((n, 2), dtype=F32)
     mix[:len(bg)] += bg

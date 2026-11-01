@@ -244,6 +244,7 @@ class App(tk.Tk):
         self._bg_loading = False
         self.lyrics = None
         self.lyrics_win = None
+        self._marks = []                  # 1.4.0: prompter bolum isaretleri [(saniye, etiket)]
         self._fx_labels = []
         self._build_backing(self._section('ALTYAPI', self.tabs), pad)
         self._build_fx(self._section('EFEKTLER', self.tabs), pad)
@@ -368,21 +369,24 @@ class App(tk.Tk):
         ttk.Checkbutton(bt, text='Kayit bitince karisim dosyasi da olustur (altyapi + vokal, efektler dahil)',
                         variable=self.var_bg_mix, command=lambda: self._changed(restart=False)).grid(row=5, column=0, columnspan=4, sticky='w', **pad)
         ttk.Checkbutton(bt, text='Altyapi bitince kaydi durdur', variable=self.var_bg_stopend,
-                        command=lambda: self._changed(restart=False)).grid(row=6, column=0, columnspan=4, sticky='w', **pad)
+                        command=lambda: self._changed(restart=False)).grid(row=6, column=0, columnspan=2, sticky='w', **pad)
+        self.var_bg_loop = tk.BooleanVar()
+        ttk.Checkbutton(bt, text='Dongude cal (fon muzigi)', variable=self.var_bg_loop,
+                        command=self._bg_loop_changed).grid(row=6, column=2, columnspan=2, sticky='w', **pad)
         self.var_bg_off = tk.DoubleVar()
         self._scale(bt, 7, 0, 'Kayit kaydirma:', self.var_bg_off, -100, 100, '%+d ms', length=240)
         self.var_bg_comp = tk.StringVar(value='')
         self._lbl(bt, '').grid(row=8, column=0)
         tk.Label(bt, textvariable=self.var_bg_comp, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
                  wraplength=int(620 * self.scale)).grid(row=8, column=0, columnspan=4, sticky='w', padx=6)
-        self._lbl(bt, 'Sarki sozu:').grid(row=9, column=0, sticky='w', padx=6, pady=(10, 3))
+        self._lbl(bt, 'Metin / soz:').grid(row=9, column=0, sticky='w', padx=6, pady=(10, 3))
         self.var_ly_name = tk.StringVar(value='(yok)')
         tk.Label(bt, textvariable=self.var_ly_name, fg=FG, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w',
                  width=40).grid(row=9, column=1, columnspan=2, sticky='w', padx=6, pady=(10, 3))
         lb = tk.Frame(bt, bg=PANEL); lb.grid(row=9, column=3, sticky='e', padx=6, pady=(10, 3))
-        self._btn(lb, 'Soz ac…', self.lyrics_choose, 'ghost').pack(side='left', padx=(0, 4))
+        self._btn(lb, 'Ac…', self.lyrics_choose, 'ghost').pack(side='left', padx=(0, 4))
         self._btn(lb, 'Yapistir…', self.lyrics_paste, 'ghost').pack(side='left', padx=(0, 4))
-        self._btn(lb, 'Soz ekrani', self.lyrics_open, 'normal').pack(side='left')
+        self._btn(lb, 'Prompter / soz ekrani', self.lyrics_open, 'normal').pack(side='left')
 
     # ---------------------------------------------------------------- sarki sozu
     def lyrics_time(self):
@@ -457,6 +461,45 @@ class App(tk.Tk):
         import lyrics_window
         self.lyrics_win = lyrics_window.LyricsWindow(self)
         return self.lyrics_win
+
+    def prompter_record_start(self, section=None, label=None):
+        """Prompter penceresinden geri sayim bitince: kaydi baslat, ilk bolumu 0. saniyeye isaretle."""
+        if self.engine is not None and self.engine.recording is not None:
+            return
+        self.toggle_record()
+        if self.engine is not None and self.engine.recording is not None and section is not None:
+            self._marks = [(0.0, label or 'Bolum %d' % (section + 1))]
+
+    def prompter_mark(self, section, label):
+        rec = self.engine.recording if self.engine is not None else None
+        if rec is None:
+            return
+        t = max(0.0, float(rec.elapsed))
+        if self._marks and abs(self._marks[-1][0] - t) < 0.05:
+            self._marks[-1] = (t, label)              # cok hizli art arda gecis: son isaret yenilenir
+        else:
+            self._marks.append((t, label))
+
+    def _write_marks(self, wav_path, sr, marks):
+        """Bolum isaretlerini WAV'a (Cool Edit / Audition) ve Audacity etiket dosyasina yaz."""
+        if not marks:
+            return None
+        try:
+            core.add_wav_markers(wav_path, marks, sr)
+        except Exception as e:
+            core.log_line('markers %s: %r' % (wav_path, e))
+        p = pathlib.Path(wav_path)
+        stem = p.stem
+        for suf in ('_vokal', '_karisim'):
+            if stem.endswith(suf):
+                stem = stem[:-len(suf)]
+        lab = p.with_name(stem + '_bolumler.txt')
+        try:
+            lab.write_text(mly.audacity_labels(marks), encoding='utf-8')
+        except OSError as e:
+            core.log_line('labels: %r' % e)
+            return None
+        return lab
 
     def timing_start(self):
         """Zamanlama provasi: altyapi bastan calar (dinleme gerekirse baslatilir)."""
@@ -542,6 +585,7 @@ class App(tk.Tk):
             return
         if self.backing_track is not None:
             self.backing_track.stop()
+        tr.loop = bool(self.cfg.get('bg_loop'))
         self.backing_track = tr
         self.cfg['bg_file'] = str(tr.path); core.save_settings(self.cfg)
         self.var_bg_name.set('%s  (%s)' % (tr.name, self._fmt_t(tr.duration)))
@@ -604,6 +648,11 @@ class App(tk.Tk):
             self.backing_track.seek(0)
         self._bg_tick()
 
+    def _bg_loop_changed(self):
+        self._changed(restart=False)
+        if self.backing_track is not None:
+            self.backing_track.loop = bool(self.cfg.get('bg_loop'))
+
     def _bg_live(self):
         if self.engine is not None:
             self.engine.set_bg_volume(self.var_bg_vol.get())
@@ -619,11 +668,15 @@ class App(tk.Tk):
             return
         fx_cfg = None if self.engine._rec_wet else {k: v for k, v in self.cfg.items() if k.startswith('fx_')}
         gain, bits, path = self.engine.bg_gain, self.cfg['record_bits'], rec.path
+        marks = list(getattr(self, '_last_marks', []) or [])
+        loop = bool(self.cfg.get('bg_loop'))
         self._status('Kaydedildi: %s — karisim hazirlaniyor…' % path.name, ACCENT)
 
         def fn(post):
             try:
-                out = mbk.make_mix(path, tr, gain, fx_cfg, bits)
+                out = mbk.make_mix(path, tr, gain, fx_cfg, bits, loop=loop)
+                if marks:
+                    core.add_wav_markers(out, marks, rec.samplerate)
                 post(lambda: self._status('Kaydedildi: %s  +  %s' % (path.name, out.name), OK_C))
             except Exception as e:
                 core.log_line('mix failed: %r' % e)
@@ -687,6 +740,7 @@ class App(tk.Tk):
         self.var_fx_rec.set(c['fx_to_record'])
         self.var_bg_vol.set(c['bg_volume']); self.var_bg_restart.set(c['bg_restart_on_record'])
         self.var_bg_mix.set(c['bg_make_mix']); self.var_bg_stopend.set(c['bg_stop_at_end']); self.var_bg_off.set(c['bg_offset_ms'])
+        self.var_bg_loop.set(c['bg_loop'])
         self.var_bg_comp.set(self._bg_comp_text())
         for lab, var, fmt in self._fx_labels:
             lab.config(text=fmt % float(var.get()))
@@ -727,6 +781,7 @@ class App(tk.Tk):
         c['bg_volume'] = int(round(float(self.var_bg_vol.get()))); c['bg_offset_ms'] = int(round(float(self.var_bg_off.get())))
         c['bg_restart_on_record'] = bool(self.var_bg_restart.get()); c['bg_make_mix'] = bool(self.var_bg_mix.get())
         c['bg_stop_at_end'] = bool(self.var_bg_stopend.get())
+        c['bg_loop'] = bool(self.var_bg_loop.get())
         self.cfg = core._clean(c)
         return self.cfg
 
@@ -941,7 +996,11 @@ class App(tk.Tk):
             return
         if self.engine.recording is not None:
             with_bg = self.engine.rec_with_backing
+            marks, self._marks = self._marks, []
             rec = self.engine.stop_recording()
+            if rec is not None and marks and not rec.error:
+                self._write_marks(rec.path, rec.samplerate, marks)
+            self._last_marks = marks
             self.btn_rec.config(text='● Kaydi baslat', bg='#7a2a2a')
             if with_bg and self.backing_track is not None:
                 self.backing_track.stop()
@@ -970,6 +1029,7 @@ class App(tk.Tk):
                                                offset_ms=cfg['bg_offset_ms'])
         except Exception as e:
             messagebox.showerror('Kayit', 'Kayit baslatilamadi: %s' % e, parent=self); return
+        self._marks = []
         self.btn_rec.config(text='■ Kaydi durdur', bg='#a33a3a')
         self._status('Kaydediliyor: %s' % path, BAD_C)
         self._update_info()
@@ -1400,8 +1460,12 @@ def smoke(report_path):
         app._lyrics_set(mly.from_text('Uzun ince bir yoldayım\nGidiyorum gündüz gece'), remember=False)
         lw = app.lyrics_open(); app.update(); lw.layout(); lw.update_view(force=True)
         assert len(lw.items) == 2
+        app.cfg['prompter_mode'] = True
+        lw.layout()
+        assert lw.sections and len(lw.items) == 1
+        app.cfg['prompter_mode'] = False
         lw.close()
-        lines.append('lyrics: ok')
+        lines.append('lyrics: ok (prompter ok)')
         w = mic_fx.FxChain(48000).configure({'fx_echo_on': True, 'fx_rev_on': True}).process(numpy.zeros((480, 2), dtype='float32'))
         assert w.shape == (480, 2)
         lines.append('effects: ok')

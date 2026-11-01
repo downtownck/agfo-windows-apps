@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.3.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.4.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.3.0'
+VERSION = '1.4.0'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -78,6 +78,9 @@ DEFAULT_CONFIG = {
     'bg_offset_ms': 0,         # otomatik gecikme duzeltmesine ek ince ayar (+: vokal daha erkene)
     'lyrics_file': '',         # 1.3.0: sarki sozu (TXT / LRC / DOCX)
     'lyrics_font': 40,
+    'prompter_mode': False,    # 1.4.0: True = konusma prompter'i (bolum bolum), False = sarki sozu (muzige bagli)
+    'prompter_countdown': 3,   # kayit oncesi geri sayim (sn)
+    'bg_loop': False,          # altyapiyi dongude cal (fon muzigi)
     'autostart': False,        # acilista dinlemeyi baslat
     'auto_update_check': True,
 }
@@ -116,6 +119,7 @@ def _clean(data):
     out['monitor_volume'] = min(100, max(0, int(out['monitor_volume'])))
     out['bg_volume'] = min(100, max(0, int(out['bg_volume'])))
     out['lyrics_font'] = min(120, max(16, int(out['lyrics_font'])))
+    out['prompter_countdown'] = min(10, max(0, int(out['prompter_countdown'])))
     out['bg_offset_ms'] = min(200, max(-200, int(out['bg_offset_ms'])))
     out['fx_echo_ms'] = min(1500, max(60, int(out['fx_echo_ms'])))
     out['fx_echo_fb'] = min(85, max(0, int(out['fx_echo_fb'])))
@@ -338,6 +342,8 @@ class WavRecorder:
         < 0: basa N ornek sessizlik eklenir."""
         self.path = pathlib.Path(path)
         self._skip = int(skip_frames)
+        self._skip0 = int(skip_frames)
+        self.pushed = 0                      # ses is parcacigindan gelen ornek (yazma kuyrugundan bagimsiz)
         self.samplerate = int(samplerate)
         self.channels = int(channels)
         self.bits = 24 if bits == 24 else 16
@@ -356,6 +362,7 @@ class WavRecorder:
 
     def push(self, block):
         """Ses is parcacigindan: kopya alir ve kuyruga koyar; kuyruk doluysa blogu sayar ve atar."""
+        self.pushed += len(block)
         try:
             self.q.put_nowait(block.copy())
         except queue.Full:
@@ -392,6 +399,11 @@ class WavRecorder:
     @property
     def seconds(self):
         return self.frames / float(self.samplerate or 1)
+
+    @property
+    def elapsed(self):
+        """Dosyadaki zaman ekseninde 'su an' (gecikme duzeltmesi dahil; disk kuyrugu beklenmez)."""
+        return max(0, self.pushed - self._skip0) / float(self.samplerate or 1)
 
     def close(self, timeout=10.0):
         self.q.put(None)
@@ -461,3 +473,74 @@ def match_device_name(wanted, names):
         if n and (low.startswith(n.lower()) or n.lower().startswith(low)):
             return i
     return None
+
+
+# --------------------------------------------------------------------------- WAV isaretleri (cue)
+def add_wav_markers(path, markers, sr):
+    """WAV dosyasina isaret ekler: 'cue ' + LIST/adtl/labl bloklari. Cool Edit, Adobe Audition ve
+    pek cok duzenleyici bunlari bolum isareti olarak gosterir. markers: [(saniye, etiket)]."""
+    import struct
+    if not markers:
+        return path
+    p = pathlib.Path(path)
+    with open(p, 'r+b') as f:
+        data = f.read()
+        if data[:4] != b'RIFF' or data[8:12] != b'WAVE':
+            raise ValueError('WAV degil')
+        # data blogunun sonu (tek boyutlu blokta RIFF dolgu bayti gerekir)
+        pos, end, pad = 12, None, 0
+        while pos + 8 <= len(data):
+            cid, size = data[pos:pos + 4], struct.unpack('<I', data[pos + 4:pos + 8])[0]
+            if cid == b'data':
+                end, pad = pos + 8 + size, size & 1
+                break
+            pos += 8 + size + (size & 1)
+        if end is None:
+            raise ValueError('data blogu yok')
+        rest = data[end + pad:]                     # data'dan sonra gelen bloklar (varsa) korunur
+        f.seek(end)
+        f.truncate()
+        if pad:                                     # tek boyutlu blok: RIFF dolgu bayti
+            f.write(b'\x00')
+        f.write(rest)
+        n = len(markers)
+        cue = struct.pack('<I', n)
+        labl = b''
+        for i, (t, label) in enumerate(markers, 1):
+            frame = max(0, int(round(float(t) * sr)))
+            cue += struct.pack('<II4sIII', i, frame, b'data', 0, 0, frame)
+            txt = str(label).encode('cp1254', 'replace') + b'\x00'
+            body = struct.pack('<I', i) + txt
+            labl += b'labl' + struct.pack('<I', len(body)) + body + (b'\x00' if len(body) & 1 else b'')
+        f.write(b'cue ' + struct.pack('<I', len(cue)) + cue)
+        lst = b'adtl' + labl
+        f.write(b'LIST' + struct.pack('<I', len(lst)) + lst)
+        total = f.tell()
+        f.seek(4)
+        f.write(struct.pack('<I', total - 8))
+    return p
+
+
+def read_wav_markers(path):
+    """add_wav_markers'in yazdigi isaretleri okur: [(ornek, etiket)] (testler ve dogrulama icin)."""
+    import struct
+    data = pathlib.Path(path).read_bytes()
+    pos, cues, labels = 12, {}, {}
+    while pos + 8 <= len(data):
+        cid, size = data[pos:pos + 4], struct.unpack('<I', data[pos + 4:pos + 8])[0]
+        body = data[pos + 8:pos + 8 + size]
+        if cid == b'cue ':
+            n = struct.unpack('<I', body[:4])[0]
+            for k in range(n):
+                i, frame = struct.unpack('<II', body[4 + 24 * k:12 + 24 * k])
+                cues[i] = frame
+        elif cid == b'LIST' and body[:4] == b'adtl':
+            q = 4
+            while q + 8 <= len(body):
+                sid, ssz = body[q:q + 4], struct.unpack('<I', body[q + 4:q + 8])[0]
+                if sid == b'labl':
+                    i = struct.unpack('<I', body[q + 8:q + 12])[0]
+                    labels[i] = body[q + 12:q + 8 + ssz].split(b'\x00')[0].decode('cp1254', 'replace')
+                q += 8 + ssz + (ssz & 1)
+        pos += 8 + size + (size & 1)
+    return [(cues[i], labels.get(i, '')) for i in sorted(cues)]

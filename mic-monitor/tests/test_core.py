@@ -154,6 +154,21 @@ def wav_recorder_writes_valid_file():
 
 
 @test
+def wav_markers_roundtrip_keep_audio_valid():
+    with tempfile.TemporaryDirectory() as td:
+        for bits, ch, n in ((24, 1, 4801), (16, 2, 4800), (24, 2, 3)):
+            p = pathlib.Path(td) / ('m%d%d%d.wav' % (bits, ch, n))
+            rec = core.WavRecorder(p, 48000, ch, bits)
+            rec.push(np.full((n, ch), 0.25, dtype=np.float32)); rec.close()
+            core.add_wav_markers(p, [(0.0, 'Bölüm 1: Giriş'), (0.05, 'Bölüm 2: Çıkış')], 48000)
+            assert core.read_wav_markers(p) == [(0, 'Bölüm 1: Giriş'), (2400, 'Bölüm 2: Çıkış')]
+            with wave.open(str(p)) as w:
+                assert w.getnframes() == n and w.getnchannels() == ch
+            assert int.from_bytes(p.read_bytes()[4:8], 'little') == p.stat().st_size - 8
+            assert rec.pushed == n and abs(rec.elapsed - n / 48000.0) < 1e-9
+
+
+@test
 def device_warnings():
     assert core.is_bluetooth_name('Kulaklık (WILLEN Hands-Free)')
     assert core.is_bluetooth_name('HUAWEI FreeClip')
