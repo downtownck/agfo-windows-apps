@@ -43,6 +43,7 @@ if not getattr(sys, 'frozen', False):
 import mic_core as core  # noqa: E402
 import mic_engine as eng  # noqa: E402
 import mic_fx  # noqa: E402
+import mic_backing as mbk  # noqa: E402
 import mic_update as upd  # noqa: E402
 import agfo_github_update as ghu  # noqa: E402
 
@@ -112,6 +113,8 @@ class App(tk.Tk):
             # uygulama acik kaldikca da periyodik denetle
             self.after(2500, lambda: self.gh_check(force=True, silent=True))
             self.after(upd.PERIODIC_CHECK_MS, self._gh_periodic)
+        if self.cfg.get('bg_file') and os.path.isfile(self.cfg['bg_file']) and self.engine is not None:
+            self.after(300, lambda: self._bg_load(self.cfg['bg_file'], quiet=True))
         if self.engine_error is not None:
             self._status('Ses kutuphanesi yuklenemedi: %s' % self.engine_error, BAD_C)
         elif self.cfg.get('autostart'):
@@ -234,6 +237,10 @@ class App(tk.Tk):
         s.map('TNotebook.Tab', background=[('selected', PANEL)], foreground=[('selected', FG)])
         self.tabs = ttk.Notebook(self)
         self.tabs.pack(fill='x', padx=22, pady=(0, 10))
+        self.backing_track = None
+        self._bg_loading = False
+        self._fx_labels = []
+        self._build_backing(self._section('ALTYAPI', self.tabs), pad)
         self._build_fx(self._section('EFEKTLER', self.tabs), pad)
         st = self._section('GECIKME', self.tabs)
         self._lbl(st, 'Kip:').grid(row=1, column=0, sticky='w', **pad)
@@ -308,7 +315,6 @@ class App(tk.Tk):
 
     def _build_fx(self, fx, pad):
         """Yanki ve reverb: gecikme eklemez (kuru ses aynen gecer, efekt ustune eklenir)."""
-        self._fx_labels = []
         self.var_echo_on = tk.BooleanVar()
         self.var_echo_ms = tk.DoubleVar(); self.var_echo_fb = tk.DoubleVar()
         self.var_echo_mix = tk.DoubleVar(); self.var_echo_tone = tk.DoubleVar()
@@ -334,6 +340,172 @@ class App(tk.Tk):
         self._lbl(fx, 'Efektler gecikme eklemez: kendi sesiniz aninda gelir, yanki / reverb ustune eklenir.').grid(
             row=8, column=0, columnspan=4, sticky='w', padx=6)
 
+    def _build_backing(self, bt, pad):
+        """Altyapi: Mic Monitor'un kendi akisindan calinir; vokal altyapiyla hizali kaydedilir."""
+        self._lbl(bt, 'Altyapi:').grid(row=1, column=0, sticky='w', **pad)
+        self.var_bg_name = tk.StringVar(value='(secilmedi)')
+        tk.Label(bt, textvariable=self.var_bg_name, fg=FG, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w',
+                 width=40).grid(row=1, column=1, columnspan=2, sticky='w', **pad)
+        bb = tk.Frame(bt, bg=PANEL); bb.grid(row=1, column=3, sticky='e', **pad)
+        self._btn(bb, 'Sec…', self.bg_choose, 'ghost').pack(side='left', padx=(0, 4))
+        self._btn(bb, 'Kaldir', self.bg_remove, 'ghost').pack(side='left')
+        self.var_bg_vol = tk.DoubleVar()
+        self._scale(bt, 2, 0, 'Altyapi sesi:', self.var_bg_vol, 0, 100, '%d %%', length=240)
+        tr = tk.Frame(bt, bg=PANEL); tr.grid(row=3, column=0, columnspan=4, sticky='w', **pad)
+        self._btn(tr, '▶ Cal', self.bg_play, 'go').pack(side='left', padx=(0, 4))
+        self._btn(tr, '■ Durdur', self.bg_stop, 'ghost').pack(side='left', padx=(0, 4))
+        self._btn(tr, '⏮ Basa sar', self.bg_rewind, 'ghost').pack(side='left', padx=(0, 10))
+        self.var_bg_pos = tk.StringVar(value='')
+        tk.Label(tr, textvariable=self.var_bg_pos, fg=ACCENT, bg=PANEL, font=('Consolas', 10)).pack(side='left')
+        self.var_bg_restart = tk.BooleanVar(); self.var_bg_mix = tk.BooleanVar(); self.var_bg_stopend = tk.BooleanVar()
+        ttk.Checkbutton(bt, text='Kayda basinca altyapi bastan baslasin', variable=self.var_bg_restart,
+                        command=lambda: self._changed(restart=False)).grid(row=4, column=0, columnspan=4, sticky='w', **pad)
+        ttk.Checkbutton(bt, text='Kayit bitince karisim dosyasi da olustur (altyapi + vokal, efektler dahil)',
+                        variable=self.var_bg_mix, command=lambda: self._changed(restart=False)).grid(row=5, column=0, columnspan=4, sticky='w', **pad)
+        ttk.Checkbutton(bt, text='Altyapi bitince kaydi durdur', variable=self.var_bg_stopend,
+                        command=lambda: self._changed(restart=False)).grid(row=6, column=0, columnspan=4, sticky='w', **pad)
+        self.var_bg_off = tk.DoubleVar()
+        self._scale(bt, 7, 0, 'Kayit kaydirma:', self.var_bg_off, -100, 100, '%+d ms', length=240)
+        self.var_bg_comp = tk.StringVar(value='')
+        self._lbl(bt, '').grid(row=8, column=0)
+        tk.Label(bt, textvariable=self.var_bg_comp, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(620 * self.scale)).grid(row=8, column=0, columnspan=4, sticky='w', padx=6)
+
+    def _bg_comp_text(self):
+        auto = ''
+        if self.engine is not None and self.monitoring:
+            auto = 'Otomatik gecikme duzeltmesi: %.0f ms' % float(self.engine.info.get('latency_ms', 0))
+        else:
+            auto = 'Otomatik gecikme duzeltmesi dinleme baslayinca hesaplanir'
+        return (auto + '. Vokal dosyasi altyapiyla ayni noktadan baslar. Ses hala gec / erken duyuluyorsa '
+                '"Kayit kaydirma" ile ince ayar yapin (+ vokali erkene alir).')
+
+    def bg_choose(self):
+        p = filedialog.askopenfilename(title='Altyapi sec', filetypes=mbk.SUPPORTED,
+                                       initialdir=str(pathlib.Path(self.cfg.get('bg_file') or core.resolve_record_dir(self.cfg.get('record_dir'))).parent))
+        if p:
+            self._bg_load(p)
+
+    def bg_remove(self):
+        if self.engine is not None and self.engine.recording is not None:
+            return
+        if self.backing_track is not None:
+            self.backing_track.stop()
+        self.backing_track = None
+        if self.engine is not None:
+            self.engine.set_backing(None)
+        self.var_bg_name.set('(secilmedi)'); self.var_bg_pos.set('')
+        self.cfg['bg_file'] = ''; core.save_settings(self.cfg)
+
+    def _bg_load(self, path, quiet=False):
+        if self._bg_loading:
+            return
+        self._bg_loading = True
+        self.var_bg_name.set('Yukleniyor: %s' % pathlib.Path(path).name)
+        sr = int(self.engine.info.get('samplerate', 0)) if (self.engine is not None and self.monitoring) else 0
+
+        def fn(post):
+            try:
+                tr = mbk.BackingTrack(path)
+                if sr:
+                    tr.prepare(sr)
+                post(lambda: self._bg_loaded(tr, None, quiet))
+            except Exception as e:
+                post(lambda: self._bg_loaded(None, e, quiet))
+        self._run_bg(fn)
+
+    def _bg_loaded(self, tr, err, quiet):
+        self._bg_loading = False
+        if err is not None or tr is None:
+            self.var_bg_name.set('(secilmedi)')
+            core.log_line('backing load failed: %r' % err)
+            if not quiet:
+                messagebox.showerror('Altyapi', 'Dosya acilamadi: %s' % err, parent=self)
+            return
+        if self.backing_track is not None:
+            self.backing_track.stop()
+        self.backing_track = tr
+        self.cfg['bg_file'] = str(tr.path); core.save_settings(self.cfg)
+        self.var_bg_name.set('%s  (%s)' % (tr.name, self._fmt_t(tr.duration)))
+        self._bg_attach()
+
+    def _bg_attach(self):
+        """Altyapiyi motora bagla; akisin ornekleme hizina donustur (gerekirse arka planda)."""
+        tr = self.backing_track
+        if tr is None or self.engine is None:
+            return
+        self.engine.set_backing(tr)
+        self.engine.set_bg_volume(self.var_bg_vol.get())
+        if not self.monitoring:
+            return
+        sr = int(self.engine.info.get('samplerate', 48000))
+        if tr.sr != sr or not tr.ready:
+            self.var_bg_pos.set('hazirlaniyor…')
+            self._run_bg(lambda post: (tr.prepare(sr), post(self._bg_tick)))
+
+    @staticmethod
+    def _fmt_t(sec):
+        sec = max(0, int(sec))
+        return '%02d:%02d' % (sec // 60, sec % 60)
+
+    def _bg_tick(self):
+        tr = self.backing_track
+        if tr is None:
+            self.var_bg_pos.set('')
+            return
+        if self.monitoring and not tr.ready:
+            self.var_bg_pos.set('hazirlaniyor…')
+            return
+        self.var_bg_pos.set('%s / %s%s' % (self._fmt_t(tr.position()), self._fmt_t(tr.duration),
+                                             '  ▶' if tr.playing else ''))
+
+    def bg_play(self):
+        tr = self.backing_track
+        if tr is None:
+            self.bg_choose(); return
+        if not self.monitoring and not self.start():
+            return
+        if not tr.ready:
+            self._status('Altyapi hazirlaniyor, birkac saniye sonra tekrar basin.', WARN); return
+        tr.play(from_start=tr.ended)
+        self._bg_tick()
+
+    def bg_stop(self):
+        if self.backing_track is not None:
+            self.backing_track.stop()
+        self._bg_tick()
+
+    def bg_rewind(self):
+        if self.backing_track is not None:
+            self.backing_track.seek(0)
+        self._bg_tick()
+
+    def _bg_live(self):
+        if self.engine is not None:
+            self.engine.set_bg_volume(self.var_bg_vol.get())
+
+    def _stop_at_backing_end(self):
+        if self.engine is not None and self.engine.recording is not None and self.engine.rec_with_backing:
+            self.toggle_record()
+
+    def _bg_finish_recording(self, rec):
+        """Kayit bitti: altyapili kayitsa karisim dosyasini arka planda olustur."""
+        tr = self.backing_track
+        if tr is None or not self.cfg.get('bg_make_mix', True) or rec.error:
+            return
+        fx_cfg = None if self.engine._rec_wet else {k: v for k, v in self.cfg.items() if k.startswith('fx_')}
+        gain, bits, path = self.engine.bg_gain, self.cfg['record_bits'], rec.path
+        self._status('Kaydedildi: %s — karisim hazirlaniyor…' % path.name, ACCENT)
+
+        def fn(post):
+            try:
+                out = mbk.make_mix(path, tr, gain, fx_cfg, bits)
+                post(lambda: self._status('Kaydedildi: %s  +  %s' % (path.name, out.name), OK_C))
+            except Exception as e:
+                core.log_line('mix failed: %r' % e)
+                post(lambda: self._status('Vokal kaydedildi, karisim olusturulamadi: %s' % e, WARN))
+        self._run_bg(fn)
+
     def _rev_preset(self):
         p = mic_fx.REVERB_PRESETS.get(self.var_rev_type.get())
         if p:
@@ -351,6 +523,7 @@ class App(tk.Tk):
         cfg = self._collect()
         if self.engine is not None:
             self.engine.set_fx(cfg)
+            self.engine.set_bg_volume(cfg['bg_volume'])
         self._save_later()
 
     # ---------------------------------------------------------------- ayar <-> arayuz
@@ -388,6 +561,9 @@ class App(tk.Tk):
         self.var_rev_on.set(c['fx_rev_on']); self.var_rev_type.set(c['fx_rev_type']); self.var_rev_time.set(c['fx_rev_time'])
         self.var_rev_mix.set(c['fx_rev_mix']); self.var_rev_tone.set(c['fx_rev_tone']); self.var_rev_pre.set(c['fx_rev_predelay'])
         self.var_fx_rec.set(c['fx_to_record'])
+        self.var_bg_vol.set(c['bg_volume']); self.var_bg_restart.set(c['bg_restart_on_record'])
+        self.var_bg_mix.set(c['bg_make_mix']); self.var_bg_stopend.set(c['bg_stop_at_end']); self.var_bg_off.set(c['bg_offset_ms'])
+        self.var_bg_comp.set(self._bg_comp_text())
         for lab, var, fmt in self._fx_labels:
             lab.config(text=fmt % float(var.get()))
         self._labels()
@@ -424,6 +600,9 @@ class App(tk.Tk):
         c['fx_rev_time'] = round(float(self.var_rev_time.get()), 1); c['fx_rev_mix'] = int(round(float(self.var_rev_mix.get())))
         c['fx_rev_tone'] = int(round(float(self.var_rev_tone.get()))); c['fx_rev_predelay'] = int(round(float(self.var_rev_pre.get())))
         c['fx_to_record'] = bool(self.var_fx_rec.get())
+        c['bg_volume'] = int(round(float(self.var_bg_vol.get()))); c['bg_offset_ms'] = int(round(float(self.var_bg_off.get())))
+        c['bg_restart_on_record'] = bool(self.var_bg_restart.get()); c['bg_make_mix'] = bool(self.var_bg_mix.get())
+        c['bg_stop_at_end'] = bool(self.var_bg_stopend.get())
         self.cfg = core._clean(c)
         return self.cfg
 
@@ -563,6 +742,11 @@ class App(tk.Tk):
             return False
         self.monitoring = True
         self._stall = 0
+        self._bg_attach()
+        try:
+            self.var_bg_comp.set(self._bg_comp_text())
+        except tk.TclError:
+            pass
         self.btn_toggle.config(text='Dinlemeyi durdur', bg='#6b2a2a')
         self._status('Dinleniyor — %s' % info.get('mode', ''), OK_C)
         self._update_info()
@@ -594,6 +778,9 @@ class App(tk.Tk):
         if fx is not None and fx.active:
             names = (['yanki'] if fx.echo is not None else []) + (['reverb (%s)' % fx.reverb.kind] if fx.reverb is not None else [])
             parts.append('efekt: ' + ' + '.join(names))
+        tr = self.backing_track
+        if tr is not None and tr.playing:
+            parts.append('altyapi %s' % self._fmt_t(tr.position()))
         parts.append('kesinti: %d' % self.engine.xruns)
         txt = '  ·  '.join(parts)
         rec = self.engine.recording
@@ -629,8 +816,11 @@ class App(tk.Tk):
         if self.engine is None:
             return
         if self.engine.recording is not None:
+            with_bg = self.engine.rec_with_backing
             rec = self.engine.stop_recording()
             self.btn_rec.config(text='● Kaydi baslat', bg='#7a2a2a')
+            if with_bg and self.backing_track is not None:
+                self.backing_track.stop()
             if rec is not None:
                 msg = 'Kaydedildi: %s  (%d sn)' % (rec.path.name, int(rec.seconds))
                 if rec.error:
@@ -638,13 +828,22 @@ class App(tk.Tk):
                 else:
                     self._status(msg + ('  —  %d ornek kirpildi, kazanci dusurun' % rec.clipped if rec.clipped > 100 else ''),
                                  WARN if rec.clipped > 100 else OK_C)
+                    if with_bg:
+                        self._bg_finish_recording(rec)
             self._update_info()
+            self._bg_tick()
             return
         if not self.monitoring and not self.start():
             return
         cfg = self._collect()
         try:
-            path = self.engine.start_recording(cfg['record_dir'], cfg['record_bits'], wet=cfg['fx_to_record'])
+            tr = self.backing_track
+            use_bg = tr is not None and tr.ready and tr.sr == int(self.engine.info.get('samplerate', 0))
+            if tr is not None and not use_bg:
+                self._status('Altyapi hazirlaniyor; birkac saniye sonra tekrar deneyin.', WARN); return
+            path = self.engine.start_recording(cfg['record_dir'], cfg['record_bits'], wet=cfg['fx_to_record'],
+                                               with_backing=use_bg, from_start=cfg['bg_restart_on_record'],
+                                               offset_ms=cfg['bg_offset_ms'])
         except Exception as e:
             messagebox.showerror('Kayit', 'Kayit baslatilamadi: %s' % e, parent=self); return
         self.btn_rec.config(text='■ Kaydi durdur', bg='#a33a3a')
@@ -707,6 +906,13 @@ class App(tk.Tk):
                 self.hold_until = now + 1.2
             self._draw_meter(self.meter)
             self.var_db.set('%5.1f dBFS' % self.meter if self.meter > -60 else ' -inf')
+            tr = self.backing_track
+            if tr is not None and now - getattr(self, '_bg_last', 0) > 0.25:
+                self._bg_last = now
+                self._bg_tick()
+                if tr.ended and self.engine.recording is not None and self.engine.rec_with_backing \
+                        and self.cfg.get('bg_stop_at_end', True):
+                    self.after(400, self._stop_at_backing_end)      # efekt kuyrugu biraz kaydedilsin
             if now - self._last_stats > 0.5:
                 self._last_stats = now
                 self._update_info()
@@ -809,6 +1015,12 @@ class App(tk.Tk):
             self._status(msg, WARN)
         else:
             self._schedule_recover(0, recording)
+
+    def _run_bg(self, fn):
+        """fn(post) ayri is parcaciginda calisir; post(cb) ile arayuz is parcacigina geri doner (_poll isler)."""
+        def post(cb):
+            self.messages.put(('call', cb))
+        threading.Thread(target=lambda: fn(post), daemon=True).start()
 
     def _recover(self):
         """Akis durdu ya da takildi (kulaklik takildi, cihaz cikarildi, uyku): PortAudio yeniden baslatilir ve
@@ -1059,6 +1271,12 @@ def smoke(report_path):
         w = mic_fx.FxChain(48000).configure({'fx_echo_on': True, 'fx_rev_on': True}).process(numpy.zeros((480, 2), dtype='float32'))
         assert w.shape == (480, 2)
         lines.append('effects: ok')
+        import soundfile
+        fm = soundfile.available_formats()
+        assert all(k in fm for k in ('WAV', 'FLAC', 'OGG', 'MP3')), sorted(fm)
+        y = mbk.resample(numpy.zeros((4410, 2), dtype='float32'), 44100, 48000)
+        assert y.shape == (4800, 2)
+        lines.append('backing formats: ok (libsndfile %s)' % soundfile.__libsndfile_version__)
         r = core.RingBuffer(2, 4800, 240)
         r.write(numpy.zeros((256, 2), dtype='float32'))
         app.destroy()

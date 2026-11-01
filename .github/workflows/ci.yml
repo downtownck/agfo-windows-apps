@@ -29,11 +29,12 @@ jobs:
           python -I phantom-shot/tests/test_core.py phantom-shot
           python -I phantom-shot/tests/test_update.py phantom-shot
           python -I phantom-shot/tests/test_triggers.py phantom-shot
-          python -m pip install --quiet 'numpy>=1.26,<3'
+          python -m pip install --quiet 'numpy>=1.26,<3' 'soundfile>=0.13,<0.15'
           python -I mic-monitor/tests/test_core.py mic-monitor
           python -I mic-monitor/tests/test_update.py mic-monitor
           python -I mic-monitor/tests/test_engine.py mic-monitor
           python -I mic-monitor/tests/test_fx.py mic-monitor
+          python -I mic-monitor/tests/test_backing.py mic-monitor
           xvfb-run -a python -I mic-monitor/tests/test_gui.py mic-monitor
           python -m compileall -q supertools system-care backupsync/src phantom-shot mic-monitor
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st

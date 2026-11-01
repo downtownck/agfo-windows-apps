@@ -44,9 +44,9 @@ try {
         Write-Host 'Derleme ortami hazirlaniyor (yalnizca ilk seferde)...'
         if ((Invoke-Native $py.Python @('-m', 'venv', $venv)) -ne 0) { throw 'Derleme ortami (venv) olusturulamadi.' }
     }
-    Write-Host 'Kutuphaneler kontrol ediliyor: PyInstaller, sounddevice, numpy ...'
+    Write-Host 'Kutuphaneler kontrol ediliyor: PyInstaller, sounddevice, numpy, soundfile ...'
     $pipArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '--upgrade',
-                 'PyInstaller>=6.16,<7', 'sounddevice>=0.5.2,<0.6', 'numpy>=1.26,<3')
+                 'PyInstaller>=6.16,<7', 'sounddevice>=0.5.2,<0.6', 'numpy>=1.26,<3', 'soundfile>=0.13,<0.15')
     if ((Invoke-Native $vpy $pipArgs) -ne 0) { throw 'Kutuphaneler kurulamadi. Internet baglantisini kontrol edin.' }
 
     Write-Host 'EXE derleniyor (1-2 dakika surebilir)...'
@@ -54,7 +54,7 @@ try {
     $pyiArgs = @('-m', 'PyInstaller', '--noconfirm', '--clean', '--onefile', '--windowed', '--name', $appName,
                  '--distpath', $dist, '--workpath', (Join-Path $cache 'work'), '--specpath', (Join-Path $cache 'spec'),
                  '--icon', $ico, '--paths', $root, '--add-data', ($ico + ';assets'),
-                 '--hidden-import', 'mic_core', '--hidden-import', 'mic_engine', '--hidden-import', 'mic_fx', '--hidden-import', 'mic_update', '--hidden-import', 'agfo_github_update',
+                 '--hidden-import', 'mic_core', '--hidden-import', 'mic_engine', '--hidden-import', 'mic_fx', '--hidden-import', 'mic_backing', '--hidden-import', 'soundfile', '--collect-all', '_soundfile_data', '--hidden-import', 'mic_update', '--hidden-import', 'agfo_github_update',
                  '--collect-all', '_sounddevice_data', '--hidden-import', 'sounddevice', '--hidden-import', '_cffi_backend',
                  (Join-Path $root 'app.pyw'))
     if ((Invoke-Native $vpy $pyiArgs) -ne 0) { throw 'PyInstaller derlemesi basarisiz.' }

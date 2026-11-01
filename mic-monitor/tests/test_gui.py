@@ -194,16 +194,33 @@ assert 'Cizirti algilandi' in app.var_status.get() and core.load_settings()['buf
 PASSED.append('crackle_raises_buffer')
 app.var_buf.set('10 ms'); app._changed(restart=False)
 
-# guncelleme denetimi: sessiz kipte yeni surum serit gosterir, 'guncel' sonucu pencere acmaz
+# guncelleme denetimi: GERCEK yol (gh_check -> arka plan is parcacigi -> _poll -> _gh_checked).
+# 1.0.x'te _run_bg eksikti: denetim sessizce hata veriyordu; bu test o yolu bastan sona calistirir.
 nbox = len(_box)
-app._gh_checked({'status': 'current', 'version': core.VERSION}, True, silent=True)
-assert len(_box) == nbox and not app.gh_banner.winfo_ismapped()
+calls = []
 rel = {'version': '9.9.9', 'notes': 'x', 'published': '2026-11-01', 'url': 'u', 'assets': []}
-app._gh_checked({'status': 'update', 'version': '9.9.9', 'release': rel, 'asset': {'url': 'u'}}, True, silent=True)
-pump(app, 2)
-assert app.gh_banner.winfo_ismapped() and '9.9.9' in app.gh_banner_text.get() and len(_box) == nbox
-app._gh_checked({'status': 'current', 'version': core.VERSION}, True)          # elle denetim: bilgi penceresi
-assert len(_box) == nbox + 1
+results = {'v': {'status': 'current', 'version': core.VERSION}}
+
+
+def fake_check(force=False, releases=None):
+    calls.append(force)
+    return results['v']
+
+
+app_mod.upd.check = fake_check
+app.gh_check(force=True, silent=True)                  # acilistaki denetim
+assert wait_for(lambda: calls), 'gh_check arka plan isi calismadi'
+pump(app, 5)
+assert calls[-1] is True and len(_box) == nbox and not app.gh_banner.winfo_ismapped()
+results['v'] = {'status': 'update', 'version': '9.9.9', 'release': rel, 'asset': {'url': 'u'}}
+app._gh_periodic()                                     # periyodik denetim (onbellege uyar)
+assert wait_for(lambda: app.gh_banner.winfo_ismapped()), 'yeni surum seridi gorunmedi'
+assert calls[-1] is False and '9.9.9' in app.gh_banner_text.get() and len(_box) == nbox
+results['v'] = {'status': 'current', 'version': core.VERSION}
+app.gh_check(force=True)                               # "GitHub'da denetle" dugmesi: bilgi penceresi
+assert wait_for(lambda: len(_box) == nbox + 1), _box[-1:]
+app.gh_update()                                        # kaynaktan calisiyor: aciklayici bilgi, cokme yok
+assert len(_box) == nbox + 2
 app.gh_banner.pack_forget()
 PASSED.append('update_check_silent_and_manual')
 
@@ -220,6 +237,35 @@ app._save_job and app.after_cancel(app._save_job)
 core.save_settings(app.cfg)
 assert core.load_settings()['fx_rev_type'] == 'Katedral' and core.load_settings()['fx_echo_ms'] == 400
 PASSED.append('effects_live')
+
+# altyapi: yukle (44,1 kHz -> akis 48 kHz), kayda basinca bastan calar, bitince kayit durur, vokal + karisim yazilir
+import mic_backing as mbk
+bgp = mbk.write_wav(pathlib.Path(TMP) / 'altyapi.wav', (np.random.RandomState(5).randn(22050, 2) * 0.1).astype(np.float32), 44100, 16)
+app._restart()
+assert app.monitoring
+app._bg_load(str(bgp))
+assert wait_for(lambda: app.backing_track is not None and app.backing_track.ready), app.var_bg_name.get()
+assert app.backing_track.sr == 48000 and len(app.backing_track.data) == 24000
+assert 'altyapi.wav' in app.var_bg_name.get() and core.load_settings()['bg_file'] == str(bgp)
+app.var_bg_mix.set(True); app.var_bg_stopend.set(True); app.var_bg_restart.set(True); app._changed(restart=False)
+recdir2 = pathlib.Path(TMP) / 'rec_bg'
+app.var_dir.set(str(recdir2)); app._changed(restart=False)
+app.toggle_record()
+assert app.engine.recording is not None and app.engine.rec_with_backing
+cb = sd.opened[-1].callback
+for _ in range(60):                                   # 60 x 480 = 28800 > 24000: altyapi biter
+    cb(np.full((480, 2), 0.05, dtype=np.float32), out, 480, None, None)
+assert app.backing_track.ended
+assert wait_for(lambda: app.engine.recording is None), app.var_status.get()          # bitince kendiliginden durdu
+assert wait_for(lambda: list(recdir2.glob('*_karisim.wav'))), app.var_status.get()
+voc = list(recdir2.glob('*_vokal.wav')); mix = list(recdir2.glob('*_karisim.wav'))
+assert len(voc) == 1 and len(mix) == 1
+m, sr_m = mbk.read_wav(mix[0])
+assert sr_m == 48000 and m.shape[1] == 2 and len(m) >= 24000
+assert 'karisim' in app.var_status.get()
+app.bg_remove()
+assert app.backing_track is None and app.engine.backing is None and core.load_settings()['bg_file'] == ''
+PASSED.append('backing_record_vocal_and_mix')
 
 # durdur + kapat: ayarlar kaydedilir
 app.stop()

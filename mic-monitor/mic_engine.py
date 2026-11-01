@@ -16,6 +16,8 @@ import os
 import sys
 import threading
 
+import numpy as np
+
 import mic_core as core
 import mic_fx
 
@@ -137,6 +139,10 @@ class Engine:
         self.fx = None                        # 1.1.0: yanki / reverb zinciri (yoksa None)
         self._fx_cfg = {}
         self._rec_wet = False                 # kayit efektli mi (kayit basinda sabitlenir)
+        self.backing = None                   # 1.2.0: altyapi (mic_backing.BackingTrack)
+        self.bg_gain = 0.49
+        self._armed = None                    # (kayit, bastan_cal): bir sonraki geri cagride ayni anda baslar
+        self.rec_with_backing = False
         self._xrun_marks = []                 # (zaman, xruns) - arayuz cizirtiyi algilamak icin
 
     # ------------------------------------------------------------ cihazlar
@@ -269,20 +275,35 @@ class Engine:
         chain = self.fx if (self.fx is not None and self.fx.sr == sr) else mic_fx.FxChain(sr)
         self.fx = chain.configure(cfg)
 
+    def _start_armed(self):
+        """Kayit ve altyapi AYNI geri cagride baslar: vokal altyapiyla ornek duzeyinde hizalanir."""
+        armed, self._armed = self._armed, None
+        if armed is None:
+            return
+        rec, from_start = armed
+        bk = self.backing
+        if bk is not None and from_start is not None:
+            bk.play(from_start=from_start)
+        self._rec = rec
+
     def _cb_duplex(self, indata, outdata, frames, t, status):
         self.callbacks += 1
         if status and is_xrun(status):
             self.xruns += 1
         try:
+            if self._armed is not None:
+                self._start_armed()
             sig, m, oc = self._process(indata)
             out = self._mix(sig)                 # susturulmusken de islenir: kayit ve efekt kuyrugu devam eder
-            if m <= 0.0:
+            bk = self.backing
+            bg = bk.read(frames) if bk is not None else None
+            if m <= 0.0 and bg is None:
                 outdata.fill(0)
             else:
-                y = out * m
-                if out is not sig:
-                    y = y.clip(-1.0, 1.0)
-                outdata[:] = core.fit_output(y, outdata.shape[1])
+                y = core.fit_output(out * m, outdata.shape[1]) if m > 0.0 else np.zeros(outdata.shape, np.float32)
+                if bg is not None:
+                    y = y + core.fit_output(bg * self.bg_gain, outdata.shape[1])
+                outdata[:] = y.clip(-1.0, 1.0)
         except Exception:
             outdata.fill(0)
 
@@ -291,6 +312,8 @@ class Engine:
         if status and is_xrun(status):
             self.xruns += 1
         try:
+            if self._armed is not None:
+                self._start_armed()
             sig, m, oc = self._process(indata)
             out = self._mix(sig)
             if self.ring is not None:
@@ -309,10 +332,15 @@ class Engine:
             if ring is not None:            # okumaya devam: tampon birikmesin
                 tmp = outdata.copy()
                 ring.read(tmp)
-            return
-        ring.read(outdata)
-        if m != 1.0:
-            outdata *= m
+        else:
+            ring.read(outdata)
+            if m != 1.0:
+                outdata *= m
+        bk = self.backing
+        bg = bk.read(frames) if bk is not None else None
+        if bg is not None:
+            outdata += core.fit_output(bg * self.bg_gain, outdata.shape[1])
+            np.clip(outdata, -1.0, 1.0, out=outdata)
 
     def _finished(self):
         if self.running:
@@ -444,6 +472,8 @@ class Engine:
         self.stop_recording()
         self._close_streams()
         self.fx = None
+        if self.backing is not None:
+            self.backing.stop()
         if self._switch_saved is not None:
             sys.setswitchinterval(self._switch_saved)
             self._switch_saved = None
@@ -482,25 +512,51 @@ class Engine:
             return False
 
     # ------------------------------------------------------------ kayit
-    def start_recording(self, record_dir, bits=24, wet=False):
-        """wet=True ve efekt aciksa kayit efektli (stereo); aksi halde kuru (sonradan efekt eklenebilir)."""
+    def set_backing(self, track):
+        self.backing = track
+
+    def set_bg_volume(self, volume):
+        self.bg_gain = core.monitor_gain(volume)
+
+    def roundtrip_frames(self):
+        """Altyapinin cikisa yazilmasindan sarkicinin sesinin girise gelmesine kadar gecen sure (ornek)."""
+        sr = int(self.info.get('samplerate', 48000))
+        return int(round(float(self.info.get('latency_ms', 0.0)) * sr / 1000.0))
+
+    def start_recording(self, record_dir, bits=24, wet=False, with_backing=False, from_start=True, offset_ms=0):
+        """wet=True ve efekt aciksa kayit efektli (stereo); aksi halde kuru (sonradan efekt eklenebilir).
+        with_backing: altyapi ayni geri cagride (bastan) baslar, vokal gidis-donus gecikmesi kadar
+        erkene kaydirilir: dosya altyapiyla ayni noktadan baslar."""
         if not self.running:
             raise EngineError('Once dinlemeyi baslatin.')
-        if self._rec is not None:
-            return self._rec.path
+        if self._rec is not None or self._armed is not None:
+            return (self._rec or self._armed[0]).path
         d = core.resolve_record_dir(record_dir)
         self._rec_wet = bool(wet and self.fx is not None and self.fx.active)
         ch = 2 if (self._p[2] == 'stereo' or self._rec_wet) else 1
-        rec = core.WavRecorder(d / core.recording_name(), self.info.get('samplerate', 48000), ch, bits)
+        sr = self.info.get('samplerate', 48000)
+        bk = self.backing
+        if with_backing and bk is not None and bk.ready and bk.sr == sr:
+            skip = self.roundtrip_frames() + int(round(offset_ms * sr / 1000.0))
+            name = core.recording_name()[:-4] + '_vokal.wav'
+            rec = core.WavRecorder(d / name, sr, ch, bits, skip_frames=skip)
+            rec.backing_start = 0.0 if from_start else bk.position()
+            self.rec_with_backing = True
+            self._armed = (rec, bool(from_start))
+            return rec.path
+        rec = core.WavRecorder(d / core.recording_name(), sr, ch, bits)
+        self.rec_with_backing = False
         self._rec = rec
         return rec.path
 
     @property
     def recording(self):
-        return self._rec
+        return self._rec if self._rec is not None else (self._armed[0] if self._armed is not None else None)
 
     def stop_recording(self):
         rec, self._rec = self._rec, None
+        if rec is None and self._armed is not None:         # hic geri cagri gelmeden durduruldu
+            rec, self._armed = self._armed[0], None
         if rec is None:
             return None
         rec.close()

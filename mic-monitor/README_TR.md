@@ -32,6 +32,13 @@ Hata olursa ayrıntılar `%LOCALAPPDATA%\AGFO\MicMonitor\build\last-build.txt` d
 3. **Mikrofon kazancı** ve **Dinleme sesi** anında uygulanır. Seviye göstergesi kırmızıya giriyorsa kazancı düşürün; sağ uçta kırmızı kutu kırpılmayı gösterir.
 4. **● Kaydı başlat** ile o anda duyduğunuz sesi WAV olarak kaydeder. Varsayılan klasör `Müzik\AGFO Kayitlar`, varsayılan derinlik 24 bit. "Dinlemeyi sustur" ile kulaklığa ses vermeden yalnızca kaydedebilirsiniz.
 
+### Altyapı üzerine kayıt
+**Altyapı** sekmesinden bir enstrümantal dosya seçin (WAV, MP3, FLAC, OGG). "Kaydı başlat"a basınca altyapı baştan çalar, siz üzerine söylersiniz. Kayıt bitince iki dosya çıkar:
+- `Kayit_..._vokal.wav`: yalnızca sesiniz. Gecikme otomatik düzeltildiği için altyapıyla aynı noktadan başlar; ses düzenleyicide altyapının altına koyduğunuzda tam oturur.
+- `Kayit_..._karisim.wav`: altyapı ve vokal birlikte. Kulaklıkta duyduğunuz yankı ve reverb de eklenir.
+
+Altyapı Mic Monitor'ün içinden çalar. Özel modda başka bir programdan çalınan altyapı duyulmaz; bu yüzden altyapıyı buradan çalın. Vokal kulağınıza hâlâ az erken ya da geç geliyorsa "Kayıt kaydırma" ile ince ayar yapın.
+
 ### Efektler: yankı ve reverb
 **Efektler** sekmesinden yankı ve reverb açılabilir. Efektler gecikme eklemez: kendi sesiniz anında gelir, efekt onun üstüne eklenir.
 - **Yankı:** Süre, tekrar, seviye ve parlaklık ayarlanır.

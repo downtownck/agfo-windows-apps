@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.1.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.2.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -70,6 +70,12 @@ DEFAULT_CONFIG = {
     'fx_rev_tone': 60,
     'fx_rev_predelay': 12,     # ms
     'fx_to_record': False,     # efekti kayda da uygula (varsayilan: kayit kuru kalir, efekt yalniz kulaklikta)
+    'bg_file': '',             # 1.2.0: altyapi dosyasi (WAV/MP3/FLAC/OGG)
+    'bg_volume': 70,           # altyapi sesi %
+    'bg_restart_on_record': True,   # kayda basinca altyapi bastan calsin
+    'bg_make_mix': True,       # kayit bitince altyapi + vokal karisimi da yaz
+    'bg_stop_at_end': True,    # altyapi bitince kaydi durdur
+    'bg_offset_ms': 0,         # otomatik gecikme duzeltmesine ek ince ayar (+: vokal daha erkene)
     'autostart': False,        # acilista dinlemeyi baslat
     'auto_update_check': True,
 }
@@ -106,6 +112,8 @@ def _clean(data):
     out['buffer_ms'] = min(200, max(1, int(out['buffer_ms'])))
     out['input_gain_db'] = min(24.0, max(-12.0, float(out['input_gain_db'])))
     out['monitor_volume'] = min(100, max(0, int(out['monitor_volume'])))
+    out['bg_volume'] = min(100, max(0, int(out['bg_volume'])))
+    out['bg_offset_ms'] = min(200, max(-200, int(out['bg_offset_ms'])))
     out['fx_echo_ms'] = min(1500, max(60, int(out['fx_echo_ms'])))
     out['fx_echo_fb'] = min(85, max(0, int(out['fx_echo_fb'])))
     for k in ('fx_echo_mix', 'fx_echo_tone', 'fx_rev_mix', 'fx_rev_tone'):
@@ -154,7 +162,7 @@ def log_line(text, name='micmon.log'):
 
 def resolve_record_dir(raw):
     """Bos ise ~/Music (Muzik) / AGFO Kayitlar."""
-    raw = (raw or '').strip()
+    raw = str(raw or '').strip()
     if raw:
         return pathlib.Path(os.path.expandvars(os.path.expanduser(raw)))
     home = pathlib.Path.home()
@@ -322,8 +330,11 @@ class RingBuffer:
 class WavRecorder:
     """Ses geri cagrisi bloklari kuyruga atar (engellemez); ayri is parcacigi diske yazar."""
 
-    def __init__(self, path, samplerate, channels, bits=24):
+    def __init__(self, path, samplerate, channels, bits=24, skip_frames=0):
+        """skip_frames > 0: ilk N ornek atilir (gidis-donus gecikmesi duzeltmesi, vokal altyapiyla hizalanir);
+        < 0: basa N ornek sessizlik eklenir."""
         self.path = pathlib.Path(path)
+        self._skip = int(skip_frames)
         self.samplerate = int(samplerate)
         self.channels = int(channels)
         self.bits = 24 if bits == 24 else 16
@@ -354,6 +365,15 @@ class WavRecorder:
             if b is None:
                 break
             try:
+                if self._skip > 0:                     # gecikme duzeltmesi: bastaki ornekleri at
+                    drop = min(self._skip, len(b))
+                    b = b[drop:]
+                    self._skip -= drop
+                    if not len(b):
+                        continue
+                elif self._skip < 0:
+                    b = np.concatenate([np.zeros((-self._skip, b.shape[1]), dtype=b.dtype), b])
+                    self._skip = 0
                 if self.error is None:
                     self.clipped += int(np.count_nonzero(np.abs(b) >= 0.999))
                     self._w.writeframesraw(float_to_pcm(b, self.bits))
