@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.0.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.0.1 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -346,6 +346,23 @@ def is_bluetooth_name(name):
     return any(h in n for h in _BT_HINTS)
 
 
+_HEADPHONE_HINTS = ('kulakl', 'headphone', 'headset', 'kopfh', 'casque', 'auricul', 'cuffi')
+
+
+def is_headphone_name(name):
+    n = (name or '').lower()
+    return any(h in n for h in _HEADPHONE_HINTS) and not is_bluetooth_name(name)
+
+
+def pick_new_headphone(before, after):
+    """Yeni beliren (kablolu/USB) kulaklik cikisi; yoksa None. HDMI/monitor ve Bluetooth secilmez."""
+    old = set(before or ())
+    for n in after or ():
+        if n not in old and is_headphone_name(n):
+            return n
+    return None
+
+
 def is_speaker_name(name):
     n = (name or '').lower()
     return any(h in n for h in _SPEAKER_HINTS) and 'headphone' not in n and 'kulakl' not in n
@@ -360,7 +377,8 @@ def warnings_for(input_name, output_name):
         out.append('Giris Bluetooth mikrofonu (Hands-Free): ses telefon kalitesine duser ve gecikir.')
     if is_speaker_name(output_name):
         out.append('Cikis hoparlor: mikrofon hoparlor sesini geri alip otebilir (geri besleme). Kulaklik takin '
-                   'ya da dinleme sesini dusuk tutun.')
+                   'ya da dinleme sesini dusuk tutun. (Bazi Realtek suruculeri takili kulakligi da "Hoparlor" '
+                   'adiyla gosterir; kulaklikta ses varsa bu uyariyi yok sayin.)')
     return out
 
 

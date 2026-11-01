@@ -86,7 +86,7 @@ PASSED.append('meter')
 
 # tampon degisince akis yeniden acilir
 app.var_buf.set('10 ms'); app._changed(restart=True)
-app.after(300, lambda: None); app._restart()
+app.after_cancel(app._restart_job); app._restart()
 assert sd.opened[-1].kw['latency'] == (0.01, 0.01) and app.monitoring
 PASSED.append('restart_on_setting_change')
 
@@ -107,12 +107,73 @@ with wave.open(str(files[0])) as w:
 assert 'Kaydedildi' in app.var_status.get()
 PASSED.append('record_toggle')
 
-# olen akis yeniden acilir
+
+
+def wait_for(cond, secs=8.0):
+    import time as _t
+    end = _t.monotonic() + secs
+    while _t.monotonic() < end:
+        pump(app, 1)
+        if cond():
+            return True
+        _t.sleep(0.02)
+    return False
+
+
+def feed():
+    sd.opened[-1].callback(np.zeros((480, 2), dtype=np.float32), out, 480, None, None)
+
+
+# olen akis yeniden acilir (PortAudio yeniden baslatilir, kisa beklemeyle)
 sd.opened[-1].finished()
-n = len(sd.opened)
+n, inits = len(sd.opened), sd.inits
 app._last_stats = 0; app._poll()
-assert app.monitoring and len(sd.opened) > n and 'yeniden acildi' in app.var_status.get()
+assert not app.monitoring and 'yeniden aciliyor' in app.var_status.get()
+assert wait_for(lambda: app.monitoring), app.var_status.get()
+assert len(sd.opened) > n and sd.inits > inits and "yeniden acildi" in app.var_status.get(), (len(sd.opened), n, sd.inits, inits, app.var_status.get())
 PASSED.append('recover_dead_stream')
+
+# sessizce takilan akis (Windows ozel mod akisini gecersiz kildi, PortAudio hata vermedi): sayac yakalar
+n = len(sd.opened)
+feed(); app._last_stats = 0; app._poll()              # ilerleme var
+for _ in range(app_mod.STALL_TICKS):
+    app._last_stats = 0; app._poll()                  # geri cagri yok
+assert wait_for(lambda: app.monitoring and len(sd.opened) > n), app.var_status.get()
+PASSED.append('recover_stalled_stream')
+
+# kulaklik takildi: cikis acikca Hoparlor seciliyken yeni kulaklik aygitina gecilir
+SIG = {'v': ('a',)}
+app_mod.eng.device_signature = lambda: SIG['v']
+app._dev_sig = SIG['v']
+app.var_out.set('Hoparlör (Realtek(R) Audio)'); app._changed(restart=False)
+app._restart()
+assert app.engine.info['output'] == 'Hoparlör (Realtek(R) Audio)'
+sd.plug('Kulaklık (USB Audio)')
+SIG['v'] = ('b',)
+app._dev_checked = 0; app._poll()
+assert wait_for(lambda: app.monitoring and app.engine.info.get('output') == 'Kulaklık (USB Audio)'), app.var_status.get()
+assert core.load_settings()['output_device'] == 'Kulaklık (USB Audio)'
+assert 'Kulaklık (USB Audio)' in app.var_status.get()
+PASSED.append('headphone_plug_switches')
+
+# kulaklik cikarildi: hoparlore dusmek yerine dinleme duraklar (geri besleme olmasin)
+sd.unplug('Kulaklık (USB Audio)', new_default='Hoparlör (Realtek(R) Audio)')
+SIG['v'] = ('c',)
+app._dev_checked = 0; app._poll()
+assert wait_for(lambda: app._dev_job is None and not app.monitoring and app._paused_unplug), app.var_status.get()
+assert 'duraklatildi' in app.var_status.get()
+assert app.var_out.get().endswith(app_mod.MISSING_SUFFIX)          # secim korunur
+PASSED.append('headphone_unplug_pauses')
+
+# tekrar takildi: kendiliginden devam
+sd.plug('Kulaklık (USB Audio)')
+SIG['v'] = ('d',)
+app._dev_checked = 0; app._poll()
+assert wait_for(lambda: app.monitoring), app.var_status.get()
+assert app.engine.info['output'] == 'Kulaklık (USB Audio)' and not app._paused_unplug
+assert app.var_out.get() == 'Kulaklık (USB Audio)'
+PASSED.append('headphone_replug_resumes')
+app.var_out.set('Kulaklık (Realtek(R) Audio)'); app._changed(restart=False)
 
 # durdur + kapat: ayarlar kaydedilir
 app.stop()

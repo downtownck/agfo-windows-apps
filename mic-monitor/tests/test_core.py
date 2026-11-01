@@ -147,6 +147,17 @@ def device_warnings():
 
 
 @test
+def headphone_detection():
+    assert core.is_headphone_name('Kulaklık (Realtek(R) Audio)') and core.is_headphone_name('Headphones (USB Audio)')
+    assert not core.is_headphone_name('Kulaklık (WILLEN Hands-Free)')          # Bluetooth: otomatik gecilmez
+    assert not core.is_headphone_name('NVIDIA High Definition Audio (DELL U2720Q)')
+    before = ['Hoparlör (Realtek(R) Audio)']
+    assert core.pick_new_headphone(before, before + ['Kulaklık (Realtek(R) Audio)']) == 'Kulaklık (Realtek(R) Audio)'
+    assert core.pick_new_headphone(before, before + ['DELL U2720Q (NVIDIA High Definition Audio)']) is None
+    assert core.pick_new_headphone(before, before) is None
+
+
+@test
 def device_name_matching():
     names = ['Mikrofon (Realtek(R) Audio)', 'Stereo Mix (Realtek(R) Audio)']
     assert core.match_device_name('Mikrofon (Realtek(R) Audio)', names) == 0

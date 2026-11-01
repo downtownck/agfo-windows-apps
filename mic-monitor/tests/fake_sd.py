@@ -8,16 +8,13 @@ class FakeSD:
     def __init__(self, fail=None, apis=('MME', 'Windows WASAPI')):
         self.fail = fail or (lambda kw: False)
         self.opened = []
-        self.apis = []
-        self.devs = []
-        for ai, name in enumerate(apis):
-            base = len(self.devs)
-            self.devs += [
-                dict(name='Mikrofon (Realtek(R) Audio)', hostapi=ai, max_input_channels=2, max_output_channels=0, default_samplerate=48000.0),
-                dict(name='Kulaklık (Realtek(R) Audio)', hostapi=ai, max_input_channels=0, max_output_channels=2, default_samplerate=48000.0),
-                dict(name='Hoparlör (Realtek(R) Audio)', hostapi=ai, max_input_channels=0, max_output_channels=2, default_samplerate=44100.0),
-            ]
-            self.apis.append(dict(name=name, default_input_device=base, default_output_device=base + 2))
+        self.api_names = apis
+        self.catalog = [('Mikrofon (Realtek(R) Audio)', 2, 0, 48000.0),
+                        ('Kulaklık (Realtek(R) Audio)', 0, 2, 48000.0),
+                        ('Hoparlör (Realtek(R) Audio)', 0, 2, 44100.0)]
+        self.default_in, self.default_out = 'Mikrofon (Realtek(R) Audio)', 'Hoparlör (Realtek(R) Audio)'
+        self.inits = 0
+        self.rebuild()
         self.default = types.SimpleNamespace(hostapi=0)
         sd = self
 
@@ -59,6 +56,34 @@ class FakeSD:
             kind = 'output'
 
         self.WasapiSettings, self.Stream, self.InputStream, self.OutputStream = WasapiSettings, Stream, InputStream, OutputStream
+
+    def rebuild(self):
+        """Katalogdan PortAudio gorunumunu kurar (gercek PortAudio da listeyi yalniz baslatilinca okur)."""
+        self.apis, self.devs = [], []
+        for ai, name in enumerate(self.api_names):
+            idx = {}
+            for (n, i, o, sr) in self.catalog:
+                idx[n] = len(self.devs)
+                self.devs.append(dict(name=n, hostapi=ai, max_input_channels=i, max_output_channels=o, default_samplerate=sr))
+            self.apis.append(dict(name=name, default_input_device=idx.get(self.default_in, -1),
+                                  default_output_device=idx.get(self.default_out, -1)))
+
+    def plug(self, name, default=True, outputs=2):
+        self.catalog.append((name, 0, outputs, 48000.0))
+        if default:
+            self.default_out = name
+
+    def unplug(self, name, new_default=None):
+        self.catalog = [c for c in self.catalog if c[0] != name]
+        if new_default:
+            self.default_out = new_default
+
+    def _terminate(self):
+        pass
+
+    def _initialize(self):
+        self.inits += 1
+        self.rebuild()
 
     def query_hostapis(self, index=None):
         return self.apis if index is None else self.apis[index]

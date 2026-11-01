@@ -32,6 +32,9 @@ Hata olursa ayrıntılar `%LOCALAPPDATA%\AGFO\MicMonitor\build\last-build.txt` d
 3. **Mikrofon kazancı** ve **Dinleme sesi** anında uygulanır. Seviye göstergesi kırmızıya giriyorsa kazancı düşürün; sağ uçta kırmızı kutu kırpılmayı gösterir.
 4. **● Kaydı başlat** ile o anda duyduğunuz sesi WAV olarak kaydeder. Varsayılan klasör `Müzik\AGFO Kayitlar`, varsayılan derinlik 24 bit. "Dinlemeyi sustur" ile kulaklığa ses vermeden yalnızca kaydedebilirsiniz.
 
+### Kulaklık takma / çıkarma
+Uygulama aygıt değişikliklerini kendisi izler; kulaklık takınca dinleme yeni aygıtla kendiliğinden yeniden başlar. Çıkış olarak hoparlör seçiliyken kablolu ya da USB bir kulaklık takarsanız uygulama kulaklığa geçer. HDMI ve Bluetooth aygıtlarına otomatik geçmez. Kulaklığı çıkarınca, hoparlörden geri besleme olmasın diye dinleme duraklar; kulaklığı yeniden takınca kendiliğinden devam eder. Ses akışı sessizce durursa (uyku, sürücü sıfırlanması) uygulama bunu birkaç saniye içinde fark edip yeniden açar.
+
 ### Gecikme ayarları
 - **Kip**: "Otomatik" önce WASAPI özel modu dener. Olmazsa sırasıyla özel giriş + paylaşımlı çıkış, paylaşımlı mod (yine RAW) ve en son MME denenir. "Ayrıntılar" düğmesi hangi denemenin neden başarısız olduğunu gösterir.
 - **Tampon**: Küçük tampon düşük gecikme demektir. Durum satırındaki "kesinti" sayacı artıyor ya da çıtırtı duyuyorsanız tamponu büyütün (5 → 10 ms).

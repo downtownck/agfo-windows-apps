@@ -51,6 +51,10 @@ BG, PANEL, PANEL2, FG, MUTED, ACCENT = '#0a1425', '#12243b', '#192e48', '#ecf3ff
 WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
 POLL_MS = 33
 DEFAULT_LABEL = '(Windows varsayilani)'
+MISSING_SUFFIX = '  — bagli degil, varsayilan kullaniliyor'
+DEVICE_CHECK_S = 1.0          # aygit degisikligi (kulaklik takildi / cikarildi) kontrol araligi
+STALL_TICKS = 3               # 3 x 0,5 sn geri cagri gelmezse akis takilmis sayilir
+RECOVER_DELAYS_MS = (400, 1500, 4000)
 RATE_CHOICES = ('44100', '48000', '96000')
 
 
@@ -71,6 +75,12 @@ class App(tk.Tk):
         self.restarts = []
         self._restart_job = None
         self._last_stats = 0.0
+        self._stall = 0
+        self._recovering = False
+        self._dev_sig = eng.device_signature()
+        self._dev_checked = 0.0
+        self._dev_job = None
+        self._paused_unplug = ''          # kulaklik cikarildigi icin duraklatildi: onceki cikis adi
         self.devices = {'inputs': [], 'outputs': [], 'default_input': '', 'default_output': '', 'apis': []}
         try:
             self.engine = eng.Engine(sd or eng.load_sounddevice(self.cfg.get('enable_asio', False)))
@@ -277,8 +287,13 @@ class App(tk.Tk):
     def _fill_from_cfg(self):
         ins, outs = self._device_values()
         c = self.cfg
-        self.var_in.set(c['input_device'] if c['input_device'] in ins else DEFAULT_LABEL)
-        self.var_out.set(c['output_device'] if c['output_device'] in outs else DEFAULT_LABEL)
+        for var, name, lst in ((self.var_in, c['input_device'], ins), (self.var_out, c['output_device'], outs)):
+            if not name:
+                var.set(DEFAULT_LABEL)
+            elif name in lst:
+                var.set(name)
+            else:                       # secilen aygit su an bagli degil: secim korunur, takilinca geri donulur
+                var.set(name + MISSING_SUFFIX)
         self.var_gain.set(c['input_gain_db'])
         self.var_vol.set(c['monitor_volume'])
         self.var_mute.set(c['monitor_muted'])
@@ -295,7 +310,7 @@ class App(tk.Tk):
 
     def _collect(self):
         c = dict(self.cfg)
-        vi, vo = self.var_in.get(), self.var_out.get()
+        vi, vo = (v.replace(MISSING_SUFFIX, '') for v in (self.var_in.get(), self.var_out.get()))
         c['input_device'] = '' if vi == DEFAULT_LABEL else vi
         c['output_device'] = '' if vo == DEFAULT_LABEL else vo
         c['input_gain_db'] = round(float(self.var_gain.get()), 1)
@@ -386,10 +401,14 @@ class App(tk.Tk):
         if self.engine is None:
             return
         try:
-            if not self.monitoring:          # PortAudio cihaz listesini yalniz yeniden baslatilinca tazeler
-                sd = self.engine.sd
-                sd._terminate(); sd._initialize()
+            was = self.monitoring
+            if was:
+                self.stop(quiet=True)
+            self.engine.reinit()            # PortAudio cihaz listesini yalniz yeniden baslatilinca tazeler
             self.devices = self.engine.list_devices()
+            self._dev_sig = eng.device_signature()
+            if was:
+                self.after(50, lambda: self.start())
         except Exception as e:
             core.log_line('refresh: %r' % e)
         self._fill_from_cfg()
@@ -424,14 +443,17 @@ class App(tk.Tk):
 
     # ---------------------------------------------------------------- dinleme
     def toggle(self):
+        self._paused_unplug = ''
         if self.monitoring:
             self.stop()
         else:
             self.start()
 
-    def start(self):
+    def start(self, quiet_errors=False):
         if self.engine is None:
-            messagebox.showerror('Ses', 'Ses kutuphanesi yuklenemedi: %s' % self.engine_error); return
+            if not quiet_errors:
+                messagebox.showerror('Ses', 'Ses kutuphanesi yuklenemedi: %s' % self.engine_error)
+            return False
         cfg = self._collect()
         core.save_settings(cfg)
         self._status('Ses akisi aciliyor…', ACCENT)
@@ -443,9 +465,13 @@ class App(tk.Tk):
             self.btn_toggle.config(text='Dinlemeyi baslat', bg='#1f6a4a')
             self._status('Baslatilamadi.', BAD_C)
             self.var_info.set('')
-            messagebox.showerror('Ses akisi', str(e), parent=self)
+            if quiet_errors:
+                core.log_line('start (auto) failed: %s' % str(e).replace('\n', ' ')[:300])
+            else:
+                messagebox.showerror('Ses akisi', str(e), parent=self)
             return False
         self.monitoring = True
+        self._stall = 0
         self.btn_toggle.config(text='Dinlemeyi durdur', bg='#6b2a2a')
         self._status('Dinleniyor — %s' % info.get('mode', ''), OK_C)
         self._update_info()
@@ -580,25 +606,111 @@ class App(tk.Tk):
             if now - self._last_stats > 0.5:
                 self._last_stats = now
                 self._update_info()
-                if not self.engine.alive():
+                moving = self.engine.check_progress()
+                self._stall = 0 if moving else self._stall + 1
+                if not self.engine.alive() or self._stall >= STALL_TICKS:
+                    if self._stall >= STALL_TICKS:
+                        core.log_line('stream stalled (no callbacks for %.1f s)' % (self._stall * 0.5))
                     self._recover()
         elif self.meter > -60:
             self.meter = -60.0; self.meter_hold = -60.0
             self._draw_meter(-60.0); self.var_db.set('')
+        if self.engine is not None and now - self._dev_checked >= DEVICE_CHECK_S and not self._recovering:
+            self._dev_checked = now
+            sig = eng.device_signature()
+            if sig is not None and self._dev_sig is not None and sig != self._dev_sig and self._dev_job is None:
+                # Windows bir takmada birkac degisiklik bildirir: yatisinca bir kez uygula
+                self._dev_job = self.after(800, self._devices_changed)
+            if sig is not None:
+                self._dev_sig = sig
         self._poll_job = self.after(POLL_MS, self._poll)
 
+    def _devices_changed(self):
+        """Kulaklik takildi / cikarildi, USB mikrofon baglandi ya da varsayilan aygit degisti."""
+        self._dev_job = None
+        self._dev_sig = eng.device_signature()
+        was = self.monitoring or bool(self._paused_unplug)
+        old_out = self.engine.info.get('output', '') if self.monitoring else self._paused_unplug
+        recording = was and self.engine.recording is not None
+        core.log_line('devices changed; monitoring=%s' % was)
+        self.stop(quiet=True)
+        before = list(self.devices.get('outputs') or [])
+        try:
+            self.engine.reinit()
+            self.devices = self.engine.list_devices()
+        except Exception as e:
+            core.log_line('reinit after device change: %r' % e)
+        hp = core.pick_new_headphone(before, self.devices.get('outputs'))
+        if hp and self.cfg.get('output_device') and self.cfg['output_device'] != hp:
+            # Hoparlor (ya da baska bir cikis) secili iken kulaklik takildi: kulakliga gec.
+            # Varsayilan secili ise Windows zaten kulakligi varsayilan yapar; ayara dokunulmaz.
+            core.log_line('headphone plugged: %s (was %s)' % (hp, self.cfg['output_device']))
+            self.cfg['output_device'] = hp
+            core.save_settings(self.cfg)
+        self._fill_from_cfg()
+        self._update_warnings()
+        if not was:
+            self._status('Ses aygitlari degisti; liste guncellendi.', MUTED)
+            return
+        target = self.cfg.get('output_device') if self.cfg.get('output_device') in (self.devices.get('outputs') or []) \
+            else self.devices.get('default_output', '')
+        if core.is_speaker_name(target) and old_out and not core.is_speaker_name(old_out):
+            # kulaklik cikarildi, ses hoparlore donecek: mikrofon otmesin diye dinlemeyi duraklat
+            self._paused_unplug = old_out
+            self._status('Kulaklik cikarildi: hoparlorden geri besleme olmasin diye dinleme duraklatildi. '
+                         'Kulaklik takilinca kendiliginden devam eder.' + (' Kayit kaydedildi.' if recording else ''), WARN)
+            core.log_line('paused: output fell back to speaker (%s)' % target)
+            return
+        self._paused_unplug = ''
+        if self.start(quiet_errors=True):
+            new_out = self.engine.info.get('output', '')
+            msg = 'Ses aygitlari degisti; dinleme yeniden baslatildi'
+            msg += (': %s' % new_out) if new_out and new_out != old_out else '.'
+            if recording:
+                msg += ' Kayit durduruldu ve kaydedildi; yeni kayit icin tekrar basin.'
+            self._status(msg, WARN)
+        else:
+            self._schedule_recover(0, recording)
+
     def _recover(self):
-        """Akis durdu (cihaz cikarildi, uyku, surucu sifirlandi): 30 sn icinde en fazla 3 kez yeniden ac."""
+        """Akis durdu ya da takildi (kulaklik takildi, cihaz cikarildi, uyku): PortAudio yeniden baslatilir ve
+        akis artan bekleme ile (0,4 / 1,5 / 4 sn) yeniden acilir. 60 sn icinde 6'dan fazla olursa durur."""
+        if self._recovering:
+            return
         now = time.monotonic()
-        self.restarts = [t for t in self.restarts if now - t < 30] + [now]
-        core.log_line('stream died; restart #%d' % len(self.restarts))
+        self.restarts = [t for t in self.restarts if now - t < 60] + [now]
+        core.log_line('stream died/stalled; recover #%d' % len(self.restarts))
         recording = self.engine.recording is not None
         self.stop(quiet=True)
-        if len(self.restarts) > 3:
-            self._status('Ses akisi tekrar tekrar durdu. Cihaz bagli mi? "Yenile" ile listeyi tazeleyip yeniden baslatin.', BAD_C)
+        if len(self.restarts) > 6:
+            self._status('Ses akisi tekrar tekrar durdu. Aygit bagli mi? "Yenile" ile listeyi tazeleyip yeniden baslatin.', BAD_C)
             return
-        if self.start():
-            self._status('Ses akisi kesildi ve yeniden acildi.' + (' Kayit durduruldu; dosya kaydedildi.' if recording else ''), WARN)
+        self._schedule_recover(0, recording)
+
+    def _schedule_recover(self, n, recording):
+        self._recovering = True
+        self._status('Ses akisi kesildi; yeniden aciliyor…', WARN)
+        self.after(RECOVER_DELAYS_MS[n], lambda: self._try_recover(n, recording))
+
+    def _try_recover(self, n, recording):
+        try:
+            self.engine.reinit()
+            self.devices = self.engine.list_devices()
+            self._fill_from_cfg()
+            self._update_warnings()
+        except Exception as e:
+            core.log_line('reinit: %r' % e)
+        self._dev_sig = eng.device_signature()
+        if self.start(quiet_errors=True):
+            self._recovering = False
+            self._status('Ses akisi kesildi ve yeniden acildi: %s.' % self.engine.info.get('output', '')
+                         + (' Kayit durduruldu; dosya kaydedildi.' if recording else ''), WARN)
+            return
+        if n + 1 < len(RECOVER_DELAYS_MS):
+            self._schedule_recover(n + 1, recording)
+        else:
+            self._recovering = False
+            self._status('Ses akisi yeniden acilamadi. "Ayrintilar" ile nedenini gorun; "Dinlemeyi baslat" ile tekrar deneyin.', BAD_C)
 
     # ---------------------------------------------------------------- ilk acilista kurulum (EXE)
     def _first_run_install(self):
@@ -751,7 +863,7 @@ class App(tk.Tk):
 
     # ---------------------------------------------------------------- kapanis
     def destroy(self):
-        for job in (getattr(self, '_poll_job', None), getattr(self, '_save_job', None), self._restart_job):
+        for job in (getattr(self, '_poll_job', None), getattr(self, '_save_job', None), self._restart_job, self._dev_job):
             try:
                 if job:
                     self.after_cancel(job)
@@ -789,6 +901,10 @@ def smoke(report_path):
             assert int(s._streaminfo.streamOption) == eng.STREAM_OPTION_RAW
             assert int(s._streaminfo.flags) & 1
             lines.append('wasapi raw settings: ok')
+        sig = eng.device_signature()
+        if IS_WIN and sig is None:
+            raise RuntimeError('aygit izleme (winmm) calismadi')
+        lines.append('device watch: %s' % ('ok %d out / %d in' % (len(sig[0]), len(sig[1])) if sig else 'n/a'))
         app = App(sd=sd)
         app.withdraw()
         app.update_idletasks()

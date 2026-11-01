@@ -116,12 +116,26 @@ class Engine:
         self._rec = None
         self._lock = threading.Lock()
         self._p = (1.0, 0.64, 'mix', 2)       # giris kazanci, dinleme kazanci, kanal kipi, cikis kanali
+        self.callbacks = 0                    # geri cagri sayaci: akis sessizce durursa (kulaklik takildi) artmaz
+        self.out_callbacks = 0
+        self._last_progress = None
 
     # ------------------------------------------------------------ cihazlar
     def _sd(self):
         if self.sd is None:
             self.sd = load_sounddevice()
         return self.sd
+
+    def reinit(self):
+        """PortAudio'yu kapatip acar: cihaz listesi ve varsayilanlar Windows'tan yeniden okunur.
+        (PortAudio listeyi yalnizca baslarken okur; kulaklik takilinca acilan yeni aygiti ancak boyle gorur.)"""
+        self.stop()
+        sd = self._sd()
+        try:
+            sd._terminate()
+        except Exception:
+            pass
+        sd._initialize()
 
     def host_apis(self):
         sd = self._sd()
@@ -212,6 +226,7 @@ class Engine:
         return sig, m, oc
 
     def _cb_duplex(self, indata, outdata, frames, t, status):
+        self.callbacks += 1
         if status:
             self.xruns += 1
         try:
@@ -224,6 +239,7 @@ class Engine:
             outdata.fill(0)
 
     def _cb_in(self, indata, frames, t, status):
+        self.callbacks += 1
         if status:
             self.xruns += 1
         try:
@@ -234,6 +250,7 @@ class Engine:
             pass
 
     def _cb_out(self, outdata, frames, t, status):
+        self.out_callbacks += 1
         if status:
             self.xruns += 1
         ring = self.ring
@@ -311,6 +328,7 @@ class Engine:
         self._p = (g, m, ch, och)
         self.xruns = 0
         self.died = False
+        self._last_progress = None
         ins, outs = self._settings(a, a.in_excl), self._settings(a, a.out_excl)
         if not a.split:
             extra = (ins, outs) if (ins or outs) else None
@@ -378,6 +396,18 @@ class Engine:
             except AttributeError:
                 pass
 
+    def check_progress(self):
+        """Arayuz ~0,5 sn'de bir cagirir. Son cagridan beri ses geri cagrilari ilerlediyse True.
+        Windows ozel moddaki akisi gecersiz kildiginda (kulaklik takildi, format degisti) PortAudio hata
+        bildirmeden geri cagirmayi birakabilir; bunu yalniz bu sayac yakalar."""
+        cur = (self.callbacks, self.out_callbacks)
+        last, self._last_progress = self._last_progress, cur
+        if last is None:
+            return True
+        if self.ring is None:
+            return cur[0] != last[0]
+        return cur[0] != last[0] and cur[1] != last[1]
+
     def alive(self):
         if not self.running:
             return False
@@ -435,3 +465,49 @@ def _explain(err, log):
     if err is not None:
         msg += '\n\nSon hata: %s' % str(err).strip()[:300]
     return msg
+
+
+# --------------------------------------------------------------------------- aygit degisikligi algilama
+def device_signature():
+    """Windows'taki etkin ses aygitlarinin ve varsayilanlarin ozeti (winmm; PortAudio'dan bagimsiz, ucuz).
+
+    Kulaklik takilip cikarildiginda, USB mikrofon baglandiginda ya da varsayilan aygit degistiginde degisir.
+    Windows disinda None doner (degisiklik izlenmez)."""
+    if not IS_WIN:
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+        winmm = ctypes.windll.winmm
+
+        class OUTCAPS(ctypes.Structure):
+            _fields_ = [('wMid', wintypes.WORD), ('wPid', wintypes.WORD), ('vDriverVersion', wintypes.UINT),
+                        ('szPname', wintypes.WCHAR * 32), ('dwFormats', wintypes.DWORD), ('wChannels', wintypes.WORD),
+                        ('wReserved1', wintypes.WORD), ('dwSupport', wintypes.DWORD)]
+
+        class INCAPS(ctypes.Structure):
+            _fields_ = [('wMid', wintypes.WORD), ('wPid', wintypes.WORD), ('vDriverVersion', wintypes.UINT),
+                        ('szPname', wintypes.WCHAR * 32), ('dwFormats', wintypes.DWORD), ('wChannels', wintypes.WORD),
+                        ('wReserved1', wintypes.WORD)]
+
+        outs, ins = [], []
+        for i in range(winmm.waveOutGetNumDevs()):
+            c = OUTCAPS()
+            if winmm.waveOutGetDevCapsW(i, ctypes.byref(c), ctypes.sizeof(c)) == 0:
+                outs.append(c.szPname)
+        for i in range(winmm.waveInGetNumDevs()):
+            c = INCAPS()
+            if winmm.waveInGetDevCapsW(i, ctypes.byref(c), ctypes.sizeof(c)) == 0:
+                ins.append(c.szPname)
+        DRVM_MAPPER_PREFERRED_GET = 0x2015
+        WAVE_MAPPER = ctypes.c_void_p(-1 & 0xFFFFFFFFFFFFFFFF)
+        pref = []
+        for fn in (winmm.waveOutMessage, winmm.waveInMessage):
+            dev, flags = wintypes.DWORD(0xFFFFFFFF), wintypes.DWORD(0)
+            fn.argtypes = [ctypes.c_void_p, wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p]
+            fn(WAVE_MAPPER, DRVM_MAPPER_PREFERRED_GET, ctypes.byref(dev), ctypes.byref(flags))
+            pref.append(int(dev.value))
+        return (tuple(outs), tuple(ins), tuple(pref))
+    except Exception as e:
+        core.log_line('device_signature: %r' % e)
+        return None

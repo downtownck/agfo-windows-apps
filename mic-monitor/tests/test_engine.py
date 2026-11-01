@@ -206,4 +206,24 @@ def exclusive_retries_larger_buffer():
     e.stop()
 
 
+@test
+def progress_and_reinit():
+    sd = FakeSD()
+    e = eng.Engine(sd)
+    e.start(cfg())
+    cb = sd.opened[-1].callback
+    out = np.zeros((4, 2), dtype=np.float32)
+    assert e.check_progress()                         # ilk cagri: referans
+    assert not e.check_progress()                     # geri cagri gelmedi
+    cb(np.zeros((4, 2), dtype=np.float32), out, 4, None, None)
+    assert e.check_progress()
+    sd.plug('Kulaklık (USB Audio)')
+    assert 'Kulaklık (USB Audio)' not in e.list_devices()['outputs']     # PortAudio eski listeyi tutar
+    e.reinit()
+    assert not e.running and sd.inits == 1
+    d = e.list_devices()
+    assert 'Kulaklık (USB Audio)' in d['outputs'] and d['default_output'] == 'Kulaklık (USB Audio)'
+    assert eng.device_signature() is None or os.name == 'nt'
+
+
 print('OK - %d test gecti: %s' % (len(PASSED), ', '.join(PASSED)))
