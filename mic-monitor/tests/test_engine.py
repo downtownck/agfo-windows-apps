@@ -226,4 +226,31 @@ def progress_and_reinit():
     assert eng.device_signature() is None or os.name == 'nt'
 
 
+@test
+def xrun_filter_and_switch_interval():
+    import types as _t
+    assert not eng.is_xrun(None)
+    flags = _t.SimpleNamespace(input_underflow=False, input_overflow=False, output_underflow=False,
+                               output_overflow=False, priming_output=True)
+    assert not eng.is_xrun(flags)                         # akis baslangici: kesinti degil
+    flags.output_underflow = True
+    assert eng.is_xrun(flags)
+    assert eng.is_xrun('input overflow')                  # bayrak nesnesi degilse: her durum kesinti
+    before = sys.getswitchinterval()
+    sd = FakeSD()
+    e = eng.Engine(sd)
+    e.start(cfg())
+    assert sys.getswitchinterval() <= eng.SWITCH_INTERVAL_AUDIO + 1e-9
+    e.stop(); e.stop()
+    assert abs(sys.getswitchinterval() - before) < 1e-9
+    e.start(cfg())
+    cb = sd.opened[-1].callback
+    out = np.zeros((4, 2), dtype=np.float32)
+    assert e.xrun_rate(100.0) == 0
+    for _ in range(3):
+        cb(np.zeros((4, 2), dtype=np.float32), out, 4, None, 'output underflow')
+    assert e.xrun_rate(101.0) == 3 and e.xrun_rate(120.0) == 0     # 10 sn pencere
+    e.stop()
+
+
 print('OK - %d test gecti: %s' % (len(PASSED), ', '.join(PASSED)))

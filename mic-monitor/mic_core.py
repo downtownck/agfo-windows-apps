@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.0.1 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.0.2 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -226,8 +226,10 @@ def float_to_pcm(block, bits):
 class RingBuffer:
     """Iki ayri ses akisi (giris / cikis) arasinda tek ureticili - tek tuketicili tampon.
 
-    Giris ve cikis farkli saatle calistiginda tampon yavasca dolar ya da bosalir. Hedef doluluk
-    asilirsa en eski ornekler atilir (gecikme birikmez); yetmezse sessizlik verilir (alt tasma sayilir).
+    1.0.2: Hedef doluluk, gelen giris ve istenen cikis bloklarinin en buyugune gore kendini ayarlar
+    (surucu 10 ms'lik bloklar verip 3 ms'lik isterse 5 ms'lik sabit hedef surekli bosalip cizirti yapiyordu).
+    Tampon bosalirsa cikis, hedef yeniden dolana kadar sessiz kalir (aralikli bos bloklar yerine tek
+    kisa bosluk). Giris ve cikis farkli saatle calisip tampon sisince fazlasi atilir (gecikme birikmez).
     """
 
     def __init__(self, channels, capacity, target):
@@ -242,10 +244,19 @@ class RingBuffer:
         self.lock = threading.Lock()
         self.underruns = 0
         self.dropped = 0
+        self.max_w = 0
+        self.max_r = 0
+        self.primed = False
+
+    def effective_target(self):
+        # cikis henuz okumadiysa okuma blogunu yazma blogu kadar varsay (baslangicta gereksiz atmayi onler)
+        return min(self.cap // 2, max(self.target, self.max_w + (self.max_r or self.max_w)))
 
     def write(self, data):
         n = len(data)
         with self.lock:
+            if n > self.max_w:
+                self.max_w = n
             if n >= self.cap:
                 data = data[-self.cap:]
                 n = len(data)
@@ -255,9 +266,10 @@ class RingBuffer:
                 self.buf[:n - first] = data[first:]
             self.w = (self.w + n) % self.cap
             self.fill += n
-            limit = self.target * 2 + n
-            if self.fill > min(limit, self.cap):
-                drop = self.fill - self.target
+            tgt = self.effective_target()
+            high = tgt + 2 * self.max_w
+            if self.fill > min(high, self.cap):
+                drop = self.fill - tgt
                 self.r = (self.r + drop) % self.cap
                 self.fill -= drop
                 self.dropped += drop
@@ -265,6 +277,13 @@ class RingBuffer:
     def read(self, out):
         n = len(out)
         with self.lock:
+            if n > self.max_r:
+                self.max_r = n
+            if not self.primed:
+                if self.fill < self.effective_target():
+                    out[:] = 0.0
+                    return 0
+                self.primed = True
             take = min(n, self.fill)
             first = min(take, self.cap - self.r)
             out[:first] = self.buf[self.r:self.r + first]
@@ -273,6 +292,7 @@ class RingBuffer:
             if take < n:
                 out[take:] = 0.0
                 self.underruns += 1
+                self.primed = False          # yeniden dolana kadar bekle
             self.r = (self.r + take) % self.cap
             self.fill -= take
         return take

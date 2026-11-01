@@ -150,6 +150,7 @@ app._restart()
 assert app.engine.info['output'] == 'Hoparlör (Realtek(R) Audio)'
 sd.plug('Kulaklık (USB Audio)')
 SIG['v'] = ('b',)
+app._sig_latest = SIG['v']
 app._dev_checked = 0; app._poll()
 assert wait_for(lambda: app.monitoring and app.engine.info.get('output') == 'Kulaklık (USB Audio)'), app.var_status.get()
 assert core.load_settings()['output_device'] == 'Kulaklık (USB Audio)'
@@ -159,6 +160,7 @@ PASSED.append('headphone_plug_switches')
 # kulaklik cikarildi: hoparlore dusmek yerine dinleme duraklar (geri besleme olmasin)
 sd.unplug('Kulaklık (USB Audio)', new_default='Hoparlör (Realtek(R) Audio)')
 SIG['v'] = ('c',)
+app._sig_latest = SIG['v']
 app._dev_checked = 0; app._poll()
 assert wait_for(lambda: app._dev_job is None and not app.monitoring and app._paused_unplug), app.var_status.get()
 assert 'duraklatildi' in app.var_status.get()
@@ -168,12 +170,29 @@ PASSED.append('headphone_unplug_pauses')
 # tekrar takildi: kendiliginden devam
 sd.plug('Kulaklık (USB Audio)')
 SIG['v'] = ('d',)
+app._sig_latest = SIG['v']
 app._dev_checked = 0; app._poll()
 assert wait_for(lambda: app.monitoring), app.var_status.get()
 assert app.engine.info['output'] == 'Kulaklık (USB Audio)' and not app._paused_unplug
 assert app.var_out.get() == 'Kulaklık (USB Audio)'
 PASSED.append('headphone_replug_resumes')
 app.var_out.set('Kulaklık (Realtek(R) Audio)'); app._changed(restart=False)
+
+# sik kesinti (cizirti): tampon bir kademe buyur, akis yeniden acilir
+app._restart()
+assert app.cfg['buffer_ms'] == 10
+cb = sd.opened[-1].callback
+import time as _time
+now = _time.monotonic()
+app.engine.xrun_rate(now)
+for _ in range(app_mod.XRUN_LIMIT):
+    cb(np.zeros((480, 2), dtype=np.float32), out, 480, None, 'output underflow')
+app._auto_buf_at = 0
+app._check_crackle(now + 1)
+assert app.cfg['buffer_ms'] == 20 and app.monitoring and sd.opened[-1].kw['latency'] == (0.02, 0.02)
+assert 'Cizirti algilandi' in app.var_status.get() and core.load_settings()['buffer_ms'] == 20
+PASSED.append('crackle_raises_buffer')
+app.var_buf.set('10 ms'); app._changed(restart=False)
 
 # durdur + kapat: ayarlar kaydedilir
 app.stop()

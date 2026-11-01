@@ -55,6 +55,7 @@ MISSING_SUFFIX = '  — bagli degil, varsayilan kullaniliyor'
 DEVICE_CHECK_S = 1.0          # aygit degisikligi (kulaklik takildi / cikarildi) kontrol araligi
 STALL_TICKS = 3               # 3 x 0,5 sn geri cagri gelmezse akis takilmis sayilir
 RECOVER_DELAYS_MS = (400, 1500, 4000)
+XRUN_LIMIT = 6                # 10 sn'de bu kadar kesinti (cizirti) olursa tampon bir kademe buyutulur
 RATE_CHOICES = ('44100', '48000', '96000')
 
 
@@ -78,8 +79,13 @@ class App(tk.Tk):
         self._stall = 0
         self._recovering = False
         self._dev_sig = eng.device_signature()
+        self._sig_latest = self._dev_sig
         self._dev_checked = 0.0
         self._dev_job = None
+        self._auto_buf_at = 0.0
+        self._watch_alive = True
+        # aygit listesi sorgusu arayuz dongusunu (ve dolayisiyla ses is parcacigini) bekletmesin
+        threading.Thread(target=self._device_watch_loop, name='micmon-devwatch', daemon=True).start()
         self._paused_unplug = ''          # kulaklik cikarildigi icin duraklatildi: onceki cikis adi
         self.devices = {'inputs': [], 'outputs': [], 'default_input': '', 'default_output': '', 'apis': []}
         try:
@@ -557,28 +563,37 @@ class App(tk.Tk):
         self._update_info()
 
     # ---------------------------------------------------------------- dongu: seviye olcer, saglik
-    def _draw_meter(self, db):
+    def _meter_items(self):
+        """Gosterge ogeleri bir kez olusturulur; her karede yalniz koordinatlari degisir (hafif)."""
+        if getattr(self, '_mi', None):
+            return self._mi
         w, h = self.meter_w, self.meter_h
-        self.cv.delete('all')
-
-        def x_of(v):
-            return int(w * (max(-60.0, min(0.0, v)) + 60.0) / 60.0)
-        x = x_of(db)
-        y1 = x_of(-18.0)
-        y2 = x_of(-6.0)
-        if x > 0:
-            self.cv.create_rectangle(0, 0, min(x, y1), h, fill='#3fae6a', width=0)
-        if x > y1:
-            self.cv.create_rectangle(y1, 0, min(x, y2), h, fill='#d7b84a', width=0)
-        if x > y2:
-            self.cv.create_rectangle(y2, 0, x, h, fill='#d9534f', width=0)
-        hx = x_of(self.meter_hold)
-        self.cv.create_line(hx, 0, hx, h, fill='#ffffff')
+        mi = {
+            'g': self.cv.create_rectangle(0, 0, 0, h, fill='#3fae6a', width=0),
+            'y': self.cv.create_rectangle(0, 0, 0, h, fill='#d7b84a', width=0),
+            'r': self.cv.create_rectangle(0, 0, 0, h, fill='#d9534f', width=0),
+            'hold': self.cv.create_line(0, 0, 0, h, fill='#ffffff'),
+            'clip': self.cv.create_rectangle(w - 8, 0, w, h, fill='#ff3b30', width=0, state='hidden'),
+        }
         for mark in (-48, -36, -24, -12, -6, -3):
-            mx = x_of(mark)
+            mx = self._x_of(mark)
             self.cv.create_line(mx, h - 4, mx, h, fill=MUTED)
-        if time.monotonic() < self.clip_until:
-            self.cv.create_rectangle(w - 8, 0, w, h, fill='#ff3b30', width=0)
+        self._mi = mi
+        return mi
+
+    def _x_of(self, v):
+        return int(self.meter_w * (max(-60.0, min(0.0, v)) + 60.0) / 60.0)
+
+    def _draw_meter(self, db):
+        h = self.meter_h
+        mi = self._meter_items()
+        x, y1, y2 = self._x_of(db), self._x_of(-18.0), self._x_of(-6.0)
+        self.cv.coords(mi['g'], 0, 0, min(x, y1), h)
+        self.cv.coords(mi['y'], y1, 0, max(y1, min(x, y2)), h)
+        self.cv.coords(mi['r'], y2, 0, max(y2, x), h)
+        hx = self._x_of(self.meter_hold)
+        self.cv.coords(mi['hold'], hx, 0, hx, h)
+        self.cv.itemconfigure(mi['clip'], state='normal' if time.monotonic() < self.clip_until else 'hidden')
 
     def _poll(self):
         try:
@@ -606,6 +621,7 @@ class App(tk.Tk):
             if now - self._last_stats > 0.5:
                 self._last_stats = now
                 self._update_info()
+                self._check_crackle(now)
                 moving = self.engine.check_progress()
                 self._stall = 0 if moving else self._stall + 1
                 if not self.engine.alive() or self._stall >= STALL_TICKS:
@@ -617,13 +633,46 @@ class App(tk.Tk):
             self._draw_meter(-60.0); self.var_db.set('')
         if self.engine is not None and now - self._dev_checked >= DEVICE_CHECK_S and not self._recovering:
             self._dev_checked = now
-            sig = eng.device_signature()
+            sig = self._sig_latest
             if sig is not None and self._dev_sig is not None and sig != self._dev_sig and self._dev_job is None:
                 # Windows bir takmada birkac degisiklik bildirir: yatisinca bir kez uygula
                 self._dev_job = self.after(800, self._devices_changed)
             if sig is not None:
                 self._dev_sig = sig
         self._poll_job = self.after(POLL_MS, self._poll)
+
+    def _device_watch_loop(self):
+        while self._watch_alive:
+            try:
+                self._sig_latest = eng.device_signature()
+            except Exception:
+                pass
+            time.sleep(DEVICE_CHECK_S)
+
+    def _check_crackle(self, now):
+        """Sik kesinti = duyulan cizirti. Tamponu bir kademe buyutup akisi yeniden acar (kayit yokken)."""
+        if not self.monitoring or now - self._auto_buf_at < 12.0:
+            return
+        if self.engine.xrun_rate(now) < XRUN_LIMIT:
+            return
+        cur = self.cfg.get('buffer_ms', 5)
+        bigger = [b for b in core.BUFFER_CHOICES_MS if b > cur]
+        self._auto_buf_at = now
+        if not bigger:
+            self._status('Cizirti suruyor (tampon zaten en buyuk). "Ayrintilar"a bakin; baska bir kip deneyin.', WARN)
+            return
+        if self.engine.recording is not None:
+            self._status('Cizirti algilandi. Kayit bitince "Tampon"u %d ms yapin.' % bigger[0], WARN)
+            return
+        core.log_line('crackle: %d xruns/10s at %d ms -> %d ms' % (self.engine.xrun_rate(now), cur, bigger[0]))
+        self.var_buf.set('%d ms' % bigger[0])
+        self._collect(); core.save_settings(self.cfg)
+        self.stop(quiet=True)
+        if self.start(quiet_errors=True):
+            self._status('Cizirti algilandi: tampon %d ms -> %d ms yapildi (gecikme ≈ %.0f ms).'
+                         % (cur, bigger[0], self.engine.info.get('latency_ms', 0)), WARN)
+        else:
+            self._schedule_recover(0, False)
 
     def _devices_changed(self):
         """Kulaklik takildi / cikarildi, USB mikrofon baglandi ya da varsayilan aygit degisti."""
@@ -863,6 +912,7 @@ class App(tk.Tk):
 
     # ---------------------------------------------------------------- kapanis
     def destroy(self):
+        self._watch_alive = False
         for job in (getattr(self, '_poll_job', None), getattr(self, '_save_job', None), self._restart_job, self._dev_job):
             try:
                 if job:

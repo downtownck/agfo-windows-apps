@@ -28,6 +28,19 @@ class EngineError(Exception):
     pass
 
 
+SWITCH_INTERVAL_AUDIO = 0.0005   # s; Python varsayilani 5 ms: 3-5 ms ses tamponunda GIL beklemesi cizirti yapar
+
+
+def is_xrun(status):
+    """Gercek kesinti mi? (giris tasmasi / cikis bosalmasi). Akis baslarken gelen 'priming output' sayilmaz."""
+    if not status:
+        return False
+    flags = ('input_underflow', 'input_overflow', 'output_underflow', 'output_overflow')
+    if any(hasattr(status, f) for f in flags):
+        return any(bool(getattr(status, f, False)) for f in flags)
+    return True
+
+
 _SD = {}
 
 
@@ -119,6 +132,8 @@ class Engine:
         self.callbacks = 0                    # geri cagri sayaci: akis sessizce durursa (kulaklik takildi) artmaz
         self.out_callbacks = 0
         self._last_progress = None
+        self._switch_saved = None
+        self._xrun_marks = []                 # (zaman, xruns) - arayuz cizirtiyi algilamak icin
 
     # ------------------------------------------------------------ cihazlar
     def _sd(self):
@@ -227,7 +242,7 @@ class Engine:
 
     def _cb_duplex(self, indata, outdata, frames, t, status):
         self.callbacks += 1
-        if status:
+        if status and is_xrun(status):
             self.xruns += 1
         try:
             sig, m, oc = self._process(indata)
@@ -240,7 +255,7 @@ class Engine:
 
     def _cb_in(self, indata, frames, t, status):
         self.callbacks += 1
-        if status:
+        if status and is_xrun(status):
             self.xruns += 1
         try:
             sig, m, oc = self._process(indata)
@@ -251,7 +266,7 @@ class Engine:
 
     def _cb_out(self, outdata, frames, t, status):
         self.out_callbacks += 1
-        if status:
+        if status and is_xrun(status):
             self.xruns += 1
         ring = self.ring
         m = self._p[1]
@@ -329,6 +344,7 @@ class Engine:
         self.xruns = 0
         self.died = False
         self._last_progress = None
+        self._xrun_marks = []
         ins, outs = self._settings(a, a.in_excl), self._settings(a, a.out_excl)
         if not a.split:
             extra = (ins, outs) if (ins or outs) else None
@@ -350,6 +366,9 @@ class Engine:
         for s in self.streams:
             s.start()
         self.running = True
+        if self._switch_saved is None:
+            self._switch_saved = sys.getswitchinterval()
+            sys.setswitchinterval(SWITCH_INTERVAL_AUDIO)   # ses is parcacigi GIL'i en gec 0,5 ms'de alir
         gc.collect()
         try:
             gc.freeze()                # GC duraksamalari ses is parcacigini geciktirmesin
@@ -389,12 +408,20 @@ class Engine:
         self.running = False
         self.stop_recording()
         self._close_streams()
+        if self._switch_saved is not None:
+            sys.setswitchinterval(self._switch_saved)
+            self._switch_saved = None
         if was:
             self._priority(False)
             try:
                 gc.unfreeze()
             except AttributeError:
                 pass
+
+    def xrun_rate(self, now, window=10.0):
+        """Son `window` saniyedeki kesinti sayisi (arayuz ~0,5 sn'de bir cagirir)."""
+        self._xrun_marks = [(t, x) for (t, x) in self._xrun_marks if now - t <= window] + [(now, self.xruns)]
+        return self._xrun_marks[-1][1] - self._xrun_marks[0][1]
 
     def check_progress(self):
         """Arayuz ~0,5 sn'de bir cagirir. Son cagridan beri ses geri cagrilari ilerlediyse True.

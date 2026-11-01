@@ -84,36 +84,56 @@ def pcm_conversion():
 
 
 @test
-def ring_buffer_passthrough_and_underrun():
+def ring_buffer_primes_then_passes_through():
     r = core.RingBuffer(2, capacity=1000, target=100)
-    data = np.arange(160, dtype=np.float32).reshape(80, 2)
-    r.write(data)
+    data = np.arange(400, dtype=np.float32).reshape(200, 2)
     out = np.zeros((50, 2), dtype=np.float32)
-    assert r.read(out) == 50 and np.allclose(out, data[:50])
-    out = np.zeros((50, 2), dtype=np.float32)
-    assert r.read(out) == 30 and np.allclose(out[:30], data[50:]) and not out[30:].any()
-    assert r.underruns == 1
+    r.write(data[:80])
+    assert r.read(out) == 0 and not out.any()            # hedef (max(100, 80+50)=130) dolmadan ses verilmez
+    r.write(data[80:200])
+    assert r.primed is False and r.read(out) == 50 and r.primed
+    assert np.allclose(out, data[:50])
+    for k in range(3):
+        assert r.read(out) == 50 and np.allclose(out, data[50 + 50 * k:100 + 50 * k])
+    assert r.read(out) == 0 and r.underruns == 1 and not r.primed   # bosaldi: yeniden dolmayi bekler
+    assert not out.any()
+
+
+@test
+def ring_buffer_adapts_to_block_sizes_without_underruns():
+    # surucu 480'lik bloklar yaziyor, cikis 144'luk istiyor; sabit 240 hedef surekli bosalirdi
+    r = core.RingBuffer(1, capacity=48000, target=240)
+    out = np.zeros((144, 1), dtype=np.float32)
+    produced = consumed = 0.0
+    t_in = t_out = 0.0
+    for step in range(20000):                              # 1 ms adim, ayni saat
+        t = step / 1000.0
+        if t >= t_in:
+            r.write(np.ones((480, 1), dtype=np.float32)); t_in += 0.010
+        if t >= t_out:
+            r.read(out); t_out += 0.003
+    assert r.effective_target() == 480 + 144
+    assert r.underruns <= 1, r.underruns                   # yalniz baslangicta
+    assert r.fill <= r.effective_target() + 2 * 480
 
 
 @test
 def ring_buffer_wraps_and_bounds_latency():
-    r = core.RingBuffer(1, capacity=256, target=64)
+    r = core.RingBuffer(1, capacity=4096, target=64)
     out = np.zeros((48, 1), dtype=np.float32)
-    total_written = 0
-    for i in range(200):                       # giris cikistan biraz hizli (saat kaymasi)
-        blk = np.full((50, 1), i, dtype=np.float32)
-        r.write(blk); total_written += 50
+    for i in range(400):                                   # giris cikistan hizli (saat kaymasi)
+        r.write(np.full((50, 1), i, dtype=np.float32))
         r.read(out)
-        assert r.fill <= 64 * 2 + 50, r.fill    # gecikme birikmez
+        assert r.fill <= r.effective_target() + 2 * 50, r.fill    # gecikme birikmez
     assert r.dropped > 0
-    # sarma dogrulugu: ardisik yazilan degerler sirayla okunur
-    r2 = core.RingBuffer(1, capacity=10, target=4)
+    r2 = core.RingBuffer(1, capacity=16, target=4)
     got = []
-    for k in range(20):
+    for k in range(30):
         r2.write(np.array([[float(k)]], dtype=np.float32))
         o = np.zeros((1, 1), dtype=np.float32)
         r2.read(o); got.append(float(o[0, 0]))
-    assert got == [float(k) for k in range(20)]
+    vals = [v for v in got if v]
+    assert vals == sorted(vals) and vals == list(range(int(vals[0]), int(vals[0]) + len(vals)))   # sira bozulmaz
 
 
 @test

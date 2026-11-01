@@ -37,7 +37,7 @@ Uygulama aygıt değişikliklerini kendisi izler; kulaklık takınca dinleme yen
 
 ### Gecikme ayarları
 - **Kip**: "Otomatik" önce WASAPI özel modu dener. Olmazsa sırasıyla özel giriş + paylaşımlı çıkış, paylaşımlı mod (yine RAW) ve en son MME denenir. "Ayrıntılar" düğmesi hangi denemenin neden başarısız olduğunu gösterir.
-- **Tampon**: Küçük tampon düşük gecikme demektir. Durum satırındaki "kesinti" sayacı artıyor ya da çıtırtı duyuyorsanız tamponu büyütün (5 → 10 ms).
+- **Tampon**: Küçük tampon düşük gecikme demektir. Sık kesinti (çıtırtı) algılanırsa uygulama tamponu kendisi bir kademe büyütür ve durum satırında bildirir. Elle de büyütebilirsiniz (5 → 10 ms).
 - **Kanal**: Dizüstü mikrofon dizilerinde iki kanal karışık mono iyidir. Stereo bir ses kartında iki girişi ayrı kaydetmek için "Stereo"yu seçin.
 - **Diğer uygulamaların sesi de duyulsun**: Özel modda çıkışı Mic Monitor tutar ve başka programların sesi duyulmaz. Kayıt sırasında altyapı ya da metronom çalacaksanız bunu açın; gecikme birkaç ms artar.
 - **ASIO**: ASIO4ALL, FlexASIO ya da ses kartınızın ASIO sürücüsü kuruluysa açın; uygulama yeniden başlar. Kip olarak "ASIO"yu seçin.
