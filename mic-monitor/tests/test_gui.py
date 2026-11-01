@@ -207,6 +207,20 @@ assert len(_box) == nbox + 1
 app.gh_banner.pack_forget()
 PASSED.append('update_check_silent_and_manual')
 
+# efektler: canli acilip kapanir, oda tipi on ayarlari surgulere yansir, ayar kaydedilir
+app.var_rev_type.set('Katedral'); app._rev_preset()
+assert app.var_rev_on.get() and abs(app.var_rev_time.get() - 5.0) < 1e-9 and app.engine.fx.reverb.kind == 'Katedral'
+app.var_echo_on.set(True); app.var_echo_ms.set(400); app._fx_live()
+assert app.engine.fx.echo is not None and app.engine.fx.echo.D == int(0.4 * app.engine.info['samplerate'])
+app._update_info()
+assert 'efekt: yanki + reverb (Katedral)' in app.var_info.get()
+app.var_echo_on.set(False); app.var_rev_on.set(False); app._fx_live()
+assert app.engine.fx is None
+app._save_job and app.after_cancel(app._save_job)
+core.save_settings(app.cfg)
+assert core.load_settings()['fx_rev_type'] == 'Katedral' and core.load_settings()['fx_echo_ms'] == 400
+PASSED.append('effects_live')
+
 # durdur + kapat: ayarlar kaydedilir
 app.stop()
 assert not app.monitoring and not sd.opened[-1].active

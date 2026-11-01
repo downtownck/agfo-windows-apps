@@ -54,7 +54,7 @@ try {
     $pyiArgs = @('-m', 'PyInstaller', '--noconfirm', '--clean', '--onefile', '--windowed', '--name', $appName,
                  '--distpath', $dist, '--workpath', (Join-Path $cache 'work'), '--specpath', (Join-Path $cache 'spec'),
                  '--icon', $ico, '--paths', $root, '--add-data', ($ico + ';assets'),
-                 '--hidden-import', 'mic_core', '--hidden-import', 'mic_engine', '--hidden-import', 'mic_update', '--hidden-import', 'agfo_github_update',
+                 '--hidden-import', 'mic_core', '--hidden-import', 'mic_engine', '--hidden-import', 'mic_fx', '--hidden-import', 'mic_update', '--hidden-import', 'agfo_github_update',
                  '--collect-all', '_sounddevice_data', '--hidden-import', 'sounddevice', '--hidden-import', '_cffi_backend',
                  (Join-Path $root 'app.pyw'))
     if ((Invoke-Native $vpy $pyiArgs) -ne 0) { throw 'PyInstaller derlemesi basarisiz.' }

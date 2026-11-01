@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.0.3 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.1.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.0.3'
+VERSION = '1.1.0'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -58,6 +58,18 @@ DEFAULT_CONFIG = {
     'record_dir': '',          # bos -> ~/Music/AGFO Kayitlar
     'record_bits': 24,         # 16 | 24
     'enable_asio': False,      # ASIO surucularini tara (PortAudio ASIO DLL'i; yeniden baslatma gerekir)
+    'fx_echo_on': False,       # 1.1.0: yanki (gecikmesiz: kuru ses aynen gecer, yanki ustune eklenir)
+    'fx_echo_ms': 320,
+    'fx_echo_fb': 35,          # geri besleme %
+    'fx_echo_mix': 30,         # seviye %
+    'fx_echo_tone': 55,        # parlaklik %
+    'fx_rev_on': False,        # 1.1.0: reverb
+    'fx_rev_type': 'Studyo',
+    'fx_rev_time': 1.3,        # s (RT60)
+    'fx_rev_mix': 25,
+    'fx_rev_tone': 60,
+    'fx_rev_predelay': 12,     # ms
+    'fx_to_record': False,     # efekti kayda da uygula (varsayilan: kayit kuru kalir, efekt yalniz kulaklikta)
     'autostart': False,        # acilista dinlemeyi baslat
     'auto_update_check': True,
 }
@@ -94,6 +106,14 @@ def _clean(data):
     out['buffer_ms'] = min(200, max(1, int(out['buffer_ms'])))
     out['input_gain_db'] = min(24.0, max(-12.0, float(out['input_gain_db'])))
     out['monitor_volume'] = min(100, max(0, int(out['monitor_volume'])))
+    out['fx_echo_ms'] = min(1500, max(60, int(out['fx_echo_ms'])))
+    out['fx_echo_fb'] = min(85, max(0, int(out['fx_echo_fb'])))
+    for k in ('fx_echo_mix', 'fx_echo_tone', 'fx_rev_mix', 'fx_rev_tone'):
+        out[k] = min(100, max(0, int(out[k])))
+    out['fx_rev_time'] = round(min(10.0, max(0.2, float(out['fx_rev_time']))), 2)
+    out['fx_rev_predelay'] = min(120, max(0, int(out['fx_rev_predelay'])))
+    if out['fx_rev_type'] not in ('Oda', 'Studyo', 'Salon', 'Katedral', 'Plaka'):
+        out['fx_rev_type'] = 'Studyo'
     if out['samplerate'] not in (44100, 48000, 88200, 96000):
         out['samplerate'] = 48000
     return out

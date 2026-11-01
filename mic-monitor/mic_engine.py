@@ -17,6 +17,7 @@ import sys
 import threading
 
 import mic_core as core
+import mic_fx
 
 IS_WIN = sys.platform == 'win32'
 API_WASAPI, API_MME, API_ASIO = 'Windows WASAPI', 'MME', 'ASIO'
@@ -133,6 +134,9 @@ class Engine:
         self.out_callbacks = 0
         self._last_progress = None
         self._switch_saved = None
+        self.fx = None                        # 1.1.0: yanki / reverb zinciri (yoksa None)
+        self._fx_cfg = {}
+        self._rec_wet = False                 # kayit efektli mi (kayit basinda sabitlenir)
         self._xrun_marks = []                 # (zaman, xruns) - arayuz cizirtiyi algilamak icin
 
     # ------------------------------------------------------------ cihazlar
@@ -235,10 +239,35 @@ class Engine:
         p = core.peak(sig)
         if p > self._peak:
             self._peak = p
+        return sig, m, oc
+
+    def _mix(self, sig):
+        """Kuru ses + efekt. Kuru ses hic geciktirilmez; efektin islak sesi ustune eklenir. Kayit da burada."""
+        import numpy as np
+        fx = self.fx
+        out = sig
+        if fx is not None and fx.active:
+            dry2 = core.fit_output(sig, 2)
+            out = dry2 + fx.process(dry2)
         rec = self._rec
         if rec is not None:
-            rec.push(sig)
-        return sig, m, oc
+            if self._rec_wet:
+                rec.push(np.clip(core.fit_output(out, 2), -1.0, 1.0))
+            else:
+                rec.push(sig)
+        return out
+
+    def set_fx(self, cfg):
+        """Efekt ayarlarini uygular (canli). Ornekleme hizi akis acilinca belli olur."""
+        self._fx_cfg = {k: v for k, v in cfg.items() if k.startswith('fx_')}
+        if not self.running:
+            return
+        if not (cfg.get('fx_echo_on') or cfg.get('fx_rev_on')):
+            self.fx = None
+            return
+        sr = int(self.info.get('samplerate', 48000))
+        chain = self.fx if (self.fx is not None and self.fx.sr == sr) else mic_fx.FxChain(sr)
+        self.fx = chain.configure(cfg)
 
     def _cb_duplex(self, indata, outdata, frames, t, status):
         self.callbacks += 1
@@ -246,10 +275,14 @@ class Engine:
             self.xruns += 1
         try:
             sig, m, oc = self._process(indata)
+            out = self._mix(sig)                 # susturulmusken de islenir: kayit ve efekt kuyrugu devam eder
             if m <= 0.0:
                 outdata.fill(0)
             else:
-                outdata[:] = core.fit_output(sig * m, outdata.shape[1])
+                y = out * m
+                if out is not sig:
+                    y = y.clip(-1.0, 1.0)
+                outdata[:] = core.fit_output(y, outdata.shape[1])
         except Exception:
             outdata.fill(0)
 
@@ -259,8 +292,9 @@ class Engine:
             self.xruns += 1
         try:
             sig, m, oc = self._process(indata)
+            out = self._mix(sig)
             if self.ring is not None:
-                self.ring.write(core.fit_output(sig, self.ring.ch))
+                self.ring.write(core.fit_output(out, self.ring.ch))
         except Exception:
             pass
 
@@ -327,6 +361,7 @@ class Engine:
                 self.info['latency_ms'] = self._latency_ms(sr)
                 self.attempt_log.append('OK %s %d Hz %d/%d kanal' % (a.label, sr, ich, och))
                 core.log_line('start: ' + ' | '.join(self.attempt_log[-6:]))
+                self.set_fx(cfg)
                 self._priority(True)
                 return dict(self.info)
         core.log_line('start failed: ' + ' | '.join(self.attempt_log))
@@ -408,6 +443,7 @@ class Engine:
         self.running = False
         self.stop_recording()
         self._close_streams()
+        self.fx = None
         if self._switch_saved is not None:
             sys.setswitchinterval(self._switch_saved)
             self._switch_saved = None
@@ -446,13 +482,15 @@ class Engine:
             return False
 
     # ------------------------------------------------------------ kayit
-    def start_recording(self, record_dir, bits=24):
+    def start_recording(self, record_dir, bits=24, wet=False):
+        """wet=True ve efekt aciksa kayit efektli (stereo); aksi halde kuru (sonradan efekt eklenebilir)."""
         if not self.running:
             raise EngineError('Once dinlemeyi baslatin.')
         if self._rec is not None:
             return self._rec.path
         d = core.resolve_record_dir(record_dir)
-        ch = 2 if self._p[2] == 'stereo' else 1
+        self._rec_wet = bool(wet and self.fx is not None and self.fx.active)
+        ch = 2 if (self._p[2] == 'stereo' or self._rec_wet) else 1
         rec = core.WavRecorder(d / core.recording_name(), self.info.get('samplerate', 48000), ch, bits)
         self._rec = rec
         return rec.path

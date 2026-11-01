@@ -42,6 +42,7 @@ if not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import mic_core as core  # noqa: E402
 import mic_engine as eng  # noqa: E402
+import mic_fx  # noqa: E402
 import mic_update as upd  # noqa: E402
 import agfo_github_update as ghu  # noqa: E402
 
@@ -157,9 +158,13 @@ class App(tk.Tk):
         return tk.Label(parent, text=text, fg=MUTED if muted else FG, bg=PANEL, font=('Segoe UI', 9),
                         justify='left', anchor='w', **kw)
 
-    def _section(self, title):
-        f = tk.Frame(self, bg=PANEL, padx=10, pady=8)
-        f.pack(fill='x', padx=22, pady=(0, 10))
+    def _section(self, title, parent=None):
+        f = tk.Frame(parent or self, bg=PANEL, padx=10, pady=8)
+        if parent is None:
+            f.pack(fill='x', padx=22, pady=(0, 10))
+        else:
+            parent.add(f, text='  %s  ' % title.capitalize())
+            return f                      # sekmenin adi zaten baslik
         tk.Label(f, text=title, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold')).grid(row=0, column=0, columnspan=4, sticky='w')
         return f
 
@@ -222,8 +227,15 @@ class App(tk.Tk):
         tk.Label(snd, textvariable=self.var_db, fg=MUTED, bg=PANEL, font=('Consolas', 9), width=12,
                  anchor='w').grid(row=3, column=3, sticky='w', **pad)
 
-        # -- ayarlar
-        st = self._section('GECIKME AYARLARI')
+        # -- sekmeler: efektler / gecikme / kayit (pencere ekrana sigsin)
+        s = ttk.Style(self)
+        s.configure('TNotebook', background=BG, borderwidth=0)
+        s.configure('TNotebook.Tab', background=PANEL2, foreground=MUTED, padding=(12, 5), font=('Segoe UI', 9, 'bold'))
+        s.map('TNotebook.Tab', background=[('selected', PANEL)], foreground=[('selected', FG)])
+        self.tabs = ttk.Notebook(self)
+        self.tabs.pack(fill='x', padx=22, pady=(0, 10))
+        self._build_fx(self._section('EFEKTLER', self.tabs), pad)
+        st = self._section('GECIKME', self.tabs)
         self._lbl(st, 'Kip:').grid(row=1, column=0, sticky='w', **pad)
         self.var_mode = tk.StringVar()
         cm = ttk.Combobox(st, textvariable=self.var_mode, width=30, state='readonly',
@@ -257,7 +269,7 @@ class App(tk.Tk):
                         command=lambda: self._changed(restart=False)).grid(row=5, column=0, columnspan=4, sticky='w', **pad)
 
         # -- kayit
-        rc = self._section('KAYIT')
+        rc = self._section('KAYIT', self.tabs)
         self._lbl(rc, 'Klasor:').grid(row=1, column=0, sticky='w', **pad)
         self.var_dir = tk.StringVar()
         ttk.Entry(rc, textvariable=self.var_dir, width=44).grid(row=1, column=1, sticky='we', **pad)
@@ -284,6 +296,62 @@ class App(tk.Tk):
         self.var_info = tk.StringVar(value='')
         tk.Label(stbar, textvariable=self.var_info, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w',
                  justify='left', wraplength=int(640 * self.scale)).pack(fill='x', pady=(2, 0))
+
+    def _scale(self, parent, row, col, label, var, lo, hi, fmt, length=150):
+        self._lbl(parent, label).grid(row=row, column=col, sticky='w', padx=6, pady=3)
+        fr = tk.Frame(parent, bg=PANEL); fr.grid(row=row, column=col + 1, sticky='w', padx=6, pady=3)
+        ttk.Scale(fr, from_=lo, to=hi, variable=var, length=int(length * self.scale),
+                  command=lambda v: self._fx_live()).pack(side='left')
+        lab = tk.Label(fr, text='', fg=FG, bg=PANEL, font=('Segoe UI', 9), width=7, anchor='w')
+        lab.pack(side='left', padx=(6, 0))
+        self._fx_labels.append((lab, var, fmt))
+
+    def _build_fx(self, fx, pad):
+        """Yanki ve reverb: gecikme eklemez (kuru ses aynen gecer, efekt ustune eklenir)."""
+        self._fx_labels = []
+        self.var_echo_on = tk.BooleanVar()
+        self.var_echo_ms = tk.DoubleVar(); self.var_echo_fb = tk.DoubleVar()
+        self.var_echo_mix = tk.DoubleVar(); self.var_echo_tone = tk.DoubleVar()
+        self.var_rev_on = tk.BooleanVar(); self.var_rev_type = tk.StringVar()
+        self.var_rev_time = tk.DoubleVar(); self.var_rev_mix = tk.DoubleVar()
+        self.var_rev_tone = tk.DoubleVar(); self.var_rev_pre = tk.DoubleVar()
+        self.var_fx_rec = tk.BooleanVar()
+        ttk.Checkbutton(fx, text='Yanki (echo)', variable=self.var_echo_on, command=self._fx_live).grid(row=1, column=0, sticky='w', **pad)
+        self._scale(fx, 2, 0, 'Sure:', self.var_echo_ms, 60, 1200, '%d ms')
+        self._scale(fx, 2, 2, 'Tekrar:', self.var_echo_fb, 0, 85, '%d %%')
+        self._scale(fx, 3, 0, 'Seviye:', self.var_echo_mix, 0, 100, '%d %%')
+        self._scale(fx, 3, 2, 'Parlaklik:', self.var_echo_tone, 0, 100, '%d %%')
+        ttk.Checkbutton(fx, text='Reverb', variable=self.var_rev_on, command=self._fx_live).grid(row=4, column=0, sticky='w', padx=6, pady=(10, 3))
+        cr = ttk.Combobox(fx, textvariable=self.var_rev_type, width=12, state='readonly', values=mic_fx.REVERB_TYPES)
+        cr.grid(row=4, column=1, sticky='w', padx=6, pady=(10, 3))
+        cr.bind('<<ComboboxSelected>>', lambda e: self._rev_preset())
+        self._scale(fx, 5, 0, 'Sure:', self.var_rev_time, 0.3, 8.0, '%.1f sn')
+        self._scale(fx, 5, 2, 'On gecikme:', self.var_rev_pre, 0, 100, '%d ms')
+        self._scale(fx, 6, 0, 'Seviye:', self.var_rev_mix, 0, 100, '%d %%')
+        self._scale(fx, 6, 2, 'Parlaklik:', self.var_rev_tone, 0, 100, '%d %%')
+        ttk.Checkbutton(fx, text='Efekti kayda da uygula (kapaliyken kayit kuru kalir; efekt yalniz kulaklikta)',
+                        variable=self.var_fx_rec, command=self._fx_live).grid(row=7, column=0, columnspan=4, sticky='w', padx=6, pady=(10, 3))
+        self._lbl(fx, 'Efektler gecikme eklemez: kendi sesiniz aninda gelir, yanki / reverb ustune eklenir.').grid(
+            row=8, column=0, columnspan=4, sticky='w', padx=6)
+
+    def _rev_preset(self):
+        p = mic_fx.REVERB_PRESETS.get(self.var_rev_type.get())
+        if p:
+            self.var_rev_time.set(p['time']); self.var_rev_pre.set(p['predelay']); self.var_rev_tone.set(p['tone'])
+            if not self.var_rev_on.get():
+                self.var_rev_on.set(True)
+        self._fx_live()
+
+    def _fx_live(self):
+        for lab, var, fmt in self._fx_labels:
+            try:
+                lab.config(text=fmt % float(var.get()))
+            except (tk.TclError, ValueError):
+                pass
+        cfg = self._collect()
+        if self.engine is not None:
+            self.engine.set_fx(cfg)
+        self._save_later()
 
     # ---------------------------------------------------------------- ayar <-> arayuz
     def _device_values(self):
@@ -315,6 +383,13 @@ class App(tk.Tk):
         self.var_autostart.set(c['autostart'])
         self.var_dir.set(c['record_dir'])
         self.var_bits.set('%d bit' % c['record_bits'])
+        self.var_echo_on.set(c['fx_echo_on']); self.var_echo_ms.set(c['fx_echo_ms']); self.var_echo_fb.set(c['fx_echo_fb'])
+        self.var_echo_mix.set(c['fx_echo_mix']); self.var_echo_tone.set(c['fx_echo_tone'])
+        self.var_rev_on.set(c['fx_rev_on']); self.var_rev_type.set(c['fx_rev_type']); self.var_rev_time.set(c['fx_rev_time'])
+        self.var_rev_mix.set(c['fx_rev_mix']); self.var_rev_tone.set(c['fx_rev_tone']); self.var_rev_pre.set(c['fx_rev_predelay'])
+        self.var_fx_rec.set(c['fx_to_record'])
+        for lab, var, fmt in self._fx_labels:
+            lab.config(text=fmt % float(var.get()))
         self._labels()
 
     def _collect(self):
@@ -342,6 +417,13 @@ class App(tk.Tk):
         c['autostart'] = bool(self.var_autostart.get())
         c['record_dir'] = self.var_dir.get().strip()
         c['record_bits'] = 16 if self.var_bits.get().startswith('16') else 24
+        c['fx_echo_on'] = bool(self.var_echo_on.get()); c['fx_echo_ms'] = int(round(float(self.var_echo_ms.get())))
+        c['fx_echo_fb'] = int(round(float(self.var_echo_fb.get()))); c['fx_echo_mix'] = int(round(float(self.var_echo_mix.get())))
+        c['fx_echo_tone'] = int(round(float(self.var_echo_tone.get())))
+        c['fx_rev_on'] = bool(self.var_rev_on.get()); c['fx_rev_type'] = self.var_rev_type.get() or 'Studyo'
+        c['fx_rev_time'] = round(float(self.var_rev_time.get()), 1); c['fx_rev_mix'] = int(round(float(self.var_rev_mix.get())))
+        c['fx_rev_tone'] = int(round(float(self.var_rev_tone.get()))); c['fx_rev_predelay'] = int(round(float(self.var_rev_pre.get())))
+        c['fx_to_record'] = bool(self.var_fx_rec.get())
         self.cfg = core._clean(c)
         return self.cfg
 
@@ -508,6 +590,10 @@ class App(tk.Tk):
                  'tahmini gecikme ≈ %.0f ms' % i.get('latency_ms', 0)]
         if i.get('raw'):
             parts.append('Windows efektleri atlandi')
+        fx = self.engine.fx
+        if fx is not None and fx.active:
+            names = (['yanki'] if fx.echo is not None else []) + (['reverb (%s)' % fx.reverb.kind] if fx.reverb is not None else [])
+            parts.append('efekt: ' + ' + '.join(names))
         parts.append('kesinti: %d' % self.engine.xruns)
         txt = '  ·  '.join(parts)
         rec = self.engine.recording
@@ -558,7 +644,7 @@ class App(tk.Tk):
             return
         cfg = self._collect()
         try:
-            path = self.engine.start_recording(cfg['record_dir'], cfg['record_bits'])
+            path = self.engine.start_recording(cfg['record_dir'], cfg['record_bits'], wet=cfg['fx_to_record'])
         except Exception as e:
             messagebox.showerror('Kayit', 'Kayit baslatilamadi: %s' % e, parent=self); return
         self.btn_rec.config(text='■ Kaydi durdur', bg='#a33a3a')
@@ -970,6 +1056,9 @@ def smoke(report_path):
         app.update_idletasks()
         app.update()
         lines.append('devices: %d in, %d out' % (len(app.devices['inputs']), len(app.devices['outputs'])))
+        w = mic_fx.FxChain(48000).configure({'fx_echo_on': True, 'fx_rev_on': True}).process(numpy.zeros((480, 2), dtype='float32'))
+        assert w.shape == (480, 2)
+        lines.append('effects: ok')
         r = core.RingBuffer(2, 4800, 240)
         r.write(numpy.zeros((256, 2), dtype='float32'))
         app.destroy()

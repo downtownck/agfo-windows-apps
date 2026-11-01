@@ -32,6 +32,13 @@ Hata olursa ayrıntılar `%LOCALAPPDATA%\AGFO\MicMonitor\build\last-build.txt` d
 3. **Mikrofon kazancı** ve **Dinleme sesi** anında uygulanır. Seviye göstergesi kırmızıya giriyorsa kazancı düşürün; sağ uçta kırmızı kutu kırpılmayı gösterir.
 4. **● Kaydı başlat** ile o anda duyduğunuz sesi WAV olarak kaydeder. Varsayılan klasör `Müzik\AGFO Kayitlar`, varsayılan derinlik 24 bit. "Dinlemeyi sustur" ile kulaklığa ses vermeden yalnızca kaydedebilirsiniz.
 
+### Efektler: yankı ve reverb
+**Efektler** sekmesinden yankı ve reverb açılabilir. Efektler gecikme eklemez: kendi sesiniz anında gelir, efekt onun üstüne eklenir.
+- **Yankı:** Süre, tekrar, seviye ve parlaklık ayarlanır.
+- **Reverb:** Oda tipi (Oda, Stüdyo, Salon, Katedral, Plaka), süre, ön gecikme, seviye ve parlaklık ayarlanır.
+
+Ayarlar anında uygulanır. Varsayılan olarak kayıt kuru kalır, böylece efekti sonradan istediğiniz gibi ekleyebilirsiniz. "Efekti kayda da uygula" seçilirse kayıt efektli ve stereo olur.
+
 ### Kulaklık takma / çıkarma
 Uygulama aygıt değişikliklerini kendisi izler; kulaklık takınca dinleme yeni aygıtla kendiliğinden yeniden başlar. Çıkış olarak hoparlör seçiliyken kablolu ya da USB bir kulaklık takarsanız uygulama kulaklığa geçer. HDMI ve Bluetooth aygıtlarına otomatik geçmez. Kulaklığı çıkarınca, hoparlörden geri besleme olmasın diye dinleme duraklar; kulaklığı yeniden takınca kendiliğinden devam eder. Ses akışı sessizce durursa (uyku, sürücü sıfırlanması) uygulama bunu birkaç saniye içinde fark edip yeniden açar.
 

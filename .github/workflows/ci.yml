@@ -33,6 +33,7 @@ jobs:
           python -I mic-monitor/tests/test_core.py mic-monitor
           python -I mic-monitor/tests/test_update.py mic-monitor
           python -I mic-monitor/tests/test_engine.py mic-monitor
+          python -I mic-monitor/tests/test_fx.py mic-monitor
           xvfb-run -a python -I mic-monitor/tests/test_gui.py mic-monitor
           python -m compileall -q supertools system-care backupsync/src phantom-shot mic-monitor
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st

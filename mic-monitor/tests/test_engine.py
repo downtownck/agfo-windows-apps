@@ -253,4 +253,38 @@ def xrun_filter_and_switch_interval():
     e.stop()
 
 
+@test
+def effects_in_callback_dry_unchanged_and_wet_recording():
+    sd = FakeSD()
+    e = eng.Engine(sd)
+    c = cfg(monitor_volume=100, fx_echo_on=True, fx_echo_ms=60, fx_echo_mix=100, fx_echo_fb=0, fx_rev_on=True, fx_rev_mix=30)
+    e.start(c)
+    assert e.fx is not None and e.fx.echo is not None and e.fx.reverb is not None
+    cb = sd.opened[-1].callback
+    ind = np.zeros((480, 2), dtype=np.float32); ind[0] = 0.5
+    out = np.zeros((480, 2), dtype=np.float32)
+    cb(ind, out, 480, None, None)
+    assert abs(out[0, 0] - 0.5) < 1e-6 and abs(out[0, 1] - 0.5) < 1e-6      # kuru ses aninda, aynen
+    z = np.zeros((480, 2), dtype=np.float32)
+    tail = []
+    for _ in range(10):
+        cb(z, out, 480, None, None); tail.append(np.abs(out).max())
+    assert max(tail) > 0.05                                                 # yanki / reverb duyuluyor
+    with tempfile.TemporaryDirectory() as td:
+        p = e.start_recording(td, 16, wet=True)
+        for _ in range(20):
+            cb(ind, out, 480, None, None)
+        rec = e.stop_recording()
+        with wave.open(str(p)) as w:
+            assert w.getnchannels() == 2 and w.getnframes() == 9600          # efektli kayit stereo
+        p2 = e.start_recording(td + '/dry', 16, wet=False)
+        cb(ind, out, 480, None, None)
+        e.stop_recording()
+        with wave.open(str(p2)) as w:
+            assert w.getnchannels() == 1                                     # kuru kayit mono
+    e.set_fx(dict(c, fx_echo_on=False, fx_rev_on=False))
+    assert e.fx is None
+    e.stop()
+
+
 print('OK - %d test gecti: %s' % (len(PASSED), ', '.join(PASSED)))

@@ -24,6 +24,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 & $python -I (Join-Path $root 'tests\test_core.py') $root; if ($LASTEXITCODE) { throw 'test_core failed' }
 & $python -I (Join-Path $root 'tests\test_update.py') $root; if ($LASTEXITCODE) { throw 'test_update failed' }
 & $python -I (Join-Path $root 'tests\test_engine.py') $root; if ($LASTEXITCODE) { throw 'test_engine failed' }
+& $python -I (Join-Path $root 'tests\test_fx.py') $root; if ($LASTEXITCODE) { throw 'test_fx failed' }
 & $python -I (Join-Path $root 'tests\test_gui.py') $root; if ($LASTEXITCODE) { throw 'test_gui failed' }
 
 $work = Join-Path $env:RUNNER_TEMP 'agfo-micmon-build'
@@ -32,7 +33,7 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-micmon-build' }
     --distpath (Join-Path $root 'dist') --workpath (Join-Path $work 'work') --specpath (Join-Path $work 'spec') `
     --icon (Join-Path $root 'assets\agfo-micmon.ico') --paths (Join-Path $root '.') `
     --add-data ((Join-Path $root 'assets\agfo-micmon.ico') + ';assets') `
-    --hidden-import mic_core --hidden-import mic_engine --hidden-import mic_update --hidden-import agfo_github_update `
+    --hidden-import mic_core --hidden-import mic_engine --hidden-import mic_fx --hidden-import mic_update --hidden-import agfo_github_update `
     --collect-all _sounddevice_data --hidden-import sounddevice --hidden-import _cffi_backend `
     (Join-Path $root 'app.pyw')
 if ($LASTEXITCODE) { throw 'PyInstaller failed' }
