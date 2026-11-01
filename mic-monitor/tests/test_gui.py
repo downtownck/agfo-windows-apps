@@ -351,6 +351,60 @@ w.toggle_mode(); assert core.load_settings()['prompter_mode'] is False and w.ite
 w.close()
 PASSED.append('prompter_sections_record_markers')
 
+# KAMERA + MP3/MP4 (gercek ffmpeg; kamera yerine test goruntusu). ffmpeg yoksa atlanir.
+import mic_media as mm_
+if mm_.find_ffmpeg():
+    app_mod.mm.camera_input_args = lambda name, size='1280x720', fps=30: ['-re', '-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=30']
+    app.ff = mm_.find_ffmpeg(); app._ff_text()
+    assert str(app.btn_ff.cget('state')) == 'disabled'
+    app.var_cam.set('Test Kamera'); app.var_cam_on.set(True); app.var_cam_rec.set(True); app.var_mp3.set(True)
+    app.var_cam_corner.set('sol-ust'); app.var_cam_size.set('kucuk')
+    app._cam_changed()
+    assert app.camera is not None
+    assert wait_for(lambda: app.cam_image() is not None, 15), app.camera.error_text()
+    assert app.cam_image().width() == 240 and str(app.lbl_cam_prev.cget('image'))
+    w = app.lyrics_open(); w.geometry('800x500'); pump(app, 3); w.update(); w.update_view()
+    assert w.cv.find_withtag('camimg')
+    bb = w.cv.bbox('camimg'); assert bb[0] < 30 and bb[1] < 30          # sol ust kose
+    recdir4 = pathlib.Path(TMP) / 'rec_cam'
+    app.var_dir.set(str(recdir4)); app._changed(restart=False)
+    w.toggle_record()
+    assert app._cam_rec is not None and app.engine.recording is not None
+    assert wait_for(lambda: app.camera is not None and app.camera.first_frame_t is not None, 15)
+    import time as _tt
+    t_end = _tt.monotonic() + 2.0
+    while _tt.monotonic() < t_end:                     # ~2 sn ses (gercek zamanli) + kamera
+        cb = sd.opened[-1].callback
+        cb(np.full((480, 2), 0.05, dtype=np.float32), out, 480, None, None)
+        pump(app, 1); _tt.sleep(0.01)
+    w.update_view()
+    assert w.cv.itemcget('camframe', 'state') == 'normal'                 # kayitta kirmizi cerceve
+    w.forward()
+    w.toggle_record()
+    assert wait_for(lambda: list(recdir4.glob('*.mp4')) and 'Hazir:' in app.var_status.get(), 60), app.var_status.get()
+    mp4 = list(recdir4.glob('*.mp4'))[0]
+    assert not list(recdir4.glob('*_kamera.mkv'))                        # ham goruntu silindi
+    assert list(recdir4.glob('*.mp3')) and 'MP4' not in app.var_status.get().split('sorun')[-1][:0]
+    assert 'sorun' not in app.var_status.get(), app.var_status.get()
+    assert mm_.probe_duration(app.ff, mp4) > 1.0
+    assert wait_for(lambda: app.camera is not None and app.cam_image() is not None, 15)   # onizleme geri geldi
+    # istenen cozunurluk desteklenmiyorsa: bir kez kameranin kendi cozunurluguyle yeniden acilir
+    calls = []
+
+    def picky(name, size='1280x720', fps=30):
+        calls.append(size)
+        if size != 'otomatik':
+            return ['-f', 'lavfi', '-i', 'nullsrc=s=0x0']          # hemen hata verip kapanir
+        return ['-re', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=15']
+    app_mod.mm.camera_input_args = picky
+    app.var_cam_res.set('1920x1080'); app._cam_changed()
+    assert wait_for(lambda: app.cam_image() is not None and 'otomatik' in calls, 20), (calls, app.var_status.get())
+    assert calls[0] == '1920x1080' and 'desteklemiyor' in app.var_status.get()
+    app.var_cam_on.set(False); app._cam_changed()
+    assert app.camera is None
+    w.close()
+    PASSED.append('camera_preview_record_mp4_mp3')
+
 app.bg_remove()
 assert app.backing_track is None and app.engine.backing is None and core.load_settings()['bg_file'] == ''
 PASSED.append('backing_record_vocal_and_mix')

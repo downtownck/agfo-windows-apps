@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.4.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.5.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.4.0'
+VERSION = '1.5.0'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -81,6 +81,15 @@ DEFAULT_CONFIG = {
     'prompter_mode': False,    # 1.4.0: True = konusma prompter'i (bolum bolum), False = sarki sozu (muzige bagli)
     'prompter_countdown': 3,   # kayit oncesi geri sayim (sn)
     'bg_loop': False,          # altyapiyi dongude cal (fon muzigi)
+    'ffmpeg_path': '',         # 1.5.0: bos -> indirilen ya da PATH'teki ffmpeg
+    'export_mp3': False,       # kayit bitince MP3 kopyasi
+    'cam_on': False,           # kamera onizlemesi acik
+    'cam_device': '',
+    'cam_res': '1280x720',
+    'cam_corner': 'sag-alt',
+    'cam_preview': 'orta',
+    'cam_record': True,        # kayitta kamerayi da kaydet (MP4)
+    'av_offset_ms': 0,         # goruntu-ses ince ayari (+: goruntu daha gec)
     'autostart': False,        # acilista dinlemeyi baslat
     'auto_update_check': True,
 }
@@ -119,6 +128,13 @@ def _clean(data):
     out['monitor_volume'] = min(100, max(0, int(out['monitor_volume'])))
     out['bg_volume'] = min(100, max(0, int(out['bg_volume'])))
     out['lyrics_font'] = min(120, max(16, int(out['lyrics_font'])))
+    if out['cam_corner'] not in ('sag-ust', 'sol-ust', 'sag-alt', 'sol-alt'):
+        out['cam_corner'] = 'sag-alt'
+    if out['cam_preview'] not in ('kucuk', 'orta', 'buyuk'):
+        out['cam_preview'] = 'orta'
+    if out['cam_res'] not in ('1280x720', '1920x1080', '640x480', 'otomatik'):
+        out['cam_res'] = '1280x720'
+    out['av_offset_ms'] = min(500, max(-500, int(out['av_offset_ms'])))
     out['prompter_countdown'] = min(10, max(0, int(out['prompter_countdown'])))
     out['bg_offset_ms'] = min(200, max(-200, int(out['bg_offset_ms'])))
     out['fx_echo_ms'] = min(1500, max(60, int(out['fx_echo_ms'])))
@@ -344,6 +360,7 @@ class WavRecorder:
         self._skip = int(skip_frames)
         self._skip0 = int(skip_frames)
         self.pushed = 0                      # ses is parcacigindan gelen ornek (yazma kuyrugundan bagimsiz)
+        self.t0 = None                       # ilk blogun geldigi an (monotonic) - kamera ile esleme icin
         self.samplerate = int(samplerate)
         self.channels = int(channels)
         self.bits = 24 if bits == 24 else 16
@@ -362,6 +379,9 @@ class WavRecorder:
 
     def push(self, block):
         """Ses is parcacigindan: kopya alir ve kuyruga koyar; kuyruk doluysa blogu sayar ve atar."""
+        if self.t0 is None:
+            import time as _t
+            self.t0 = _t.monotonic()
         self.pushed += len(block)
         try:
             self.q.put_nowait(block.copy())
@@ -399,6 +419,13 @@ class WavRecorder:
     @property
     def seconds(self):
         return self.frames / float(self.samplerate or 1)
+
+    @property
+    def file_t0(self):
+        """Dosyanin ilk orneginin 'duvar saati' (monotonic): gecikme duzeltmesiyle atilan ornekler dahil."""
+        if self.t0 is None:
+            return None
+        return self.t0 + self._skip0 / float(self.samplerate or 1)
 
     @property
     def elapsed(self):

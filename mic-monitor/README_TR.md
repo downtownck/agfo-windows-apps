@@ -45,6 +45,17 @@ Altyapı sekmesinde **Aç…** (TXT, Word, Markdown) ya da **Yapıştır…** il
 - **● Kayıt** geri sayımdan sonra kaydı başlatır. Her bölüm geçişi kayıtta işaretlenir. İşaretler WAV dosyasının içine yazılır (Cool Edit ve Audition gösterir), ayrıca `_bolumler.txt` olarak kaydedilir (Audacity: Dosya > İçe Aktar > Etiketler).
 - Fon müziği için Altyapı sekmesinde bir müzik seçip **Döngüde çal**'ı işaretleyin. Kayıt bitince ses ve karışım ayrı dosyalara yazılır.
 
+### Kamera, MP4 ve MP3
+**Kamera** sekmesinde önce "ffmpeg'i indir" düğmesine basın (bir kez, 31 MB; dosya doğrulanır). Bilgisayarda ffmpeg zaten varsa bu adım gerekmez.
+
+Kamerayı, çözünürlüğü, önizleme köşesini ve boyutunu seçip "Kamerayı aç"ı işaretleyin. Önizleme prompter ekranının köşesinde görünür.
+
+"Kayıtta kamerayı da kaydet" seçiliyse kayıt bitince görüntü ve ses MP4 olarak birleştirilir; prompter bölümleri MP4'te bölüm olur. Dudak ile ses hafif kayıksa "Görüntü-ses" sürgüsüyle ince ayar yapın.
+
+Kayıt sekmesindeki "MP3 kopyası" ile vokal ve karışımın MP3'ü de çıkar.
+
+ffmpeg GPLv3 lisanslıdır ve ayrı bir program olarak çalışır. Lisans notu `%LOCALAPPDATA%\AGFO\MicMonitor\ffmpeg` klasöründedir.
+
 ### Şarkı sözü ekranı
 Altyapı sekmesinde **Söz aç…** (TXT, LRC, Word) ya da **Yapıştır…** ile sözleri yükleyin. Altyapıyla aynı adlı söz dosyası varsa kendiliğinden yüklenir.
 

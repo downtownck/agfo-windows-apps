@@ -27,6 +27,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 & $python -I (Join-Path $root 'tests\test_fx.py') $root; if ($LASTEXITCODE) { throw 'test_fx failed' }
 & $python -I (Join-Path $root 'tests\test_backing.py') $root; if ($LASTEXITCODE) { throw 'test_backing failed' }
 & $python -I (Join-Path $root 'tests\test_lyrics.py') $root; if ($LASTEXITCODE) { throw 'test_lyrics failed' }
+& $python -I (Join-Path $root 'tests\test_media.py') $root; if ($LASTEXITCODE) { throw 'test_media failed' }
 & $python -I (Join-Path $root 'tests\test_gui.py') $root; if ($LASTEXITCODE) { throw 'test_gui failed' }
 
 $work = Join-Path $env:RUNNER_TEMP 'agfo-micmon-build'
@@ -35,7 +36,7 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-micmon-build' }
     --distpath (Join-Path $root 'dist') --workpath (Join-Path $work 'work') --specpath (Join-Path $work 'spec') `
     --icon (Join-Path $root 'assets\agfo-micmon.ico') --paths (Join-Path $root '.') `
     --add-data ((Join-Path $root 'assets\agfo-micmon.ico') + ';assets') `
-    --hidden-import mic_core --hidden-import mic_engine --hidden-import mic_fx --hidden-import mic_backing --hidden-import mic_lyrics --hidden-import lyrics_window --hidden-import soundfile --collect-all _soundfile_data --hidden-import mic_update --hidden-import agfo_github_update `
+    --hidden-import mic_core --hidden-import mic_engine --hidden-import mic_fx --hidden-import mic_backing --hidden-import mic_lyrics --hidden-import mic_media --hidden-import lyrics_window --hidden-import soundfile --collect-all _soundfile_data --hidden-import mic_update --hidden-import agfo_github_update `
     --collect-all _sounddevice_data --hidden-import sounddevice --hidden-import _cffi_backend `
     (Join-Path $root 'app.pyw')
 if ($LASTEXITCODE) { throw 'PyInstaller failed' }
@@ -54,4 +55,5 @@ if ($p.ExitCode -ne 0 -or $txt -notmatch 'AGFO MIC MONITOR SMOKE OK') { Write-An
 if ($txt -notmatch 'wasapi raw settings: ok') { throw 'WASAPI RAW settings not verified' }
 if ($txt -notmatch 'backing formats: ok') { throw 'backing track formats (MP3) not verified' }
 if ($txt -notmatch 'lyrics: ok') { throw 'lyrics window not verified' }
+if ($txt -notmatch 'media: ok') { throw 'media module not verified' }
 Write-Host ('BUILT: ' + $exe) -ForegroundColor Green

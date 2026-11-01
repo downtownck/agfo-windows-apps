@@ -133,15 +133,28 @@ class LyricsWindow(tk.Toplevel):
         return 'Bolum %d: %s' % (k + 1, head)
 
     # ---------------------------------------------------------------- prompter yerlesimi
+    def _cam_pads(self, h):
+        """Kamera onizlemesi aciksa metnin ust / alt payi (metin kameranin altinda kalmasin)."""
+        cfg = self.app.cfg
+        if not cfg.get('cam_on'):
+            return 0, 0
+        ph = {'kucuk': 135, 'orta': 180, 'buyuk': 270}.get(cfg.get('cam_preview'), 180) + 24
+        if cfg.get('cam_corner', 'sag-alt').endswith('ust'):
+            return ph, 0
+        return 0, ph
+
     def _layout_prompter(self, L):
         w, h = max(200, self.cv.winfo_width()), max(150, self.cv.winfo_height())
         fnt = ('Segoe UI', self.font_size, 'bold')
         probe = self.cv.create_text(0, 0, text='', font=fnt, width=int(w * 0.9), anchor='nw')
 
+        top, bottom = self._cam_pads(h)
+        room = max(h * 0.30, h * 0.80 - top - bottom)
+
         def fits(paras):
             self.cv.itemconfigure(probe, text='\n\n'.join(paras))
             bb = self.cv.bbox(probe)
-            return (bb[3] - bb[1] if bb else 0) <= h * 0.80
+            return (bb[3] - bb[1] if bb else 0) <= room
         self.sections = ly.build_sections(ly.paragraphs(L.lines), fits)
         self.cv.delete(probe)
         self.sec = max(0, min(self.sec, len(self.sections) - 1))
@@ -154,7 +167,8 @@ class LyricsWindow(tk.Toplevel):
             return
         w, h = max(200, self.cv.winfo_width()), max(150, self.cv.winfo_height())
         fnt = ('Segoe UI', self.font_size, 'bold')
-        it = self.cv.create_text(w // 2, int(h * 0.06), text='\n\n'.join(self.sections[self.sec]), fill=CUR, font=fnt,
+        top, _ = self._cam_pads(h)
+        it = self.cv.create_text(w // 2, int(h * 0.06) + top, text='\n\n'.join(self.sections[self.sec]), fill=CUR, font=fnt,
                                  width=int(w * 0.9), justify='left', anchor='n', tags=('ly',))
         self.items = [it]
         nxt = ''
@@ -229,7 +243,34 @@ class LyricsWindow(tk.Toplevel):
             self.var_info.set('%s — sarki suresine esit dagitildi; daha iyi eslesme icin "Zamanla"' % L.name)
 
     # ---------------------------------------------------------------- her kare
+    def _draw_cam(self):
+        """Kamera onizlemesi secilen kosede (metnin ustunde). Goruntu nesnesi uygulamayla ortak; her karede
+        yalniz konum kontrol edilir."""
+        img = self.app.cam_image()
+        if img is None:
+            if self.cv.find_withtag('cam'):
+                self.cv.delete('cam')
+            return
+        corner = {'sag-ust': 'ne', 'sol-ust': 'nw', 'sag-alt': 'se', 'sol-alt': 'sw'}.get(self.app.cfg.get('cam_corner'), 'se')
+        w, h, m = max(200, self.cv.winfo_width()), max(150, self.cv.winfo_height()), 14
+        x = w - m if 'e' in corner else m
+        y = (h - m - 22) if 's' in corner else m
+        items = self.cv.find_withtag('cam')
+        if not items:
+            self.cv.create_rectangle(0, 0, 0, 0, outline='#ff6b6b', width=2, tags=('cam', 'camframe'))
+            self.cv.create_image(x, y, image=img, anchor=corner, tags=('cam', 'camimg'))
+        else:
+            self.cv.itemconfigure('camimg', image=img, anchor=corner)
+            self.cv.coords('camimg', x, y)
+        bb = self.cv.bbox('camimg')
+        if bb:
+            rec = self.app.engine is not None and self.app.engine.recording is not None
+            self.cv.coords('camframe', bb[0] - 2, bb[1] - 2, bb[2] + 1, bb[3] + 1)
+            self.cv.itemconfigure('camframe', state='normal' if rec else 'hidden')
+        self.cv.tag_raise('cam')
+
     def update_view(self, force=False):
+        self._draw_cam()
         L = self.lyrics
         if L is None or not self.items:
             return
