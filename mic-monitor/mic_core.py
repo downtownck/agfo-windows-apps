@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.0.2 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.0.3 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))

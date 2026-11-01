@@ -30,6 +30,12 @@ def constants_sane():
 
 
 @test
+def check_is_not_throttled_for_hours():
+    assert u.CHECK_INTERVAL <= 30 * 60                     # 6 saatlik onbellek yeni surumu gizliyordu
+    assert 10 * 60 * 1000 <= u.PERIODIC_CHECK_MS <= 60 * 60 * 1000
+
+
+@test
 def scrub_env_drops_pyinstaller_vars():
     env = {'PATH': '/x', '_PYI_SPLASH': '1', '_MEIPASS2': 'c:/t', 'FOO': 'bar'}
     out = u.scrub_env(env)

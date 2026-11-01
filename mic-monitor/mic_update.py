@@ -20,7 +20,8 @@ GH_PREFIX = 'mic-monitor-v'
 GH_ASSET = r'AGFO-Mic-Monitor\.exe'
 EXE_NAME = 'AGFO-Mic-Monitor.exe'
 USER_AGENT = 'AGFO-Mic-Monitor/%s' % core.VERSION
-CHECK_INTERVAL = 6 * 3600
+CHECK_INTERVAL = 25 * 60          # 1.0.3: 6 saat -> 25 dk (periyodik denetim bu onbellege uyar)
+PERIODIC_CHECK_MS = 30 * 60 * 1000  # uygulama acikken 30 dk'da bir denetle
 
 CREATE_NO_WINDOW = 0x08000000
 DETACHED_PROCESS = 0x00000008

@@ -194,6 +194,19 @@ assert 'Cizirti algilandi' in app.var_status.get() and core.load_settings()['buf
 PASSED.append('crackle_raises_buffer')
 app.var_buf.set('10 ms'); app._changed(restart=False)
 
+# guncelleme denetimi: sessiz kipte yeni surum serit gosterir, 'guncel' sonucu pencere acmaz
+nbox = len(_box)
+app._gh_checked({'status': 'current', 'version': core.VERSION}, True, silent=True)
+assert len(_box) == nbox and not app.gh_banner.winfo_ismapped()
+rel = {'version': '9.9.9', 'notes': 'x', 'published': '2026-11-01', 'url': 'u', 'assets': []}
+app._gh_checked({'status': 'update', 'version': '9.9.9', 'release': rel, 'asset': {'url': 'u'}}, True, silent=True)
+pump(app, 2)
+assert app.gh_banner.winfo_ismapped() and '9.9.9' in app.gh_banner_text.get() and len(_box) == nbox
+app._gh_checked({'status': 'current', 'version': core.VERSION}, True)          # elle denetim: bilgi penceresi
+assert len(_box) == nbox + 1
+app.gh_banner.pack_forget()
+PASSED.append('update_check_silent_and_manual')
+
 # durdur + kapat: ayarlar kaydedilir
 app.stop()
 assert not app.monitoring and not sd.opened[-1].active

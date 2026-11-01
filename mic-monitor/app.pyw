@@ -107,7 +107,10 @@ class App(tk.Tk):
         self.protocol('WM_DELETE_WINDOW', self._on_close)
         self._poll_job = self.after(POLL_MS, self._poll)
         if self.cfg.get('auto_update_check', True) and FROZEN:
-            self.after(2500, lambda: self.gh_check(force=False))
+            # 1.0.3: acilista her seferinde gercekten denetle (6 saatlik onbellek yeni surumu gizliyordu),
+            # uygulama acik kaldikca da periyodik denetle
+            self.after(2500, lambda: self.gh_check(force=True, silent=True))
+            self.after(upd.PERIODIC_CHECK_MS, self._gh_periodic)
         if self.engine_error is not None:
             self._status('Ses kutuphanesi yuklenemedi: %s' % self.engine_error, BAD_C)
         elif self.cfg.get('autostart'):
@@ -790,13 +793,18 @@ class App(tk.Tk):
         self.stop(); self.destroy()
 
     # ---------------------------------------------------------------- GitHub guncelleme
-    def gh_check(self, force=True):
+    def gh_check(self, force=True, silent=False):
         def fn(post):
             res = upd.check(force=force)
-            post(lambda: self._gh_checked(res, force))
+            post(lambda: self._gh_checked(res, force, silent))
         self._run_bg(fn)
 
-    def _gh_checked(self, res, force):
+    def _gh_periodic(self):
+        if self.cfg.get('auto_update_check', True) and not self.busy:
+            self.gh_check(force=False, silent=True)
+        self.after(upd.PERIODIC_CHECK_MS, self._gh_periodic)
+
+    def _gh_checked(self, res, force, silent=False):
         st = res.get('status')
         if st == 'update':
             self.gh_result = res
@@ -805,7 +813,9 @@ class App(tk.Tk):
                                     (res['version'], VERSION, (', yayin: ' + rel['published']) if rel.get('published') else ''))
             if not self.gh_banner.winfo_ismapped():
                 self.gh_banner.pack(fill='x', padx=22, pady=(0, 8), after=self.winfo_children()[0])
-        elif force:
+            if silent:
+                core.log_line('update available: %s' % res['version'])
+        elif force and not silent:
             msg = {'current': 'Guncelsiniz (son surum %s).' % res.get('version', VERSION),
                    'none': "GitHub'da henuz Mic Monitor surumu yok.",
                    'skipped': 'Surum %s atlanmis olarak isaretli.' % res.get('version', ''),
