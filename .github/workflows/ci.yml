@@ -29,7 +29,7 @@ jobs:
           python -I phantom-shot/tests/test_core.py phantom-shot
           python -I phantom-shot/tests/test_update.py phantom-shot
           python -I phantom-shot/tests/test_triggers.py phantom-shot
-          python -m pip install --quiet 'numpy>=1.26,<3' 'soundfile>=0.13,<0.15'
+          python -m pip install --quiet 'numpy>=1.26,<3' 'soundfile>=0.13,<0.15' 'Pillow>=11,<14'
           python -I mic-monitor/tests/test_core.py mic-monitor
           python -I mic-monitor/tests/test_update.py mic-monitor
           python -I mic-monitor/tests/test_engine.py mic-monitor

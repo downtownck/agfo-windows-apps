@@ -6,7 +6,7 @@ Set-Location -LiteralPath $root
 $python = (Get-Command python.exe -ErrorAction Stop).Source
 Write-Host ('Python: ' + $python)
 
-& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'sounddevice>=0.5.2,<0.6' 'numpy>=1.26,<3' 'soundfile>=0.13,<0.15'
+& $python -m pip install --disable-pip-version-check --quiet 'PyInstaller>=6.12,<7' 'sounddevice>=0.5.2,<0.6' 'numpy>=1.26,<3' 'soundfile>=0.13,<0.15' 'Pillow>=11,<14'
 if ($LASTEXITCODE) { throw 'pip install failed' }
 
 function Write-Annotation([string]$title, [string]$text) {
@@ -36,7 +36,7 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-micmon-build' }
     --distpath (Join-Path $root 'dist') --workpath (Join-Path $work 'work') --specpath (Join-Path $work 'spec') `
     --icon (Join-Path $root 'assets\agfo-micmon.ico') --paths (Join-Path $root '.') `
     --add-data ((Join-Path $root 'assets\agfo-micmon.ico') + ';assets') `
-    --hidden-import mic_core --hidden-import mic_engine --hidden-import mic_fx --hidden-import mic_backing --hidden-import mic_lyrics --hidden-import mic_media --hidden-import lyrics_window --hidden-import soundfile --collect-all _soundfile_data --hidden-import mic_update --hidden-import agfo_github_update `
+    --hidden-import mic_core --hidden-import mic_engine --hidden-import mic_fx --hidden-import mic_backing --hidden-import mic_lyrics --hidden-import mic_media --hidden-import PIL.Image --hidden-import PIL.ImageDraw --hidden-import PIL.ImageFont --hidden-import lyrics_window --hidden-import soundfile --collect-all _soundfile_data --hidden-import mic_update --hidden-import agfo_github_update `
     --collect-all _sounddevice_data --hidden-import sounddevice --hidden-import _cffi_backend `
     (Join-Path $root 'app.pyw')
 if ($LASTEXITCODE) { throw 'PyInstaller failed' }

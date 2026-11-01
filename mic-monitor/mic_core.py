@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.5.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.5.1 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.5.0'
+VERSION = '1.5.1'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -90,6 +90,7 @@ DEFAULT_CONFIG = {
     'cam_preview': 'orta',
     'cam_record': True,        # kayitta kamerayi da kaydet (MP4)
     'av_offset_ms': 0,         # goruntu-ses ince ayari (+: goruntu daha gec)
+    'mp4_text': True,          # 1.5.1: prompter kaydinda video = metin sahnesi + kosede kamera
     'autostart': False,        # acilista dinlemeyi baslat
     'auto_update_check': True,
 }
@@ -361,6 +362,9 @@ class WavRecorder:
         self._skip0 = int(skip_frames)
         self.pushed = 0                      # ses is parcacigindan gelen ornek (yazma kuyrugundan bagimsiz)
         self.t0 = None                       # ilk blogun geldigi an (monotonic) - kamera ile esleme icin
+        self.t0_wall = None                  # ayni an, duvar saati (kamera kareleri de bununla damgalanir)
+        self.first_len = 0
+        self.lead = 0.0                      # ses kartinin giris gecikmesi (sn): ornek bu kadar once yakalandi
         self.samplerate = int(samplerate)
         self.channels = int(channels)
         self.bits = 24 if bits == 24 else 16
@@ -382,6 +386,8 @@ class WavRecorder:
         if self.t0 is None:
             import time as _t
             self.t0 = _t.monotonic()
+            self.t0_wall = _t.time()
+            self.first_len = len(block)
         self.pushed += len(block)
         try:
             self.q.put_nowait(block.copy())
@@ -426,6 +432,15 @@ class WavRecorder:
         if self.t0 is None:
             return None
         return self.t0 + self._skip0 / float(self.samplerate or 1)
+
+    @property
+    def file_epoch(self):
+        """Dosyanin ilk orneginin YAKALANDIGI an (duvar saati, epoch sn): ilk blok geldiginde blok suresi +
+        giris gecikmesi kadar once yakalanmisti; gecikme duzeltmesiyle atilan ornekler eklenir."""
+        if self.t0_wall is None:
+            return None
+        sr = float(self.samplerate or 1)
+        return self.t0_wall - self.first_len / sr - float(self.lead) + self._skip0 / sr
 
     @property
     def elapsed(self):

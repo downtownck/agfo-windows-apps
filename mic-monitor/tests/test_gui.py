@@ -354,7 +354,8 @@ PASSED.append('prompter_sections_record_markers')
 # KAMERA + MP3/MP4 (gercek ffmpeg; kamera yerine test goruntusu). ffmpeg yoksa atlanir.
 import mic_media as mm_
 if mm_.find_ffmpeg():
-    app_mod.mm.camera_input_args = lambda name, size='1280x720', fps=30: ['-re', '-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=30']
+    app_mod.mm.camera_input_args = lambda name, size='1280x720', fps=30: [
+        '-f', 'lavfi', '-i', "color=c=black:s=640x360:r=30,drawbox=c=white:t=fill:enable='between(n,60,68)',realtime"]
     app.ff = mm_.find_ffmpeg(); app._ff_text()
     assert str(app.btn_ff.cget('state')) == 'disabled'
     app.var_cam.set('Test Kamera'); app.var_cam_on.set(True); app.var_cam_rec.set(True); app.var_mp3.set(True)
@@ -363,7 +364,10 @@ if mm_.find_ffmpeg():
     assert app.camera is not None
     assert wait_for(lambda: app.cam_image() is not None, 15), app.camera.error_text()
     assert app.cam_image().width() == 240 and str(app.lbl_cam_prev.cget('image'))
-    w = app.lyrics_open(); w.geometry('800x500'); pump(app, 3); w.update(); w.update_view()
+    w = app.lyrics_open(); w.geometry('800x500'); pump(app, 3); w.update()
+    if not w.prompter:
+        w.toggle_mode()                                    # prompter kaydi: video = metin sahnesi + kamera
+    w.layout(); w.update_view()
     assert w.cv.find_withtag('camimg')
     bb = w.cv.bbox('camimg'); assert bb[0] < 30 and bb[1] < 30          # sol ust kose
     recdir4 = pathlib.Path(TMP) / 'rec_cam'
@@ -371,12 +375,26 @@ if mm_.find_ffmpeg():
     w.toggle_record()
     assert app._cam_rec is not None and app.engine.recording is not None
     assert wait_for(lambda: app.camera is not None and app.camera.first_frame_t is not None, 15)
+    # UCTAN UCA SENKRON: kamera kayit surecinde 60.-68. karelerde flas yapar; test flasi onizlemede gorur
+    # gormez sese 'bip' ekler. MP4'te flas ile bip ayni anda olmali (onizleme borusu gecikmesi kadar tolerans).
     import time as _tt
-    t_end = _tt.monotonic() + 2.0
-    while _tt.monotonic() < t_end:                     # ~2 sn ses (gercek zamanli) + kamera
-        cb = sd.opened[-1].callback
-        cb(np.full((480, 2), 0.05, dtype=np.float32), out, 480, None, None)
-        pump(app, 1); _tt.sleep(0.01)
+    beep_at, t_end, k = None, _tt.monotonic() + 4.0, 0
+    t_start = _tt.monotonic()
+    while _tt.monotonic() < t_end:
+        target = t_start + k * 0.01
+        if _tt.monotonic() < target:
+            _tt.sleep(max(0.0, target - _tt.monotonic()))
+        seqp, ppm = app.camera.ppm() if app.camera is not None else (0, None)
+        if beep_at is None and ppm is not None and max(ppm[-3000:]) > 200:
+            beep_at = k
+        blk = np.zeros((480, 2), dtype=np.float32)
+        if beep_at is not None and k - beep_at < 10:
+            blk[:] = 0.8 * np.sin(2 * np.pi * 1000 * (np.arange(480) + k * 480) / 48000.0)[:, None]
+        sd.opened[-1].callback(blk, out, 480, None, None)
+        k += 1
+        if k % 5 == 0:
+            pump(app, 1)
+    assert beep_at is not None, 'flas onizlemede gorulmedi'
     w.update_view()
     assert w.cv.itemcget('camframe', 'state') == 'normal'                 # kayitta kirmizi cerceve
     w.forward()
@@ -387,6 +405,22 @@ if mm_.find_ffmpeg():
     assert list(recdir4.glob('*.mp3')) and 'MP4' not in app.var_status.get().split('sorun')[-1][:0]
     assert 'sorun' not in app.var_status.get(), app.var_status.get()
     assert mm_.probe_duration(app.ff, mp4) > 1.0
+    # prompter kaydi: video = metin sahnesi (1280x720) + kosede kamera
+    import subprocess as _sp
+    fr = _sp.run([app.ff, '-v', 'error', '-ss', '0.3', '-i', str(mp4), '-frames:v', '1', '-vf', 'crop=700:60:60:290',
+                  '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], capture_output=True).stdout
+    assert len(fr) == 42000 and max(fr) > 200, ('metin sahnesi yok', app.var_status.get(), [l for l in (core.LOG_DIR / 'micmon.log').read_text(encoding='utf-8').splitlines() if 'mp4' in l][-3:], app.cfg.get('mp4_text'))
+    x, y, cw, ch, m = mm_.cam_box(1280, 720, 'sol-ust', 'kucuk')
+    raw = _sp.run([app.ff, '-v', 'error', '-i', str(mp4), '-vf', 'fps=100,crop=%d:%d:%d:%d,scale=1:1,format=gray' % (cw // 2, 10, x + cw // 4, y + 10),
+                   '-f', 'rawvideo', '-'], capture_output=True).stdout
+    t_flash = next((i / 100.0 for i, b in enumerate(raw) if b > 200), None)
+    pcm = _sp.run([app.ff, '-v', 'error', '-i', str(mp4), '-map', '0:a', '-ac', '1', '-ar', '8000', '-f', 's16le', '-'],
+                  capture_output=True).stdout
+    a = np.abs(np.frombuffer(pcm, '<i2').astype(np.float32)) / 32768.0
+    t_beep = next((i / 8000.0 for i, v in enumerate(a) if v > 0.3), None)
+    assert t_flash is not None and t_beep is not None, (t_flash, t_beep)
+    print('  uctan uca senkron: flas %.3f sn, bip %.3f sn, fark %+.0f ms' % (t_flash, t_beep, (t_flash - t_beep) * 1000))
+    assert abs(t_flash - t_beep) < 0.2, (t_flash, t_beep)
     assert wait_for(lambda: app.camera is not None and app.cam_image() is not None, 15)   # onizleme geri geldi
     # istenen cozunurluk desteklenmiyorsa: bir kez kameranin kendi cozunurluguyle yeniden acilir
     calls = []
@@ -395,7 +429,7 @@ if mm_.find_ffmpeg():
         calls.append(size)
         if size != 'otomatik':
             return ['-f', 'lavfi', '-i', 'nullsrc=s=0x0']          # hemen hata verip kapanir
-        return ['-re', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=15']
+        return ['-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=15,realtime']
     app_mod.mm.camera_input_args = picky
     app.var_cam_res.set('1920x1080'); app._cam_changed()
     assert wait_for(lambda: app.cam_image() is not None and 'otomatik' in calls, 20), (calls, app.var_status.get())

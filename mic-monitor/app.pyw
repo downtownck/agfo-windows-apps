@@ -248,6 +248,8 @@ class App(tk.Tk):
         self.lyrics = None
         self.lyrics_win = None
         self._marks = []                  # 1.4.0: prompter bolum isaretleri [(saniye, etiket)]
+        self._sec_times = []              # 1.5.1: [(saniye, bolum_indeksi)] - video sahnesi icin
+        self._rec_sections = None         # kayit basladigindaki prompter bolumleri (metin)
         self.ff = mm.find_ffmpeg(self.cfg.get('ffmpeg_path'))
         self.camera = None                # 1.5.0: mic_media.Camera
         self._cam_rec = None              # kayitta kamera: {'mkv': yol}
@@ -483,6 +485,10 @@ class App(tk.Tk):
         self.toggle_record()
         if self.engine is not None and self.engine.recording is not None and section is not None:
             self._marks = [(0.0, label or 'Bolum %d' % (section + 1))]
+            w = self.lyrics_win
+            if w is not None and w.prompter and w.sections:
+                self._rec_sections = [list(x) for x in w.sections]
+                self._sec_times = [(0.0, int(section))]
 
     def prompter_mark(self, section, label):
         rec = self.engine.recording if self.engine is not None else None
@@ -493,6 +499,11 @@ class App(tk.Tk):
             self._marks[-1] = (t, label)              # cok hizli art arda gecis: son isaret yenilenir
         else:
             self._marks.append((t, label))
+        if self._rec_sections is not None:
+            if self._sec_times and abs(self._sec_times[-1][0] - t) < 0.05:
+                self._sec_times[-1] = (t, int(section))
+            else:
+                self._sec_times.append((t, int(section)))
 
     def _write_marks(self, wav_path, sr, marks):
         """Bolum isaretlerini WAV'a (Cool Edit / Audition) ve Audacity etiket dosyasina yaz."""
@@ -737,6 +748,10 @@ class App(tk.Tk):
                         command=lambda: self._changed(restart=False)).grid(row=6, column=0, columnspan=4, sticky='w', **pad)
         self.var_av = tk.DoubleVar()
         self._scale(ct, 7, 0, 'Goruntu-ses:', self.var_av, -300, 300, '%+d ms', length=240)
+        self.var_mp4_text = tk.BooleanVar()
+        ttk.Checkbutton(ct, text='Prompter kaydinda videoya metni koy (okunan bolum ekranda, kamera kosede)',
+                        variable=self.var_mp4_text, command=lambda: self._changed(restart=False)).grid(
+            row=8, column=0, columnspan=4, sticky='w', **pad)
         self.lbl_cam_prev = tk.Label(ct, bg=PANEL)
         self.lbl_cam_prev.grid(row=1, column=4, rowspan=7, sticky='ne', padx=(8, 0))
         self._ff_text()
@@ -871,7 +886,7 @@ class App(tk.Tk):
             pass
 
     # ---------------------------------------------------------------- kayit sonrasi
-    def _postprocess(self, rec, with_bg, marks, cam_rec):
+    def _postprocess(self, rec, with_bg, marks, cam_rec, stage=None):
         """Arka planda: kamera kaydini kapat -> karisim -> isaretler -> MP3 -> MP4. Her adim ayri raporlanir."""
         tr = self.backing_track
         make_mix = bool(with_bg and tr is not None and self.cfg.get('bg_make_mix', True))
@@ -884,7 +899,9 @@ class App(tk.Tk):
         cam = self.camera if cam_rec else None
         if cam_rec:
             self.camera = None                    # onizleme kayittan sonra yeniden acilir
-        steps = (['karisim'] if make_mix else []) + (['MP3'] if mp3 else []) + (['MP4'] if cam_rec else [])
+        cam_res, corner, csize = self.cfg.get('cam_res'), self.cfg.get('cam_corner'), self.cfg.get('cam_preview')
+        stage_video = bool(stage and self.cfg.get('mp4_text', True) and ff)
+        steps = (['karisim'] if make_mix else []) + (['MP3'] if mp3 else []) + (['MP4'] if (cam_rec or stage_video) else [])
         if not steps and not cam_rec:
             return
         self._status('Kaydedildi: %s — hazirlaniyor: %s…' % (rec.path.name, ', '.join(steps)), ACCENT)
@@ -917,25 +934,36 @@ class App(tk.Tk):
                     except Exception as e:
                         core.log_line('mp3 failed: %r' % e)
                         errs.append('MP3: %s' % e)
+            stem = rec.path.stem[:-len('_vokal')] if rec.path.stem.endswith('_vokal') else rec.path.stem
+            mp4_out = rec.path.with_name(stem + '.mp4')
+            cam_ok, shift = False, 0.0
             if cam_rec:
+                v_epoch = mm.stream_start(ff, mkv) if (ff and mkv is not None and pathlib.Path(mkv).is_file()) else None
                 if not ff:
-                    errs.append("MP4: ffmpeg yok")
-                elif mkv is None or not pathlib.Path(mkv).is_file() or t_v0 is None or rec.file_t0 is None:
-                    errs.append('MP4: kamera goruntusu alinamadi (%s)' % (cam.error_text() if cam else 'kamera yok'))
+                    errs.append('MP4: ffmpeg yok')
+                elif v_epoch is None or rec.file_epoch is None:
+                    errs.append('MP4: kamera goruntusu okunamadi (%s)' % ((cam.error_text() if cam else '') or 'dosya bos'))
                 else:
-                    shift = (t_v0 - rec.file_t0) + av
-                    stem = rec.path.stem[:-len('_vokal')] if rec.path.stem.endswith('_vokal') else rec.path.stem
-                    try:
-                        out = mm.mux_mp4(ff, mkv, main, rec.path.with_name(stem + '.mp4'), shift=shift, marks=marks)
-                        made.append(out.name)
-                        core.log_line('mp4 %s shift=%.3f' % (out.name, shift))
+                    # 1.5.1: goruntu ve ses ayni duvar saatiyle damgali: fark dogrudan hesaplanir
+                    shift = (v_epoch - rec.file_epoch) - mm.CAMERA_LATENCY_S + av
+                    cam_ok = True
+            if ff and (cam_ok or stage_video):
+                try:
+                    if stage_video:
+                        out = mm.compose_mp4(ff, stage[0], stage[1], main, mp4_out, camera=mkv if cam_ok else None,
+                                             shift=shift, cam_res=cam_res, corner=corner, size=csize, marks=marks)
+                    else:
+                        out = mm.mux_mp4(ff, mkv, main, mp4_out, shift=shift, marks=marks)
+                    made.append(out.name)
+                    core.log_line('mp4 %s shift=%.3f stage=%s cam=%s' % (out.name, shift, stage_video, cam_ok))
+                    if cam_ok:
                         try:
                             pathlib.Path(mkv).unlink()
                         except OSError:
                             pass
-                    except Exception as e:
-                        core.log_line('mp4 failed: %r' % e)
-                        errs.append('MP4: %s (ham goruntu korundu: %s)' % (e, pathlib.Path(mkv).name))
+                except Exception as e:
+                    core.log_line('mp4 failed: %r' % e)
+                    errs.append('MP4: %s%s' % (str(e)[-200:], (' (ham goruntu korundu: %s)' % pathlib.Path(mkv).name) if cam_ok else ''))
             txt = 'Hazir: ' + ',  '.join(made)
             if errs:
                 post(lambda: self._status(txt + '  —  sorun: ' + '; '.join(errs)[:300], WARN))
@@ -1004,6 +1032,7 @@ class App(tk.Tk):
         self.var_mp3.set(c['export_mp3'])
         self.var_cam_res.set(c['cam_res']); self.var_cam_size.set(c['cam_preview']); self.var_cam_corner.set(c['cam_corner'])
         self.var_cam_on.set(c['cam_on']); self.var_cam_rec.set(c['cam_record']); self.var_av.set(c['av_offset_ms'])
+        self.var_mp4_text.set(c['mp4_text'])
         if c['cam_device'] and not self.var_cam.get():
             self.var_cam.set(c['cam_device'])
         self.var_bg_comp.set(self._bg_comp_text())
@@ -1052,6 +1081,7 @@ class App(tk.Tk):
         c['cam_preview'] = self.var_cam_size.get() or 'orta'; c['cam_corner'] = self.var_cam_corner.get() or 'sag-alt'
         c['cam_on'] = bool(self.var_cam_on.get()); c['cam_record'] = bool(self.var_cam_rec.get())
         c['av_offset_ms'] = int(round(float(self.var_av.get())))
+        c['mp4_text'] = bool(self.var_mp4_text.get())
         self.cfg = core._clean(c)
         return self.cfg
 
@@ -1268,6 +1298,8 @@ class App(tk.Tk):
             with_bg = self.engine.rec_with_backing
             marks, self._marks = self._marks, []
             cam_rec, self._cam_rec = self._cam_rec, None
+            stage = (self._rec_sections, list(self._sec_times)) if self._rec_sections else None
+            self._rec_sections, self._sec_times = None, []
             rec = self.engine.stop_recording()
             if rec is not None and marks and not rec.error:
                 self._write_marks(rec.path, rec.samplerate, marks)
@@ -1282,7 +1314,7 @@ class App(tk.Tk):
                 else:
                     self._status(msg + ('  —  %d ornek kirpildi, kazanci dusurun' % rec.clipped if rec.clipped > 100 else ''),
                                  WARN if rec.clipped > 100 else OK_C)
-                    self._postprocess(rec, with_bg, marks, cam_rec)
+                    self._postprocess(rec, with_bg, marks, cam_rec, stage)
             elif cam_rec is not None and self.camera is not None:
                 self.camera.stop(); self.camera = None
                 self.cam_apply()
@@ -1303,6 +1335,7 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showerror('Kayit', 'Kayit baslatilamadi: %s' % e, parent=self); return
         self._marks = []
+        self._sec_times, self._rec_sections = [], None
         self.btn_rec.config(text='■ Kaydi durdur', bg='#a33a3a')
         self._status('Kaydediliyor: %s' % path, BAD_C)
         if cfg.get('cam_record') and (cfg.get('cam_on') or self.camera is not None):
@@ -1759,7 +1792,10 @@ def smoke(report_path):
         lines.append('lyrics: ok (prompter ok)')
         assert mm.FFMPEG_WHEEL_URL.startswith('https://files.pythonhosted.org/') and len(mm.FFMPEG_EXE_SHA256) == 64
         assert mm.parse_dshow_devices('[dshow @ 0] "Cam" (video)') == ['Cam']
-        lines.append('media: ok (ffmpeg %s)' % (mm.find_ffmpeg() or 'indirilecek'))
+        import tempfile as _tf
+        sp = mm.render_slide('Gıda güvenliği — çerçeve', pathlib.Path(_tf.mkdtemp()) / 's.png', 640, 360)
+        assert sp.stat().st_size > 1000
+        lines.append('media: ok (ffmpeg %s, yazi tipi %s)' % (mm.find_ffmpeg() or 'indirilecek', mm.find_font() or 'varsayilan'))
         w = mic_fx.FxChain(48000).configure({'fx_echo_on': True, 'fx_rev_on': True}).process(numpy.zeros((480, 2), dtype='float32'))
         assert w.shape == (480, 2)
         lines.append('effects: ok')

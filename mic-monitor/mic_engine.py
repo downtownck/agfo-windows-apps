@@ -387,6 +387,7 @@ class Engine:
                                   'input': din['name'], 'output': dout['name'], 'exclusive': exclusive,
                                   'raw': a.api == API_WASAPI, 'split': a.split})
                 self.info['latency_ms'] = self._latency_ms(sr)
+                self.info['in_latency_ms'] = self._in_latency_ms()
                 self.attempt_log.append('OK %s %d Hz %d/%d kanal' % (a.label, sr, ich, och))
                 core.log_line('start: ' + ' | '.join(self.attempt_log[-6:]))
                 self.set_fx(cfg)
@@ -437,6 +438,13 @@ class Engine:
             gc.freeze()                # GC duraksamalari ses is parcacigini geciktirmesin
         except AttributeError:
             pass
+
+    def _in_latency_ms(self):
+        try:
+            l = self.streams[0].latency
+            return round(float(l[0] if isinstance(l, (tuple, list)) else l) * 1000.0, 2)
+        except Exception:
+            return 0.0
 
     def _latency_ms(self, sr):
         total = 0.0
@@ -540,11 +548,13 @@ class Engine:
             skip = self.roundtrip_frames() + int(round(offset_ms * sr / 1000.0))
             name = core.recording_name()[:-4] + '_vokal.wav'
             rec = core.WavRecorder(d / name, sr, ch, bits, skip_frames=skip)
+            rec.lead = self.info.get('in_latency_ms', 0.0) / 1000.0
             rec.backing_start = 0.0 if from_start else bk.position()
             self.rec_with_backing = True
             self._armed = (rec, bool(from_start))
             return rec.path
         rec = core.WavRecorder(d / core.recording_name(), sr, ch, bits)
+        rec.lead = self.info.get('in_latency_ms', 0.0) / 1000.0
         self.rec_with_backing = False
         self._rec = rec
         return rec.path

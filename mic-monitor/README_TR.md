@@ -50,7 +50,7 @@ Altyapı sekmesinde **Aç…** (TXT, Word, Markdown) ya da **Yapıştır…** il
 
 Kamerayı, çözünürlüğü, önizleme köşesini ve boyutunu seçip "Kamerayı aç"ı işaretleyin. Önizleme prompter ekranının köşesinde görünür.
 
-"Kayıtta kamerayı da kaydet" seçiliyse kayıt bitince görüntü ve ses MP4 olarak birleştirilir; prompter bölümleri MP4'te bölüm olur. Dudak ile ses hafif kayıksa "Görüntü-ses" sürgüsüyle ince ayar yapın.
+"Kayıtta kamerayı da kaydet" seçiliyse kayıt bitince görüntü ve ses MP4 olarak birleştirilir. Prompter kaydında video, okunan bölümün metnini gösterir; kamera seçtiğiniz köşede durur (Kamera sekmesinde "videoya metni koy"). Prompter bölümleri MP4'te bölüm olur. Görüntü ile ses aynı saatle damgalanır. Kameranız gecikmeliyse "Görüntü-ses" sürgüsüyle bir kez ince ayar yapın: ağız sesten önce hareket ediyorsa sürgüyü sağa, sonra hareket ediyorsa sola alın.
 
 Kayıt sekmesindeki "MP3 kopyası" ile vokal ve karışımın MP3'ü de çıkar.
 

@@ -169,6 +169,18 @@ def wav_markers_roundtrip_keep_audio_valid():
 
 
 @test
+def recorder_capture_epoch_for_av_sync():
+    with tempfile.TemporaryDirectory() as td:
+        rec = core.WavRecorder(pathlib.Path(td) / 'e.wav', 48000, 1, 16, skip_frames=480)
+        rec.lead = 0.004
+        assert rec.file_epoch is None
+        rec.push(np.zeros((240, 1), dtype=np.float32))
+        rec.close()
+        # ilk blok geldiginde: blok (5 ms) + giris gecikmesi (4 ms) once yakalanmisti; atilan 480 ornek (+10 ms)
+        assert abs(rec.file_epoch - (rec.t0_wall - 0.005 - 0.004 + 0.010)) < 1e-9
+
+
+@test
 def device_warnings():
     assert core.is_bluetooth_name('Kulaklık (WILLEN Hands-Free)')
     assert core.is_bluetooth_name('HUAWEI FreeClip')

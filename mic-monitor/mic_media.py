@@ -43,6 +43,10 @@ Paket: https://pypi.org/project/imageio-ffmpeg/0.7.0/
 PREVIEW_SIZES = {'kucuk': (240, 135), 'orta': (320, 180), 'buyuk': (480, 270)}
 CORNERS = {'sag-ust': 'ne', 'sol-ust': 'nw', 'sag-alt': 'se', 'sol-alt': 'sw'}
 RESOLUTIONS = ('1280x720', '1920x1080', '640x480', 'otomatik')
+CAM_RATIOS = {'kucuk': 0.22, 'orta': 0.30, 'buyuk': 0.40}     # birlesik videoda kamera genisligi / video genisligi
+CAMERA_LATENCY_S = 0.05     # kamera karesinin ffmpeg'e ulasma gecikmesi (USB + surucu); goruntu bu kadar erkene alinir
+STAGE_BG = (5, 8, 15)
+STAGE_FG = (255, 255, 255)
 
 
 class MediaError(Exception):
@@ -234,11 +238,17 @@ class Camera:
     def _cmd(self, record_path):
         pv = 'fps=15,scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2%s,format=rgb24' % (
             self.pw, self.ph, self.pw, self.ph, ',hflip' if self.mirror else '')
-        cmd = [self.ff, '-hide_banner', '-loglevel', 'error', '-y'] + self.input_args
+        ia = list(self.input_args)
+        if record_path:
+            # 1.5.1: her kare yakalandigi anin duvar saatiyle damgalanir (-copyts ile dosyaya aynen yazilir):
+            # ses de ayni saatle olculdugu icin goruntu-ses farki dogrudan hesaplanir; uzun kayitta kayma olmaz.
+            k = len(ia) - 1 - ia[::-1].index('-i')
+            ia = ia[:k] + ['-use_wallclock_as_timestamps', '1'] + ia[k:]
+        cmd = [self.ff, '-hide_banner', '-loglevel', 'error', '-y'] + ia
         if record_path:
             cmd += ['-filter_complex', '[0:v]split=2[rec][pv];[pv]%s[pvo]' % pv,
-                    '-map', '[rec]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p',
-                    '-g', '60', str(record_path),
+                    '-map', '[rec]', '-copyts', '-fps_mode', 'passthrough', '-c:v', 'libx264', '-preset', 'veryfast',
+                    '-crf', '21', '-pix_fmt', 'yuv420p', '-g', '60', str(record_path),
                     '-map', '[pvo]', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1']
         else:
             cmd += ['-vf', pv, '-an', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1']
@@ -360,10 +370,158 @@ def mux_mp4(ff, video, audio, out, shift=0.0, audio_bitrate='192k', marks=None):
     return out
 
 
-def probe_duration(ff, path):
-    """ffmpeg ile sure (sn); ffprobe gerektirmez."""
+def _probe(ff, path):
     p = subprocess.run([ff, '-hide_banner', '-i', str(path)], capture_output=True, timeout=60, creationflags=CREATE_NO_WINDOW)
-    m = re.search(r'Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)', (p.stderr or b'').decode('utf-8', 'replace'))
+    return (p.stderr or b'').decode('utf-8', 'replace')
+
+
+def stream_start(ff, path):
+    """Dosyanin baslangic zamani (sn). Kamera kaydinda bu, ilk karenin duvar saatidir (epoch)."""
+    m = re.search(r'start:\s*(-?[0-9.]+)', _probe(ff, path))
+    return float(m.group(1)) if m else None
+
+
+def probe_duration(ff, path):
+    """ffmpeg ile sure (sn); ffprobe gerektirmez. Duvar saatli dosyada baslangic dusulur."""
+    t = _probe(ff, path)
+    m = re.search(r'Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)', t)
     if not m:
         return None
-    return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+    d = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+    st = re.search(r'start:\s*(-?[0-9.]+)', t)
+    if st and float(st.group(1)) > 1e6 and d > float(st.group(1)):
+        d -= float(st.group(1))
+    return d
+
+
+# --------------------------------------------------------------------------- prompter videosu (metin + kamera)
+def stage_size(cam_res):
+    return (1920, 1080) if cam_res == '1920x1080' else (1280, 720)
+
+
+def find_font():
+    """Kalin, Turkce karakterli bir TrueType yazi tipi."""
+    windir = os.environ.get('WINDIR', r'C:\Windows')
+    for c in (os.path.join(windir, 'Fonts', 'segoeuib.ttf'), os.path.join(windir, 'Fonts', 'arialbd.ttf'),
+              '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/Library/Fonts/Arial Bold.ttf'):
+        if os.path.isfile(c):
+            return c
+    return None
+
+
+def cam_box(W, H, corner, size):
+    """Birlesik videoda kameranin kapladigi kutu (x, y, w, h) - 4:3 kamerayi da sigdiracak yukseklikle."""
+    w = int(W * CAM_RATIOS.get(size, 0.30)) // 2 * 2
+    h = int(w * 0.75) // 2 * 2
+    m = int(W * 0.025)
+    c = CORNERS.get(corner, 'se')
+    x = W - w - m if 'e' in c else m
+    y = H - h - m if 's' in c else m
+    return x, y, w, h, m
+
+
+def _wrap(draw, text, font, width):
+    lines = []
+    for para in text.split('\n'):
+        words = para.split()
+        if not words:
+            lines.append('')
+            continue
+        cur = words[0]
+        for wd in words[1:]:
+            if draw.textlength(cur + ' ' + wd, font=font) <= width:
+                cur += ' ' + wd
+            else:
+                lines.append(cur)
+                cur = wd
+        lines.append(cur)
+    return lines
+
+
+def render_slide(text, path, W=1280, H=720, reserve=None, font_path=None):
+    """Bir prompter bolumunu PNG olarak cizer (koyu zemin, beyaz kalin yazi; ekrandaki gibi).
+    reserve: (ust_pay, alt_pay) piksel - kameranin kapladigi bolge metne verilmez. Sigana kadar kucultur."""
+    from PIL import Image, ImageDraw, ImageFont
+    top_pad, bottom_pad = reserve or (0, 0)
+    img = Image.new('RGB', (W, H), STAGE_BG)
+    d = ImageDraw.Draw(img)
+    fp = font_path or find_font()
+    left, width = int(W * 0.05), int(W * 0.90)
+    top = int(H * 0.06) + top_pad
+    room = H - top - int(H * 0.05) - bottom_pad
+    size = int(H * 0.075)
+    while True:
+        font = ImageFont.truetype(fp, size) if fp else ImageFont.load_default(size=size)
+        lines = _wrap(d, text, font, width)
+        lh = int(size * 1.28)
+        if len(lines) * lh <= room or size <= 14:
+            break
+        size = int(size * 0.92)
+    y = top
+    for ln in lines:
+        d.text((left, y), ln, font=font, fill=STAGE_FG)
+        y += lh
+    img.save(str(path))
+    return path
+
+
+def compose_mp4(ff, sections, timeline, audio, out, camera=None, shift=0.0, cam_res='1280x720',
+                corner='sag-alt', size='orta', marks=None, workdir=None):
+    """Prompter videosu: o an okunan bolumun metni sahnede, kamera kosede, ses ve bolum isaretleri.
+    sections: bolum metinleri; timeline: [(sn, bolum_indeksi)] ses zaman ekseninde; camera: kamera .mkv
+    (yoksa yalniz metin + ses); shift > 0: kamera sesten 'shift' sn gec basladi."""
+    import tempfile
+    out = pathlib.Path(out)
+    W, H = stage_size(cam_res)
+    dur = wav_duration(audio)
+    tl = sorted((max(0.0, float(t)), int(i)) for t, i in timeline if 0 <= int(i) < len(sections)) or [(0.0, 0)]
+    if tl[0][0] > 0:
+        tl.insert(0, (0.0, tl[0][1]))
+    x, y, cw, ch, m = cam_box(W, H, corner, size)
+    reserve = (0, 0)
+    if camera is not None:
+        reserve = (ch + m, 0) if y < H / 2 else (0, ch + m)
+    wd = pathlib.Path(workdir or tempfile.mkdtemp(prefix='micmon-stage-'))
+    wd.mkdir(parents=True, exist_ok=True)
+    fp = find_font()
+    pngs = {}
+    for _, i in tl:
+        if i not in pngs:
+            pngs[i] = render_slide('\n\n'.join(sections[i]) if isinstance(sections[i], (list, tuple)) else sections[i],
+                                   wd / ('bolum_%03d.png' % i), W, H, reserve, fp)
+    lines = ['ffconcat version 1.0']
+    for k, (t, i) in enumerate(tl):
+        end = tl[k + 1][0] if k + 1 < len(tl) else max(t + 0.1, dur)
+        lines += ["file '%s'" % pngs[i].name, 'duration %.3f' % max(0.04, end - t)]
+    lines.append("file '%s'" % pngs[tl[-1][1]].name)           # concat kurali: son kare tekrar
+    lst = wd / 'sahne.ffconcat'
+    lst.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    args = ['-y', '-f', 'concat', '-safe', '0', '-i', str(lst)]
+    fc = '[0:v]fps=30,scale=%d:%d,setsar=1,format=yuv420p[bg]' % (W, H)
+    if camera is not None:
+        args += ['-i', str(camera)]
+        if shift >= 0:
+            cam = '[1:v]setpts=PTS-STARTPTS+%.4f/TB' % shift
+        else:
+            cam = '[1:v]trim=start=%.4f,setpts=PTS-STARTPTS' % (-shift)
+        fc += ';%s,scale=%d:-2,setsar=1[cam];[bg][cam]overlay=x=%s:y=%s:eof_action=pass[v]' % (
+            cam, cw, ('W-w-%d' % m) if x > W / 2 else str(m), ('H-h-%d' % m) if y > H / 2 else str(m))
+        vout, a_idx = '[v]', 2
+    else:
+        vout, a_idx = '[bg]', 1
+    args += ['-i', str(audio)]
+    meta = None
+    if marks:
+        meta = write_chapters(marks, dur, wd / 'bolumler.txt')
+        args += ['-f', 'ffmetadata', '-i', str(meta)]
+    tmp = out.with_name(out.stem + '.part.mp4')
+    args += ['-filter_complex', fc, '-map', vout, '-map', '%d:a:0' % a_idx]
+    args += (['-map_chapters', str(a_idx + 1)] if meta else ['-map_chapters', '-1'])
+    args += ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p', '-r', '30',
+             '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-t', '%.3f' % dur, str(tmp)]
+    try:
+        run(ff, args, timeout=max(600, int(dur * 4)))
+        os.replace(tmp, out)
+    finally:
+        shutil.rmtree(wd, ignore_errors=True)
+    return out

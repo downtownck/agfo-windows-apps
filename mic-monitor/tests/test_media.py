@@ -25,7 +25,7 @@ import mic_backing as mb  # noqa: E402
 PASSED, SKIPPED = [], []
 TMP = pathlib.Path(tempfile.mkdtemp(prefix='micmon-mf-'))
 FF = mm.find_ffmpeg()
-LAVFI = ['-re', '-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=30']
+LAVFI = ['-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=30,realtime']   # gercek zamanli sahte kamera
 
 
 def test(fn):
@@ -154,6 +154,52 @@ def camera_preview_and_record_then_mux_in_sync():
                 assert abs(starts['audio'] - 0.3) < 0.05 and starts['video'] < 0.05, starts
                 assert '1.300000' in pr                                       # bolum de sesle kaydi
     assert t_v0 is not None
+
+
+def _flash_time(path, region, fps=30):
+    """Videoda bolgenin parlakliginin ilk kez beyaza ciktigi an (sn)."""
+    x, y, w, h = region
+    raw = subprocess.run([FF, '-v', 'error', '-i', str(path), '-vf', 'fps=%d,crop=%d:%d:%d:%d,scale=1:1,format=gray' % (fps, w, h, x, y),
+                          '-f', 'rawvideo', '-'], capture_output=True).stdout
+    for k, b in enumerate(raw):
+        if b > 200:
+            return k / float(fps)
+    return None
+
+
+@needs_ff
+def stage_video_text_camera_corner_and_sync():
+    # kamera: siyah, 60.-68. karelerde (kamera zamaninda 2,0 sn) beyaz flas
+    flash = ['-f', 'lavfi', '-i', "color=c=black:s=640x360:r=30,drawbox=c=white:t=fill:enable='between(n,60,68)',realtime"]
+    cam = mm.Camera(FF, flash, preview=(160, 90))
+    mkv = TMP / 'flash.mkv'
+    cam.start(record_path=mkv)
+    assert cam.wait_first_frame(15)
+    time.sleep(3.2)
+    cam.stop()
+    v_epoch = mm.stream_start(FF, mkv)
+    assert v_epoch and abs(v_epoch - time.time()) < 30                    # duvar saati damgasi
+    assert 2.8 < mm.probe_duration(FF, mkv) < 6
+    wav = mb.write_wav(TMP / 'st.wav', np.zeros((48000 * 4, 1), dtype=np.float32), 48000, 16)
+    secs = [['Birinci bölüm metni.'], ['İkinci bölüm.', 'İkinci paragraf.']]
+    out = mm.compose_mp4(FF, secs, [(0.0, 0), (1.0, 1)], wav, TMP / 'stage.mp4', camera=mkv, shift=0.5,
+                         corner='sag-alt', size='orta', marks=[(0.0, 'Bölüm 1'), (1.0, 'Bölüm 2')])
+    assert abs(mm.probe_duration(FF, out) - 4.0) < 0.1
+    x, y, cw, ch, m = mm.cam_box(1280, 720, 'sag-alt', 'orta')
+    t = _flash_time(out, (x + cw // 4, 720 - m - 40, cw // 2, 20))           # kamera kutusunun alt kismi
+    assert t is not None and abs(t - 2.5) <= 0.07, t                          # 2,0 + 0,5 kaydirma (+-1 kare)
+    # metin bolgesi: once birinci, 1. saniyeden sonra ikinci bolum (piksel farki)
+    f1 = subprocess.run([FF, '-v', 'error', '-ss', '0.5', '-i', str(out), '-frames:v', '1', '-vf', 'crop=600:120:60:40',
+                         '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], capture_output=True).stdout
+    f2 = subprocess.run([FF, '-v', 'error', '-ss', '1.5', '-i', str(out), '-frames:v', '1', '-vf', 'crop=600:120:60:40',
+                         '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], capture_output=True).stdout
+    assert len(f1) == len(f2) == 72000 and f1 != f2 and max(f1) > 200          # beyaz yazi var ve degisti
+    neg = mm.compose_mp4(FF, secs, [(0.0, 0)], wav, TMP / 'neg.mp4', camera=mkv, shift=-0.5)
+    t2 = _flash_time(neg, (x + cw // 4, 720 - m - 40, cw // 2, 20))
+    assert t2 is not None and abs(t2 - 1.5) <= 0.07, t2                       # kamera 0,5 sn erken basladi
+    only_text = mm.compose_mp4(FF, secs, [(0.0, 0), (2.0, 1)], wav, TMP / 'text.mp4')
+    assert abs(mm.probe_duration(FF, only_text) - 4.0) < 0.1
+    assert not list(TMP.glob('*.part.mp4'))
 
 
 print('OK - %d test gecti: %s%s' % (len(PASSED), ', '.join(PASSED),
