@@ -8,6 +8,7 @@ name: Release
 #   ai-manager-vX.Y.Z   -> agfo-ai-manager-X.Y.Z.zip (WordPress eklentisi; siteler GitHub'dan gunceller)
 #   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + AGFO-AI-Editor-Kur.cmd (yoneticisiz kurulum) + ekran goruntusu
 #   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd: EXE kullanicinin PC'sinde derlenir) + AGFO-Phantom-Shot.exe (uygulama ici guncelleme)
+#   mic-monitor-vX.Y.Z  -> AGFO-Mic-Monitor-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd) + AGFO-Mic-Monitor.exe (uygulama ici guncelleme)
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -31,6 +32,7 @@ jobs:
       am: ${{ steps.d.outputs.am }}
       ae: ${{ steps.d.outputs.ae }}
       ps: ${{ steps.d.outputs.ps }}
+      mm: ${{ steps.d.outputs.mm }}
     steps:
       - uses: actions/checkout@v4
       - id: d
@@ -49,6 +51,8 @@ jobs:
           echo "ae=$(need ai-editor-v$AE)" >> "$GITHUB_OUTPUT"
           PS=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" phantom-shot/phantom_core.py)
           echo "ps=$(need phantom-shot-v$PS)" >> "$GITHUB_OUTPUT"
+          MM=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" mic-monitor/mic_core.py)
+          echo "mm=$(need mic-monitor-v$MM)" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   system-care:
@@ -384,3 +388,95 @@ jobs:
           $notes = ".github/release-notes/$env:TAG.md"
           if (-not (Test-Path $notes)) { "AGFO Phantom Shot $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
           gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO Phantom Shot $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA
+
+  mic-monitor:
+    needs: detect
+    if: needs.detect.outputs.mm != ''
+    runs-on: windows-latest
+    env: { TAG: '${{ needs.detect.outputs.mm }}' }
+    defaults:
+      run: { shell: pwsh }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket ve ortak modul denetimi
+        run: |
+          $v = $env:TAG -replace '^mic-monitor-v',''
+          $c = (Select-String -Path mic-monitor/mic_core.py -Pattern "^VERSION = '([0-9.]+)'").Matches[0].Groups[1].Value
+          if ($v -ne $c) { throw "Etiket $v ile mic_core.py VERSION $c uyusmuyor" }
+          if ((Get-FileHash shared/agfo_github_update.py).Hash -ne (Get-FileHash mic-monitor/agfo_github_update.py).Hash) { throw 'Ortak modul kopyasi farkli' }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Ortak modul testi
+        run: python -I shared/tests/test_agfo_github_update.py shared
+      - name: Derle (testler + PyInstaller + EXE oz-testi)
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File mic-monitor/packaging/build_windows.ps1
+      - name: Guncelleyici gercek testi (eski surum acikken EXE degistirme + yeniden baslatma)
+        run: |
+          $exe = (Resolve-Path mic-monitor/dist/AGFO-Mic-Monitor.exe).Path
+          $t = Join-Path $env:RUNNER_TEMP 'mm-upd'
+          New-Item -ItemType Directory -Force $t | Out-Null
+          $target = Join-Path $t 'AGFO-Mic-Monitor.exe'
+          Copy-Item -LiteralPath $exe -Destination $target
+          (Get-Item -LiteralPath $target).LastWriteTime = (Get-Date).AddDays(-3)
+          $before = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+          $old = Start-Process -FilePath $target -PassThru
+          Start-Sleep -Seconds 10
+          $child = Get-CimInstance Win32_Process -Filter "ParentProcessId=$($old.Id)" | Where-Object Name -eq 'AGFO-Mic-Monitor.exe' | Select-Object -First 1
+          $waitPid = if ($child) { [int]$child.ProcessId } else { $old.Id }
+          Write-Host "old app parent=$($old.Id) wait=$waitPid"
+          $u = Start-Process -FilePath $exe -ArgumentList @('--apply-update', ('"' + $target + '"'), '--wait-pid', $waitPid) -PassThru
+          Start-Sleep -Seconds 5
+          if ($u.HasExited) { throw ('updater exited early: ' + $u.ExitCode) }
+          Stop-Process -Id $waitPid -Force            # kullanici eski surumu kapatir
+          if (-not $u.WaitForExit(150000)) { throw 'updater timeout' }
+          $log = Join-Path $env:LOCALAPPDATA 'AGFO\MicMonitor\update-log.txt'
+          if (Test-Path $log) { Get-Content $log }
+          if ($u.ExitCode -ne 0) { throw ('updater exit code ' + $u.ExitCode) }
+          $after = (Get-Item -LiteralPath $target).LastWriteTimeUtc
+          if ($after -le $before) { throw 'target was not replaced' }
+          if ((Get-FileHash $target).Hash -ne (Get-FileHash $exe).Hash) { throw 'target content differs' }
+          Start-Sleep -Seconds 8
+          $relaunched = @(Get-CimInstance Win32_Process -Filter "Name='AGFO-Mic-Monitor.exe'" | Where-Object { $_.ExecutablePath -eq $target })
+          Write-Host ('relaunched: ' + $relaunched.Count)
+          if (-not $relaunched.Count) { throw 'new version was not relaunched' }
+          Get-Process AGFO-Mic-Monitor -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not (Select-String -Path $log -Pattern 'Update applied' -Quiet)) { throw 'no success line in log' }
+      - name: Paketle
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          # Uygulama ici guncelleme icin hazir EXE (uygulama kendi koduyla indirir).
+          Copy-Item mic-monitor/dist/AGFO-Mic-Monitor.exe out/
+          # Ilk kurulum icin kaynak paket: Derle-ve-Kur.cmd EXE'yi kullanicinin bilgisayarinda derler.
+          $src = "AGFO-Mic-Monitor-v$env:VERSION"
+          New-Item -ItemType Directory -Force "pkg/$src" | Out-Null
+          Get-ChildItem mic-monitor -Force | Where-Object { $_.Name -notin @('dist', '__pycache__') } | Copy-Item -Destination "pkg/$src/" -Recurse -Force
+          Get-ChildItem "pkg/$src" -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force
+          if (-not (Test-Path "pkg/$src/Derle-ve-Kur.cmd")) { throw 'Derle-ve-Kur.cmd pakette yok' }
+          Compress-Archive -Path "pkg/$src" -DestinationPath "out/$src-Kurulum.zip"
+          Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
+          Get-Content out/SHA256SUMS.txt
+      - name: Yerel derleme yolu testi (Kurulum ZIP'i ac -> build_local.ps1 -> EXE oz-testi)
+        run: |
+          $zip = (Get-ChildItem out -Filter '*-Kurulum.zip' | Select-Object -First 1).FullName
+          $t = Join-Path $env:RUNNER_TEMP 'mm-local'
+          Expand-Archive -LiteralPath $zip -DestinationPath $t -Force
+          $dir = (Get-ChildItem $t -Directory | Select-Object -First 1).FullName
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dir 'packaging\build_local.ps1')
+          if ($LASTEXITCODE) { $l = Join-Path $env:LOCALAPPDATA 'AGFO\MicMonitor\build\last-build.txt'; if (Test-Path $l) { Get-Content $l -Tail 60 }; throw 'build_local.ps1 basarisiz' }
+          $exe = Join-Path $dir 'dist\AGFO-Mic-Monitor.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw 'Yerel derleme EXE uretmedi' }
+          $rep = Join-Path $env:RUNNER_TEMP 'local-smoke.txt'
+          $p = Start-Process -FilePath $exe -ArgumentList @('--smoke', ('"' + $rep + '"')) -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'yerel EXE smoke zaman asimi' }
+          $txt = if (Test-Path -LiteralPath $rep) { Get-Content -LiteralPath $rep -Raw } else { '' }
+          Write-Host $txt
+          if ($p.ExitCode -ne 0 -or $txt -notmatch 'AGFO MIC MONITOR SMOKE OK') { throw ('yerel EXE smoke basarisiz, cikis ' + $p.ExitCode) }
+          Write-Host 'Yerel derleme yolu dogrulandi.'
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          $notes = ".github/release-notes/$env:TAG.md"
+          if (-not (Test-Path $notes)) { "AGFO Mic Monitor $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
+          gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO Mic Monitor $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA
