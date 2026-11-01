@@ -263,6 +263,48 @@ assert len(voc) == 1 and len(mix) == 1
 m, sr_m = mbk.read_wav(mix[0])
 assert sr_m == 48000 and m.shape[1] == 2 and len(m) >= 24000
 assert 'karisim' in app.var_status.get()
+# sarki sozu: altyapiyla ayni adli .txt otomatik yuklenir, ekran altyapi konumunu izler, zamanlama LRC'ye yazilir
+import mic_lyrics as mly
+bgp = mbk.write_wav(pathlib.Path(TMP) / 'sarki.wav', (np.random.RandomState(6).randn(48000 * 10, 2) * 0.1).astype(np.float32), 48000, 16)
+(bgp.with_suffix('.txt')).write_text('Birinci satır\nİkinci satır\n\nÜçüncü satır\nDördüncü satır\n', encoding='utf-8')
+app.backing_track = None; app.lyrics = None
+app._bg_load(str(bgp))
+assert wait_for(lambda: app.backing_track is not None and app.backing_track.ready)
+assert app.lyrics is not None and app.lyrics.name == 'sarki.txt' and not app.lyrics.timed
+assert app.lyrics.times[0] == 0 and app.lyrics.times[-1] < max(1.0, app.backing_track.duration)   # sarki suresine dagitildi
+w = app.lyrics_open()
+pump(app, 3); w.update(); w.layout(); pump(app, 2)
+assert len(w.items) == 5
+tr = app.backing_track
+tr.seek(app.lyrics.times[3] + 0.01); tr.play()
+w.update_view(force=True)
+assert w.cur == 3 and w.cv.itemcget(w.items[3], 'fill') == '#ffffff' and w.cv.itemcget(w.items[4], 'fill') != '#ffffff'
+y_before = w.cv.coords(w.items[3])[1]
+tr.seek(app.lyrics.times[4] + 0.01); w.update_view()
+assert w.cur == 4 and w.cv.coords(w.items[3])[1] < y_before                             # yukari kaydi
+tr.stop()
+# zamanlama provasi: altyapi bastan calar, her satir basinda bosluk
+w.toggle_timing()
+assert w.tapper is not None and tr.playing and tr.pos == 0
+for k, at in enumerate((0.05, 0.12, 0.2, 0.33)):
+    tr.pos = int(at * tr.sr)
+    w.tap()
+assert w.tapper is None                                          # dort dolu satir vuruldu -> bitti
+L = app.lyrics
+assert L.timed and L.source.name == 'sarki.lrc' and L.source.is_file()
+assert L.times[:2] == [0.05, 0.12] and L.times[3:] == [0.2, 0.33] and 0.12 < L.times[2] < 0.2     # kita arasi ortada
+assert core.load_settings()['lyrics_file'].endswith('sarki.lrc')
+assert mly.load(L.source).times == L.times
+# yapistir
+pw = app.lyrics_paste()
+pw.children[[k for k in pw.children if k.startswith('!text')][0]].delete('1.0', 'end')
+pw.children[[k for k in pw.children if k.startswith('!text')][0]].insert('1.0', 'Yapıştırılan\nsöz')
+[b for b in pw.winfo_children() if isinstance(b, tkinter.Button)][0].invoke()
+assert app.lyrics.lines == ['Yapıştırılan', 'söz'] and app.lyrics.source is None and len(w.items) == 2
+w.set_font(60); assert core.load_settings()['lyrics_font'] == 60
+w.close(); assert app.lyrics_win is None
+PASSED.append('lyrics_prompter_follow_and_timing')
+
 app.bg_remove()
 assert app.backing_track is None and app.engine.backing is None and core.load_settings()['bg_file'] == ''
 PASSED.append('backing_record_vocal_and_mix')

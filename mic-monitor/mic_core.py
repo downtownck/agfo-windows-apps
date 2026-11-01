@@ -1,4 +1,4 @@
-"""AGFO Mic Monitor 1.2.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
+"""AGFO Mic Monitor 1.3.0 - GUI'den ve ses surucusunden bagimsiz cekirdek.
 
 Mic Monitor, mikrofonu kulakliktan dusuk gecikmeyle dinletir ve ayni sesi ayni anda WAV olarak kaydeder.
 Windows Vista'dan beri "Bu cihazi dinle" ozelligi sesi Windows ses motorundan (karistirici, efektler,
@@ -19,7 +19,7 @@ import sys
 import threading
 import wave
 
-VERSION = '1.2.0'
+VERSION = '1.3.0'
 IS_WIN = sys.platform == 'win32'
 
 LOCALAPPDATA = os.environ.get('LOCALAPPDATA', str(pathlib.Path.home()))
@@ -76,6 +76,8 @@ DEFAULT_CONFIG = {
     'bg_make_mix': True,       # kayit bitince altyapi + vokal karisimi da yaz
     'bg_stop_at_end': True,    # altyapi bitince kaydi durdur
     'bg_offset_ms': 0,         # otomatik gecikme duzeltmesine ek ince ayar (+: vokal daha erkene)
+    'lyrics_file': '',         # 1.3.0: sarki sozu (TXT / LRC / DOCX)
+    'lyrics_font': 40,
     'autostart': False,        # acilista dinlemeyi baslat
     'auto_update_check': True,
 }
@@ -113,6 +115,7 @@ def _clean(data):
     out['input_gain_db'] = min(24.0, max(-12.0, float(out['input_gain_db'])))
     out['monitor_volume'] = min(100, max(0, int(out['monitor_volume'])))
     out['bg_volume'] = min(100, max(0, int(out['bg_volume'])))
+    out['lyrics_font'] = min(120, max(16, int(out['lyrics_font'])))
     out['bg_offset_ms'] = min(200, max(-200, int(out['bg_offset_ms'])))
     out['fx_echo_ms'] = min(1500, max(60, int(out['fx_echo_ms'])))
     out['fx_echo_fb'] = min(85, max(0, int(out['fx_echo_fb'])))

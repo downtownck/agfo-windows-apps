@@ -39,6 +39,13 @@ Hata olursa ayrıntılar `%LOCALAPPDATA%\AGFO\MicMonitor\build\last-build.txt` d
 
 Altyapı Mic Monitor'ün içinden çalar. Özel modda başka bir programdan çalınan altyapı duyulmaz; bu yüzden altyapıyı buradan çalın. Vokal kulağınıza hâlâ az erken ya da geç geliyorsa "Kayıt kaydırma" ile ince ayar yapın.
 
+### Şarkı sözü ekranı
+Altyapı sekmesinde **Söz aç…** (TXT, LRC, Word) ya da **Yapıştır…** ile sözleri yükleyin. Altyapıyla aynı adlı söz dosyası varsa kendiliğinden yüklenir.
+
+**Söz ekranı** büyük bir pencere açar. Sözler altyapıyla birlikte akar, o an söylenen satır vurgulanır. Pencere tam ekran (F11) ya da ikinci monitörde kullanılabilir.
+
+Düz metinde satırlar önce şarkı süresine dağıtılır. Tam eşleşme için bir kez **Zamanla**'ya basın: altyapı baştan çalar, siz her satırın başında BOŞLUK tuşuna basarsınız. Zamanlama sözün yanına `.lrc` olarak kaydedilir ve sonraki kayıtlarda kullanılır.
+
 ### Efektler: yankı ve reverb
 **Efektler** sekmesinden yankı ve reverb açılabilir. Efektler gecikme eklemez: kendi sesiniz anında gelir, efekt onun üstüne eklenir.
 - **Yankı:** Süre, tekrar, seviye ve parlaklık ayarlanır.

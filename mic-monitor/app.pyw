@@ -44,6 +44,7 @@ import mic_core as core  # noqa: E402
 import mic_engine as eng  # noqa: E402
 import mic_fx  # noqa: E402
 import mic_backing as mbk  # noqa: E402
+import mic_lyrics as mly  # noqa: E402
 import mic_update as upd  # noqa: E402
 import agfo_github_update as ghu  # noqa: E402
 
@@ -113,6 +114,8 @@ class App(tk.Tk):
             # uygulama acik kaldikca da periyodik denetle
             self.after(2500, lambda: self.gh_check(force=True, silent=True))
             self.after(upd.PERIODIC_CHECK_MS, self._gh_periodic)
+        if self.cfg.get('lyrics_file') and os.path.isfile(self.cfg['lyrics_file']):
+            self.after(200, lambda: self.lyrics_load(self.cfg['lyrics_file'], quiet=True))
         if self.cfg.get('bg_file') and os.path.isfile(self.cfg['bg_file']) and self.engine is not None:
             self.after(300, lambda: self._bg_load(self.cfg['bg_file'], quiet=True))
         if self.engine_error is not None:
@@ -239,6 +242,8 @@ class App(tk.Tk):
         self.tabs.pack(fill='x', padx=22, pady=(0, 10))
         self.backing_track = None
         self._bg_loading = False
+        self.lyrics = None
+        self.lyrics_win = None
         self._fx_labels = []
         self._build_backing(self._section('ALTYAPI', self.tabs), pad)
         self._build_fx(self._section('EFEKTLER', self.tabs), pad)
@@ -370,6 +375,119 @@ class App(tk.Tk):
         self._lbl(bt, '').grid(row=8, column=0)
         tk.Label(bt, textvariable=self.var_bg_comp, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
                  wraplength=int(620 * self.scale)).grid(row=8, column=0, columnspan=4, sticky='w', padx=6)
+        self._lbl(bt, 'Sarki sozu:').grid(row=9, column=0, sticky='w', padx=6, pady=(10, 3))
+        self.var_ly_name = tk.StringVar(value='(yok)')
+        tk.Label(bt, textvariable=self.var_ly_name, fg=FG, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w',
+                 width=40).grid(row=9, column=1, columnspan=2, sticky='w', padx=6, pady=(10, 3))
+        lb = tk.Frame(bt, bg=PANEL); lb.grid(row=9, column=3, sticky='e', padx=6, pady=(10, 3))
+        self._btn(lb, 'Soz ac…', self.lyrics_choose, 'ghost').pack(side='left', padx=(0, 4))
+        self._btn(lb, 'Yapistir…', self.lyrics_paste, 'ghost').pack(side='left', padx=(0, 4))
+        self._btn(lb, 'Soz ekrani', self.lyrics_open, 'normal').pack(side='left')
+
+    # ---------------------------------------------------------------- sarki sozu
+    def lyrics_time(self):
+        """Sozlerin zaman kaynagi: altyapinin calma konumu; altyapi yoksa kaydin suresi."""
+        tr = self.backing_track
+        if tr is not None and tr.ready and (tr.playing or tr.pos > 0):
+            return tr.position()
+        rec = self.engine.recording if self.engine is not None else None
+        if rec is not None and not self.engine.rec_with_backing:
+            return rec.seconds
+        return None
+
+    def lyrics_end(self):
+        tr = self.backing_track
+        if tr is not None:
+            return tr.duration
+        L = self.lyrics
+        return 3.0 * len(L) if L is not None else None
+
+    def _lyrics_set(self, L, remember=True):
+        self.lyrics = L
+        if L is not None and not L.timed:
+            L.ensure_times(self.lyrics_end() or 3.0 * len(L))
+        self.var_ly_name.set('(yok)' if L is None else '%s  (%d satir%s)' % (L.name, len([x for x in L.lines if x]),
+                                                                            ', zamanli' if L.timed else ''))
+        if remember:
+            self.cfg['lyrics_file'] = str(L.source) if (L is not None and L.source) else ''
+            core.save_settings(self.cfg)
+        if self.lyrics_win is not None:
+            self.lyrics_win.layout()
+
+    def lyrics_load(self, path, quiet=False):
+        try:
+            self._lyrics_set(mly.load(path))
+            return True
+        except Exception as e:
+            core.log_line('lyrics load failed: %r' % e)
+            if not quiet:
+                messagebox.showerror('Sarki sozu', 'Dosya acilamadi: %s' % e, parent=self)
+            return False
+
+    def lyrics_choose(self):
+        base = self.cfg.get('lyrics_file') or self.cfg.get('bg_file') or ''
+        p = filedialog.askopenfilename(title='Sarki sozu ac', filetypes=mly.LYRIC_TYPES,
+                                       initialdir=str(pathlib.Path(base).parent) if base else None)
+        if p:
+            self.lyrics_load(p)
+
+    def lyrics_paste(self):
+        win = tk.Toplevel(self); win.title('Sarki sozunu yapistirin'); win.configure(bg=PANEL); win.transient(self)
+        txt = tk.Text(win, width=60, height=20, bg=PANEL2, fg=FG, insertbackground=FG, font=('Segoe UI', 11), wrap='word')
+        txt.pack(fill='both', expand=True, padx=12, pady=(12, 6))
+        if self.lyrics is not None and self.lyrics.source is None:
+            txt.insert('1.0', '\n'.join(self.lyrics.lines))
+
+        def ok():
+            text = txt.get('1.0', 'end').strip()
+            win.destroy()
+            if text:
+                self._lyrics_set(mly.from_text(text))
+        self._btn(win, 'Tamam', ok, 'go').pack(side='right', padx=12, pady=(0, 12))
+        self._lbl(win, 'Her satir ekranda bir satir olur; bos satir kita arasidir. LRC ([00:12.50]...) de yapistirabilirsiniz.',
+                  wraplength=int(460 * self.scale)).pack(side='left', padx=12, pady=(0, 12))
+        txt.focus_set()
+        self.paste_win = win
+        return win
+
+    def lyrics_open(self):
+        if self.lyrics_win is not None:
+            self.lyrics_win.deiconify(); self.lyrics_win.lift(); self.lyrics_win.focus_set()
+            return self.lyrics_win
+        import lyrics_window
+        self.lyrics_win = lyrics_window.LyricsWindow(self)
+        return self.lyrics_win
+
+    def timing_start(self):
+        """Zamanlama provasi: altyapi bastan calar (dinleme gerekirse baslatilir)."""
+        tr = self.backing_track
+        if tr is None:
+            return False
+        if not self.monitoring and not self.start():
+            return False
+        if not tr.ready:
+            return False
+        tr.play(from_start=True)
+        return True
+
+    def save_lyrics_timing(self, lines, times):
+        """Zamanlamayi LRC olarak kaydet (soz dosyasinin yanina; olmazsa ayar klasorune) ve kullan."""
+        L = self.lyrics
+        target = mly.lrc_path_for(L, self.cfg.get('bg_file')) if L is not None else None
+        title = pathlib.Path(self.cfg.get('bg_file') or 'sarki').stem
+        saved = None
+        for p in ([target] if target else []) + [core.data_dir() / 'lyrics' / (title + '.lrc')]:
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                saved = mly.save_lrc(lines, times, p, title=title)
+                break
+            except OSError as e:
+                core.log_line('lrc save failed %s: %r' % (p, e))
+        new = mly.Lyrics(lines[:len(times)], times, source=saved, timed=True)
+        self._lyrics_set(new, remember=saved is not None)
+        if saved is not None:
+            self._status('Soz zamanlamasi kaydedildi: %s' % saved, OK_C)
+        return saved
 
     def _bg_comp_text(self):
         auto = ''
@@ -428,6 +546,12 @@ class App(tk.Tk):
         self.cfg['bg_file'] = str(tr.path); core.save_settings(self.cfg)
         self.var_bg_name.set('%s  (%s)' % (tr.name, self._fmt_t(tr.duration)))
         self._bg_attach()
+        if self.lyrics is None:
+            comp = mly.find_for_backing(tr.path)
+            if comp is not None:
+                self.lyrics_load(comp, quiet=True)
+        elif not self.lyrics.timed:
+            self._lyrics_set(mly.Lyrics(self.lyrics.lines, source=self.lyrics.source), remember=False)
 
     def _bg_attach(self):
         """Altyapiyi motora bagla; akisin ornekleme hizina donustur (gerekirse arka planda)."""
@@ -934,6 +1058,11 @@ class App(tk.Tk):
                 self._dev_job = self.after(800, self._devices_changed)
             if sig is not None:
                 self._dev_sig = sig
+        if self.lyrics_win is not None:
+            try:
+                self.lyrics_win.update_view()
+            except tk.TclError:
+                self.lyrics_win = None
         self._poll_job = self.after(POLL_MS, self._poll)
 
     def _device_watch_loop(self):
@@ -1268,6 +1397,11 @@ def smoke(report_path):
         app.update_idletasks()
         app.update()
         lines.append('devices: %d in, %d out' % (len(app.devices['inputs']), len(app.devices['outputs'])))
+        app._lyrics_set(mly.from_text('Uzun ince bir yoldayım\nGidiyorum gündüz gece'), remember=False)
+        lw = app.lyrics_open(); app.update(); lw.layout(); lw.update_view(force=True)
+        assert len(lw.items) == 2
+        lw.close()
+        lines.append('lyrics: ok')
         w = mic_fx.FxChain(48000).configure({'fx_echo_on': True, 'fx_rev_on': True}).process(numpy.zeros((480, 2), dtype='float32'))
         assert w.shape == (480, 2)
         lines.append('effects: ok')
