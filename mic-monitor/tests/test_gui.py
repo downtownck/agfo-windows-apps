@@ -76,8 +76,10 @@ PASSED.append('live_params')
 
 # seviye olcer: geri cagriya ses ver, dongu cizsin
 out = np.zeros((480, 2), dtype=np.float32)
+app.after_cancel(app._poll_job)                     # zamanlamadan bagimsiz: donguyu elle cagir
+app.engine.take_peak(); app.meter = app.meter_hold = -60.0
 sd.opened[-1].callback(np.full((480, 2), 0.5, dtype=np.float32), out, 480, None, None)
-app._poll(); pump(app, 2)
+app._poll()
 assert -1.0 < app.meter <= 0.1, app.meter          # 0.5 * 2 kazanc = 1.0 -> 0 dBFS
 assert app.var_db.get().strip().endswith('dBFS')
 PASSED.append('meter')
