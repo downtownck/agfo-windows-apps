@@ -23,11 +23,13 @@ Python yoksa önce https://www.python.org/downloads/windows/ adresinden kurun. D
 3. **Fare tuşu** — `middle`, `x1`, `x2` (yan tuşlar) veya `(yok)`. `left` önerilmez; normal tıklamaları da yakalar.
 4. **Ekran** — `0` tüm ekranlar, `1` birincil, `2` ikincil…
 5. **Biçim** — PNG veya JPG (+ kalite). Dosyalar `shot_20261020_215130_123.png` gibi zaman damgalı adlarla kaydedilir.
-6. **Başlat** — durum satırı yeşile döner ("Dinleniyor"). Artık tuşa her basışta görüntü sessizce kaydedilir; yalnızca durum satırında sayaç güncellenir. **Durdur** ile kapatır.
+6. **Başlat** — durum satırı yeşile döner ("Dinleniyor"). Artık tuşa her basışta görüntü sessizce kaydedilir; yalnızca durum satırında ve tepsi simgesinin ipucunda sayaç güncellenir. **Durdur** ile kapatır. Uygulama **durdurulmuşken hiçbir şey yakalanmaz**; bu yüzden "Açılışta dinlemeye başla" varsayılan olarak açıktır.
 
-- **Açılışta dinlemeye başla** ve **kapatınca sistem tepsisine küçült** seçenekleri kaydedilir.
-- Ayarlar `%LOCALAPPDATA%\AGFO\PhantomShot\config.json` dosyasındadır; güncelleme bu dosyaya dokunmaz.
-- Windows'ta **Print Screen** tuşu sistemin kesme aracıyla çakışabilir; `f9`/`f12` daha temiz çalışır.
+- **Windows açılışında tepside ve dinlemede başlat**: oturum açılınca pencere göstermeden sistem tepsisinde açılır ve hemen dinlemeye başlar (yönetici gerekmez; kullanıcı Run kaydı).
+- **Tetik tuşunu diğer programlara iletme** (varsayılan açık): F9 ya da Print Screen'e bastığınızda yalnızca Phantom Shot tepki verir; tarayıcı, Ekran Alıntısı Aracı veya başka bir program o tuşla açılmaz.
+- Tuşu basılı tutmak ya da çok hızlı iki kez basmak **tek** görüntü alır (en az 250 ms aralık).
+- Tetik, klavye düzeninden bağımsızdır (Türkçe Q/F, Shift/CapsLock açıkken de aynı tuş çalışır).
+- Ayarlar `%LOCALAPPDATA%\AGFO\PhantomShot\config.json` dosyasındadır; güncelleme bu dosyaya dokunmaz. Yakalama hataları `%LOCALAPPDATA%\AGFO\PhantomShot\logs\phantom.log` dosyasına yazılır.
 
 ## GitHub'dan tek tıkla güncelleme
 - Açılışta (en fazla 6 saatte bir) `downtownck/agfo-windows-apps` deposundaki `phantom-shot-v*` sürümleri denetlenir. Yeni sürümde üstte **Şimdi güncelle / Notlar / Bu sürümü atla** bandı çıkar.

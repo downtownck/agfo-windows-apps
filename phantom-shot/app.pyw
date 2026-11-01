@@ -16,6 +16,7 @@ import pathlib
 import queue
 import sys
 import threading
+import time
 
 IS_WIN = sys.platform == 'win32'
 
@@ -48,6 +49,7 @@ FROZEN = bool(getattr(sys, 'frozen', False))
 BG, PANEL, PANEL2, FG, MUTED, ACCENT = '#0a1425', '#12243b', '#192e48', '#ecf3ff', '#a5b6ce', '#49b3ef'
 WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
 POLL_MS = 90
+REARM_SECONDS = 600   # dinleyici 10 dakikada bir yenilenir (Windows'un sessizce kaldirdigi kancaya karsi)
 
 KEY_CHOICES = (['(yok)'] + ['f%d' % i for i in range(1, 13)]
                + ['print_screen', 'pause', 'scroll_lock', 'insert', 'home', 'end', 'page_up', 'page_down', 'menu']
@@ -97,45 +99,248 @@ def resolve_mouse_button(btn_name):
 
 
 class Capturer:
-    """Tek bir ekran goruntusu alir; ekranda hicbir sey gostermez."""
+    """Ekran goruntusu alir; ekranda hicbir sey gostermez.
 
-    def __init__(self):
-        self._lock = threading.Lock()
+    1.3.0: Tus kancasi (hook) yalnizca istegi kuyruga atar; yakalama ve kaydetme ayri is parcaciklarinda yapilir.
+    1.2.0'da yakalama + PNG sikistirma klavye kancasinin icinde calisiyordu: her basista sistem genelinde klavye
+    yavasliyor, uzun surdugunde Windows kancayi sessizce kaldiriyordu (LowLevelHooksTimeout) ve bir sure sonra
+    tusa basmak hicbir sey yapmiyordu. Simdi:
+      * yakalama is parcacigi kalici bir mss nesnesi tutar (her basista yeniden kurulmaz) ve kareyi hemen alir;
+      * kaydetme (PNG/JPG kodlama, diske yazma) ayri is parcaciginda yapilir; art arda basislar beklemez.
+    """
+
+    def __init__(self, on_done=None):
+        self.on_done = on_done
         self.count = 0
+        self.errors = 0
         self.last_path = ''
+        self._grab_q = queue.Queue()
+        self._save_q = queue.Queue(maxsize=32)
+        self._alive = True
+        threading.Thread(target=self._grab_loop, name='phantom-grab', daemon=True).start()
+        threading.Thread(target=self._save_loop, name='phantom-save', daemon=True).start()
+
+    def request(self, cfg):
+        """Kancadan cagrilir: anlik, engellemez."""
+        self._grab_q.put(dict(cfg))
 
     def shoot(self, cfg, on_done=None):
-        with self._lock:
+        """Eski arayuz: istegi kuyruga atar."""
+        if on_done is not None:
+            self.on_done = on_done
+        self.request(cfg)
+
+    def close(self):
+        self._alive = False
+        self._grab_q.put(None)
+        try:
+            self._save_q.put_nowait(None)
+        except queue.Full:
+            pass
+
+    def _report(self, path, err=None):
+        if self.on_done:
             try:
-                import mss
-                import mss.tools
-                save_dir = core.resolve_save_dir(cfg.get('save_dir'))
-                os.makedirs(save_dir, exist_ok=True)
-                fmt = (cfg.get('format') or 'png').lower()
-                path = os.path.join(save_dir, core.screenshot_name(cfg.get('prefix', 'shot'), fmt))
-                with mss.mss() as sct:
+                self.on_done(path, self.count, err)
+            except Exception:
+                pass
+
+    def _grab_loop(self):
+        sct = None
+        while self._alive:
+            cfg = self._grab_q.get()
+            if cfg is None:
+                break
+            shot = None
+            for attempt in (1, 2):
+                try:
+                    if sct is None:
+                        import mss
+                        sct = mss.mss()
                     monitors = sct.monitors
                     idx = cfg.get('monitor', 0)
                     if not isinstance(idx, int) or idx < 0 or idx >= len(monitors):
                         idx = 0
                     shot = sct.grab(monitors[idx])
-                    if fmt in ('jpg', 'jpeg'):
-                        try:
-                            from PIL import Image
-                            img = Image.frombytes('RGB', shot.size, shot.bgra, 'raw', 'BGRX')
-                            img.save(path, 'JPEG', quality=int(cfg.get('jpg_quality', 90)))
-                        except ImportError:
-                            path = path[:-len(fmt)] + 'png'
-                            mss.tools.to_png(shot.rgb, shot.size, output=path)
-                    else:
-                        mss.tools.to_png(shot.rgb, shot.size, output=path)
+                    break
+                except Exception as e:
+                    # ekran degisti / uyku sonrasi: mss nesnesini yeniden kur ve bir kez daha dene
+                    try:
+                        if sct is not None:
+                            sct.close()
+                    except Exception:
+                        pass
+                    sct = None
+                    if attempt == 2:
+                        self.errors += 1
+                        core.log_line('grab failed: %r' % e)
+                        self._report(None, 'Ekran yakalanamadi: %s' % e)
+            if shot is not None:
+                try:
+                    self._save_q.put((shot, cfg), timeout=5)
+                except queue.Full:
+                    self.errors += 1
+                    core.log_line('save queue full; frame dropped')
+                    self._report(None, 'Kayit kuyrugu dolu (disk yavas?)')
+        try:
+            if sct is not None:
+                sct.close()
+        except Exception:
+            pass
+
+    def _save_loop(self):
+        while self._alive:
+            item = self._save_q.get()
+            if item is None:
+                break
+            shot, cfg = item
+            try:
+                import mss.tools
+                save_dir = core.resolve_save_dir(cfg.get('save_dir'))
+                os.makedirs(save_dir, exist_ok=True)
+                fmt = (cfg.get('format') or 'png').lower()
+                path = os.path.join(save_dir, core.screenshot_name(cfg.get('prefix', 'shot'), fmt))
+                if fmt in ('jpg', 'jpeg'):
+                    try:
+                        from PIL import Image
+                        img = Image.frombytes('RGB', shot.size, shot.bgra, 'raw', 'BGRX')
+                        img.save(path, 'JPEG', quality=int(cfg.get('jpg_quality', 90)))
+                    except ImportError:
+                        path = path[:-len(fmt)] + 'png'
+                        mss.tools.to_png(shot.rgb, shot.size, level=3, output=path)
+                else:
+                    # sikistirma 3: varsayilan 6'ya gore belirgin hizli, dosya biraz buyuk
+                    mss.tools.to_png(shot.rgb, shot.size, level=3, output=path)
                 self.count += 1
                 self.last_path = path
-                if on_done:
-                    on_done(path, self.count)
+                self._report(path)
             except Exception as e:
-                if on_done:
-                    on_done(None, self.count, str(e))
+                self.errors += 1
+                core.log_line('save failed: %r' % e)
+                self._report(None, str(e))
+
+
+class Triggers:
+    """Klavye/fare dinleyicileri. Kanca geri cagrilari yalnizca kuyruga yazar (mikrosaniyeler)."""
+
+    def __init__(self, cfg, fire):
+        self.cfg = dict(cfg)
+        self.fire = fire
+        self.kb = self.ms = None
+        self.vk = core.key_vk(cfg.get('key'))
+        self.mouse_btn = resolve_mouse_button(cfg.get('mouse_button'))
+        iv = cfg.get('min_interval_ms', 250)
+        self.kb_gate = core.TriggerGate(iv)
+        self.ms_gate = core.TriggerGate(iv)
+        self.block = bool(cfg.get('block_key', True))
+
+    @property
+    def empty(self):
+        return self.vk is None and self.mouse_btn is None
+
+    def start(self):
+        keyboard, mouse = _pynput()
+        if self.vk is not None:
+            self.kb = self._make_keyboard(keyboard)
+            self.kb.daemon = True
+            self.kb.start()
+        if self.mouse_btn is not None:
+            self.ms = mouse.Listener(on_click=self._on_click)
+            self.ms.daemon = True
+            self.ms.start()
+
+    def _make_keyboard(self, keyboard):
+        vk = self.vk
+        holder = {}
+
+        if IS_WIN:
+            def flt(msg, data):
+                try:
+                    if data.vkCode != vk:
+                        return True                       # baska tus: dokunma, normal islensin
+                    if msg in (core.WM_KEYDOWN, core.WM_SYSKEYDOWN):
+                        go = self.kb_gate.press()
+                    elif msg in (core.WM_KEYUP, core.WM_SYSKEYUP):
+                        go = self.kb_gate.release(release_only=(vk == core.VK_SNAPSHOT))
+                    else:
+                        go = False
+                    if go:
+                        self.fire()
+                except Exception:
+                    return True
+                if self.block and holder.get('l') is not None:
+                    holder['l'].suppress_event()          # tus diger programlara gitmez
+                return False                              # pynput geri cagrilari calismasin
+            lst = keyboard.Listener(win32_event_filter=flt)
+        else:                                             # gelistirme (Windows disi)
+            def code(k):
+                v = getattr(k, 'vk', None)
+                if v is None and getattr(k, 'value', None) is not None:
+                    v = getattr(k.value, 'vk', None)
+                ch = getattr(k, 'char', None)
+                if v is None and ch:
+                    v = ord(ch.upper())
+                return v
+
+            def on_press(k):
+                if code(k) == vk and self.kb_gate.press():
+                    self.fire()
+
+            def on_release(k):
+                if code(k) == vk:
+                    self.kb_gate.release()
+            lst = keyboard.Listener(on_press=on_press, on_release=on_release)
+        holder['l'] = lst
+        return lst
+
+    def _on_click(self, x, y, button, pressed):
+        try:
+            if button != self.mouse_btn:
+                return
+            if pressed:
+                if self.ms_gate.press():
+                    self.fire()
+            else:
+                self.ms_gate.release()
+        except Exception:
+            pass
+
+    def alive(self):
+        for l in (self.kb, self.ms):
+            if l is not None and not l.is_alive():
+                return False
+        return True
+
+    def stop(self):
+        for l in (self.kb, self.ms):
+            try:
+                if l is not None:
+                    l.stop()
+            except Exception:
+                pass
+        self.kb = self.ms = None
+
+
+# --------------------------------------------------------------------------- Windows ile baslat (HKCU Run)
+RUN_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
+RUN_NAME = 'AGFO Phantom Shot'
+
+
+def set_start_with_windows(on, exe=None):
+    """Oturum acilinca uygulama tepside ve dinlemede baslar (yonetici gerekmez). Yalnizca EXE surumunde."""
+    if not IS_WIN:
+        return False
+    import winreg
+    exe = exe or sys.executable
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE | winreg.KEY_QUERY_VALUE) as k:
+        if on:
+            winreg.SetValueEx(k, RUN_NAME, 0, winreg.REG_SZ, '"%s" --background' % exe)
+        else:
+            try:
+                winreg.DeleteValue(k, RUN_NAME)
+            except FileNotFoundError:
+                pass
+    return True
 
 
 # =========================================================================== ana pencere
@@ -143,10 +348,11 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.cfg = core.load_settings()
-        self.cap = Capturer()
-        self.kb_listener = None
-        self.ms_listener = None
+        self.background = '--background' in sys.argv
+        self.cap = Capturer(on_done=self._shot_done)
+        self.triggers = None
         self.running = False
+        self.rearm_at = 0.0
         self.busy = False
         self.tray_icon = None
         self.gh_result = None
@@ -164,10 +370,14 @@ class App(tk.Tk):
         self.after(POLL_MS, self._poll)
         if self.cfg.get('auto_update_check', True) and FROZEN:
             self.after(2500, lambda: self.gh_check(force=False))
-        if self.cfg.get('autostart'):
+        if self.cfg.get('autostart') or self.background:
             self.after(400, self.start)
-        if FROZEN:
+        if self.background:                      # Windows acilisinda: pencere gostermeden tepside calis
+            self.withdraw()
+            self.after(700, self._background_tray)
+        elif FROZEN:
             self.after(600, self._first_run_install)
+        self.after(3000, self._watchdog)
 
     # ---------------------------------------------------------------- stil / iskelet
     def _icon_path(self):
@@ -263,6 +473,11 @@ class App(tk.Tk):
         self.var_tray = tk.BooleanVar()
         ttk.Checkbutton(frm, text='Acilista dinlemeye basla', variable=self.var_autostart).grid(row=6, column=1, columnspan=2, sticky='w', **pad)
         ttk.Checkbutton(frm, text='Kapatinca sistem tepsisine kucult', variable=self.var_tray).grid(row=7, column=1, columnspan=2, sticky='w', **pad)
+        self.var_winstart = tk.BooleanVar()
+        self.var_block = tk.BooleanVar()
+        ttk.Checkbutton(frm, text='Windows acilisinda tepside ve dinlemede baslat', variable=self.var_winstart).grid(row=8, column=1, columnspan=2, sticky='w', **pad)
+        ttk.Checkbutton(frm, text='Tetik tusunu diger programlara iletme (F9 / Print Screen baska bir sey acmasin)',
+                        variable=self.var_block).grid(row=9, column=1, columnspan=2, sticky='w', **pad)
         frm.columnconfigure(1, weight=1)
 
         btns = tk.Frame(self, bg=BG); btns.pack(fill='x', padx=22, pady=(0, 6))
@@ -286,6 +501,8 @@ class App(tk.Tk):
         self.var_prefix.set(self.cfg.get('prefix', 'shot'))
         self.var_autostart.set(bool(self.cfg.get('autostart', False)))
         self.var_tray.set(bool(self.cfg.get('minimize_to_tray', True)))
+        self.var_winstart.set(bool(self.cfg.get('start_with_windows', False)))
+        self.var_block.set(bool(self.cfg.get('block_key', True)))
 
     # ---------------------------------------------------------------- ayar / dosya
     def _collect(self):
@@ -305,10 +522,21 @@ class App(tk.Tk):
             self.cfg['jpg_quality'] = 90
         self.cfg['autostart'] = bool(self.var_autostart.get())
         self.cfg['minimize_to_tray'] = bool(self.var_tray.get())
+        self.cfg['start_with_windows'] = bool(self.var_winstart.get())
+        self.cfg['block_key'] = bool(self.var_block.get())
 
     def _save(self):
         self._collect()
-        return core.save_settings(self.cfg)
+        if FROZEN:
+            try:
+                set_start_with_windows(self.cfg['start_with_windows'])
+            except Exception as e:
+                core.log_line('autorun: %r' % e)
+        ok = core.save_settings(self.cfg)
+        if self.running:                         # ayar degisti: dinleyicileri yeni ayarla kur
+            self.stop(quiet=True)
+            self.start()
+        return ok
 
     def _save_notify(self):
         if self._save():
@@ -334,7 +562,8 @@ class App(tk.Tk):
     def start(self):
         if self.running:
             return
-        self._save()
+        self._collect()
+        core.save_settings(self.cfg)
         keyboard, mouse = _pynput()
         if keyboard is None:
             messagebox.showerror('Eksik bilesen', 'Tus dinleme (pynput) yuklenemedi.')
@@ -344,54 +573,71 @@ class App(tk.Tk):
         except Exception:
             messagebox.showerror('Eksik bilesen', 'Ekran yakalama (mss) yuklenemedi.')
             return
-        key_obj, key_char = resolve_key(self.cfg.get('key'))
-        mouse_btn = resolve_mouse_button(self.cfg.get('mouse_button'))
-        if key_obj is None and key_char is None and mouse_btn is None:
-            messagebox.showwarning('Tetik yok', 'En az bir tetik tusu veya fare tusu secin.')
+        trig = Triggers(self.cfg, self._fire)
+        if trig.empty:
+            if not self.background:
+                messagebox.showwarning('Tetik yok', 'En az bir tetik tusu veya fare tusu secin.')
             return
-
-        def on_done(path, count, err=None):
-            def ui():
-                if path:
-                    self.var_status.set('Alindi (%d): %s' % (count, os.path.basename(path))); self.lbl_status.config(fg=OK_C)
-                else:
-                    self.var_status.set('Hata: %s' % (err or 'yakalama basarisiz')); self.lbl_status.config(fg=BAD_C)
-            self.messages.put(('call', ui))
-
-        def on_press(k):
-            try:
-                if key_obj is not None and k == key_obj:
-                    self.cap.shoot(self.cfg, on_done)
-                elif key_char is not None and getattr(k, 'char', None) == key_char:
-                    self.cap.shoot(self.cfg, on_done)
-            except Exception:
-                pass
-
-        def on_click(x, y, button, pressed):
-            if pressed and mouse_btn is not None and button == mouse_btn:
-                self.cap.shoot(self.cfg, on_done)
-
-        if key_obj is not None or key_char is not None:
-            self.kb_listener = keyboard.Listener(on_press=on_press); self.kb_listener.daemon = True; self.kb_listener.start()
-        if mouse_btn is not None:
-            self.ms_listener = mouse.Listener(on_click=on_click); self.ms_listener.daemon = True; self.ms_listener.start()
-
+        try:
+            trig.start()
+        except Exception as e:
+            core.log_line('listener start failed: %r' % e)
+            messagebox.showerror('Dinleme', 'Tus dinleme baslatilamadi: %s' % e)
+            return
+        self.triggers = trig
         self.running = True
+        self.rearm_at = time.monotonic() + REARM_SECONDS
         self.btn_toggle.config(text='Durdur', bg='#6b2a2a')
-        trig = [t for t in (self.cfg.get('key'), ('fare:' + self.cfg['mouse_button']) if self.cfg.get('mouse_button') else '') if t]
-        self.var_status.set('Dinleniyor  (%s)' % ', '.join(trig)); self.lbl_status.config(fg=OK_C)
+        self._status_listening()
 
-    def stop(self):
-        for l in (self.kb_listener, self.ms_listener):
-            try:
-                if l is not None:
-                    l.stop()
-            except Exception:
-                pass
-        self.kb_listener = self.ms_listener = None
+    def _fire(self):
+        """Kancadan cagrilir: yalnizca kuyruga ekler."""
+        self.cap.request(self.cfg)
+
+    def _trigger_text(self):
+        t = [x for x in (self.cfg.get('key'), ('fare:' + self.cfg['mouse_button']) if self.cfg.get('mouse_button') else '') if x]
+        return ', '.join(t)
+
+    def _status_listening(self):
+        n = self.cap.count
+        self.var_status.set('Dinleniyor  (%s)%s' % (self._trigger_text(), ('  ·  %d goruntu' % n) if n else ''))
+        self.lbl_status.config(fg=OK_C)
+        self._tray_title()
+
+    def _shot_done(self, path, count, err=None):
+        def ui():
+            if path:
+                self.var_status.set('Alindi (%d): %s' % (count, os.path.basename(path))); self.lbl_status.config(fg=OK_C)
+            else:
+                self.var_status.set('Hata: %s' % (err or 'yakalama basarisiz')); self.lbl_status.config(fg=BAD_C)
+            self._tray_title()
+        self.messages.put(('call', ui))
+
+    def stop(self, quiet=False):
+        if self.triggers is not None:
+            self.triggers.stop()
+        self.triggers = None
         self.running = False
         self.btn_toggle.config(text='Baslat', bg='#1f6a4a')
-        self.var_status.set('Durdu'); self.lbl_status.config(fg=MUTED)
+        if not quiet:
+            self.var_status.set('Durdu — Baslat demeden hicbir sey yakalanmaz.'); self.lbl_status.config(fg=WARN)
+        self._tray_title()
+
+    def _watchdog(self):
+        """Dinleyici dustuyse (uyku/kilit sonrasi, Windows kancayi kaldirdiysa) ya da uzun suredir kuruluysa yeniden kur."""
+        try:
+            if self.running and self.triggers is not None:
+                dead = not self.triggers.alive()
+                due = (time.monotonic() >= self.rearm_at and not self.triggers.kb_gate.down
+                       and not self.triggers.ms_gate.down)
+                if dead or due:
+                    if dead:
+                        core.log_line('listener died; restarting')
+                    self.stop(quiet=True)
+                    self.start()
+        except Exception as e:
+            core.log_line('watchdog: %r' % e)
+        self.after(3000, self._watchdog)
 
     # ---------------------------------------------------------------- Tk kuyrugu
     def _poll(self):
@@ -572,6 +818,22 @@ class App(tk.Tk):
                 pass
         self.stop(); self.destroy()
 
+    def _tray_title(self):
+        if getattr(self, 'tray_icon', None) is not None:
+            try:
+                self.tray_icon.title = 'AGFO Phantom Shot — %s%s' % (
+                    ('dinleniyor: ' + self._trigger_text()) if self.running else 'DURDU',
+                    ('  ·  %d goruntu' % self.cap.count) if self.cap.count else '')
+            except Exception:
+                pass
+
+    def _background_tray(self):
+        try:
+            self._hide_to_tray()
+        except Exception as e:                 # tepsi yoksa pencereyi simge durumunda goster
+            core.log_line('tray: %r' % e)
+            self.deiconify(); self.iconify()
+
     def _hide_to_tray(self):
         import pystray
         from PIL import Image
@@ -597,6 +859,7 @@ class App(tk.Tk):
         menu = pystray.Menu(pystray.MenuItem('Goster', _show, default=True), pystray.MenuItem('Cikis', _quit))
         self.tray_icon = pystray.Icon('AGFO Phantom Shot', img, 'AGFO Phantom Shot', menu)
         threading.Thread(target=self.tray_icon.run, daemon=True).start()
+        self._tray_title()
 
     def _restore(self):
         if self.tray_icon is not None:
@@ -608,7 +871,7 @@ class App(tk.Tk):
         self.deiconify(); self.lift()
 
     def _really_quit(self):
-        self.stop(); self.destroy()
+        self.stop(); self.cap.close(); self.destroy()
 
 
 # =========================================================================== komut satiri / giris

@@ -67,6 +67,42 @@ def defaults_have_expected_keys():
     assert isinstance(c.VERSION, str) and c.VERSION.count('.') >= 2
 
 
+@test
+def key_vk_layout_independent():
+    assert c.key_vk('f9') == 0x78 and c.key_vk('F12') == 0x7B and c.key_vk('f24') == 0x87
+    assert c.key_vk('a') == c.key_vk('A') == 0x41                 # buyuk/kucuk harf ayni tus
+    assert c.key_vk('5') == 0x35
+    assert c.key_vk('print_screen') == c.VK_SNAPSHOT
+    assert c.key_vk('(yok)') is None and c.key_vk('') is None and c.key_vk('ğ') is None and c.key_vk('f25') is None
+
+
+@test
+def trigger_gate_debounce():
+    t = [0.0]
+    g = c.TriggerGate(250, clock=lambda: t[0])
+    assert g.press() is True                       # ilk basis
+    assert g.press() is False                      # basili tutma: otomatik tekrar yok sayilir
+    t[0] = 1.0
+    assert g.press() is False                      # hala basili
+    assert g.release() is False
+    t[0] = 1.1
+    assert g.press() is True                       # yeni basis
+    g.release()
+    t[0] = 1.2
+    assert g.press() is False                      # 250 ms icinde ikinci basis (titreme) tek sayilir
+    g.release()
+    t[0] = 2.0
+    assert g.release(release_only=True) is True    # PrintScreen: yalnizca birakma gelirse tetik
+    assert g.press() is False                      # hemen ardindan gelen basis cift sayilmaz (min aralik)
+
+
+@test
+def defaults_130():
+    assert c.DEFAULT_CONFIG['autostart'] is True
+    assert c.DEFAULT_CONFIG['block_key'] is True
+    assert c.DEFAULT_CONFIG['start_with_windows'] is False
+
+
 def main():
     print('OK - %d test gecti: %s' % (len(PASSED), ', '.join(PASSED)))
     return 0

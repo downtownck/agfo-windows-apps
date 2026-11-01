@@ -1,4 +1,4 @@
-"""AGFO Phantom Shot 1.2.0 - GUI'den bagimsiz cekirdek (yalnizca standart kutuphane).
+"""AGFO Phantom Shot 1.3.0 - GUI'den bagimsiz cekirdek (yalnizca standart kutuphane).
 
 Phantom Shot, belirlenen bir klavye ya da fare tusuna basildiginda ekran goruntusunu alip
 ayarlanan klasore kaydeder; ekranda hicbir pencere, bildirim ya da ses gostermez. Yakalamanin
@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '1.2.0'
+VERSION = '1.3.0'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -33,7 +33,10 @@ DEFAULT_CONFIG = {
     'prefix': 'shot',
     'format': 'png',         # png | jpg
     'jpg_quality': 90,
-    'autostart': False,      # acilista dinlemeye hemen basla
+    'autostart': True,       # acilista dinlemeye hemen basla (1.3.0: varsayilan acik; durdurulmus uygulama hic yakalamaz)
+    'start_with_windows': False,   # 1.3.0: Windows oturumu acilinca tepside, dinlemede baslat
+    'block_key': True,       # 1.3.0: tetik tusu diger programlara iletilmez (F9/PrintScreen baska islem acmaz)
+    'min_interval_ms': 250,  # 1.3.0: basili tutulan tusun tekrarlari ve cift basislar tek goruntu sayilir
     'minimize_to_tray': True,
     'auto_update_check': True,
 }
@@ -92,3 +95,73 @@ def screenshot_name(prefix='shot', fmt='png', now=None):
     if ext not in ('png', 'jpg'):
         ext = 'png'
     return '%s_%s_%03d.%s' % (base, time.strftime('%Y%m%d_%H%M%S', lt), ms, ext)
+
+
+# --------------------------------------------------------------------------- 1.3.0: tus kodlari ve tetik kapisi
+# Tetik, klavye duzeninden bagimsiz Windows sanal tus koduyla (VK) eslesir: Turkce Q/F klavyede, Shift/Ctrl
+# basiliyken ya da CapsLock acikken de ayni tus ayni kodu verir (1.2.0 karakterle eslesiyordu; 'a' secip Shift'e
+# basili iken ya da farkli duzende tetiklenmiyordu).
+_VK_NAMED = {'print_screen': 0x2C, 'pause': 0x13, 'scroll_lock': 0x91, 'insert': 0x2D, 'home': 0x24, 'end': 0x23,
+             'page_up': 0x21, 'page_down': 0x22, 'menu': 0x5D, 'space': 0x20}
+VK_SNAPSHOT = 0x2C
+WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP = 0x0100, 0x0101, 0x0104, 0x0105
+
+
+def key_vk(name):
+    """Tetik adi -> sanal tus kodu (yoksa None). f1-f24, adli ozel tuslar, tek harf/rakam."""
+    n = str(name or '').strip().lower()
+    if not n or n == '(yok)':
+        return None
+    if n in _VK_NAMED:
+        return _VK_NAMED[n]
+    if n.startswith('f') and n[1:].isdigit() and 1 <= int(n[1:]) <= 24:
+        return 0x70 + int(n[1:]) - 1
+    if len(n) == 1 and ('a' <= n <= 'z' or '0' <= n <= '9'):
+        return ord(n.upper())
+    return None
+
+
+class TriggerGate:
+    """Basili tutulan tusun otomatik tekrarlarini ve cok hizli ardisik basislari tek tetige indirir.
+
+    press() True donerse bir goruntu alinmalidir. release() tus birakilinca cagrilir. PrintScreen gibi bazi
+    tuslarda Windows yalnizca 'birakma' bildirebilir; bu durumda release_only=True ile birakma tetik sayilir."""
+
+    def __init__(self, min_interval_ms=250, clock=None):
+        self.min_interval = max(0, int(min_interval_ms or 0)) / 1000.0
+        self.clock = clock or time.monotonic
+        self.down = False
+        self.last = None
+
+    def _fire(self):
+        now = self.clock()
+        if self.last is not None and now - self.last < self.min_interval:
+            return False
+        self.last = now
+        return True
+
+    def press(self):
+        if self.down:             # otomatik tekrar
+            return False
+        self.down = True
+        return self._fire()
+
+    def release(self, release_only=False):
+        was = self.down
+        self.down = False
+        if release_only and not was:
+            return self._fire()
+        return False
+
+
+def log_line(text, name='phantom.log'):
+    """Kisa tanilama gunlugu (yakalama hatalari, dinleyici yeniden baslatma). 256 KB'de bir dondurulur."""
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        p = LOG_DIR / name
+        if p.exists() and p.stat().st_size > 256 * 1024:
+            os.replace(p, p.with_suffix('.old'))
+        with open(p, 'a', encoding='utf-8') as f:
+            f.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), text))
+    except OSError:
+        pass
