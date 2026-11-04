@@ -329,6 +329,7 @@ SAVE_FILETYPES = [('Word belgesi', '*.docx'), ('Markdown', '*.md'), ('Metin', '*
 TEXT_COLORS = (('Otomatik', None), ('Kırmızı', 'C00000'), ('Koyu mavi', '1F4E79'), ('Mavi', '2E75B6'), ('Yeşil', '2E7D32'),
                ('Turuncu', 'C55A11'), ('Mor', '7030A0'), ('Gri', '595959'))
 READ_ONLY_KINDS = ('.xlsx', '.xlsm', '.pptx', '.eml')
+AUDIT_EVIDENCE = ['Belge + Kaynaklar', 'Yalnız açık belge', 'Yalnız Kaynaklar']
 SRC_HINT = ('PDF, Word, Excel, PowerPoint, metin ve e-posta dosyaları eklenebilir. "📁 Klasör ekle" alt klasörleriyle okur; '
             'OneDrive ve Google Drive klasörleri de seçilebilir.')
 FONT_SIZES = ('8', '9', '10', '10,5', '11', '12', '14', '16', '18', '20', '22', '24', '26', '28', '36', '48', '72')
@@ -2602,20 +2603,34 @@ class App(tk.Tk):
         self.btn(r, 'Temizle', self.clear_chat, 'ghost')
 
     def _tab_audit(self, f):
+        # 2.7.1: dort secim iki sutunda (sohbete yer kalsin)
+        g = tk.Frame(f, bg=PANEL)
+        g.pack(fill='x')
+        g.columnconfigure(0, weight=3, uniform='a')
+        g.columnconfigure(1, weight=2, uniform='a')
         self.std_var = tk.StringVar(value=core.AUDIT_STANDARDS[0])
-        self.lbl(f, 'Standart / şema', muted=True).pack(anchor='w')
-        self._combo(f, self.std_var, core.AUDIT_STANDARDS, width=34, readonly=False).pack(anchor='w', pady=(2, 6))
-        self.lbl(f, 'Madde no (isteğe bağlı, metni uydurulmaz)', muted=True).pack(anchor='w')
+        self.lbl(g, 'Standart / şema', muted=True).grid(row=0, column=0, sticky='w')
+        self._combo(g, self.std_var, core.AUDIT_STANDARDS, width=24, readonly=False).grid(row=1, column=0, sticky='we', padx=(0, 8))
+        self.lbl(g, 'Madde no (isteğe bağlı)', muted=True).grid(row=0, column=1, sticky='w')
         self.clause_var = tk.StringVar()
-        ttk.Entry(f, textvariable=self.clause_var, width=20).pack(anchor='w', pady=(2, 8))
+        ttk.Entry(g, textvariable=self.clause_var, width=12).grid(row=1, column=1, sticky='we')
         # 2.7.0: denetim bir sohbet: secilen is turuyle baslar, ardindan soru sorulur; belge degistirilemese de yanit gelir
         self.audit_var = tk.StringVar(value=core.AUDIT_ACTIONS[0][0])
         self.audit_label = tk.StringVar(value=core.AUDIT_ACTIONS[0][1])
-        self.lbl(f, 'Denetim işi', muted=True).pack(anchor='w')
-        cb = self._combo(f, self.audit_label, [a[1] for a in core.AUDIT_ACTIONS], width=34)
-        cb.pack(anchor='w', pady=(2, 6))
+        self.lbl(g, 'Denetim işi', muted=True).grid(row=2, column=0, sticky='w', pady=(6, 0))
+        cb = self._combo(g, self.audit_label, [a[1] for a in core.AUDIT_ACTIONS], width=24)
+        cb.grid(row=3, column=0, sticky='we', padx=(0, 8))
         cb.bind('<<ComboboxSelected>>', lambda e: self.audit_var.set(
             next((a[0] for a in core.AUDIT_ACTIONS if a[1] == self.audit_label.get()), core.AUDIT_ACTIONS[0][0])))
+        # 2.7.1: kanit nereden - acik belge, Kaynaklar (secili belgeler / klasor) ya da ikisi
+        self.lbl(g, 'Kanıt', muted=True).grid(row=2, column=1, sticky='w', pady=(6, 0))
+        self.audit_src = tk.StringVar(value=self.settings.get('audit_evidence') or AUDIT_EVIDENCE[0])
+        if self.audit_src.get() not in AUDIT_EVIDENCE:
+            self.audit_src.set(AUDIT_EVIDENCE[0])
+        ev = self._combo(g, self.audit_src, AUDIT_EVIDENCE, width=16)
+        ev.grid(row=3, column=1, sticky='we')
+        ev.bind('<<ComboboxSelected>>', lambda e: self._save_setting('audit_evidence', self.audit_src.get()))
+        tk.Frame(f, bg=PANEL, height=6).pack(fill='x')
         self.audit_view = tk.Text(f, wrap='word', bg=EDIT_BG, fg=FG, relief='flat', bd=0, highlightthickness=0, font=('Segoe UI', 10),
                                   padx=8, pady=6, state='disabled', height=10, selectbackground=SEL_BG)
         self.audit_view.tag_configure('u', foreground=ACCENT, font=('Segoe UI', 9, 'bold'), spacing1=8)
@@ -2623,6 +2638,9 @@ class App(tk.Tk):
         self.audit_view.tag_configure('e', foreground=BAD_C)
         self.audit_view.tag_configure('m', foreground=MUTED, font=('Segoe UI', 8))
         self.audit_view.tag_configure('body', foreground=FG, lmargin1=4, lmargin2=4, spacing3=4)
+        self.audit_view.tag_configure('cite', foreground=ACCENT, underline=True)
+        self.audit_view.tag_bind('cite', '<Enter>', lambda e: self.audit_view.configure(cursor='hand2'))
+        self.audit_view.tag_bind('cite', '<Leave>', lambda e: self.audit_view.configure(cursor=''))
         self.audit_view.pack(fill='both', expand=True)
         self.audit_in = self._textbox(f, height=2)
         self.audit_in.pack(fill='x', pady=(6, 4))
@@ -2633,10 +2651,10 @@ class App(tk.Tk):
         self.audit_apply_btn = self.btn(r, 'Belgeye uygula', self.apply_audit, 'ghost')
         self.btn(r, 'Yeni sekmede aç', self.audit_to_tab, 'ghost')
         self.btn(r, 'Yeni denetim', self.clear_audit, 'ghost')
-        self.lbl(f, 'Kutu boşsa seçili iş belgeye (seçim varsa seçime) uygulanır; yazarsanız aynı denetim üzerine soru sorulur. '
-                 'Kayıt numarası, tarih, ölçüm veya madde metni uydurulmaz; yalnız metindeki kanıt kullanılır.',
+        self.lbl(f, 'Kutu boşsa seçili iş yapılır, yazarsanız soru sorulur. Kaynaklar: Kaynaklar sekmesinde seçili belge / klasör '
+                 '(yoksa tümü) aranır, atıflar tıklanır. Kayıt, tarih, ölçüm uydurulmaz.',
                  muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(6, 0))
-        self.audit_thread = {'messages': [], 'document': '', 'note': '', 'target': None, 'action': None, 'last': None}
+        self.audit_thread = self._new_audit_thread()
         self._sync_audit_buttons()
 
     # ------------------------------------------------------------------ kaynaklar (1.2)
@@ -2722,6 +2740,10 @@ class App(tk.Tk):
         entry.bind('<FocusOut>', on_out)
         on_out(None)
         entry._placeholder = text
+
+    def _save_setting(self, key, value):
+        self.settings[key] = value
+        core.save_settings(self.settings)
 
     def _save_mask(self):
         self.settings['mask_sources'] = bool(self.mask_var.get())
@@ -2855,18 +2877,19 @@ class App(tk.Tk):
             out = []
             for n, p in enumerate(paths, start=1):
                 prog['text'] = 'Belgeler okunuyor… %d / %d · %s' % (n, len(paths), os.path.basename(p))
+                did = uuid.uuid4().hex[:10]
                 try:
                     doc = srcs.load(p)
                     if folder:
                         doc = dict(doc, name=srcs.rel_name(p, folder), folder=folder)
-                    out.append((p, doc, None))
+                    out.append((p, doc, None, did))
                 except (srcs.SourceError, OSError) as e:
-                    out.append((p, None, str(e)))
+                    out.append((p, None, str(e), did))
                 except Exception as e:                  # bozuk tek belge klasorun geri kalanini durdurmasin
-                    out.append((p, None, 'okunamadı (%s)' % e.__class__.__name__))
+                    out.append((p, None, 'okunamadı (%s)' % e.__class__.__name__, did))
             prog['text'] = 'Arama dizini hazırlanıyor…'
-            if folder:                                  # dizin bir kez (arka planda) kurulur; sorular hizli kalir
-                docs = {('n%d' % i): d for i, (_p, d, _e) in enumerate(out) if d}
+            if folder:                                  # dizin bir kez (arka planda) kurulur; ayni kimliklerle (onbellek anahtari)
+                docs = {i: d for (_p, d, _e, i) in out if d}
                 try:
                     srcs._chunks_and_index(docs)
                 except Exception:
@@ -2880,11 +2903,10 @@ class App(tk.Tk):
                 messagebox.showerror('Kaynaklar', res, parent=self)
                 return
             errs = []
-            for p, doc, err in res:
+            for p, doc, err, did in res:
                 if err:
                     errs.append('%s: %s' % (os.path.basename(p), err))
                     continue
-                did = uuid.uuid4().hex[:10]
                 self.src_docs[did] = doc
                 n_units = len(doc['units'])
                 warn = bool(doc.get('empty_pages')) or doc['chars'] == 0
@@ -3065,10 +3087,13 @@ class App(tk.Tk):
         self._start_job('Belgelere soruluyor', ai.run_with_fallback, done, self.backends(), 'chat', msgs, context, 2500)
 
     def _render_answer(self, text, labels, record=True):
+        self.src_last_answer = srcs.strip_citations(text)
+        self._render_cited(self.src_view, text, labels)
+
+    def _render_cited(self, v, text, labels):
+        """Yaniti [K#] atiflari tiklanabilir baglanti olarak yazar (tiklayinca kaynak belgedeki yer acilir)."""
         key = uuid.uuid4().hex[:6]
         self.src_answers[key] = labels
-        self.src_last_answer = srcs.strip_citations(text)
-        v = self.src_view
         v.configure(state='normal')
         pos = 0
         for m in re.finditer(r'\[(K\d+(?:\s*[,;]\s*K\d+)*)\]', text):
@@ -5012,53 +5037,108 @@ class App(tk.Tk):
         tgt = th.get('target')
         if tgt and tgt[0] in self.docs:
             self._clear_marks(tgt[0], tgt[1], tgt[2])
-        self.audit_thread = {'messages': [], 'document': '', 'note': '', 'target': None, 'action': None, 'last': None}
+        self.audit_thread = self._new_audit_thread()
         v = self.audit_view
         v.configure(state='normal')
         v.delete('1.0', 'end')
         v.configure(state='disabled')
         self._sync_audit_buttons()
 
+    @staticmethod
+    def _new_audit_thread():
+        return {'messages': [], 'document': '', 'note': '', 'target': None, 'action': None, 'last': None,
+                'chunks': [], 'open_doc': '', 'labels': {}}
+
+    def _audit_source_ids(self):
+        """Kaynaklar sekmesindeki kapsam (secili belgeler / klasor; secim yoksa tumu)."""
+        if not getattr(self, 'src_docs', None):
+            return []
+        return [i for i in self._scope_ids() if i in self.src_docs]
+
     def run_audit(self):
-        """Kutu bossa: secili denetim isi acik belgeye (secime) - yeni tur baslar. Yaziliysa: ayni denetim uzerine soru."""
+        """Kutu bossa: secili denetim isi yeni bir tur baslatir. Yaziliysa: ayni denetim uzerine soru.
+        Kanit: acik belge (bos degilse) ve/veya Kaynaklar'daki belgelerden aranan parcalar ([K#] atiflariyla)."""
         th = self.audit_thread
         q = self.audit_in.get('1.0', 'end-1c').strip()
         a = core.audit_action(self.audit_var.get(), self.std_var.get(), self.clause_var.get())
         if a is None:
             return
         lang = self.lang_var.get() or 'Türkçe'
+        mode = AUDIT_EVIDENCE.index(self.audit_src.get()) if self.audit_src.get() in AUDIT_EVIDENCE else 0
         follow = bool(q and th['messages'])
+        ids = self._audit_source_ids() if mode in (0, 2) else []
+        if mode == 2 and not ids:
+            self._audit_append('Bilgi', 'Kaynaklar\'da belge yok. Kaynaklar sekmesinde "+ Belge ekle" ya da "📁 Klasör ekle" ile '
+                               'kanıt belgelerini ekleyin.', 'm')
+            return
         if not follow:
             old = th.get('target')
             if old and old[0] in self.docs:
                 self._clear_marks(old[0], old[1], old[2])
-            doc, note, target = self._context_document()
-            th.update(messages=[], document=doc, note=note, target=target, action=a, last=None)
-            task = core.audit_chat_message(a, lang, q, has_document=bool(doc.strip()))
-            self._audit_append('Denetim · %s' % a['label'], '(%s)%s' % (note, ('\n' + q) if q else ''), 'u')
+            self.audit_thread = th = self._new_audit_thread()
+            doc, note, target = ('', '', None)
+            if mode in (0, 1):
+                doc, note, target = self._context_document()
+                if not doc.strip():                     # bos sekme kanit sayilmaz
+                    if target:
+                        self._clear_marks(target[0], target[1], target[2])
+                    doc, note, target = '', '', None
+            notes = [note] if note else []
+            if ids:
+                notes.append('Kaynaklar: %s' % self._scope_title(ids).replace('Sohbet: ', ''))
+            th.update(open_doc=doc, note=' · '.join(notes) or 'kanıt yok — yalnız yazdığınız metin', target=target, action=a)
+            if not doc.strip() and not ids and not q:
+                self._audit_append('Bilgi', 'Denetlenecek metin yok. Bir belge açın, Kaynaklar\'a belge / klasör ekleyin ya da '
+                                   'kutuya denetlenecek metni / sorunuzu yazın.', 'm')
+                return
+            task = core.audit_chat_message(a, lang, q, has_document=bool(doc.strip()), has_sources=bool(ids))
+            self._audit_append('Denetim · %s' % a['label'], '(%s)%s' % (th['note'], ('\n' + q) if q else ''), 'u')
         else:
             task = q
             self._audit_append('Siz', q, 'u')
-        if not th['document'].strip() and not q:
-            self._audit_append('Bilgi', 'Denetlenecek metin yok. Bir belge açın ya da kutuya denetlenecek metni / sorunuzu yazın.', 'm')
-            return
         self.audit_in.delete('1.0', 'end')
         th['messages'].append({'role': 'user', 'content': task})
         msgs = list(th['messages'])
+        docs = {i: self.src_docs[i] for i in ids}
+        query = ' '.join(x for x in (a.get('label', ''), self.std_var.get(), self.clause_var.get(), q,
+                                     '' if not follow else (th['messages'][0]['content'][-300:])) if x)
+        mask = bool(getattr(self, 'mask_var', None) and self.mask_var.get())
+        prev_chunks = list(th['chunks'])
+        open_doc = th['open_doc']
+        backends = self.backends()
+
+        def work():
+            chunks = prev_chunks
+            if docs:
+                found, _mode = srcs.select_context(docs, query)
+                chunks = srcs.merge_chunks(prev_chunks, found)
+            context, labels = srcs.build_context(chunks, mask=mask) if chunks else ('', {})
+            parts = []
+            if open_doc.strip():
+                parts.append('=== AUDITED TEXT (open document) ===\n' + open_doc)
+            if context:
+                parts.append('=== EVIDENCE EXCERPTS (labelled; cite as [K#]) ===\n' + context)
+            res = ai.run_with_fallback(backends, 'chat', msgs, '\n\n'.join(parts)[:core.MAX_CHARS], 3000)
+            return res, chunks, labels
 
         def done(ok, res):
             if not ok:
                 th['messages'].pop()
                 self._audit_append('Hata', res, 'e')
                 return
+            res, chunks, labels = res
+            th.update(chunks=chunks, labels=labels, last=res)
             th['messages'].append({'role': 'assistant', 'content': res['text']})
-            th['last'] = res
-            self._audit_append('AI · %s' % (res.get('model') or res.get('via', '')), res['text'], 'a')
+            self._audit_append('AI · %s' % (res.get('model') or res.get('via', '')), '', 'a')
+            self._render_cited(self.audit_view, res['text'], labels)
+            used = srcs.citations(res['text'], labels)
+            if chunks:
+                self._audit_append('', '%d kaynak parçası gönderildi · %d atıf' % (len(chunks), len(used)), 'm')
             if th.get('target') is None:
-                self._audit_append('', 'Bu yanıt belgeye uygulanamıyor (%s); "Yeni sekmede aç" ile kullanabilirsiniz.'
+                self._audit_append('', 'Bu yanıt açık belgeye uygulanamıyor (%s); "Yeni sekmede aç" ile kullanabilirsiniz.'
                                    % (th.get('note') or 'düzenlenebilir belge yok'), 'm')
             self._sync_audit_buttons()
-        self._start_job('Denetim: %s' % a['label'], ai.run_with_fallback, done, self.backends(), 'chat', msgs, th['document'], 3000)
+        self._start_job('Denetim: %s' % a['label'], work, done)
 
     def apply_audit(self):
         """Son denetim yanitini, denetlenen metnin yerine onerir (inceleme penceresi; kabul edilmezse belge degismez)."""
@@ -5072,7 +5152,8 @@ class App(tk.Tk):
         self.nb.select(d.frame)
         th['target'] = None                     # isaretler inceleme penceresine gecti (kabul/ret sonrasi silinir)
         self._sync_audit_buttons()
-        self.review(d, ms, me, source, dict(res, text=core.clean_model_text(res['text'], rich=d.rich)), action)
+        text = srcs.strip_citations(res['text'])           # rapor metnine [K#] etiketleri girmesin
+        self.review(d, ms, me, source, dict(res, text=core.clean_model_text(text, rich=d.rich)), action)
 
     def audit_to_tab(self):
         res = self.audit_thread.get('last')
@@ -5080,7 +5161,8 @@ class App(tk.Tk):
             self.flash('Henüz denetim yanıtı yok.')
             return
         a = self.audit_thread.get('action') or {'label': 'Denetim'}
-        d = self.new_doc(core.clean_model_text(res['text']), '✔ ' + a['label'][:36])
+        text = srcs.append_source_list(core.clean_model_text(res['text']), self.audit_thread.get('labels') or {})
+        d = self.new_doc(text, '✔ ' + a['label'][:36])
         self._highlight(d)
 
     # ------------------------------------------------------------------ inceleme (fark) penceresi

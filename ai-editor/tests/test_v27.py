@@ -257,6 +257,47 @@ class GuiV27Tests(unittest.TestCase):
             rv.assert_called_once()
             self.assertIs(rv.call_args[0][0], d)
 
+    def test_audit_uses_sources_with_citations_and_ignores_empty_tab(self):
+        src = os.path.join(tempfile.mkdtemp(dir=TMP), 'egitim_kaydi.txt')
+        pathlib.Path(src).write_text('Alerjen eğitimi 12.03.2026 tarihinde 14 personele verildi. Katılım formu imzalı.',
+                                     encoding='utf-8')
+        self.app._load_sources([src])
+        self.assertTrue(self.pump(lambda: len(self.app.src_docs) == 1 and not self.app.jobs))
+        for d in list(self.app.docs):
+            self.app.close_doc(d, ask=False)
+        self.app.new_doc('', 'Bos')                                      # bos sekme kanit sayilmaz
+        self.app.std_var.set('IFS Food 8')
+        self.app.clause_var.set('2.3.4.1')
+        p1, p2 = self.fake_ai('Personel alerjen eğitimi almıştır [K1].')
+        with p1, p2:
+            self.app.run_audit()                                         # Otomatik: acik belge bos -> yalniz Kaynaklar
+            self.assertTrue(self.pump(lambda: not self.app.jobs))
+            fn, args = self.calls[-1]
+            self.assertIn('[K1]', args[1])
+            self.assertIn('EVIDENCE EXCERPTS', args[1])
+            self.assertNotIn('AUDITED TEXT', args[1])
+            self.assertIn('cite the label', args[0][-1]['content'])
+            self.assertIn('IFS Food 8', args[0][-1]['content'])
+            view = self.app.audit_view.get('1.0', 'end')
+            self.assertIn('egitim_kaydi.txt', view)                      # atif baglanti olarak yazildi
+            self.assertNotIn('Denetlenecek metin yok', view)
+            self.assertTrue(self.app.audit_view.tag_ranges('cite'))
+            # soru: ayni parcalar ayni etiketlerle gider
+            self.app.audit_in.insert('1.0', 'Katılım kaydı var mı?')
+            self.app.run_audit()
+            self.assertTrue(self.pump(lambda: not self.app.jobs))
+            self.assertIn('[K1] egitim_kaydi.txt', self.calls[-1][1][1])
+            self.app.audit_to_tab()
+            self.assertIn('Kaynaklar', self.app.cur().text.get('1.0', 'end'))   # kaynak listesi eklendi
+            # yalniz Kaynaklar secili ama Kaynaklar bos: bilgi verir, istek gitmez
+            self.app.src_docs.clear()
+            self.app.clear_audit()
+            self.app.audit_src.set(self.m.AUDIT_EVIDENCE[2])
+            n = len(self.calls)
+            self.app.run_audit()
+            self.assertEqual(len(self.calls), n)
+            self.assertIn('Kaynaklar\'da belge yok', self.app.audit_view.get('1.0', 'end'))
+
     def test_word_view_for_document_tab(self):
         from test_brcgs_wordview import FakeRenderer
         self.app._doc_renderer = FakeRenderer()
