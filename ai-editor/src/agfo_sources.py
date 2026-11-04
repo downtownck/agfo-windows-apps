@@ -34,6 +34,9 @@ CHUNK_CHARS = 1400
 CHUNK_OVERLAP = 200
 CONTEXT_BUDGET = 48000          # yapay zekaya gonderilen kaynak metni ust siniri (karakter)
 WHOLE_DOC_LIMIT = 40000         # toplam metin bundan kisaysa arama yapmadan hepsi gonderilir
+MAX_FOLDER_FILES = 500          # 2.7.0: bir klasorden en fazla bu kadar belge okunur
+PER_DOC_MIN_LIMIT = 25          # bu kadar belgeye kadar her belgeden en az bir parca gonderilir
+SKIP_DIRS = {'node_modules', '__pycache__', '$recycle.bin', 'system volume information', '.git', '.svn'}
 
 
 class SourceError(Exception):
@@ -246,6 +249,77 @@ def extract(path: str) -> dict:
             'chars': sum(len(u['text']) for u in units), 'empty_pages': empty}
 
 
+# ---------------------------------------------------------------------------- klasor (2.7.0)
+def scan_folder(root: str, max_files: int = MAX_FOLDER_FILES):
+    """Klasor ve alt klasorlerindeki desteklenen belgeler (OneDrive / Google Drive klasorleri dahil).
+    Gizli klasorler, Office gecici dosyalari (~$) ve 200 MB ustu dosyalar atlanir.
+    Donus: (yollar, atlananlar {'type', 'size', 'temp', 'limit'})."""
+    root = os.path.abspath(root)
+    out = []
+    skipped = {'type': 0, 'size': 0, 'temp': 0, 'limit': 0}
+    for cur, dirs, files in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d.lower() not in SKIP_DIRS)
+        for f in sorted(files, key=str.lower):
+            p = os.path.join(cur, f)
+            if f.startswith('~$') or f.startswith('.'):
+                skipped['temp'] += 1
+                continue
+            if os.path.splitext(f)[1].lower() not in SUPPORTED:
+                skipped['type'] += 1
+                continue
+            try:
+                if os.path.getsize(p) > MAX_FILE_BYTES:
+                    skipped['size'] += 1
+                    continue
+            except OSError:
+                skipped['temp'] += 1
+                continue
+            if len(out) >= max_files:
+                skipped['limit'] += 1
+                continue
+            out.append(p)
+    return out, skipped
+
+
+def rel_name(path: str, root: str) -> str:
+    """Klasorun adiyla baslayan goreli yol: 'Prosedurler/HACCP/plan.docx'."""
+    root = os.path.abspath(root)
+    rel = os.path.relpath(os.path.abspath(path), root)
+    return (os.path.basename(root.rstrip('\\/')) + '/' + rel).replace('\\', '/')
+
+
+INVENTORY_QUESTION = ('Bu klasördeki belgeleri analiz et: hangi belgeler var, her biri ne hakkında (bir cümle), konulara göre '
+                      'grupla; birbirinin kopyası ya da eski sürümü gibi görünenleri, eksik görünen belge türlerini ve dikkat '
+                      'edilmesi gereken noktaları belirt.')
+
+
+def inventory_context(docs: dict, budget: int = CONTEXT_BUDGET):
+    """Genel analiz icin envanter: her belgenin adi, turu, boyutu ve basindan bir ornek. Her belge listede yer alir;
+    ornek uzunlugu kalan yere gore kisalir (cok belgede yalniz adlar). Donus: (metin, etiketler)."""
+    items = list(docs.items())
+    if not items:
+        return '', {}
+    heads, labels = [], {}
+    for i, (did, d) in enumerate(items, start=1):
+        lab = 'K%d' % i
+        u0 = next((u for u in d['units'] if u['text'].strip()), d['units'][0] if d['units'] else {'loc': '', 'page': None})
+        heads.append('[%s] %s — %s, %d bölüm, %d karakter%s' % (
+            lab, d['name'], d.get('kind', ''), len(d['units']), d['chars'], ', ⚠ metin yok (taranmış olabilir)' if not d['chars'] else ''))
+        labels[lab] = {'doc': did, 'name': d['name'], 'loc': u0.get('loc', ''), 'page': u0.get('page'), 'text': ''}
+    title = 'Folder inventory: %d documents.' % len(items)
+    room = budget - len(title) - sum(len(h) + 3 for h in heads)
+    per = min(1600, room // len(items)) if room > 0 else 0
+    parts = [title]
+    for (did, d), head, lab in zip(items, heads, labels):
+        sample = ''
+        if per >= 40:
+            text = ' '.join(u['text'] for u in d['units'] if u['text'].strip())
+            sample = re.sub(r'\s+', ' ', text)[:per]
+        labels[lab]['text'] = sample[:400]
+        parts.append(head + ('\n' + sample if sample else ''))
+    return '\n\n'.join(parts), labels
+
+
 # ---------------------------------------------------------------------------- onbellek
 def cache_dir() -> pathlib.Path:
     p = core.data_dir() / 'sources'
@@ -354,19 +428,35 @@ class Index:
         return [self.chunks[i] for _s, i in scores[:k]]
 
 
+_INDEX_CACHE = {}
+
+
+def _chunks_and_index(docs: dict):
+    """2.7.0: ayni belge kumesi icin parcalar ve dizin bir kez kurulur (klasorde her soruda yeniden kurmak yavas)."""
+    key = tuple(sorted((did, d.get('path', ''), d.get('chars', 0)) for did, d in docs.items()))
+    hit = _INDEX_CACHE.get(key)
+    if hit is not None:
+        return hit
+    chunks = []
+    for did, d in docs.items():
+        chunks.extend(chunk_units(did, d))
+    hit = (chunks, Index(chunks))
+    if len(_INDEX_CACHE) >= 4:
+        _INDEX_CACHE.pop(next(iter(_INDEX_CACHE)))
+    _INDEX_CACHE[key] = hit
+    return hit
+
+
 def select_context(docs: dict, query: str, budget: int = CONTEXT_BUDGET):
     """Gonderilecek parcalari secer. docs: {doc_id: doc}. Doner: (parcalar, kip) kip: 'tam' | 'arama'."""
-    all_chunks = []
-    for did, d in docs.items():
-        all_chunks.extend(chunk_units(did, d))
+    all_chunks, idx = _chunks_and_index(docs)
     total = sum(len(c['text']) for c in all_chunks)
     if total <= min(budget, WHOLE_DOC_LIMIT):
         return all_chunks, 'tam'
-    idx = Index(all_chunks)
     picked, used, seen = [], 0, set()
     hits = idx.search(query, k=60)
-    # her belgeden en az bir parca (karsilastirma sorulari icin)
-    for did in docs:
+    # her belgeden en az bir parca (karsilastirma sorulari icin); klasorde yuzlerce belge varsa yalniz arama sonuclari
+    for did in (docs if len(docs) <= PER_DOC_MIN_LIMIT else ()):
         best = next((c for c in hits if c['doc'] == did), None)
         if best is None:
             best = next((c for c in all_chunks if c['doc'] == did), None)

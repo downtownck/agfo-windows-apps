@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ctypes
 import json
+import gc
 import os
 import pathlib
 import queue
@@ -328,6 +329,8 @@ SAVE_FILETYPES = [('Word belgesi', '*.docx'), ('Markdown', '*.md'), ('Metin', '*
 TEXT_COLORS = (('Otomatik', None), ('Kırmızı', 'C00000'), ('Koyu mavi', '1F4E79'), ('Mavi', '2E75B6'), ('Yeşil', '2E7D32'),
                ('Turuncu', 'C55A11'), ('Mor', '7030A0'), ('Gri', '595959'))
 READ_ONLY_KINDS = ('.xlsx', '.xlsm', '.pptx', '.eml')
+SRC_HINT = ('PDF, Word, Excel, PowerPoint, metin ve e-posta dosyaları eklenebilir. "📁 Klasör ekle" alt klasörleriyle okur; '
+            'OneDrive ve Google Drive klasörleri de seçilebilir.')
 FONT_SIZES = ('8', '9', '10', '10,5', '11', '12', '14', '16', '18', '20', '22', '24', '26', '28', '36', '48', '72')
 HIGHLIGHT_COLORS = (('Sarı', 'FFFF00'), ('Parlak yeşil', '00FF00'), ('Turkuaz', '00FFFF'), ('Pembe', 'FF00FF'), ('Açık gri', 'C0C0C0'),
                     ('Kırmızı', 'FF0000'), ('Koyu sarı', '808000'))
@@ -388,6 +391,8 @@ class Doc:
         self.docfile = docfile or core.DocFile()
         self.docx_warned = False
         self.speech_script = False   # 1.5: bu sekme AI ile hazirlanmis bir okuma metni mi
+        self.hf = None               # 2.7.0: ozgun ust/alt bilgi parcalari (rdoc.read_docx_hf)
+        self.wordv = None            # 2.7.0: Word gorunumu (cizilmis sayfalar) acikken {'frame', 'view', ...}
 
     @property
     def rich(self) -> bool:
@@ -758,6 +763,7 @@ class LexiconWindow(tk.Toplevel):
 
 class App(tk.Tk):
     def __init__(self, files=(), smoke=False):
+        gc.collect()        # 2.7.0: onceki pencerelerin Tk nesneleri ana is parcaciginda toplansin (arka planda degil)
         super().__init__()
         self.smoke = smoke
         self.settings = core.load_settings()
@@ -941,10 +947,12 @@ class App(tk.Tk):
 
         self.paned = ttk.PanedWindow(self, orient='horizontal')
         self.paned.pack(fill='both', expand=True, padx=8, pady=(6, 4))
-        self.nb = ttk.Notebook(self.paned)
+        self.nb = ttk.Notebook(self.paned, style=self._closable_tabs())
         self.nb.bind('<<NotebookTabChanged>>', lambda e: (self._update_status(), self._sync_fmt_bar(), self._brcgs_panel_auto(),
                                                           self._brcgs_focus_check()))
         self.nb.bind('<Button-2>', self._middle_close)
+        self.nb.bind('<ButtonPress-1>', self._tab_x_press, add='+')          # 2.7.0: sekmedeki x ile kapat
+        self.nb.bind('<ButtonRelease-1>', self._tab_x_release, add='+')
         self.paned.add(self.nb, weight=3)
         side = ttk.Frame(self.paned, padding=(10, 8))
         self.paned.add(side, weight=2)
@@ -1137,6 +1145,8 @@ class App(tk.Tk):
         g = self._group(pg, 'Görünüm')
         r = self._rrow(g)
         self.page_btn = self.rbtn(r, '📄\nSayfa görünümü', self.toggle_page_view, tip='Sayfa genişliğinde beyaz sayfa', big=True)
+        self.rbtn(r, '🖨\nWord görünümü', self.toggle_word_view,
+                  tip='Belgeyi Word\'ün çizdiği haliyle göster (üst/alt bilgi tabloları, logolar, sayfa düzeni)', big=True)
         g = self._group(pg, 'Yakınlaştır')
         r = self._rrow(g)
         self.rbtn(r, '🔍−', lambda: self.zoom(-1), tip='Uzaklaştır (Ctrl+-)')
@@ -1442,6 +1452,122 @@ class App(tk.Tk):
                 self._place_text(d)
         self._sync_fmt_bar()
         self.flash('Sayfa görünümü açık: sayfa genişliği ve kenar boşlukları.' if on else 'Sayfa görünümü kapalı (tam genişlik).')
+
+    # ---- 2.7.0: Word gorunumu (belge Word / LibreOffice ile cizilir; duzenleme icin metin gorunumune donulur)
+    def toggle_word_view(self, d=None):
+        d = d or self.cur()
+        if d is None:
+            self.flash('Word görünümü Word belgeleri ve biçimli belgeler içindir.')
+            return
+        if d.wordv:
+            self.hide_word_view(d)
+        else:
+            self.show_word_view(d)
+
+    def show_word_view(self, d):
+        import agfo_wordview as WV
+        if d.wordv:
+            self._render_word_view(d)
+            return
+        c = {'PANEL': PANEL, 'PANEL2': PANEL2, 'FG': FG, 'MUTED': MUTED, 'ACCENT': ACCENT, 'LINE': LINE}
+        box = tk.Frame(d.frame, bg=PANEL)
+        bar = tk.Frame(box, bg=PANEL, padx=8, pady=5)
+        bar.pack(fill='x')
+        self.btn(bar, '✎ Düzenle', lambda: self.hide_word_view(d), 'primary')
+        self.btn(bar, '⟳ Yenile', lambda: self._render_word_view(d, force=True), 'ghost')
+        if d.path and d.path.lower().endswith('.docx'):
+            self.btn(bar, "Word'de aç", lambda: self.open_external(d.path), 'ghost')
+        self.btn(bar, '−', lambda: view.set_zoom(view.zoom / 1.15), 'ghost', side='right')
+        self.btn(bar, '+', lambda: view.set_zoom(view.zoom * 1.15), 'ghost', side='right')
+        self.btn(bar, 'Sığdır', lambda: view.fit(), 'ghost', side='right')
+        status = tk.Label(box, text='', fg=MUTED, bg=PANEL, font=('Segoe UI', 8), anchor='w', padx=10)
+        status.pack(fill='x')
+        view = WV.WordView(box, c)
+        view.pack(fill='both', expand=True)
+        view.canvas.bind('<Double-Button-1>', lambda e: self.hide_word_view(d), add='+')
+        d.ys.pack_forget()
+        d.desk.pack_forget()
+        box.pack(fill='both', expand=True)
+        d.wordv = {'frame': box, 'view': view, 'status': status, 'key': None, 'busy': False}
+        self._render_word_view(d)
+
+    def hide_word_view(self, d):
+        w = d.wordv
+        if not w:
+            return
+        d.wordv = None
+        try:
+            w['view'].close_doc()
+        except Exception:
+            pass
+        w['frame'].destroy()
+        d.ys.pack(side='right', fill='y')
+        d.desk.pack(side='left', fill='both', expand=True)
+        self._place_text(d)
+        d.text.focus_set()
+
+    def open_external(self, path):
+        try:
+            if IS_WIN:
+                os.startfile(path)                      # noqa: S606 - kullanicinin kendi belgesi
+            else:
+                import subprocess
+                subprocess.Popen(['xdg-open', path])
+        except OSError as e:
+            messagebox.showerror('Açılamadı', str(e), parent=self)
+
+    def _word_view_source(self, d):
+        """Cizilecek DOCX: degismemis kayitli dosya aynen; degistiyse editordeki hali (ust/alt bilgi korunarak)."""
+        if d.path and d.path.lower().endswith('.docx') and not d.dirty and os.path.isfile(d.path):
+            with open(d.path, 'rb') as fh:
+                return fh.read(), 'kayıtlı dosya'
+        blocks = d.text.get_blocks() if d.rich else rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
+        return rdoc.docx_bytes(blocks, d.text.page if d.rich else None, d.hf), 'editördeki hali (kaydedilmemiş)'
+
+    def _render_word_view(self, d, force=False):
+        import queue
+        w = d.wordv
+        if not w or w['busy']:
+            return
+        try:
+            blob, what = self._word_view_source(d)
+        except Exception as e:
+            w['view'].message('Belge hazırlanamadı:\n%s' % e)
+            return
+        ren = self.doc_renderer()
+        if ren.engine is None:
+            w['view'].message('Sayfaları çizmek için Microsoft Word ya da LibreOffice gerekli; bu bilgisayarda bulunamadı.\n\n'
+                              '"✎ Düzenle" ile metin görünümüne dönebilirsiniz.')
+            w['status'].configure(text='Word görünümü kullanılamıyor')
+            return
+        w['busy'] = True
+        w['status'].configure(text='Sayfalar çiziliyor (%s)…' % ren.engine)
+        q = queue.Queue()
+
+        def work():
+            try:
+                q.put(('ok', ren.to_pdf(blob)))
+            except Exception as e:  # noqa: BLE001
+                q.put(('err', str(e)))
+        threading.Thread(target=work, daemon=True).start()
+
+        def poll():
+            if d.wordv is not w:
+                return
+            try:
+                kind, res = q.get_nowait()
+            except queue.Empty:
+                self.after(120, poll)
+                return
+            w['busy'] = False
+            if kind == 'ok':
+                w['view'].set_document(res, [])
+                w['status'].configure(text='%s ile çizildi · %d sayfa · %s · düzenlemek için çift tıklayın ya da "✎ Düzenle"'
+                                      % (ren.engine, len(w['view'].sizes), what))
+            else:
+                w['view'].message('Sayfalar çizilemedi:\n%s\n\n"✎ Düzenle" ile metin görünümüne dönebilirsiniz.' % res)
+                w['status'].configure(text='Çizilemedi')
+        self.after(120, poll)
 
     def _place_text(self, d):
         t, desk = d.text, d.desk
@@ -2482,25 +2608,52 @@ class App(tk.Tk):
         self.lbl(f, 'Madde no (isteğe bağlı, metni uydurulmaz)', muted=True).pack(anchor='w')
         self.clause_var = tk.StringVar()
         ttk.Entry(f, textvariable=self.clause_var, width=20).pack(anchor='w', pady=(2, 8))
+        # 2.7.0: denetim bir sohbet: secilen is turuyle baslar, ardindan soru sorulur; belge degistirilemese de yanit gelir
         self.audit_var = tk.StringVar(value=core.AUDIT_ACTIONS[0][0])
-        for key, label, _ in core.AUDIT_ACTIONS:
-            ttk.Radiobutton(f, text=label, value=key, variable=self.audit_var).pack(anchor='w', pady=1)
-        self.btn(f, 'Denetim diliyle düzenle', self.run_audit, 'primary', side=None, padx=14, pady=7).pack(anchor='w', pady=(10, 0))
-        self.lbl(f, 'Kayıt numarası, tarih, ölçüm veya madde metni uydurulmaz; yalnız metninizdeki kanıt kullanılır.',
-                 muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(10, 0))
+        self.audit_label = tk.StringVar(value=core.AUDIT_ACTIONS[0][1])
+        self.lbl(f, 'Denetim işi', muted=True).pack(anchor='w')
+        cb = self._combo(f, self.audit_label, [a[1] for a in core.AUDIT_ACTIONS], width=34)
+        cb.pack(anchor='w', pady=(2, 6))
+        cb.bind('<<ComboboxSelected>>', lambda e: self.audit_var.set(
+            next((a[0] for a in core.AUDIT_ACTIONS if a[1] == self.audit_label.get()), core.AUDIT_ACTIONS[0][0])))
+        self.audit_view = tk.Text(f, wrap='word', bg=EDIT_BG, fg=FG, relief='flat', bd=0, highlightthickness=0, font=('Segoe UI', 10),
+                                  padx=8, pady=6, state='disabled', height=10, selectbackground=SEL_BG)
+        self.audit_view.tag_configure('u', foreground=ACCENT, font=('Segoe UI', 9, 'bold'), spacing1=8)
+        self.audit_view.tag_configure('a', foreground=OK_C, font=('Segoe UI', 9, 'bold'), spacing1=8)
+        self.audit_view.tag_configure('e', foreground=BAD_C)
+        self.audit_view.tag_configure('m', foreground=MUTED, font=('Segoe UI', 8))
+        self.audit_view.tag_configure('body', foreground=FG, lmargin1=4, lmargin2=4, spacing3=4)
+        self.audit_view.pack(fill='both', expand=True)
+        self.audit_in = self._textbox(f, height=2)
+        self.audit_in.pack(fill='x', pady=(6, 4))
+        self.audit_in.bind('<Control-Return>', lambda e: (self.run_audit(), 'break')[1])
+        r = tk.Frame(f, bg=PANEL)
+        r.pack(fill='x')
+        self.btn(r, 'Denetle / sor  (Ctrl+Enter)', self.run_audit, 'primary')
+        self.audit_apply_btn = self.btn(r, 'Belgeye uygula', self.apply_audit, 'ghost')
+        self.btn(r, 'Yeni sekmede aç', self.audit_to_tab, 'ghost')
+        self.btn(r, 'Yeni denetim', self.clear_audit, 'ghost')
+        self.lbl(f, 'Kutu boşsa seçili iş belgeye (seçim varsa seçime) uygulanır; yazarsanız aynı denetim üzerine soru sorulur. '
+                 'Kayıt numarası, tarih, ölçüm veya madde metni uydurulmaz; yalnız metindeki kanıt kullanılır.',
+                 muted=True, wraplength=int(380 * self.scale)).pack(fill='x', pady=(6, 0))
+        self.audit_thread = {'messages': [], 'document': '', 'note': '', 'target': None, 'action': None, 'last': None}
+        self._sync_audit_buttons()
 
     # ------------------------------------------------------------------ kaynaklar (1.2)
     def _tab_sources(self, f):
         self.src_docs = {}            # doc_id -> belge (agfo_sources.extract)
+        self.src_folders = {}         # 2.7.0: agac dugumu -> {'root', 'skipped'}
+        self._src_progress = {'text': None}    # is parcacigi yalniz bu sozluge yazar (pencereye baglanti tutmaz)
         self.src_answers = {}         # etiket haritalari (atif baglantilari)
         self.src_threads = {}         # 1.2.1: kapsam (secili belgeler) -> ayri sohbet {'messages', 'log'}
         self.src_scope = 'all'
         top = tk.Frame(f, bg=PANEL)
         top.pack(fill='x')
         self.btn(top, '+ Belge ekle', self.add_sources, 'normal')
+        self.btn(top, '📁 Klasör ekle', self.add_source_folder, 'normal')
         self.btn(top, 'Göster', self.show_selected_source, 'ghost')
         self.btn(top, 'Kaldır', self.remove_sources, 'ghost')
-        self.src_tree = ttk.Treeview(f, columns=('loc', 'size'), height=3, selectmode='extended')
+        self.src_tree = ttk.Treeview(f, columns=('loc', 'size'), height=5, selectmode='extended')
         self.src_tree.heading('#0', text='Belge')
         self.src_tree.heading('loc', text='Bölüm')
         self.src_tree.heading('size', text='Metin')
@@ -2511,7 +2664,7 @@ class App(tk.Tk):
         self.src_tree.pack(fill='x', pady=(4, 2))
         self.src_tree.bind('<Double-1>', lambda e: self.show_selected_source())
         self.src_tree.bind('<<TreeviewSelect>>', lambda e: self._switch_scope())
-        self.src_info = self.lbl(f, 'PDF, Word, Excel, PowerPoint, metin ve e-posta dosyaları eklenebilir.', muted=True,
+        self.src_info = self.lbl(f, SRC_HINT, muted=True,
                                  wraplength=int(390 * self.scale))
         self.src_info.pack(fill='x')
         self.mask_var = tk.BooleanVar(value=self.settings.get('mask_sources', True))
@@ -2528,6 +2681,7 @@ class App(tk.Tk):
         r = tk.Frame(f, bg=PANEL)
         r.pack(fill='x')
         self.btn(r, 'Sor  (Ctrl+Enter)', self.ask_sources, 'primary')
+        self.btn(r, 'Belgeleri analiz et', self.analyze_sources, 'normal')
         self.btn(r, 'Yanıtı imlece ekle', self.insert_source_answer, 'ghost')
         self.btn(r, 'Sohbeti temizle', self.clear_source_thread, 'ghost')
         bottom = tk.Frame(f, bg=PANEL)
@@ -2584,29 +2738,145 @@ class App(tk.Tk):
         paths = [p for p in self.settings.get('sources', []) if isinstance(p, str) and os.path.isfile(p)]
         if paths:
             self._load_sources(paths, quiet=True)
+        for root in self.settings.get('source_folders', []) or []:
+            if isinstance(root, str) and os.path.isdir(root):
+                self.add_source_folder(root, quiet=True)          # yeniden taranir: klasore eklenen belgeler de gelir
+
+    # ---- 2.7.0: klasor (alt klasorleriyle; OneDrive / Google Drive klasorleri de birer klasordur)
+    def add_source_folder(self, root=None, quiet=False):
+        if root is None:
+            init = (self.settings.get('source_folders') or [''])[-1]
+            root = filedialog.askdirectory(parent=self, title='Belgeleri analiz edilecek klasör (alt klasörleriyle)',
+                                           initialdir=init if init and os.path.isdir(init) else None, mustexist=True)
+            if not root:
+                return None
+        root = os.path.abspath(root)
+        fid = self._folder_iid(root)
+        if self.src_tree.exists(fid):                      # ayni klasor: yeniden tara (yeni / degisen belgeler)
+            self._remove_folder(fid, sync=False)
+
+        def scan():
+            return srcs.scan_folder(root)
+
+        def scanned(ok, res):
+            if not ok:
+                messagebox.showerror('Klasör', res, parent=self)
+                return
+            paths, skipped = res
+            if not paths:
+                if not quiet:
+                    messagebox.showinfo('Klasör', 'Bu klasörde ve alt klasörlerinde okunabilir belge yok.\n\n'
+                                        'Desteklenenler: ' + ', '.join(srcs.SUPPORTED), parent=self)
+                return
+            self.src_tree.insert('', 'end', iid=fid, text='📁 ' + os.path.basename(root.rstrip('\\/')) or root,
+                                 values=(len(paths), '…'), open=False)
+            self.src_folders[fid] = {'root': root, 'skipped': skipped}
+            self._load_sources(paths, quiet=quiet, folder=root)
+            if skipped.get('limit') and not quiet:
+                messagebox.showwarning('Klasör', 'Klasörde %d belgeden fazlası var; ilk %d belge okundu (%d atlandı). '
+                                       'Daha dar bir alt klasör seçebilirsiniz.' % (srcs.MAX_FOLDER_FILES, srcs.MAX_FOLDER_FILES,
+                                                                                    skipped['limit']), parent=self)
+        self._start_job('Klasör taranıyor: %s' % os.path.basename(root), scan, scanned)
+        return fid
+
+    @staticmethod
+    def _folder_iid(root):
+        import hashlib
+        return 'dir_' + hashlib.sha1(os.path.normcase(os.path.abspath(root)).encode('utf-8')).hexdigest()[:12]
+
+    def _remove_folder(self, fid, sync=True):
+        for did in list(self.src_tree.get_children(fid)):
+            self.src_docs.pop(did, None)
+            for k in [k for k in self.src_threads if did in k.split('|')]:
+                self.src_threads.pop(k, None)
+        self.src_threads.pop(fid, None)
+        if self.src_tree.exists(fid):
+            self.src_tree.delete(fid)
+        self.src_folders.pop(fid, None)
+        if sync:
+            self._sync_source_settings()
+
+    def _folder_totals(self, fid):
+        kids = [k for k in self.src_tree.get_children(fid) if k in self.src_docs]
+        chars = sum(self.src_docs[k]['chars'] for k in kids)
+        self.src_tree.item(fid, values=(len(kids), '{:,}'.format(chars).replace(',', '.')))
+
+    def analyze_sources(self):
+        """Kapsamdaki tum belgelerin genel analizi: envanter (her belgeden ornek) ile - yuzlerce belgede de butceye sigar."""
+        ids = self._scope_ids()
+        if not ids:
+            messagebox.showinfo('Kaynaklar', 'Önce "+ Belge ekle" ya da "📁 Klasör ekle" ile belge ekleyin.', parent=self)
+            return
+        key = self._scope_key(ids)
+        th = self._thread(key)
+        docs = {i: self.src_docs[i] for i in ids}
+        q = srcs.INVENTORY_QUESTION
+        extra = self.src_q.get('1.0', 'end-1c').strip()
+        if extra:
+            q += ' Ayrıca: ' + extra
+            self.src_q.delete('1.0', 'end')
+        self._log(key, 'q', 'Analiz: %d belge%s\n' % (len(ids), (' — ' + extra) if extra else ''))
+        mask = bool(self.mask_var.get())
+        lang = self.lang_var.get() or 'Türkçe'
+        backends = self.backends()
+
+        def work():
+            context, labels = srcs.inventory_context(docs)
+            if mask:
+                context = srcs.mask_personal(context)
+            res = ai.run_with_fallback(backends, 'chat', [{'role': 'user', 'content': srcs.ask_message(q, lang)}], context, 3000)
+            return res, labels
+
+        def done(ok, res):
+            if not ok:
+                self._log(key, 'err', res + '\n')
+                return
+            res, labels = res
+            th['messages'].append({'role': 'user', 'content': q})
+            th['messages'].append({'role': 'assistant', 'content': srcs.strip_citations(res['text'])})
+            self._log(key, 'a', res['text'], labels)
+            self._log(key, 'meta', '%s · %d belgenin envanteri · %s\n' % (res.get('via', ''), len(ids), res.get('model', '')))
+        self._start_job('Belgeler analiz ediliyor (%d)' % len(ids), work, done)
 
     def add_sources(self):
         paths = filedialog.askopenfilenames(parent=self, title='Kaynak belge ekle', filetypes=srcs.FILETYPES)
         if paths:
             self._load_sources(list(paths))
 
-    def _load_sources(self, paths, quiet=False):
+    def _load_sources(self, paths, quiet=False, folder=None):
         known = {os.path.normcase(d['path']) for d in self.src_docs.values()}
         paths = [p for p in paths if os.path.normcase(os.path.abspath(p)) not in known]
         if not paths:
             return
+        fid = self._folder_iid(folder) if folder else ''
+        prog = self._src_progress
 
         def work():
             out = []
-            for p in paths:
+            for n, p in enumerate(paths, start=1):
+                prog['text'] = 'Belgeler okunuyor… %d / %d · %s' % (n, len(paths), os.path.basename(p))
                 try:
-                    out.append((p, srcs.load(p), None))
+                    doc = srcs.load(p)
+                    if folder:
+                        doc = dict(doc, name=srcs.rel_name(p, folder), folder=folder)
+                    out.append((p, doc, None))
                 except (srcs.SourceError, OSError) as e:
                     out.append((p, None, str(e)))
+                except Exception as e:                  # bozuk tek belge klasorun geri kalanini durdurmasin
+                    out.append((p, None, 'okunamadı (%s)' % e.__class__.__name__))
+            prog['text'] = 'Arama dizini hazırlanıyor…'
+            if folder:                                  # dizin bir kez (arka planda) kurulur; sorular hizli kalir
+                docs = {('n%d' % i): d for i, (_p, d, _e) in enumerate(out) if d}
+                try:
+                    srcs._chunks_and_index(docs)
+                except Exception:
+                    pass
+            prog['text'] = None
             return out
 
         def done(ok, res):
             if not ok:
+                self._source_summary()
                 messagebox.showerror('Kaynaklar', res, parent=self)
                 return
             errs = []
@@ -2618,8 +2888,12 @@ class App(tk.Tk):
                 self.src_docs[did] = doc
                 n_units = len(doc['units'])
                 warn = bool(doc.get('empty_pages')) or doc['chars'] == 0
-                self.src_tree.insert('', 'end', iid=did, text=('⚠ ' if warn else '') + doc['name'], values=(n_units, '{:,}'.format(doc['chars']).replace(',', '.')),
-                                     tags=('warn',) if warn else ())
+                parent = fid if fid and self.src_tree.exists(fid) else ''
+                label = doc['name'].split('/', 1)[1] if parent and '/' in doc['name'] else doc['name']
+                self.src_tree.insert(parent, 'end', iid=did, text=('⚠ ' if warn else '') + label,
+                                     values=(n_units, '{:,}'.format(doc['chars']).replace(',', '.')), tags=('warn',) if warn else ())
+            if fid and self.src_tree.exists(fid):
+                self._folder_totals(fid)
             self._sync_source_settings()
             self._source_summary()
             self._switch_scope()
@@ -2628,13 +2902,14 @@ class App(tk.Tk):
         self._start_job('Belgeler okunuyor (%d)' % len(paths), work, done)
 
     def _sync_source_settings(self):
-        self.settings['sources'] = [d['path'] for d in self.src_docs.values()][:50]
+        self.settings['sources'] = [d['path'] for d in self.src_docs.values() if not d.get('folder')][:50]
+        self.settings['source_folders'] = [f['root'] for f in self.src_folders.values()][:10]
         core.save_settings(self.settings)
 
     def _source_summary(self):
         docs = list(self.src_docs.values())
         if not docs:
-            self.src_info.configure(text='PDF, Word, Excel, PowerPoint, metin ve e-posta dosyaları eklenebilir.', fg=MUTED)
+            self.src_info.configure(text=SRC_HINT, fg=MUTED)
             return
         total = sum(d['chars'] for d in docs)
         empty = sum(len(d.get('empty_pages') or []) for d in docs)
@@ -2645,10 +2920,18 @@ class App(tk.Tk):
 
     def remove_sources(self):
         for iid in self.src_tree.selection():
+            if iid in self.src_folders:
+                self._remove_folder(iid, sync=False)
+                continue
+            if not self.src_tree.exists(iid):
+                continue
+            parent = self.src_tree.parent(iid)
             self.src_docs.pop(iid, None)
             self.src_tree.delete(iid)
             for k in [k for k in self.src_threads if iid in k.split('|')]:
                 self.src_threads.pop(k, None)
+            if parent in self.src_folders:
+                self._folder_totals(parent)
         self._sync_source_settings()
         self._source_summary()
         self._switch_scope()
@@ -2678,7 +2961,12 @@ class App(tk.Tk):
 
     # --- kapsam: secili belgeler ya da tumu; her kapsamin kendi sohbeti var
     def _scope_ids(self):
-        sel = [i for i in self.src_tree.selection() if i in self.src_docs]
+        sel = []
+        for i in self.src_tree.selection():
+            if i in self.src_folders:                   # klasor secili: icindeki tum belgeler
+                sel += [k for k in self.src_tree.get_children(i) if k in self.src_docs and k not in sel]
+            elif i in self.src_docs and i not in sel:
+                sel.append(i)
         return sel or list(self.src_docs)
 
     def _scope_key(self, ids=None):
@@ -2692,6 +2980,10 @@ class App(tk.Tk):
             return 'Sohbet: %s' % self.src_docs[ids[0]]['name']
         if set(ids) == set(self.src_docs):
             return 'Sohbet: tüm belgeler (%d)' % len(ids)
+        for fid, f in self.src_folders.items():
+            kids = {k for k in self.src_tree.get_children(fid) if k in self.src_docs}
+            if kids and set(ids) == kids:
+                return 'Sohbet: 📁 %s (%d belge, alt klasörleriyle)' % (os.path.basename(f['root'].rstrip('\\/')), len(ids))
         return 'Sohbet: %d seçili belge — %s' % (len(ids), ', '.join(self.src_docs[i]['name'] for i in ids)[:120])
 
     def _thread(self, key=None):
@@ -2890,6 +3182,7 @@ class App(tk.Tk):
         title = title or 'Adsız %d' % (len(self.docs) + 1)
         doc = Doc(frame, t, title, path, docfile)
         doc.desk = desk
+        doc.ys = ys
         if not path and (text or blocks):
             t.undo.saved = -1                       # yeni icerik: kaydedilmemis say
         self.docs.append(doc)
@@ -3145,6 +3438,7 @@ class App(tk.Tk):
             if kind == 'docx':
                 blocks = rdoc.read_docx_blocks(path)
                 page = rdoc.read_docx_page(path)            # 2.0: sayfa yapisi, ust/alt bilgi, sayfa no.
+                hf = rdoc.read_docx_hf(path)                # 2.7.0: tablolu / logolu ust-alt bilgi kayitta korunur
                 text, docfile = '', core.DocFile(path, 'docx')
             elif kind == 'html':
                 with open(path, 'rb') as fh:
@@ -3165,10 +3459,14 @@ class App(tk.Tk):
         core.add_recent(self.settings, path)
         core.save_settings(self.settings)
         if docfile.kind == 'docx':
+            d.hf = hf
             n_img = sum(1 for b in blocks or [] if b['t'] == 'img')
             n_tbl = sum(1 for b in blocks or [] if b['t'] == 'table')
-            self.flash('Word belgesi biçimleriyle açıldı (%d resim, %d tablo). Sayfa yapısı ve üst/alt bilgi korunur; dipnot ve yorumlar '
-                       'bu editörde gösterilmez.' % (n_img, n_tbl), 9000)
+            self.flash('Word belgesi biçimleriyle açıldı (%d resim, %d tablo). Sayfa yapısı ve üst/alt bilgi (tablolar, logolar dahil) '
+                       'kayıtta korunur; dipnot ve yorumlar bu editörde gösterilmez.' % (n_img, n_tbl), 9000)
+            mode = self.settings.get('docx_word_view', 'auto')
+            if mode == 'always' or (mode == 'auto' and hf and hf.get('complex') and not self.smoke):
+                self.show_word_view(d)              # Word'de gorundugu gibi: ust/alt bilgideki tablo, logo, ilk sayfa farki
         return d
 
     # ------------------------------------------------------------------ PDF duzenleyici (1.3)
@@ -3643,7 +3941,7 @@ class App(tk.Tk):
             if d.rich or kind == 'docx':
                 blocks = d.text.get_blocks() if d.rich else rdoc.markdown_to_blocks(d.text.get('1.0', 'end-1c'))
                 if kind == 'docx':
-                    data = rdoc.docx_bytes(blocks, d.text.page if d.rich else None)
+                    data = rdoc.docx_bytes(blocks, d.text.page if d.rich else None, getattr(d, 'hf', None))
                     core._atomic_write(path, lambda f: f.write(data))
                     d.docfile = core.DocFile(path, 'docx')
                 elif kind == 'html':
@@ -3699,12 +3997,94 @@ class App(tk.Tk):
             self.new_doc()
         return True
 
+    # ---- 2.7.0: sekmelerde kapatma (x) dugmesi
+    def _x_image(self, color, bg=None, size=14):
+        img = tk.PhotoImage(width=size, height=size)
+        if bg:
+            img.put(bg, to=(0, 0, size, size))
+        for i in range(4, size - 4):
+            for d in (0, 1):
+                for x, y in ((i + d, i), (size - 1 - i - d, i)):
+                    if 0 <= x < size:
+                        img.put(color, (x, y))
+        return img
+
+    def _closable_tabs(self):
+        """Belge sekmeleri icin etiketin yanina x ogesi eklenmis sekme duzeni. Kurulamazsa duz TNotebook."""
+        s = ttk.Style(self)
+        try:
+            if 'agfoclose' not in s.element_names():
+                self._x_imgs = (self._x_image(MUTED), self._x_image('#ffffff', BAD_C), self._x_image('#ffffff', '#8a2f2f'))
+                s.element_create('agfoclose', 'image', self._x_imgs[0],
+                                 ('active', 'pressed', '!disabled', self._x_imgs[2]),
+                                 ('active', '!disabled', self._x_imgs[1]), border=4, sticky='')
+
+            def inject(items):
+                out = []
+                for name, opts in items:
+                    opts = dict(opts)
+                    if 'children' in opts:
+                        opts['children'] = inject(opts['children'])
+                    if name.endswith('.label'):
+                        out.append((name, dict(opts, side='left', sticky='')))
+                        out.append(('agfoclose', {'side': 'left', 'sticky': ''}))
+                        continue
+                    out.append((name, opts))
+                return out
+            s.layout('Docs.TNotebook', s.layout('TNotebook'))
+            lay = inject(s.layout('TNotebook.Tab'))
+            if not any('agfoclose' in str(x) for x in lay):
+                return 'TNotebook'
+            s.layout('Docs.TNotebook.Tab', lay)
+            return 'Docs.TNotebook'
+        except tk.TclError:
+            return 'TNotebook'
+
+    def _tab_x_at(self, e):
+        try:
+            if 'agfoclose' not in self.nb.identify(e.x, e.y):
+                return None
+            return self.nb.index('@%d,%d' % (e.x, e.y))
+        except tk.TclError:
+            return None
+
+    def _tab_x_press(self, e):
+        idx = self._tab_x_at(e)
+        if idx is None:
+            return None
+        self.nb.state(['pressed'])
+        self._x_pressed = idx
+        return 'break'                              # sekme secilmez; x'e basildi
+
+    def _tab_x_release(self, e):
+        idx = getattr(self, '_x_pressed', None)
+        if idx is None:
+            return None
+        self._x_pressed = None
+        try:
+            self.nb.state(['!pressed'])
+        except tk.TclError:
+            pass
+        if self._tab_x_at(e) == idx:
+            self.close_tab_at(idx)
+        return 'break'
+
+    def close_tab_at(self, idx):
+        try:
+            frame = self.nametowidget(self.nb.tabs()[idx])
+        except (IndexError, tk.TclError, KeyError):
+            return False
+        return self.close_tab_frame(frame)
+
     def _middle_close(self, e):
         try:
             idx = self.nb.index('@%d,%d' % (e.x, e.y))
         except tk.TclError:
             return
-        frame = self.nametowidget(self.nb.tabs()[idx])
+        self.close_tab_at(idx)
+
+    def close_tab_frame(self, frame):
+        """Sekmeyi turune gore kapatir (kaydedilmemis degisiklik varsa sorar)."""
         if frame in self.pdf_views:
             self.close_pdf(frame)
             return
@@ -3787,6 +4167,7 @@ class App(tk.Tk):
             except Exception:
                 pass
         super().destroy()
+        gc.collect()        # dongusel cop (Tk degiskenleri, resimler) arka plan is parcaciginda toplanirsa Tk coker
 
     def _offer_recovery(self):
         items = core.list_recovery()
@@ -4180,6 +4561,13 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         self._drain_tr_events()
+        src_prog = (getattr(self, '_src_progress', None) or {}).get('text')
+        if src_prog and src_prog != getattr(self, '_src_prog_shown', None):
+            try:                                        # Kaynaklar panelinde (durum cubugundaki sonuc mesajlarini ezmez)
+                self.src_info.configure(text='⏳ ' + src_prog, fg=ACCENT)
+            except (tk.TclError, AttributeError):
+                pass
+        self._src_prog_shown = src_prog
         sp_prog = getattr(self, '_sp_progress', None)
         if sp_prog and self.jobs:
             self.ai_var.set('Seslendirme: ' + sp_prog)
@@ -4562,14 +4950,138 @@ class App(tk.Tk):
         if not self.nb.tabs():
             self.new_doc()
 
+    # ---- 2.7.0: denetim sohbeti
+    def _context_document(self):
+        """Acik belgenin metni: (metin, not, hedef). hedef: duzenlenebilir belgede (belge, bas_isaret, son_isaret,
+        kaynak_metin) - 'Belgeye uygula' icin; PDF / salt okunur / cok uzun metinde None (is durmaz, yalniz uygulanamaz)."""
+        d = self.cur()
+        v = self.cur_pdf() if not d and hasattr(self, 'pdf_views') else None
+        if d:
+            try:
+                s0, e0 = d.text.index('sel.first'), d.text.index('sel.last')
+                where = 'seçim'
+            except tk.TclError:
+                s0, e0 = '1.0', d.text.index('end-1c')
+                where = 'belgenin tamamı'
+            text = d.text.markdown(s0, e0)[0] if d.rich else d.text.get(s0, e0)
+            note = '%s · %s' % (d.title, where)
+            target = None
+            if len(text) > core.MAX_CHARS:
+                note += ' · ⚠ çok uzun: ilk %d karakter denetlendi, belgeye uygulanamaz' % core.MAX_CHARS
+            elif text.strip() and not getattr(d, 'readonly', False):
+                ms, me = 'aud_s_' + uuid.uuid4().hex[:6], 'aud_e_' + uuid.uuid4().hex[:6]
+                d.text.mark_set(ms, s0)
+                d.text.mark_gravity(ms, 'left')
+                d.text.mark_set(me, e0)
+                d.text.mark_gravity(me, 'right')
+                target = (d, ms, me, text)
+            return text[:core.MAX_CHARS], note, target
+        if v:
+            try:
+                text, pages = self.pdf_context_text(v)
+            except Exception as e:
+                return '', 'PDF metni okunamadı (%s)' % e, None
+            note = '%s · %s · PDF (yanıt belgeye uygulanamaz, yeni sekmede açılabilir)' % (os.path.basename(v.pr.path), pages)
+            if len(text) > core.MAX_CHARS:
+                note += ' · ilk %d karakter' % core.MAX_CHARS
+            return text[:core.MAX_CHARS], note, None
+        return '', 'açık belge yok — yalnız yazdığınıza göre yanıtlanır', None
+
+    def _audit_append(self, who, text, tag):
+        v = self.audit_view
+        v.configure(state='normal')
+        v.insert('end', who + '\n', tag)
+        if text:
+            v.insert('end', text.strip() + '\n', 'body' if tag in ('u', 'a') else tag)
+        v.configure(state='disabled')
+        v.see('end')
+
+    def _sync_audit_buttons(self):
+        th = getattr(self, 'audit_thread', None)
+        b = getattr(self, 'audit_apply_btn', None)
+        if b is None or th is None:
+            return
+        ok = bool(th.get('last') and th.get('target') and th['target'][0] in self.docs)
+        try:
+            b.configure(state='normal' if ok else 'disabled')
+        except tk.TclError:
+            pass
+
+    def clear_audit(self):
+        th = self.audit_thread
+        tgt = th.get('target')
+        if tgt and tgt[0] in self.docs:
+            self._clear_marks(tgt[0], tgt[1], tgt[2])
+        self.audit_thread = {'messages': [], 'document': '', 'note': '', 'target': None, 'action': None, 'last': None}
+        v = self.audit_view
+        v.configure(state='normal')
+        v.delete('1.0', 'end')
+        v.configure(state='disabled')
+        self._sync_audit_buttons()
+
     def run_audit(self):
+        """Kutu bossa: secili denetim isi acik belgeye (secime) - yeni tur baslar. Yaziliysa: ayni denetim uzerine soru."""
+        th = self.audit_thread
+        q = self.audit_in.get('1.0', 'end-1c').strip()
         a = core.audit_action(self.audit_var.get(), self.std_var.get(), self.clause_var.get())
-        if a:
-            opts = self._ai_options()
-            opts['tone'] = 'Profesyonel'
-            opts['audience'] = 'Denetçi / akreditasyon kurumu'
-            opts['preserve_facts'] = True
-            self.run_action(a, opts)
+        if a is None:
+            return
+        lang = self.lang_var.get() or 'Türkçe'
+        follow = bool(q and th['messages'])
+        if not follow:
+            old = th.get('target')
+            if old and old[0] in self.docs:
+                self._clear_marks(old[0], old[1], old[2])
+            doc, note, target = self._context_document()
+            th.update(messages=[], document=doc, note=note, target=target, action=a, last=None)
+            task = core.audit_chat_message(a, lang, q, has_document=bool(doc.strip()))
+            self._audit_append('Denetim · %s' % a['label'], '(%s)%s' % (note, ('\n' + q) if q else ''), 'u')
+        else:
+            task = q
+            self._audit_append('Siz', q, 'u')
+        if not th['document'].strip() and not q:
+            self._audit_append('Bilgi', 'Denetlenecek metin yok. Bir belge açın ya da kutuya denetlenecek metni / sorunuzu yazın.', 'm')
+            return
+        self.audit_in.delete('1.0', 'end')
+        th['messages'].append({'role': 'user', 'content': task})
+        msgs = list(th['messages'])
+
+        def done(ok, res):
+            if not ok:
+                th['messages'].pop()
+                self._audit_append('Hata', res, 'e')
+                return
+            th['messages'].append({'role': 'assistant', 'content': res['text']})
+            th['last'] = res
+            self._audit_append('AI · %s' % (res.get('model') or res.get('via', '')), res['text'], 'a')
+            if th.get('target') is None:
+                self._audit_append('', 'Bu yanıt belgeye uygulanamıyor (%s); "Yeni sekmede aç" ile kullanabilirsiniz.'
+                                   % (th.get('note') or 'düzenlenebilir belge yok'), 'm')
+            self._sync_audit_buttons()
+        self._start_job('Denetim: %s' % a['label'], ai.run_with_fallback, done, self.backends(), 'chat', msgs, th['document'], 3000)
+
+    def apply_audit(self):
+        """Son denetim yanitini, denetlenen metnin yerine onerir (inceleme penceresi; kabul edilmezse belge degismez)."""
+        th = self.audit_thread
+        tgt, res = th.get('target'), th.get('last')
+        if not (tgt and res) or tgt[0] not in self.docs:
+            self.flash('Bu denetim belgeye uygulanamıyor; "Yeni sekmede aç" ile kullanın.')
+            return
+        d, ms, me, source = tgt
+        action = dict(th['action'] or {'key': 'audit', 'label': 'Denetim'}, mode='replace')
+        self.nb.select(d.frame)
+        th['target'] = None                     # isaretler inceleme penceresine gecti (kabul/ret sonrasi silinir)
+        self._sync_audit_buttons()
+        self.review(d, ms, me, source, dict(res, text=core.clean_model_text(res['text'], rich=d.rich)), action)
+
+    def audit_to_tab(self):
+        res = self.audit_thread.get('last')
+        if not res:
+            self.flash('Henüz denetim yanıtı yok.')
+            return
+        a = self.audit_thread.get('action') or {'label': 'Denetim'}
+        d = self.new_doc(core.clean_model_text(res['text']), '✔ ' + a['label'][:36])
+        self._highlight(d)
 
     # ------------------------------------------------------------------ inceleme (fark) penceresi
     def review(self, d, ms, me, source, res, action, translate_mode=None, images=None):

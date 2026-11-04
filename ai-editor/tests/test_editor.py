@@ -701,15 +701,18 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(core.read_docx(p), 'elma armut elma\n\nElma')
 
     def test_custom_requires_instruction_and_audit(self):
+        # 2.7.0: denetim bir sohbet; yanit once panelde, "Belgeye uygula" ile inceleme penceresi
         d = self.app.cur()
         d.text.insert('1.0', 'Soğuk odada sıcaklık kaydı eksikti.')
-        self.app.scope_var.set('all')
         self.app.run_audit()
+        self.assertTrue(self.pump(lambda: not self.app.jobs))
+        fn, args = self.fake[-1]
+        self.assertEqual(fn, 'chat')
+        self.assertIn('BRCGS', args[0][-1]['content'])
+        self.assertIn('Soğuk odada', args[1])
+        self.assertIn('Sohbet yanıtı', self.app.audit_view.get('1.0', 'end'))
+        self.app.apply_audit()
         self.assertTrue(self.pump(lambda: getattr(self.app, 'review_win', None) is not None))
-        act = self.fake[-1][1][1]
-        self.assertEqual(act['template'], 'technical_audit')
-        self.assertIn('BRCGS', act['extra'])
-        self.assertEqual(self.fake[-1][1][2]['audience'], 'Denetçi / akreditasyon kurumu')
 
     def test_sources_ask_cite_and_create(self):
         src = os.path.join(TMP, 'kaynak.txt')
