@@ -26,6 +26,7 @@ import html
 import html.parser
 import io
 import os
+import posixpath
 import re
 import struct
 import zipfile
@@ -44,6 +45,8 @@ CONTENT_W_PT = PAGE_W_PT - 2 * MARGIN_PT
 STYLES = ('normal', 'h1', 'h2', 'h3', 'quote')
 STYLE_LABELS = {'normal': 'Normal metin', 'h1': 'Başlık 1', 'h2': 'Başlık 2', 'h3': 'Başlık 3', 'quote': 'Alıntı'}
 IMG_EXT = {'png': 'image/png', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'bmp': 'image/bmp'}
+MEDIA_TYPES = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'emf': 'image/x-emf', 'wmf': 'image/x-wmf', 'tif': 'image/tiff',
+               'tiff': 'image/tiff', 'svg': 'image/svg+xml', 'bin': 'application/vnd.openxmlformats-officedocument.oleObject'}
 RUN_EXTRA = ('font', 'size', 's', 'va', 'hl', 'href')          # 2.0
 PARA_EXTRA = ('ls', 'sb', 'sa', 'ind', 'fi')                    # 2.0
 PAGE_SIZES = {'A4': (595.3, 841.9), 'A5': (419.5, 595.3), 'Letter': (612.0, 792.0), 'Legal': (612.0, 1008.0)}
@@ -1189,6 +1192,118 @@ def read_docx_page(path):
     return page
 
 
+# ----------------------------------------------------------------------------- 2.7.0: ozgun ust/alt bilgi
+HF_MEDIA_PREFIX = 'hfkeep_'
+_HF_COMPLEX = re.compile(rb'<w:tbl[ >]|<w:drawing[ >]|<w:pict[ >]|<v:shape|<w:txbxContent|<mc:AlternateContent|<w:sdt[ >]')
+
+
+def read_docx_hf(path):
+    """Ozgun ust/alt bilgi parcalari: tablolar, logolar, ilk sayfa / tek-cift farki, alanlar dahil. Kaydederken ust/alt
+    bilgi degistirilmediyse bunlar aynen geri yazilir (editor ust/alt bilgiyi duz metin olarak gosterir).
+    Donus: None ya da {'refs': [(tur, tip, parca)], 'parts': {ad: bayt}, 'media': {ad: bayt}, 'title_pg', 'even',
+    'dist': (ust, alt), 'styles': bayt, 'text': {...}, 'pnum', 'complex'}."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = set(z.namelist())
+            rd = _DocxReader(z)
+            root = rd._xml('word/document.xml')
+            body = root.find(w('body')) if root is not None else None
+            sect = body.find(w('sectPr')) if body is not None else None
+            if sect is None:
+                return None
+            refs, parts, media = [], {}, {}
+            for kind in ('header', 'footer'):
+                for el in sect.findall(w(kind + 'Reference')):
+                    tgt = rd.rels.get(el.get('{%s}id' % R_NS), ('', ''))[0]
+                    if not tgt:
+                        continue
+                    name = tgt.lstrip('/')
+                    name = name if name.startswith('word/') else 'word/' + name
+                    if name not in names:
+                        continue
+                    refs.append((kind, el.get(w('type')) or 'default', name))
+                    if name in parts:
+                        continue
+                    parts[name] = z.read(name)
+                    rel_name = 'word/_rels/' + name.rsplit('/', 1)[1] + '.rels'
+                    if rel_name in names:
+                        rel_xml = z.read(rel_name)
+                        rr = ET.fromstring(rel_xml)
+                        for rel in rr:
+                            if rel.get('TargetMode') == 'External':
+                                continue
+                            t = rel.get('Target') or ''
+                            src = posixpath.normpath(posixpath.join('word', t)) if not t.startswith('/') else t.lstrip('/')
+                            if src in names and src not in media and not src.endswith('.xml'):
+                                media[src] = z.read(src)
+                        parts[rel_name] = rel_xml
+            if not refs:
+                return None
+            pg = sect.find(w('pgMar'))
+            dist = (_int_attr(pg, 'header') or 708, _int_attr(pg, 'footer') or 708) if pg is not None else (708, 708)
+            settings = z.read('word/settings.xml') if 'word/settings.xml' in names else b''
+            styles = z.read('word/styles.xml') if 'word/styles.xml' in names else b''
+    except (zipfile.BadZipFile, KeyError, ET.ParseError, ValueError, OSError):
+        return None
+    page = read_docx_page(path)
+    blob = b''.join(v for k, v in parts.items() if not k.endswith('.rels'))
+    return {'refs': refs, 'parts': parts, 'media': media, 'title_pg': sect.find(w('titlePg')) is not None,
+            'even': b'evenAndOddHeaders' in settings, 'dist': dist, 'styles': styles,
+            'text': {'header': page['header'], 'footer': page['footer']}, 'pnum': page['pnum'],
+            'complex': bool(_HF_COMPLEX.search(blob) or media or len(refs) > 2 or any(t != 'default' for _k, t, _n in refs))}
+
+
+def hf_unchanged(page, hf) -> bool:
+    """Kullanici ust/alt bilgiyi ya da sayfa numarasini degistirmedi mi?"""
+    if not hf:
+        return False
+    page = normalize_page(page)
+    return (page['header'] == hf['text']['header'] and page['footer'] == hf['text']['footer']
+            and (page['pnum'] or None) == (hf['pnum'] or None))
+
+
+_STYLE_RX = re.compile(r'<w:style\b[^>]*w:styleId="([^"]+)"[^>]*>.*?</w:style>', re.S)
+
+
+def _merge_styles(orig: bytes, ours: str) -> bytes:
+    """Ozgun stiller (ust/alt bilgi tablolari ve govde gorunumu) + editorun yazdigi ama ozgunde olmayan stiller.
+    Metin duzeyinde birlestirilir: ozgun dosyanin ad alani onekleri (w14, mc:Ignorable ...) bozulmasin."""
+    try:
+        text = orig.decode('utf-8')
+    except UnicodeDecodeError:
+        return ours.encode('utf-8')
+    close = text.rfind('</w:styles>')
+    if close < 0 or 'xmlns:w="%s"' % W_NS not in text:
+        return ours.encode('utf-8')
+    have = set(re.findall(r'w:styleId="([^"]+)"', text))
+    add = ''.join(m.group(0) for m in _STYLE_RX.finditer(ours) if m.group(1) not in have)
+    return (text[:close] + add + text[close:]).encode('utf-8')
+
+
+def _hf_keep(hf, wr):
+    """Ozgun parcalari yazara ekler: {zip_adi: bayt}, sectPr basvurulari, ozgun medya (cakismasin diye yeni adla)."""
+    parts, refs = {}, ''
+    rename = {src: 'word/media/%s%s' % (HF_MEDIA_PREFIX, src.rsplit('/', 1)[1]) for src in hf['media']}
+    part_names = {}
+    for i, (kind, typ, name) in enumerate(hf['refs'], start=1):
+        if name not in part_names:
+            new = 'word/%s_keep%d.xml' % (kind, len(part_names) + 1)
+            part_names[name] = new
+            parts[new] = hf['parts'][name]
+            rel = 'word/_rels/' + name.rsplit('/', 1)[1] + '.rels'
+            if rel in hf['parts']:
+                rx = hf['parts'][rel].decode('utf-8', 'replace')
+                for src, dst in rename.items():
+                    rx = rx.replace('"%s"' % src[len('word/'):], '"%s"' % dst[len('word/'):])
+                    rx = rx.replace('"/%s"' % src, '"/%s"' % dst)
+                parts['word/_rels/' + new.rsplit('/', 1)[1] + '.rels'] = rx.encode('utf-8')
+        rid = wr.rel('http://schemas.openxmlformats.org/officeDocument/2006/relationships/' + kind,
+                     part_names[name][len('word/'):])
+        refs += '<w:%sReference w:type="%s" r:id="%s"/>' % (kind, typ, rid)
+    media = {rename[src]: data for src, data in hf['media'].items()}
+    return parts, refs, media
+
+
 # ----------------------------------------------------------------------------- DOCX yazma
 def _xml_text(s):
     return html.escape(s, quote=False)
@@ -1438,39 +1553,51 @@ def _hf_xml(kind, text, pnum):
             % (tag, W_NS, R_NS, ''.join(paras) or '<w:p/>', tag))
 
 
-def docx_bytes(blocks, page=None):
+def docx_bytes(blocks, page=None, hf=None):
+    """hf: read_docx_hf() sonucu - ust/alt bilgi degismediyse ozgun parcalar (tablo, logo, alanlar) aynen yazilir."""
     page = normalize_page(page)
     wr = _DocxWriter()
     wr.content_w = content_width(page)
     body = wr.body_xml(blocks)
     pw, ph = page_dims(page)
     m = page['margins']
-    parts, refs = {}, ''
-    for kind in ('header', 'footer'):
+    parts, refs, keep_media = {}, '', {}
+    keep = hf_unchanged(page, hf)
+    dist = hf['dist'] if keep else (708, 708)
+    if keep:
+        parts, refs, keep_media = _hf_keep(hf, wr)
+        if hf.get('title_pg'):
+            refs += '<w:titlePg/>'
+    for kind in ('header', 'footer') if not keep else ():
         if page[kind].strip() or (page['pnum'] and page['pnum']['pos'] == kind):
             name = '%s1.xml' % kind
             parts['word/' + name] = _hf_xml(kind, page[kind], page['pnum'])
             rid = wr.rel('http://schemas.openxmlformats.org/officeDocument/2006/relationships/' + kind, name)
             refs += '<w:%sReference w:type="default" r:id="%s"/>' % (kind, rid)
+    title_pg = ''
+    if refs.endswith('<w:titlePg/>'):                   # sectPr'de titlePg, pgMar'dan sonra gelir
+        refs, title_pg = refs[:-len('<w:titlePg/>')], '<w:titlePg/>'
     sect = ('<w:sectPr>%s<w:pgSz w:w="%d" w:h="%d"%s/>'
-            '<w:pgMar w:top="%d" w:right="%d" w:bottom="%d" w:left="%d" w:header="708" w:footer="708" w:gutter="0"/>'
+            '<w:pgMar w:top="%d" w:right="%d" w:bottom="%d" w:left="%d" w:header="%d" w:footer="%d" w:gutter="0"/>%s'
             '</w:sectPr>') % (refs, round(pw * 20), round(ph * 20), ' w:orient="landscape"' if page['orient'] == 'landscape' else '',
-                              round(m['t'] * 20), round(m['r'] * 20), round(m['b'] * 20), round(m['l'] * 20))
+                              round(m['t'] * 20), round(m['r'] * 20), round(m['b'] * 20), round(m['l'] * 20),
+                              dist[0], dist[1], title_pg)
     doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
            '<w:document xmlns:w="%s" xmlns:r="%s" xmlns:wp="%s" xmlns:a="%s" xmlns:pic="%s"><w:body>%s%s'
            '</w:body></w:document>') % (W_NS, R_NS, WP_NS, A_NS, PIC_NS, body, sect)
-    exts = sorted({b.rsplit('.', 1)[1] for b in wr.media})
+    exts = sorted({b.rsplit('.', 1)[1].lower() for b in list(wr.media) + list(keep_media)})
     ct = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
           '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
           '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
           '<Default Extension="xml" ContentType="application/xml"/>'
-          + ''.join('<Default Extension="%s" ContentType="%s"/>' % (e, IMG_EXT[e]) for e in exts) +
+          + ''.join('<Default Extension="%s" ContentType="%s"/>' % (e, IMG_EXT.get(e) or MEDIA_TYPES.get(e, 'application/octet-stream'))
+                    for e in exts if e not in ('xml', 'rels')) +
           '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
           '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
           '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
           '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
           + ''.join('<Override PartName="/%s" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.%s+xml"/>'
-                    % (n, 'header' if 'header' in n else 'footer') for n in sorted(parts)) +
+                    % (n, 'header' if 'header' in n else 'footer') for n in sorted(parts) if not n.endswith('.rels')) +
           '</Types>')
     rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="%s">'
             '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
@@ -1496,12 +1623,12 @@ def docx_bytes(blocks, page=None):
         z.writestr('_rels/.rels', rels)
         z.writestr('word/document.xml', doc)
         z.writestr('word/_rels/document.xml.rels', doc_rels)
-        z.writestr('word/styles.xml', STYLES_XML)
+        z.writestr('word/styles.xml', _merge_styles(hf['styles'], STYLES_XML) if keep and hf.get('styles') else STYLES_XML)
         z.writestr('word/numbering.xml', _numbering_xml(wr.nums))
         z.writestr('docProps/core.xml', core_xml)
         for name, data in parts.items():
             z.writestr(name, data)
-        for name, data in wr.media.items():
+        for name, data in list(wr.media.items()) + list(keep_media.items()):
             z.writestr(name, data, compress_type=zipfile.ZIP_STORED)
     return buf.getvalue()
 
