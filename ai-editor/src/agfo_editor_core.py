@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from xml.etree import ElementTree as ET
 
-VERSION = '2.7.0'
+VERSION = '2.7.1'
 APP_NAME = 'AGFO AI Editor'
 IS_WIN = sys.platform == 'win32'
 MAX_CHARS = 60000
@@ -643,13 +643,19 @@ AUDIT_CHAT_RULES = ('You are assisting a professional food-safety / certificatio
                     'missing, say exactly what is missing. Write in {language}.')
 
 
-def audit_chat_message(action: dict, language: str, question: str = '', has_document: bool = True) -> str:
-    """2.7.0: denetim sohbetinin ilk mesaji - is turu, standart / madde ve kurallar. Belge yoksa kullanicinin metni denetlenir."""
+def audit_chat_message(action: dict, language: str, question: str = '', has_document: bool = True, has_sources: bool = False) -> str:
+    """2.7.0: denetim sohbetinin ilk mesaji - is turu, standart / madde ve kurallar. Belge yoksa kullanicinin metni denetlenir.
+    2.7.1: has_sources - Kaynaklar'dan etiketli kanit parcalari ([K#]) eklenir; her iddiada etiket gosterilir."""
     lines = [AUDIT_CHAT_RULES.format(language=language), 'Task: ' + action.get('extra', action.get('description', ''))]
-    if action.get('mode') == 'replace' and has_document:
+    if has_sources:
+        lines.append('Evidence excerpts from the auditor\'s source documents are labelled like [K3] in the attached document. '
+                     'Base every finding on them (and on the audited text, if given) and cite the label right after each '
+                     'statement that uses an excerpt, e.g. "... was not available [K3]." Never cite a label that is not given; '
+                     'if the excerpts do not show the evidence, say it was not found in the sources.')
+    if action.get('mode') == 'replace' and (has_document or has_sources):
         lines.append('Output the requested audit text first, ready to paste into the report (no preamble). Then, only if needed, '
                      'a short list headed "Eksik kanıt / dikkat" with what the auditor should still verify.')
-    if not has_document:
+    if not has_document and not has_sources:
         lines.append('No document is attached: audit the text the user gives in this message.')
     if question.strip():
         lines.append('Additional request from the auditor: ' + question.strip()[:4000])

@@ -489,6 +489,23 @@ def select_context(docs: dict, query: str, budget: int = CONTEXT_BUDGET):
     return picked, 'arama'
 
 
+def merge_chunks(prev: list, new: list, budget: int = CONTEXT_BUDGET) -> list:
+    """2.7.1: denetim sohbetinde onceki parcalar ayni sirada (ayni [K#] etiketleri) kalir, yeni bulunanlar sona eklenir.
+    Butce asilirsa once onceki turlarin parcalari korunur, yeniler sigdigi kadar eklenir."""
+    seen = {(c['doc'], c['loc'], c['text'][:80]) for c in prev}
+    out, used = list(prev), sum(len(c['text']) for c in prev)
+    for c in new:
+        k = (c['doc'], c['loc'], c['text'][:80])
+        if k in seen:
+            continue
+        if used + len(c['text']) > budget and out:
+            continue
+        out.append(c)
+        seen.add(k)
+        used += len(c['text'])
+    return out
+
+
 def build_context(chunks: list, mask: bool = False):
     """[K1] etiketli kaynak metni + etiket -> parca haritasi."""
     parts, labels = [], {}
