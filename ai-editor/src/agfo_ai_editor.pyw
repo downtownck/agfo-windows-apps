@@ -215,6 +215,20 @@ def selftest(out_path: str) -> int:
             any(f['rule'] == 'clause_claim' for f in _rv.run(
                 {'profile': 'fs', 'values': {}, 'sections': [{'clause': '1.1', 'value': 'It meets the requirements of clause 1.1.1.'}],
                  'meta': {}}, []))
+        # 2.8.0: IFS auditXpress - veri dosyalari pakette, gidis-donus bire bir, puan kurali
+        import agfo_ifs as _ifs
+        import agfo_ifs_view  # noqa: F401
+        _doc = {'hash': 'x', 'schemaVersion': 'v1', 'data': {'language': 'en', 'modules': {'food_8': {
+            'questions': {'companyName': {'revision': 'v1', 'answer': 'Ş Ltd'}},
+            'checklists': {'c': {'dCount': 0, 'correctiveActions': {}, 'resultScorings': {'u1': {
+                'requirementUuid': 'u1', 'isCorrectionRequired': False, 'score': {'value': '', 'scoreId': '', 'label': ''},
+                'answers': {'explanationText': '', 'englishExplanationText': '', 'note': '', 'fieldAnswers': {}}}}}}}}}}
+        _raw = json.dumps(_doc, ensure_ascii=False, separators=(',', ':'))
+        _ir = _ifs.IfsReport(raw=_raw)
+        _same = _ir.dumps() == _raw
+        _ir.set_score('u1', 'D')
+        _brs['ifs'] = (_same and len(_ifs.CATALOG) > 50 and len(_ifs.SHAPES) > 20 and _ir.checklist['dCount'] == 1
+                       and 'u1' in _ir.checklist['correctiveActions'])
         res['renderer'] = _dr.Renderer(os.path.join(tempfile.gettempdir(), 'agfo-selftest-render')).engine or 'none'
         res['ok'] = (res['ok'] and res['rich_docx'] == ['p', 'p', 'p', 'img', 'table'] and tr[0]['runs'][0]['text'] == 'Title'
                      and res['pdf_edit']['ok'] and res['pdf_edit']['layout_translate'] and res['pdf_edit']['font_subset']
@@ -322,7 +336,8 @@ apply_theme('dark')
 POLL_MS = 80
 AUTOSAVE_MS = 45000
 UPDATE_CHECK_MS = 30 * 60 * 1000   # 1.4.15: acik kaldikca 30 dk'da bir sessiz guncelleme denetimi
-FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm *.pdf *.xlsx *.xlsm *.pptx *.eml *.csv'),
+FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm *.pdf *.xlsx *.xlsm *.pptx *.eml *.csv *.ifs'),
+             ('IFS auditXpress', '*.ifs'),
              ('Metin', '*.txt'), ('Markdown', '*.md *.markdown'), ('Word belgesi', '*.docx'), ('PDF (metin olarak)', '*.pdf'),
              ('Excel / PowerPoint (metin olarak)', '*.xlsx *.xlsm *.pptx'), ('HTML', '*.html *.htm'), ('Tüm dosyalar', '*.*')]
 SAVE_FILETYPES = [('Word belgesi', '*.docx'), ('Markdown', '*.md'), ('Metin', '*.txt'), ('HTML', '*.html')]
@@ -3449,6 +3464,8 @@ class App(tk.Tk):
                 return d
         if os.path.splitext(path)[1].lower() == '.pdf':
             return self.open_pdf(path)
+        if os.path.splitext(path)[1].lower() == '.ifs':
+            return self.open_ifs(path)                          # 2.8.0: IFS auditXpress raporu
         if os.path.splitext(path)[1].lower() in READ_ONLY_KINDS:
             return self.open_as_text(path)
         blocks = None
@@ -3594,7 +3611,7 @@ class App(tk.Tk):
     def _brcgs_panel_auto(self):
         """BRCGS sekmelerinde AI paneli yer kaplamasin: sekmeye gelince gizlenir, belgeye donunce geri acilir."""
         shown = str(self.side_panel) in self.paned.panes()
-        on_brcgs = self.cur_brcgs() is not None
+        on_brcgs = self.cur_brcgs() is not None or self.cur_ifs() is not None
         if on_brcgs and shown:
             self.paned.forget(self.side_panel)
             self.panel_btn.configure(text='AI paneli ⇤')
@@ -3664,6 +3681,58 @@ class App(tk.Tk):
                     'BRCGS report imported from %s (%d filled sections). The original DOCX is unchanged.')
                    % (os.path.basename(path), sum(1 for s_ in pr['sections'] if str(s_.get('value') or '').strip())), 9000)
         return v
+
+    # ---- 2.8.0: IFS auditXpress (.ifs)
+    def cur_ifs(self):
+        try:
+            w = self.nametowidget(self.nb.select())
+        except (KeyError, tk.TclError):
+            return None
+        return w if w in getattr(self, 'ifs_views', {}) else None
+
+    def open_ifs(self, path):
+        import agfo_ifs
+        import agfo_ifs_view
+        path = os.path.abspath(path)
+        self.ifs_views = getattr(self, 'ifs_views', {})
+        for v in self.ifs_views:
+            if v.report.path and os.path.normcase(v.report.path) == os.path.normcase(path):
+                self.nb.select(v)
+                return v
+        try:
+            rep = agfo_ifs.IfsReport(path)
+            v = agfo_ifs_view.IfsReportView(self, self.nb, rep)
+        except agfo_ifs.IfsError as e:
+            messagebox.showerror('IFS dosyası açılamadı', '%s\n\n%s' % (path, e), parent=self)
+            return None
+        except Exception as e:
+            self._log_error(traceback.format_exc())
+            messagebox.showerror('IFS dosyası açılamadı', '%s\n\n%s' % (path, e), parent=self)
+            return None
+        self.ifs_views[v] = v
+        self.nb.add(v, text=v.tab_text())
+        self.nb.select(v)
+        self._drop_blank_doc()
+        core.add_recent(self.settings, path)
+        core.save_settings(self.settings)
+        self.flash('IFS raporu açıldı: %d madde. Kaydet dosyayı aynı biçimde yazar; önceki hali yedeklenir.'
+                   % len(rep.requirements()), 8000)
+        return v
+
+    def close_ifs_view(self, v, ask=True):
+        if ask and v.dirty:
+            self.nb.select(v)
+            ans = messagebox.askyesnocancel('Kaydedilmemiş değişiklik', '"%s" kaydedilsin mi?' % v.report.title(), parent=self)
+            if ans is None:
+                return False
+            if ans and not v.save():
+                return False
+        self.nb.forget(v)
+        self.ifs_views.pop(v, None)
+        v.destroy()
+        if not self.nb.tabs():
+            self.new_doc()
+        return True
 
     def cur_brcgs(self):
         try:
@@ -3918,6 +3987,8 @@ class App(tk.Tk):
     def save(self, doc=None):
         if doc is None and self.cur_pdf():
             return self.cur_pdf().save()
+        if doc is None and self.cur_ifs() is not None:
+            return self.cur_ifs().save()
         if doc is None and self.cur_brcgs() is not None:
             v = self.cur_brcgs()
             return v.save() if v is not self.brcgs_explorer else False
@@ -3940,6 +4011,8 @@ class App(tk.Tk):
         return self._write(d, d.path)
 
     def save_as(self, doc=None, suggest=None):
+        if doc is None and self.cur_ifs() is not None:
+            return self.cur_ifs().save_as()
         d = doc or self.cur()
         if not d:
             return False
@@ -4003,6 +4076,8 @@ class App(tk.Tk):
     def close_doc(self, doc=None, ask=True):
         if doc is None and self.cur_pdf():
             return self.close_pdf(self.cur_pdf(), ask)
+        if doc is None and self.cur_ifs() is not None:
+            return self.close_ifs_view(self.cur_ifs(), ask)
         if doc is None and self.cur_brcgs() is not None:
             return self.close_brcgs_view(self.cur_brcgs(), ask)
         d = doc or self.cur()
@@ -4116,6 +4191,9 @@ class App(tk.Tk):
         if frame in self.brcgs_views or frame is self.brcgs_explorer:
             self.close_brcgs_view(frame)
             return
+        if frame in getattr(self, 'ifs_views', {}):
+            self.close_ifs_view(frame)
+            return
         if frame in getattr(self, 'compare_views', {}):
             self.close_compare(frame)
             return
@@ -4129,6 +4207,9 @@ class App(tk.Tk):
                 return
         for v in list(self.brcgs_views):
             if v.dirty and not self.close_brcgs_view(v):
+                return
+        for v in list(getattr(self, 'ifs_views', {})):
+            if v.dirty and not self.close_ifs_view(v):
                 return
         for d in list(self.docs):
             if d.dirty:

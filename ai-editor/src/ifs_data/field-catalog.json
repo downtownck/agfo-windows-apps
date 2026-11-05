@@ -1,0 +1,730 @@
+[
+  {
+    "order": 8,
+    "requirementUuid": "2b9073fe-b3ff-4881-bfa5-c37e81afc4df",
+    "fieldKey": "competentAuthoritiesName",
+    "answerType": "str",
+    "label": "Competent Authorities Name"
+  },
+  {
+    "order": 8,
+    "requirementUuid": "2b9073fe-b3ff-4881-bfa5-c37e81afc4df",
+    "fieldKey": "competentAuthoritiesLastVisitDate",
+    "answerType": "str",
+    "label": "Competent Authorities Last Visit Date"
+  },
+  {
+    "order": 8,
+    "requirementUuid": "2b9073fe-b3ff-4881-bfa5-c37e81afc4df",
+    "fieldKey": "competentAuthoritiesMandatoryActionsDueToFoodSafety",
+    "answerType": "str",
+    "label": "Competent Authorities Mandatory Actions Due To Food Safety"
+  },
+  {
+    "order": 30,
+    "requirementUuid": "17c78125-2e50-4aa0-b99e-ed1ad5451641",
+    "fieldKey": "ccpInCompanyNumber",
+    "answerType": "str",
+    "label": "Ccp In Company Number"
+  },
+  {
+    "order": 30,
+    "requirementUuid": "17c78125-2e50-4aa0-b99e-ed1ad5451641",
+    "fieldKey": "widgetCcpPickerByProductScope",
+    "answerType": "list",
+    "label": "Widget Ccp Picker By Product Scope"
+  },
+  {
+    "order": 31,
+    "requirementUuid": "4b1e1c3d-8221-46cd-ad48-e99ed848093c",
+    "fieldKey": "ccpImplementedList",
+    "answerType": "list",
+    "label": "Ccp Implemented List"
+  },
+  {
+    "order": 31,
+    "requirementUuid": "4b1e1c3d-8221-46cd-ad48-e99ed848093c",
+    "fieldKey": "ccpImplementedListDescription_en",
+    "answerType": "str",
+    "label": "Ccp Implemented List Description En"
+  },
+  {
+    "order": 31,
+    "requirementUuid": "4b1e1c3d-8221-46cd-ad48-e99ed848093c",
+    "fieldKey": "ccpImplementedListDescription",
+    "answerType": "str",
+    "label": "Ccp Implemented List Description"
+  },
+  {
+    "order": 66,
+    "requirementUuid": "fa12c451-5683-4def-b29d-c9cd302249ea",
+    "fieldKey": "customerAgreementTypeRelation",
+    "answerType": "list",
+    "label": "Customer Agreement Type Relation"
+  },
+  {
+    "order": 68,
+    "requirementUuid": "324321ae-ecc9-4206-ba36-3fcfe2d18071",
+    "fieldKey": "finishedProductsSpecificationsReviewed",
+    "answerType": "str",
+    "label": "Finished Products Specifications Reviewed"
+  },
+  {
+    "order": 68,
+    "requirementUuid": "324321ae-ecc9-4206-ba36-3fcfe2d18071",
+    "fieldKey": "finishedProductsSpecificationsRetailBrands",
+    "answerType": "str",
+    "label": "Finished Products Specifications Retail Brands"
+  },
+  {
+    "order": 70,
+    "requirementUuid": "e5690382-3876-4475-9029-6c70c8529aa4",
+    "fieldKey": "rawMaterialSpecificationsReviewed",
+    "answerType": "str",
+    "label": "Raw Material Specifications Reviewed"
+  },
+  {
+    "order": 72,
+    "requirementUuid": "06c8cbac-8ef3-4b04-93ea-8bd07591a7af",
+    "fieldKey": "claimsSpecificRequirementsFromClients",
+    "answerType": "str",
+    "label": "Claims Specific Requirements From Clients"
+  },
+  {
+    "order": 72,
+    "requirementUuid": "06c8cbac-8ef3-4b04-93ea-8bd07591a7af",
+    "fieldKey": "productExcludedMethods",
+    "answerType": "str",
+    "label": "Product Excluded Methods"
+  },
+  {
+    "order": 72,
+    "requirementUuid": "06c8cbac-8ef3-4b04-93ea-8bd07591a7af",
+    "fieldKey": "productsContainGmo",
+    "answerType": "str",
+    "label": "Products Contain Gmo"
+  },
+  {
+    "order": 72,
+    "requirementUuid": "06c8cbac-8ef3-4b04-93ea-8bd07591a7af",
+    "fieldKey": "claimsSpecificRequirementsFromClientsListTextarea",
+    "answerType": "str",
+    "label": "Claims Specific Requirements From Clients List Textarea"
+  },
+  {
+    "order": 72,
+    "requirementUuid": "06c8cbac-8ef3-4b04-93ea-8bd07591a7af",
+    "fieldKey": "productExcludedMethodsListText",
+    "answerType": "str",
+    "label": "Product Excluded Methods List Text"
+  },
+  {
+    "order": 72,
+    "requirementUuid": "06c8cbac-8ef3-4b04-93ea-8bd07591a7af",
+    "fieldKey": "productsContainGmoListText",
+    "answerType": "str",
+    "label": "Products Contain Gmo List Text"
+  },
+  {
+    "order": 86,
+    "requirementUuid": "d1afbedd-db55-426c-bd4b-4c2a7c7fe2dc",
+    "fieldKey": "foodContactPackagingList",
+    "answerType": "list",
+    "label": "Food Contact Packaging List"
+  },
+  {
+    "order": 86,
+    "requirementUuid": "d1afbedd-db55-426c-bd4b-4c2a7c7fe2dc",
+    "fieldKey": "foodContactPackagingListText",
+    "answerType": "str",
+    "label": "Food Contact Packaging List Text"
+  },
+  {
+    "order": 93,
+    "requirementUuid": "0b5e4983-05a9-47e8-b4de-8bda34d0b062",
+    "fieldKey": "animalSlaughteringSitesDetails_en",
+    "answerType": "str",
+    "label": "Animal Slaughtering Sites Details En"
+  },
+  {
+    "order": 93,
+    "requirementUuid": "0b5e4983-05a9-47e8-b4de-8bda34d0b062",
+    "fieldKey": "animalSlaughteringSitesDetailsPlanDescription_en",
+    "answerType": "str",
+    "label": "Animal Slaughtering Sites Details Plan Description En"
+  },
+  {
+    "order": 93,
+    "requirementUuid": "0b5e4983-05a9-47e8-b4de-8bda34d0b062",
+    "fieldKey": "animalSlaughteringSitesDetails",
+    "answerType": "str",
+    "label": "Animal Slaughtering Sites Details"
+  },
+  {
+    "order": 93,
+    "requirementUuid": "0b5e4983-05a9-47e8-b4de-8bda34d0b062",
+    "fieldKey": "animalSlaughteringSitesDetailsPlanDescription",
+    "answerType": "str",
+    "label": "Animal Slaughtering Sites Details Plan Description"
+  },
+  {
+    "order": 96,
+    "requirementUuid": "d6dcc158-351a-4fe5-8ae5-ceda7d7d4f78",
+    "fieldKey": "summaryConditionsOfInfrastructure_en",
+    "answerType": "str",
+    "label": "Summary Conditions Of Infrastructure En"
+  },
+  {
+    "order": 96,
+    "requirementUuid": "d6dcc158-351a-4fe5-8ae5-ceda7d7d4f78",
+    "fieldKey": "summaryConditionsOfInfrastructure",
+    "answerType": "str",
+    "label": "Summary Conditions Of Infrastructure"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterPerformedAnalysisList",
+    "answerType": "list",
+    "label": "Water Performed Analysis List"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterMicrobiologicalParametersList",
+    "answerType": "list",
+    "label": "Water Microbiological Parameters List"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterChemicalParametersList",
+    "answerType": "list",
+    "label": "Water Chemical Parameters List"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterOriginPotableUsedWater_en",
+    "answerType": "str",
+    "label": "Water Origin Potable Used Water En"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterAnalysisFrequency_en",
+    "answerType": "str",
+    "label": "Water Analysis Frequency En"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterOriginOwnWaterSource",
+    "answerType": "str",
+    "label": "Water Origin Own Water Source"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterOriginLocalWaterSupplier",
+    "answerType": "str",
+    "label": "Water Origin Local Water Supplier"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterInternalLaboratory",
+    "answerType": "str",
+    "label": "Water Internal Laboratory"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterExternalLaboratory",
+    "answerType": "str",
+    "label": "Water External Laboratory"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterOriginPotableUsedWater",
+    "answerType": "str",
+    "label": "Water Origin Potable Used Water"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterAnalysisFrequency",
+    "answerType": "str",
+    "label": "Water Analysis Frequency"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterPerformedAnalysisListDescription_en",
+    "answerType": "str",
+    "label": "Water Performed Analysis List Description En"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterPerformedAnalysisListDescription",
+    "answerType": "str",
+    "label": "Water Performed Analysis List Description"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterMicrobiologicalParametersListDescription_en",
+    "answerType": "str",
+    "label": "Water Microbiological Parameters List Description En"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterMicrobiologicalParametersListDescription",
+    "answerType": "str",
+    "label": "Water Microbiological Parameters List Description"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterChemicalParametersListDescription_en",
+    "answerType": "str",
+    "label": "Water Chemical Parameters List Description En"
+  },
+  {
+    "order": 117,
+    "requirementUuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+    "fieldKey": "waterChemicalParametersListDescription",
+    "answerType": "str",
+    "label": "Water Chemical Parameters List Description"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialContaminationMitigationMethodsList",
+    "answerType": "list",
+    "label": "Foreign Material Contamination Mitigation Methods List"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialNoDetectionEquipment",
+    "answerType": "list",
+    "label": "Foreign Material No Detection Equipment"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialDetectionNonCCPIronSampleSize",
+    "answerType": "str",
+    "label": "Foreign Material Detection Non C C P Iron Sample Size"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialDetectionNonCCPNonIronSampleSize",
+    "answerType": "str",
+    "label": "Foreign Material Detection Non C C P Non Iron Sample Size"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialDetectionNonCCPStainlessSteelSampleSize",
+    "answerType": "str",
+    "label": "Foreign Material Detection Non C C P Stainless Steel Sample Size"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialDetectionNonCCPOthersSampleSize",
+    "answerType": "str",
+    "label": "Foreign Material Detection Non C C P Others Sample Size"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialContaminationMitigationMethodsListDescription_en",
+    "answerType": "str",
+    "label": "Foreign Material Contamination Mitigation Methods List Description En"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialContaminationMitigationMethodsListDescription",
+    "answerType": "str",
+    "label": "Foreign Material Contamination Mitigation Methods List Description"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialNoDetectionEquipmentDescription_en",
+    "answerType": "str",
+    "label": "Foreign Material No Detection Equipment Description En"
+  },
+  {
+    "order": 138,
+    "requirementUuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+    "fieldKey": "foreignMaterialNoDetectionEquipmentDescription",
+    "answerType": "str",
+    "label": "Foreign Material No Detection Equipment Description"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestInfestationMonitoringFrequency",
+    "answerType": "list",
+    "label": "Pest Infestation Monitoring Frequency"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestTargetOrganismsList",
+    "answerType": "list",
+    "label": "Pest Target Organisms List"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestInfestationHasExternalServiceProvider",
+    "answerType": "str",
+    "label": "Pest Infestation Has External Service Provider"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestInfestationOwnEmployeeMonitoring",
+    "answerType": "str",
+    "label": "Pest Infestation Own Employee Monitoring"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestTargetOrganismsListDescription_en",
+    "answerType": "str",
+    "label": "Pest Target Organisms List Description En"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestTargetOrganismsListDescription",
+    "answerType": "str",
+    "label": "Pest Target Organisms List Description"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestControlInspectionDate",
+    "answerType": "str",
+    "label": "Pest Control Inspection Date"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestInspectionReportFacilities",
+    "answerType": "str",
+    "label": "Pest Inspection Report Facilities"
+  },
+  {
+    "order": 151,
+    "requirementUuid": "0ec187fc-6619-4721-9700-84c79473623e",
+    "fieldKey": "pestInspectionReportFacilitiesActionsListText",
+    "answerType": "str",
+    "label": "Pest Inspection Report Facilities Actions List Text"
+  },
+  {
+    "order": 181,
+    "requirementUuid": "2be36df4-be3d-431f-bd74-e7196bbf8aae",
+    "fieldKey": "traceabilityOriginOfProductSample",
+    "answerType": "list",
+    "label": "Traceability Origin Of Product Sample"
+  },
+  {
+    "order": 181,
+    "requirementUuid": "2be36df4-be3d-431f-bd74-e7196bbf8aae",
+    "fieldKey": "traceabilityFinishedProduct",
+    "answerType": "str",
+    "label": "Traceability Finished Product"
+  },
+  {
+    "order": 181,
+    "requirementUuid": "2be36df4-be3d-431f-bd74-e7196bbf8aae",
+    "fieldKey": "traceabilitySampleTime",
+    "answerType": "str",
+    "label": "Traceability Sample Time"
+  },
+  {
+    "order": 181,
+    "requirementUuid": "2be36df4-be3d-431f-bd74-e7196bbf8aae",
+    "fieldKey": "traceabilityIngredientsSpecifications_en",
+    "answerType": "str",
+    "label": "Traceability Ingredients Specifications En"
+  },
+  {
+    "order": 181,
+    "requirementUuid": "2be36df4-be3d-431f-bd74-e7196bbf8aae",
+    "fieldKey": "traceabilityResultCompliant",
+    "answerType": "str",
+    "label": "Traceability Result Compliant"
+  },
+  {
+    "order": 181,
+    "requirementUuid": "2be36df4-be3d-431f-bd74-e7196bbf8aae",
+    "fieldKey": "traceabilityIngredientsSpecifications",
+    "answerType": "str",
+    "label": "Traceability Ingredients Specifications"
+  },
+  {
+    "order": 187,
+    "requirementUuid": "232bca37-cf44-4bf2-9a1c-484118fc9636",
+    "fieldKey": "allergensOnSiteList",
+    "answerType": "list",
+    "label": "Allergens On Site List"
+  },
+  {
+    "order": 187,
+    "requirementUuid": "232bca37-cf44-4bf2-9a1c-484118fc9636",
+    "fieldKey": "allergensSummaryMitigationMeasuresList",
+    "answerType": "list",
+    "label": "Allergens Summary Mitigation Measures List"
+  },
+  {
+    "order": 187,
+    "requirementUuid": "232bca37-cf44-4bf2-9a1c-484118fc9636",
+    "fieldKey": "allergensOnSiteListDescription_en",
+    "answerType": "str",
+    "label": "Allergens On Site List Description En"
+  },
+  {
+    "order": 187,
+    "requirementUuid": "232bca37-cf44-4bf2-9a1c-484118fc9636",
+    "fieldKey": "allergensOnSiteListDescription",
+    "answerType": "str",
+    "label": "Allergens On Site List Description"
+  },
+  {
+    "order": 187,
+    "requirementUuid": "232bca37-cf44-4bf2-9a1c-484118fc9636",
+    "fieldKey": "allergensSummaryMitigationMeasuresListDescription_en",
+    "answerType": "str",
+    "label": "Allergens Summary Mitigation Measures List Description En"
+  },
+  {
+    "order": 187,
+    "requirementUuid": "232bca37-cf44-4bf2-9a1c-484118fc9636",
+    "fieldKey": "allergensSummaryMitigationMeasuresListDescription",
+    "answerType": "str",
+    "label": "Allergens Summary Mitigation Measures List Description"
+  },
+  {
+    "order": 190,
+    "requirementUuid": "61aa6d6e-786e-49fc-a0da-ca9cdb1dfad9",
+    "fieldKey": "foodFraudsCriteriaSelection_en",
+    "answerType": "str",
+    "label": "Food Frauds Criteria Selection En"
+  },
+  {
+    "order": 190,
+    "requirementUuid": "61aa6d6e-786e-49fc-a0da-ca9cdb1dfad9",
+    "fieldKey": "foodFraudsDetails_en",
+    "answerType": "str",
+    "label": "Food Frauds Details En"
+  },
+  {
+    "order": 190,
+    "requirementUuid": "61aa6d6e-786e-49fc-a0da-ca9cdb1dfad9",
+    "fieldKey": "widgetFoodFraudPicker",
+    "answerType": "list",
+    "label": "Widget Food Fraud Picker"
+  },
+  {
+    "order": 190,
+    "requirementUuid": "61aa6d6e-786e-49fc-a0da-ca9cdb1dfad9",
+    "fieldKey": "foodFraudsCriteriaSelection",
+    "answerType": "str",
+    "label": "Food Frauds Criteria Selection"
+  },
+  {
+    "order": 190,
+    "requirementUuid": "61aa6d6e-786e-49fc-a0da-ca9cdb1dfad9",
+    "fieldKey": "foodFraudsDetails",
+    "answerType": "str",
+    "label": "Food Frauds Details"
+  },
+  {
+    "order": 208,
+    "requirementUuid": "c8c35809-3a96-43f5-ad61-e35f5ba0a604",
+    "fieldKey": "quantityControlFrequencyMethodologyChecking_en",
+    "answerType": "str",
+    "label": "Quantity Control Frequency Methodology Checking En"
+  },
+  {
+    "order": 208,
+    "requirementUuid": "c8c35809-3a96-43f5-ad61-e35f5ba0a604",
+    "fieldKey": "quantityControlEmark",
+    "answerType": "str",
+    "label": "Quantity Control Emark"
+  },
+  {
+    "order": 208,
+    "requirementUuid": "c8c35809-3a96-43f5-ad61-e35f5ba0a604",
+    "fieldKey": "quantityControlFrequencyMethodologyChecking",
+    "answerType": "str",
+    "label": "Quantity Control Frequency Methodology Checking"
+  },
+  {
+    "order": 210,
+    "requirementUuid": "abd4ca4e-f863-4c17-907d-1b600abcfb0d",
+    "fieldKey": "testingInteralAnalysis_en",
+    "answerType": "str",
+    "label": "Testing Interal Analysis En"
+  },
+  {
+    "order": 210,
+    "requirementUuid": "abd4ca4e-f863-4c17-907d-1b600abcfb0d",
+    "fieldKey": "testingExteralAnalysis_en",
+    "answerType": "str",
+    "label": "Testing Exteral Analysis En"
+  },
+  {
+    "order": 210,
+    "requirementUuid": "abd4ca4e-f863-4c17-907d-1b600abcfb0d",
+    "fieldKey": "testingInteralAnalysis",
+    "answerType": "str",
+    "label": "Testing Interal Analysis"
+  },
+  {
+    "order": 210,
+    "requirementUuid": "abd4ca4e-f863-4c17-907d-1b600abcfb0d",
+    "fieldKey": "testingExteralAnalysis",
+    "answerType": "str",
+    "label": "Testing Exteral Analysis"
+  },
+  {
+    "order": 211,
+    "requirementUuid": "ca492fd2-e741-4284-a0cf-a95d1916e1f1",
+    "fieldKey": "parametersEnvironmentalMonitoringProgramList",
+    "answerType": "list",
+    "label": "Parameters Environmental Monitoring Program List"
+  },
+  {
+    "order": 211,
+    "requirementUuid": "ca492fd2-e741-4284-a0cf-a95d1916e1f1",
+    "fieldKey": "postSlaughterTimeAndTemperatureParameters",
+    "answerType": "str",
+    "label": "Post Slaughter Time And Temperature Parameters"
+  },
+  {
+    "order": 211,
+    "requirementUuid": "ca492fd2-e741-4284-a0cf-a95d1916e1f1",
+    "fieldKey": "parametersEnvironmentalMonitoringProgramListText",
+    "answerType": "str",
+    "label": "Parameters Environmental Monitoring Program List Text"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsReasonsList",
+    "answerType": "list",
+    "label": "Complaints Reasons List"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsForeginMaterialList",
+    "answerType": "list",
+    "label": "Complaints Foregin Material List"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsTotalAmount",
+    "answerType": "str",
+    "label": "Complaints Total Amount"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsAmountFromConsumers",
+    "answerType": "str",
+    "label": "Complaints Amount From Consumers"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsAmountFromRetailers",
+    "answerType": "str",
+    "label": "Complaints Amount From Retailers"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsAmountFromAuthorities_en",
+    "answerType": "str",
+    "label": "Complaints Amount From Authorities En"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsAmountForeignBody_en",
+    "answerType": "str",
+    "label": "Complaints Amount Foreign Body En"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsAmountFromAuthorities",
+    "answerType": "str",
+    "label": "Complaints Amount From Authorities"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsReasonsListDescription_en",
+    "answerType": "str",
+    "label": "Complaints Reasons List Description En"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsReasonsListDescription",
+    "answerType": "str",
+    "label": "Complaints Reasons List Description"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsAmountForeignBody",
+    "answerType": "str",
+    "label": "Complaints Amount Foreign Body"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsForeginMaterialListDescription_en",
+    "answerType": "str",
+    "label": "Complaints Foregin Material List Description En"
+  },
+  {
+    "order": 220,
+    "requirementUuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+    "fieldKey": "complaintsForeginMaterialListDescription",
+    "answerType": "str",
+    "label": "Complaints Foregin Material List Description"
+  },
+  {
+    "order": 223,
+    "requirementUuid": "cca76a7e-b61f-48e6-9cb7-0711d1393094",
+    "fieldKey": "withdrawalsAmount",
+    "answerType": "str",
+    "label": "Withdrawals Amount"
+  },
+  {
+    "order": 223,
+    "requirementUuid": "cca76a7e-b61f-48e6-9cb7-0711d1393094",
+    "fieldKey": "recallsAmount",
+    "answerType": "str",
+    "label": "Recalls Amount"
+  }
+]

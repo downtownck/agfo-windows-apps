@@ -1,0 +1,182 @@
+{
+ "allergensOnSiteList": {
+  "kind": "group",
+  "root": [
+   "allergensOnSiteListDescription_en",
+   "allergensOnSiteListDescription"
+  ],
+  "sub": null
+ },
+ "allergensSummaryMitigationMeasuresList": {
+  "kind": "group",
+  "root": [
+   "allergensSummaryMitigationMeasuresListDescription_en",
+   "allergensSummaryMitigationMeasuresListDescription"
+  ],
+  "sub": null
+ },
+ "auditLanguage": {
+  "kind": "codes"
+ },
+ "auditWitnessType": {
+  "kind": "codes"
+ },
+ "ccpImplementedList": {
+  "kind": "group",
+  "root": [
+   "ccpImplementedListDescription_en",
+   "ccpImplementedListDescription"
+  ],
+  "sub": [
+   "ccpProcessStepInformation_en",
+   "ccpProcessStepInformation",
+   "ccpControlMethodInformation_en",
+   "ccpControlMethodInformation",
+   "ccpCriticalLimitsInformation_en",
+   "ccpCriticalLimitsInformation",
+   "ccpControlFrequencyInformation_en",
+   "ccpControlFrequencyInformation"
+  ]
+ },
+ "claimsSpecificRequirementsFromClientsList": {
+  "kind": "group",
+  "root": [
+   "claimsSpecificRequirementsFromClientsListTextarea"
+  ],
+  "sub": null
+ },
+ "companyClaims": {
+  "kind": "codes"
+ },
+ "companyCountry": {
+  "kind": "codes"
+ },
+ "companyGln": {
+  "kind": "group",
+  "root": [
+   "companyGlnNumber"
+  ],
+  "sub": null
+ },
+ "companyLegalRegistrationNumbers": {
+  "kind": "group",
+  "root": [
+   "companyLegalRegistrationNumbersText"
+  ],
+  "sub": null
+ },
+ "companySanitaryLegalAuthorisationNumbers": {
+  "kind": "group",
+  "root": [
+   "companySanitaryLegalAuthorisationNumbersText"
+  ],
+  "sub": null
+ },
+ "complaintsForeginMaterialList": {
+  "kind": "group",
+  "root": [
+   "complaintsForeginMaterialListDescription_en",
+   "complaintsForeginMaterialListDescription"
+  ],
+  "sub": null
+ },
+ "complaintsReasonsList": {
+  "kind": "group",
+  "root": [
+   "complaintsReasonsListDescription_en",
+   "complaintsReasonsListDescription"
+  ],
+  "sub": null
+ },
+ "customerAgreementTypeRelation": {
+  "kind": "codes"
+ },
+ "foodContactPackagingList": {
+  "kind": "group",
+  "root": [
+   "foodContactPackagingListText"
+  ],
+  "sub": null
+ },
+ "foreignMaterialContaminationMitigationMethodsList": {
+  "kind": "group",
+  "root": [
+   "foreignMaterialContaminationMitigationMethodsListDescription_en",
+   "foreignMaterialContaminationMitigationMethodsListDescription"
+  ],
+  "sub": null
+ },
+ "foreignMaterialNoDetectionEquipment": {
+  "kind": "group",
+  "root": [
+   "foreignMaterialNoDetectionEquipmentDescription_en",
+   "foreignMaterialNoDetectionEquipmentDescription"
+  ],
+  "sub": null
+ },
+ "otherStandardsCertificationCombinedAssessment": {
+  "kind": "group",
+  "root": [
+   "otherStandardsCertificationCombinedAssessmentText"
+  ],
+  "sub": null
+ },
+ "otherStandardsCertificationStandardsIfs": {
+  "kind": "codes"
+ },
+ "parametersEnvironmentalMonitoringProgramList": {
+  "kind": "group",
+  "root": [
+   "parametersEnvironmentalMonitoringProgramListText"
+  ],
+  "sub": null
+ },
+ "pestTargetOrganismsList": {
+  "kind": "group",
+  "root": [
+   "pestTargetOrganismsListDescription_en",
+   "pestTargetOrganismsListDescription"
+  ],
+  "sub": null
+ },
+ "productExcludedMethodsList": {
+  "kind": "group",
+  "root": [
+   "productExcludedMethodsListText"
+  ],
+  "sub": null
+ },
+ "qmsLanguage": {
+  "kind": "codes"
+ },
+ "waterChemicalParametersList": {
+  "kind": "group",
+  "root": [
+   "waterChemicalParametersListDescription_en",
+   "waterChemicalParametersListDescription"
+  ],
+  "sub": null
+ },
+ "waterMicrobiologicalParametersList": {
+  "kind": "group",
+  "root": [
+   "waterMicrobiologicalParametersListDescription_en",
+   "waterMicrobiologicalParametersListDescription"
+  ],
+  "sub": null
+ },
+ "waterPerformedAnalysisList": {
+  "kind": "group",
+  "root": [
+   "waterPerformedAnalysisListDescription_en",
+   "waterPerformedAnalysisListDescription"
+  ],
+  "sub": null
+ },
+ "widgetCcpPickerByProductScope": {
+  "kind": "refs"
+ },
+ "workingLanguage": {
+  "kind": "codes"
+ }
+}
