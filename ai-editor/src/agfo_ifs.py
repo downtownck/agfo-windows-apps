@@ -228,12 +228,24 @@ class Requirement:
     def number(self):
         return self.report.number_of(self.uuid)
 
+    def entry(self):
+        return self.report.dictionary.get(self.uuid) or {}
+
+    @property
+    def is_ko(self):
+        return bool(self.entry().get('ko'))
+
     def title(self):
-        """Madde basligi: sozlukte varsa numara + metin; yoksa ic alanlarindan konu ya da sira."""
+        """Madde basligi: numara (+ KO) + metnin basi; metin yoksa bolum, ic alan ya da aciklamanin basi."""
         num = self.number()
-        text = self.report.requirement_text(self.uuid)
-        if num or text:
-            return ('%s %s' % (num, text)).strip()
+        if num:
+            e = self.entry()
+            text = re.sub(r'\s+', ' ', e.get('text') or '').strip()
+            text = re.sub(r'^KO N°\s*\d+\s*:\s*', '', text)
+            if not text:
+                sec = (e.get('section') or '').split(' › ')[-1]
+                text = re.sub(r'^[\d.]+\s*', '', sec)
+            return ('%s%s %s' % (num, ' KO' if e.get('ko') else '', (text[:80] + '…') if len(text) > 80 else text)).strip()
         if self.fields:
             first = next(iter(self.fields))
             return 'Madde %d · %s' % (self.index + 1, label_of(re.sub(r'(_en)?$', '', first)))
@@ -419,20 +431,94 @@ class IfsReport:
 
 
 def load_dictionary(module_id):
-    """Madde sozlugu {uuid: {'no', 'text'}}: once kullanicinin ice aktardigi, sonra paketteki. Yoksa bos."""
+    """Madde sozlugu {uuid: {'no', 'ko', 'star', 'section', 'text'}}.
+    Paketteki <modul>-requirements.json: kimlik -> madde no, KO, bolum (IFS metni yok - telifli). Kullanicinin ice aktardigi
+    <modul>-texts.json (yerel, yalniz bu bilgisayarda): kimlik -> madde metni. Ikisi birlestirilir."""
     out = {}
     for base in (data_dir(), user_dictionary_dir()):
-        p = pathlib.Path(base) / ('%s-requirements.json' % module_id)
-        try:
-            rows = json.loads(p.read_text(encoding='utf-8'))
-        except (OSError, ValueError):
-            continue
-        if isinstance(rows, dict):
-            rows = [dict(v, uuid=k) for k, v in rows.items() if isinstance(v, dict)]
-        for r in rows if isinstance(rows, list) else []:
-            if isinstance(r, dict) and r.get('uuid'):
-                out[r['uuid']] = {'no': str(r.get('no') or r.get('number') or ''), 'text': str(r.get('text') or r.get('title') or '')}
+        for name in ('%s-requirements.json' % module_id, '%s-texts.json' % module_id):
+            p = pathlib.Path(base) / name
+            try:
+                rows = json.loads(p.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                continue
+            if isinstance(rows, dict):
+                rows = [dict(v, uuid=k) for k, v in rows.items() if isinstance(v, dict)]
+            for r in rows if isinstance(rows, list) else []:
+                if not (isinstance(r, dict) and r.get('uuid')):
+                    continue
+                e = out.setdefault(r['uuid'], {'no': '', 'ko': False, 'star': False, 'section': '', 'text': ''})
+                for k in ('no', 'section', 'text'):
+                    if r.get(k):
+                        e[k] = str(r[k])
+                for k in ('ko', 'star'):
+                    if k in r:
+                        e[k] = bool(r[k])
     return out
+
+
+def parse_checklist_text(raw):
+    """IFS kontrol listesi (Excel'den kopyalanmis, sekmeyle ayrilmis: no <TAB> metin; cok satirli hucreler tirnakli).
+    Donus: sirali maddeler [{'no', 'ko', 'star', 'text'}] ve basliklar {no: baslik}. Basliklar madde sayilmaz."""
+    import csv
+    import io
+    raw = raw.lstrip('\ufeff').replace('\r\n', '\n').replace('\r', '\n')
+    rows = list(csv.reader(io.StringIO(raw), delimiter='\t', quotechar='"'))
+    reqs, heads = [], {}
+    for r in rows:
+        if not r or not any(c.strip() for c in r):
+            continue
+        num = r[0].strip()
+        text = (r[1] if len(r) > 1 else '').strip()
+        m = re.match(r'^(\d+(?:\.\d+)*)\.?', num.replace(' ', ''))
+        if not m:
+            continue
+        n = m.group(1)
+        is_req = ('shall' in text.lower() or text.startswith('KO N') or len(text) > 120) and n.count('.') >= 2
+        if is_req:
+            reqs.append({'no': n, 'ko': 'KO' in num, 'star': '*' in num, 'text': _unwrap(text)})
+        else:
+            heads[n] = re.sub(r'\s+', ' ', text).strip()
+    return reqs, heads
+
+
+def _unwrap(text):
+    """PDF'ten gelen satir kirilmalarini birlestirir; madde imli (•) satirlar ayri kalir."""
+    lines = [ln.strip() for ln in text.strip().split('\n')]
+    out = []
+    for ln in lines:
+        if not ln:
+            continue
+        if out and not ln.startswith('•') and not out[-1].endswith(':') and not out[-1].startswith('•'):
+            out[-1] += ' ' + ln
+        elif out and not ln.startswith('•') and out[-1].startswith('•') and not out[-1].endswith(('.', ':')):
+            out[-1] += ' ' + ln                         # madde iminin devam satiri
+        else:
+            out.append(ln)
+    return '\n'.join(out)
+
+
+def import_requirement_texts(report, path):
+    """Kullanicinin IFS kontrol listesi dosyasindan madde metinlerini bu raporun kimliklerine (sirayla) esler ve yerel
+    sozluge yazar. Madde sayisi tutmazsa ya da numaralar paketteki sozlukle celisirse hata verir (yanlis esleme olmasin)."""
+    try:
+        raw = pathlib.Path(path).read_bytes().decode('utf-8-sig', 'replace')
+    except OSError as e:
+        raise IfsError('Dosya okunamadı: %s' % e)
+    reqs, _heads = parse_checklist_text(raw)
+    items = report.requirements()
+    if len(reqs) != len(items):
+        raise IfsError('Listede %d madde var, raporda %d. Liste bu standardın kontrol listesi değil ya da eksik.'
+                       % (len(reqs), len(items)))
+    bad = [(it.number(), r['no']) for it, r in zip(items, reqs) if it.number() and it.number() != r['no']]
+    if bad:
+        raise IfsError('Madde numaraları sözlükle uyuşmuyor (ör. %s ≠ %s); metinler eşlenmedi.' % bad[0])
+    out = [{'uuid': it.uuid, 'no': r['no'], 'ko': r['ko'], 'star': r['star'], 'text': r['text']} for it, r in zip(items, reqs)]
+    d = pathlib.Path(user_dictionary_dir())
+    d.mkdir(parents=True, exist_ok=True)
+    (d / ('%s-texts.json' % report.module_id)).write_text(json.dumps(out, ensure_ascii=False), encoding='utf-8')
+    report.dictionary = load_dictionary(report.module_id)
+    return len(out)
 
 
 def user_dictionary_dir():

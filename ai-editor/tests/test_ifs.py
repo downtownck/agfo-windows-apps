@@ -121,6 +121,38 @@ class ModelTests(unittest.TestCase):
         finally:
             os.remove(os.path.join(d, 'food_8-requirements.json'))
 
+    def test_package_numbers_match_standard_order(self):
+        reqs = self.r.requirements()
+        self.assertEqual([reqs[i].number() for i in (0, 7, 29, 30, 85, 231)],
+                         ['1.1.1', '1.2.6', '2.3.8.1', '2.3.9.1', '4.5.1', '5.11.4'])
+        self.assertEqual(sum(r.is_ko for r in reqs), 10)                     # IFS Food 8: 10 KO maddesi
+        self.assertIn('foodContactPackagingList', reqs[85].fields)          # 4.5.1 ambalaj listesi
+        self.assertTrue(reqs[30].title().startswith('2.3.9.1 KO'))
+        self.assertEqual(len({r.number() for r in reqs}), 232)
+
+    def _synthetic_list(self, n=None, shift=False):
+        rows = ['1\tChapter one']
+        for i, r in enumerate(self.r.requirements()[:n]):
+            no = r.number() if not (shift and i == 3) else '9.9.9'
+            rows.append('%s%s\t"Requirement %d shall be\nmet." ' % (no, ' KO' if r.is_ko else '', i))
+        p = os.path.join(TMP, 'list-%d.txt' % id(self))
+        pathlib.Path(p).write_text('\n'.join(rows), encoding='utf-8')
+        return p
+
+    def test_import_requirement_texts(self):
+        n = I.import_requirement_texts(self.r, self._synthetic_list())
+        self.assertEqual(n, 232)
+        req = self.r.requirements()[85]
+        self.assertEqual(self.r.requirement_text(req.uuid), 'Requirement 85 shall be met.')    # satir kirilmasi birlesir
+        self.assertTrue(req.title().startswith('4.5.1 Requirement 85'))
+        again = I.IfsReport(self.path)                                     # yerelde saklandi
+        self.assertEqual(again.requirement_text(req.uuid), 'Requirement 85 shall be met.')
+        with self.assertRaises(I.IfsError):
+            I.import_requirement_texts(self.r, self._synthetic_list(n=100))   # madde sayisi tutmaz
+        with self.assertRaises(I.IfsError):
+            I.import_requirement_texts(self.r, self._synthetic_list(shift=True))  # numara celisir
+        os.remove(os.path.join(I.user_dictionary_dir(), 'food_8-texts.json'))
+
     def test_labels(self):
         self.assertEqual(I.label_of('foodContactPackagingList'), 'Food Contact Packaging List')
         self.assertTrue(I.label_of('numberOfEmployeesDescription_en').endswith('(EN)'))
