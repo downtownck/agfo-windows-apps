@@ -1,0 +1,1626 @@
+[
+{
+"uuid": "b0befafb-d6f3-4eaa-abc3-818e804b72ca",
+"no": "1.1.1",
+"ko": false,
+"star": true,
+"section": "1 Governance and commitment › 1.1 Policy"
+},
+{
+"uuid": "af21e652-745c-4ef7-ace8-fec6e2e0d183",
+"no": "1.1.2",
+"ko": false,
+"star": false,
+"section": "1 Governance and commitment › 1.1 Policy"
+},
+{
+"uuid": "6db028c0-a208-41ee-9240-83fd88bf8f8c",
+"no": "1.2.1",
+"ko": true,
+"star": true,
+"section": "1 Governance and commitment › 1.2 Corporate structure"
+},
+{
+"uuid": "d417c0e5-2881-450e-ae30-888fc19b2fa6",
+"no": "1.2.2",
+"ko": false,
+"star": false,
+"section": "1 Governance and commitment › 1.2 Corporate structure"
+},
+{
+"uuid": "0ce2bd38-1b0a-4ac5-9ca6-4eedd9425c8b",
+"no": "1.2.3",
+"ko": false,
+"star": true,
+"section": "1 Governance and commitment › 1.2 Corporate structure"
+},
+{
+"uuid": "25b4482f-41e9-4130-867d-bfb642fe2855",
+"no": "1.2.4",
+"ko": false,
+"star": false,
+"section": "1 Governance and commitment › 1.2 Corporate structure"
+},
+{
+"uuid": "08a1c7e6-9397-4a53-bea4-7f7f58581859",
+"no": "1.2.5",
+"ko": false,
+"star": true,
+"section": "1 Governance and commitment › 1.2 Corporate structure"
+},
+{
+"uuid": "2b9073fe-b3ff-4881-bfa5-c37e81afc4df",
+"no": "1.2.6",
+"ko": false,
+"star": true,
+"section": "1 Governance and commitment › 1.2 Corporate structure"
+},
+{
+"uuid": "cd18101a-f1c6-496b-aac7-7be3f1a0fb2e",
+"no": "1.3.1",
+"ko": false,
+"star": true,
+"section": "1 Governance and commitment › 1.3 Management review"
+},
+{
+"uuid": "bc605939-9b6a-4bdc-8093-0a0437450e3f",
+"no": "1.3.2",
+"ko": false,
+"star": false,
+"section": "1 Governance and commitment › 1.3 Management review"
+},
+{
+"uuid": "78e80a4a-83e9-4151-b9b6-5d7461e5622c",
+"no": "1.3.3",
+"ko": false,
+"star": false,
+"section": "1 Governance and commitment › 1.3 Management review"
+},
+{
+"uuid": "a1f4cd4a-459c-4fcf-863a-e8c69c3d2151",
+"no": "2.1.1.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.1 Quality management › 2.1.1 Document management"
+},
+{
+"uuid": "56840ddd-eae6-4572-969b-b86f4fd9f92d",
+"no": "2.1.1.2",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.1 Quality management › 2.1.1 Document management"
+},
+{
+"uuid": "7264be8c-9453-44f3-ab6a-319360ee9b10",
+"no": "2.1.1.3",
+"ko": false,
+"star": true,
+"section": "2 Food safety and quality management system › 2.1 Quality management › 2.1.1 Document management"
+},
+{
+"uuid": "7084dd9a-ed3a-479e-8ccb-1881d62698d6",
+"no": "2.1.2.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.1 Quality management › 2.1.2 Records and documented information"
+},
+{
+"uuid": "6544579d-da50-4599-96b8-8326a2f3204f",
+"no": "2.1.2.2",
+"ko": false,
+"star": true,
+"section": "2 Food safety and quality management system › 2.1 Quality management › 2.1.2 Records and documented information"
+},
+{
+"uuid": "95653f64-cda9-4ee4-b6e6-a07f0242ec6b",
+"no": "2.1.2.3",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.1 Quality management › 2.1.2 Records and documented information"
+},
+{
+"uuid": "5e687929-a0e3-45f6-a6a9-90e9b9d047e5",
+"no": "2.2.1.1",
+"ko": false,
+"star": true,
+"section": "2 Food safety and quality management system › 2.2 Food safety Management › 2.2.1 HACCP plan"
+},
+{
+"uuid": "5e83c2d7-bf01-48bb-aaa5-02caacbbaf75",
+"no": "2.2.1.2",
+"ko": false,
+"star": true,
+"section": "2 Food safety and quality management system › 2.2 Food safety Management › 2.2.1 HACCP plan"
+},
+{
+"uuid": "b86ed641-0dd6-488d-a156-7844122927aa",
+"no": "2.2.1.3",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.2 Food safety Management › 2.2.1 HACCP plan"
+},
+{
+"uuid": "1b17df5e-acb4-4294-895e-8bce29d5d559",
+"no": "2.2.1.4",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.2 Food safety Management › 2.2.1 HACCP plan"
+},
+{
+"uuid": "428d6954-18d8-4116-a32d-b98fada29e87",
+"no": "2.3.1.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.1 HACCP team"
+},
+{
+"uuid": "63229f76-283d-4f27-b1de-46cb29f96c48",
+"no": "2.3.1.2",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.1 HACCP team"
+},
+{
+"uuid": "04477440-9c07-4399-876e-58b99f96af6b",
+"no": "2.3.2.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.2 Product description"
+},
+{
+"uuid": "b2b6fd37-1554-4bbb-adad-e43a1f2b8135",
+"no": "2.3.3.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.3 Identify intended use and users of the product"
+},
+{
+"uuid": "bddae36f-6b48-428c-98c9-09122dd18838",
+"no": "2.3.4.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.4 Construct flow diagram"
+},
+{
+"uuid": "e2ef4917-9ec6-4be2-a7d2-eefd3ee73d3f",
+"no": "2.3.5.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.5 On-site confirmation of the flow diagram"
+},
+{
+"uuid": "1a28da66-51af-4ff5-9856-1333a6a03a0a",
+"no": "2.3.6.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.6 Conduct a hazard analysis for each step"
+},
+{
+"uuid": "f66e568b-fe0a-45f4-94b3-170e1967850b",
+"no": "2.3.7.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.7 Determine critical control points and other control measures"
+},
+{
+"uuid": "17c78125-2e50-4aa0-b99e-ed1ad5451641",
+"no": "2.3.8.1",
+"ko": false,
+"star": true,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.8 Establish validated critical limits for each CCP"
+},
+{
+"uuid": "4b1e1c3d-8221-46cd-ad48-e99ed848093c",
+"no": "2.3.9.1",
+"ko": true,
+"star": true,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.9 Establish a monitoring system for each CCP"
+},
+{
+"uuid": "f415099d-af69-4d2e-8b38-4b8c62af63c7",
+"no": "2.3.9.2",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.9 Establish a monitoring system for each CCP"
+},
+{
+"uuid": "304775f7-ce6a-4e03-9be4-7d5127b63d07",
+"no": "2.3.9.3",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.9 Establish a monitoring system for each CCP"
+},
+{
+"uuid": "5dcb980a-d5d8-4a96-a4f8-ac56aeec7d84",
+"no": "2.3.9.4",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.9 Establish a monitoring system for each CCP"
+},
+{
+"uuid": "1741ef36-46fc-46a7-9de9-0304b0b7eaeb",
+"no": "2.3.10.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.10 Establish corrective actions"
+},
+{
+"uuid": "da7bdeb1-e127-40d1-bd53-f7c03e94dec2",
+"no": "2.3.11.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.11 Validate the HACCP plan and establish verification procedures"
+},
+{
+"uuid": "783d1970-08a9-4936-9a06-44a28f401fbf",
+"no": "2.3.11.2",
+"ko": false,
+"star": true,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.11 Validate the HACCP plan and establish verification procedures"
+},
+{
+"uuid": "9fe76064-8cd4-4c93-99a0-50b6265a181e",
+"no": "2.3.12.1",
+"ko": false,
+"star": false,
+"section": "2 Food safety and quality management system › 2.3 HACCP analysis › 2.3.12 Establish documentation and record keeping"
+},
+{
+"uuid": "3a2dccf1-c5bf-46d7-8c71-420a253e02c5",
+"no": "3.1.1",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.1 Human resources"
+},
+{
+"uuid": "9e1dad93-3d1b-4d6a-8cd5-7845a5b77414",
+"no": "3.1.2",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.1 Human resources"
+},
+{
+"uuid": "06e799e4-e60c-442d-97dd-c8b4060c036a",
+"no": "3.2.1",
+"ko": false,
+"star": true,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "de005a46-5c55-416f-b95a-26dafaf3084b",
+"no": "3.2.2",
+"ko": true,
+"star": true,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "1e60c675-864e-41e6-91c2-c33e74da5894",
+"no": "3.2.3",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "4275ccf1-6196-4fac-bcea-353705223412",
+"no": "3.2.4",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "d2b682eb-97da-4b32-8e64-c0cf0e5fb3a0",
+"no": "3.2.5",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "713d1921-63a1-4b0d-899a-fcb0b9ec6cfc",
+"no": "3.2.6",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "9a3b80a6-3471-47e0-8227-ff9abd89693c",
+"no": "3.2.7",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "1f885696-a52a-47d8-b119-75e7f8c32b6c",
+"no": "3.2.8",
+"ko": false,
+"star": true,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "f37ee58d-671f-442f-88a2-4d09cd60be9c",
+"no": "3.2.9",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "eb1c9258-ad04-4cc5-9694-2c0bb65d0d66",
+"no": "3.2.10",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "c7c9edf9-a840-4da9-8c7d-87aa6d14cc43",
+"no": "3.2.11",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.2 Personal hygiene"
+},
+{
+"uuid": "44fc33d3-44b2-43a2-842e-771b1546bb37",
+"no": "3.3.1",
+"ko": false,
+"star": true,
+"section": "3 Resource Management › 3.3 Training and instruction"
+},
+{
+"uuid": "d834fd2d-708e-4398-ba22-34ee0cae4326",
+"no": "3.3.2",
+"ko": false,
+"star": true,
+"section": "3 Resource Management › 3.3 Training and instruction"
+},
+{
+"uuid": "d740a6e8-7926-4b9e-a799-d784e48995bb",
+"no": "3.3.3",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.3 Training and instruction"
+},
+{
+"uuid": "65333ae6-6858-437d-8501-e35b7d1afad5",
+"no": "3.3.4",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.3 Training and instruction"
+},
+{
+"uuid": "32472b90-efcb-4e1f-ac3f-505b8bb5ac12",
+"no": "3.4.1",
+"ko": false,
+"star": true,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "abc47cbb-9847-4297-be3e-f4e1461305e6",
+"no": "3.4.2",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "0f4ad416-e295-4d34-8cb0-67adf94d78c0",
+"no": "3.4.3",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "5964bc6e-e2d5-47fb-bb60-b690671ce840",
+"no": "3.4.4",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "171e9f65-7029-41e8-a16f-3f5e22c08bc6",
+"no": "3.4.5",
+"ko": false,
+"star": true,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "28ad004d-7fea-4b97-84a2-d0050e4901a7",
+"no": "3.4.6",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "3d1dbd02-64d7-4bc8-b9fb-d1ede60db59e",
+"no": "3.4.7",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "17f35b6c-3d19-44ac-88d4-4eb616173935",
+"no": "3.4.8",
+"ko": false,
+"star": false,
+"section": "3 Resource Management › 3.4 Staff Facilities"
+},
+{
+"uuid": "600826fb-66aa-4093-b7a3-01d178efb062",
+"no": "4.1.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.1 Customer focus and contract agreement"
+},
+{
+"uuid": "274a4938-d4c2-466b-a269-18e4ce8be725",
+"no": "4.1.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.1 Customer focus and contract agreement"
+},
+{
+"uuid": "fa12c451-5683-4def-b29d-c9cd302249ea",
+"no": "4.1.3",
+"ko": true,
+"star": true,
+"section": "4 Operational processes › 4.1 Customer focus and contract agreement"
+},
+{
+"uuid": "ed3ee1c8-3721-4eba-9725-4d7c6f5d2b2f",
+"no": "4.1.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.1 Customer focus and contract agreement"
+},
+{
+"uuid": "324321ae-ecc9-4206-ba36-3fcfe2d18071",
+"no": "4.2.1.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.2 Specification and Formulas › 4.2.1 Specifications"
+},
+{
+"uuid": "174b2b6f-6951-4615-abfd-17b7dff70508",
+"no": "4.2.1.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.2 Specification and Formulas › 4.2.1 Specifications"
+},
+{
+"uuid": "e5690382-3876-4475-9029-6c70c8529aa4",
+"no": "4.2.1.3",
+"ko": true,
+"star": true,
+"section": "4 Operational processes › 4.2 Specification and Formulas › 4.2.1 Specifications"
+},
+{
+"uuid": "603b2e28-cb19-45f9-9e49-1bb8ff029146",
+"no": "4.2.1.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.2 Specification and Formulas › 4.2.1 Specifications"
+},
+{
+"uuid": "06c8cbac-8ef3-4b04-93ea-8bd07591a7af",
+"no": "4.2.1.5",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.2 Specification and Formulas › 4.2.1 Specifications"
+},
+{
+"uuid": "2c02e8b2-ffc6-46ad-b21b-5fb4dc72d15d",
+"no": "4.3.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.3 Product development/Product modification/Modification of production processes"
+},
+{
+"uuid": "3601ee32-ef3b-4625-ab79-7a22d0ab888e",
+"no": "4.3.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.3 Product development/Product modification/Modification of production processes"
+},
+{
+"uuid": "fd331aff-b428-4547-b84d-299a4837dc74",
+"no": "4.3.3",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.3 Product development/Product modification/Modification of production processes"
+},
+{
+"uuid": "73ad18af-eb42-4b59-9e74-f2e1e634cef7",
+"no": "4.3.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.3 Product development/Product modification/Modification of production processes"
+},
+{
+"uuid": "92048684-3e7e-4edc-b8fe-02166001c967",
+"no": "4.3.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.3 Product development/Product modification/Modification of production processes"
+},
+{
+"uuid": "5b68c3c8-decc-43a2-b30e-0db8adc1361b",
+"no": "4.3.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.3 Product development/Product modification/Modification of production processes"
+},
+{
+"uuid": "443e32b3-da1a-4fd9-a49f-4a9cad57e255",
+"no": "4.4.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.4 Purchasing"
+},
+{
+"uuid": "9ed89ac3-9109-48f7-83b6-a43f02a22156",
+"no": "4.4.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.4 Purchasing"
+},
+{
+"uuid": "e2afbd47-bdd6-4407-97ae-8f59e2085406",
+"no": "4.4.3",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.4 Purchasing"
+},
+{
+"uuid": "02f69f33-7bd6-4491-b21d-e5664372a7af",
+"no": "4.4.4",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.4 Purchasing"
+},
+{
+"uuid": "f6c6811b-6c21-4af6-99fb-6c869cc715f1",
+"no": "4.4.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.4 Purchasing"
+},
+{
+"uuid": "a3946007-f2e1-4e33-b448-0d693c56aba5",
+"no": "4.4.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.4 Purchasing"
+},
+{
+"uuid": "8282e6a2-7336-4c2c-9974-0976d6b840f9",
+"no": "4.4.7",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.4 Purchasing"
+},
+{
+"uuid": "d1afbedd-db55-426c-bd4b-4c2a7c7fe2dc",
+"no": "4.5.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.5 Product packaging"
+},
+{
+"uuid": "081710ff-8663-43d8-8396-ffa939cfda51",
+"no": "4.5.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.5 Product packaging"
+},
+{
+"uuid": "23858c97-1d2a-417d-800f-ce347a280277",
+"no": "4.5.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.5 Product packaging"
+},
+{
+"uuid": "92b9ac24-5a96-49a9-b97b-1004f67f1c5c",
+"no": "4.6.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.6 Factory location"
+},
+{
+"uuid": "0ab37e3e-f3a1-490c-b8cd-9ecfe526d9ea",
+"no": "4.7.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.7 Factory exterior"
+},
+{
+"uuid": "cf092a27-e4d6-4e60-9dcd-923538885c64",
+"no": "4.7.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.7 Factory exterior"
+},
+{
+"uuid": "9c31a047-f0b1-4b49-8d29-a91ed8b60acf",
+"no": "4.8.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.8 Plant layout and process flows"
+},
+{
+"uuid": "0b5e4983-05a9-47e8-b4de-8bda34d0b062",
+"no": "4.8.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.8 Plant layout and process flows"
+},
+{
+"uuid": "cb5e9b77-2704-47b2-9e5f-987ed59e9247",
+"no": "4.8.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.8 Plant layout and process flows"
+},
+{
+"uuid": "f1e8b5c3-4831-482b-b8b5-a638b8559b2d",
+"no": "4.8.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.8 Plant layout and process flows"
+},
+{
+"uuid": "d6dcc158-351a-4fe5-8ae5-ceda7d7d4f78",
+"no": "4.9.1.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.1 Constructional requirements"
+},
+{
+"uuid": "817ce7ff-9138-4d40-a657-db69bd6a5968",
+"no": "4.9.2.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.2 Walls"
+},
+{
+"uuid": "9f47fb58-e6ff-4915-ae86-3e97bda912c3",
+"no": "4.9.2.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.2 Walls"
+},
+{
+"uuid": "3ae09906-b396-4d57-802c-e3f69002d0fe",
+"no": "4.9.2.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.2 Walls"
+},
+{
+"uuid": "a76e9393-eb32-4841-bb6a-9f1828b5cffb",
+"no": "4.9.3.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.3 Floors"
+},
+{
+"uuid": "6428e015-b4cf-4be3-a4bf-78f868640a76",
+"no": "4.9.3.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.3 Floors"
+},
+{
+"uuid": "5563939c-7afd-4eb2-b95f-57141c49b561",
+"no": "4.9.3.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.3 Floors"
+},
+{
+"uuid": "37b2b213-84b3-497c-9dc3-97642a2a6812",
+"no": "4.9.4.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.4 Ceilings/overheads"
+},
+{
+"uuid": "6e66a3d5-ec98-4747-bb78-d79e6e7d55c0",
+"no": "4.9.4.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.4 Ceilings/overheads"
+},
+{
+"uuid": "cbc6d047-d1be-4cec-b372-4c4754b1d08f",
+"no": "4.9.5.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.5 Windows and other openings"
+},
+{
+"uuid": "3eba92da-2acd-4f97-a5d9-65a0a4e2117d",
+"no": "4.9.5.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.5 Windows and other openings"
+},
+{
+"uuid": "448c8397-8b3c-48b6-aa56-41a3c57c7387",
+"no": "4.9.5.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.5 Windows and other openings"
+},
+{
+"uuid": "d2d48e96-8ada-44ac-8cb0-d09e0fbf9db0",
+"no": "4.9.5.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.5 Windows and other openings"
+},
+{
+"uuid": "b7118d9e-f526-4f23-bcb5-3fee8df6f0ce",
+"no": "4.9.6.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.6 Doors and gates"
+},
+{
+"uuid": "aebe4d0b-30b5-43ce-ab4b-bc3ce89be1f6",
+"no": "4.9.6.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.6 Doors and gates"
+},
+{
+"uuid": "1a7aca76-8bc6-48a9-9d06-57fdf80abd61",
+"no": "4.9.6.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.6 Doors and gates"
+},
+{
+"uuid": "696d43e3-3240-49f3-9304-3a18edd70047",
+"no": "4.9.7.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.7 Lighting"
+},
+{
+"uuid": "fd3fe601-cb81-44d7-8f04-0cf775b288d8",
+"no": "4.9.8.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.8 Air conditioning/Ventilation"
+},
+{
+"uuid": "67408ff4-9910-4308-af70-8015f5162c45",
+"no": "4.9.8.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.8 Air conditioning/Ventilation"
+},
+{
+"uuid": "fdf2eb10-6b1c-4ea6-a57a-4d1915d91676",
+"no": "4.9.8.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.8 Air conditioning/Ventilation"
+},
+{
+"uuid": "e321d9d3-f6c4-4b73-a3da-63fd2aa67c5f",
+"no": "4.9.8.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.8 Air conditioning/Ventilation"
+},
+{
+"uuid": "773e43ea-c733-4d2c-8133-43993ed74492",
+"no": "4.9.9.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.9 Water"
+},
+{
+"uuid": "11b7431c-ab17-4945-9a7b-058774a00995",
+"no": "4.9.9.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.9 Water"
+},
+{
+"uuid": "8e83b6dd-b853-4eba-bd96-bc0213559b01",
+"no": "4.9.9.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.9 Water"
+},
+{
+"uuid": "c7b9918e-2a95-4ecc-a995-c2143052aa39",
+"no": "4.9.9.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.9 Water"
+},
+{
+"uuid": "e9e99e56-c5d5-41f2-af17-7bc308aa4ca1",
+"no": "4.9.10.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.10 Compressed air and gases"
+},
+{
+"uuid": "edd7fad1-a2c5-488f-acf6-5d91b5680e94",
+"no": "4.9.10.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.9 Production and storage premises › 4.9.10 Compressed air and gases"
+},
+{
+"uuid": "d3d45842-bf99-415f-84b9-e3e3ddaed99d",
+"no": "4.10.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "7ec916f6-88a4-49c8-9137-1827bc41790f",
+"no": "4.10.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "93732fa3-3d22-4efd-abcc-c695bf24fba0",
+"no": "4.10.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "6e9890f9-5cec-4e44-80e5-efecc1588360",
+"no": "4.10.4",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "07431efc-dfa6-4992-8574-67ca9c89b794",
+"no": "4.10.5",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "d5a4c912-1488-465a-9104-0a6324a1e9e6",
+"no": "4.10.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "82e72237-77b4-444b-9ffe-066b927a4131",
+"no": "4.10.7",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "b463e2c2-c3cd-4a67-8087-5886fc31c93a",
+"no": "4.10.8",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "9691bd23-3d5d-4a8f-85dc-9421868f2ff8",
+"no": "4.10.9",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.10 Cleaning and disinfection"
+},
+{
+"uuid": "afd6ed70-085f-4354-9d4c-aadaad8e817a",
+"no": "4.11.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.11 Waste management"
+},
+{
+"uuid": "f16a515e-8ccb-4edf-a94e-e866c89e50e7",
+"no": "4.11.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.11 Waste management"
+},
+{
+"uuid": "6da39551-ac6c-4473-a4e0-032dc2cf5791",
+"no": "4.11.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.11 Waste management"
+},
+{
+"uuid": "011c351c-448a-49db-a58b-9bc7b302b4b6",
+"no": "4.11.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.11 Waste management"
+},
+{
+"uuid": "b55941a5-f75d-402b-858a-d6ef7a3edcde",
+"no": "4.11.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.11 Waste management"
+},
+{
+"uuid": "b942da2e-1e92-4ecd-9459-622f719e40d3",
+"no": "4.11.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.11 Waste management"
+},
+{
+"uuid": "b8709602-fa76-49be-a71a-82db9e3abd69",
+"no": "4.12.1",
+"ko": true,
+"star": true,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "279bf7be-6c70-4c78-9913-f5d9f63811b3",
+"no": "4.12.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "fe51d438-7311-4c9f-be98-0b1879884cc3",
+"no": "4.12.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "646122c2-65d6-49f5-a590-01f7314f4f79",
+"no": "4.12.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "b102fbad-62ab-4eb3-95a4-ad8a3cef9a9c",
+"no": "4.12.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "d382da20-f028-4582-9310-e8ff93749a93",
+"no": "4.12.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "9ccd909b-ab74-4a6f-a50d-5f75fc3f72f9",
+"no": "4.12.7",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "af7b1c8f-080c-4b5f-9000-8de301ac4858",
+"no": "4.12.8",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "0a02f15b-df73-47c7-b585-49040e6682ca",
+"no": "4.12.9",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "2a1f1627-8484-4f47-8f0a-766a78357ed9",
+"no": "4.12.10",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "7759c167-ea70-4962-bbf0-4ca78a4dbeae",
+"no": "4.12.11",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "a4df4d11-9964-476a-b9c2-96bfe0764be2",
+"no": "4.12.12",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.12 Foreign material and chemical risk mitigation"
+},
+{
+"uuid": "1d6cb70e-84ce-4674-b09c-1b9e25151059",
+"no": "4.13.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.13 Pest monitoring and control"
+},
+{
+"uuid": "0ec187fc-6619-4721-9700-84c79473623e",
+"no": "4.13.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.13 Pest monitoring and control"
+},
+{
+"uuid": "daeb9de8-4cbf-4481-9552-dc9f425c593d",
+"no": "4.13.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.13 Pest monitoring and control"
+},
+{
+"uuid": "ee1bb979-dc7c-426f-bdfb-5625b8b48efb",
+"no": "4.13.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.13 Pest monitoring and control"
+},
+{
+"uuid": "9f8f53f3-4bb0-4c2f-99d6-eff149442c84",
+"no": "4.13.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.13 Pest monitoring and control"
+},
+{
+"uuid": "4def86f0-19b2-4655-a152-e931a5d6380b",
+"no": "4.13.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.13 Pest monitoring and control"
+},
+{
+"uuid": "3127cb67-9732-411c-97e0-e5369b2a6c2a",
+"no": "4.13.7",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.13 Pest monitoring and control"
+},
+{
+"uuid": "e54b31b4-d052-4ff4-8f4b-7848681feea7",
+"no": "4.14.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.14 Receipt and storage of goods"
+},
+{
+"uuid": "91d86a00-e0e7-4703-87bd-0dc8b3c5d115",
+"no": "4.14.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.14 Receipt and storage of goods"
+},
+{
+"uuid": "f2c9990c-0362-4133-b057-5217c9801808",
+"no": "4.14.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.14 Receipt and storage of goods"
+},
+{
+"uuid": "bd3f28b2-1077-4d7c-8906-6deb681c0f13",
+"no": "4.14.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.14 Receipt and storage of goods"
+},
+{
+"uuid": "c523b7de-aa33-4506-9a50-dd40cc01e871",
+"no": "4.14.5",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.14 Receipt and storage of goods"
+},
+{
+"uuid": "5ea530d8-d558-43fc-95e2-bbfefe9f2ce3",
+"no": "4.14.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.14 Receipt and storage of goods"
+},
+{
+"uuid": "81ba7de4-764a-4137-8f11-a025ca58eae9",
+"no": "4.15.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.15 Transport"
+},
+{
+"uuid": "0d3e1cfe-ccfe-4424-b469-e7fee21abfb9",
+"no": "4.15.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.15 Transport"
+},
+{
+"uuid": "5bc8e156-cef7-4ea3-9159-5795c5f21673",
+"no": "4.15.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.15 Transport"
+},
+{
+"uuid": "6012b1f7-fab0-4a1f-815d-5c7399cbf19e",
+"no": "4.15.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.15 Transport"
+},
+{
+"uuid": "8aa62cad-f721-44cd-8772-2c9d4115b514",
+"no": "4.15.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.15 Transport"
+},
+{
+"uuid": "712177d3-f5df-4576-9276-00aa42c8e933",
+"no": "4.15.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.15 Transport"
+},
+{
+"uuid": "a9182b1c-33f0-4f74-974a-66e1bcc82cab",
+"no": "4.15.7",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.15 Transport"
+},
+{
+"uuid": "40acb059-d661-43f6-accc-1e9ca9f0537d",
+"no": "4.16.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.16 Maintenance and repair"
+},
+{
+"uuid": "b7891288-b708-4083-ab13-ed7779afc9a7",
+"no": "4.16.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.16 Maintenance and repair"
+},
+{
+"uuid": "39f7eb95-2f20-4e4a-b84b-09c6ef32ec92",
+"no": "4.16.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.16 Maintenance and repair"
+},
+{
+"uuid": "9254bc1f-1839-4a88-ad61-18f7ac852ea8",
+"no": "4.16.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.16 Maintenance and repair"
+},
+{
+"uuid": "900c4a12-0424-42f3-b422-7cf7a263879a",
+"no": "4.16.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.16 Maintenance and repair"
+},
+{
+"uuid": "a80e431d-bd04-438c-89c2-7eb30b2b251e",
+"no": "4.16.6",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.16 Maintenance and repair"
+},
+{
+"uuid": "d76003fc-cdba-4320-bd6d-6189ed8e5d5e",
+"no": "4.17.1",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.17 Equipment"
+},
+{
+"uuid": "9ec1aa92-1718-45f4-a7f7-31a869e740e3",
+"no": "4.17.2",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.17 Equipment"
+},
+{
+"uuid": "ed881bae-2b9e-4806-82af-d0667660100e",
+"no": "4.17.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.17 Equipment"
+},
+{
+"uuid": "70939b63-893d-417b-b307-70f3dbb30c2a",
+"no": "4.17.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.17 Equipment"
+},
+{
+"uuid": "94ffc99d-aca2-4c36-b2c5-551b1059d667",
+"no": "4.17.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.17 Equipment"
+},
+{
+"uuid": "2be36df4-be3d-431f-bd74-e7196bbf8aae",
+"no": "4.18.1",
+"ko": true,
+"star": true,
+"section": "4 Operational processes › 4.18 Traceability"
+},
+{
+"uuid": "4294df17-a249-4556-98a4-3356868e1dc7",
+"no": "4.18.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.18 Traceability"
+},
+{
+"uuid": "92c1608d-ab63-4393-bbdf-cf99e110f51b",
+"no": "4.18.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.18 Traceability"
+},
+{
+"uuid": "23389de6-4cc7-4197-94fe-1bfa3e455b6c",
+"no": "4.18.4",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.18 Traceability"
+},
+{
+"uuid": "be84cd41-1203-4451-b3e4-bb28633c2af8",
+"no": "4.18.5",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.18 Traceability"
+},
+{
+"uuid": "66a29ecd-d5d8-47e7-890c-a3efbe03ba3a",
+"no": "4.19.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.19 Allergen risk mitigation"
+},
+{
+"uuid": "232bca37-cf44-4bf2-9a1c-484118fc9636",
+"no": "4.19.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.19 Allergen risk mitigation"
+},
+{
+"uuid": "b716ca9d-3824-4e65-a9ae-3c426d998d2e",
+"no": "4.19.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.19 Allergen risk mitigation"
+},
+{
+"uuid": "f0fd0667-42f1-4324-a898-8aa4d0b8e1e6",
+"no": "4.20.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.20 Food fraud"
+},
+{
+"uuid": "61aa6d6e-786e-49fc-a0da-ca9cdb1dfad9",
+"no": "4.20.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.20 Food fraud"
+},
+{
+"uuid": "23cbc6fc-6c51-4de1-9e49-f60d6983f21c",
+"no": "4.20.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.20 Food fraud"
+},
+{
+"uuid": "726cae4b-4320-4213-aebe-cabe42fc3280",
+"no": "4.20.4",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.20 Food fraud"
+},
+{
+"uuid": "7737fc99-17b1-4acb-8cf8-26f4b659c293",
+"no": "4.21.1",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.21 Food defence"
+},
+{
+"uuid": "20aa00fc-a53b-4ee6-9f9e-87bf33791611",
+"no": "4.21.2",
+"ko": false,
+"star": true,
+"section": "4 Operational processes › 4.21 Food defence"
+},
+{
+"uuid": "27fe14e4-9a6d-4179-bd1b-12fe397100bd",
+"no": "4.21.3",
+"ko": false,
+"star": false,
+"section": "4 Operational processes › 4.21 Food defence"
+},
+{
+"uuid": "79d9b2a2-6954-4838-a533-373288694690",
+"no": "5.1.1",
+"ko": true,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.1 Internal audits"
+},
+{
+"uuid": "76d9ea7b-1e9e-4c11-ba96-cdf498aafe58",
+"no": "5.1.2",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.1 Internal audits"
+},
+{
+"uuid": "c7d775e7-d4c7-45a0-9a89-d467f3a9ee42",
+"no": "5.1.3",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.1 Internal audits"
+},
+{
+"uuid": "c2687456-fd03-4391-a575-6f0d9f124a71",
+"no": "5.2.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.2 Site factory inspections"
+},
+{
+"uuid": "604874f5-c089-4f04-bd1c-e3c3bbe36168",
+"no": "5.3.1",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.3 Process validation and control"
+},
+{
+"uuid": "2fde52ce-2342-474b-9bb1-1075d8ae87dd",
+"no": "5.3.2",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.3 Process validation and control"
+},
+{
+"uuid": "29627134-d9f0-475c-8a95-daac12a6c689",
+"no": "5.3.3",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.3 Process validation and control"
+},
+{
+"uuid": "588aae19-0efb-4419-80c5-a7de47a8bc87",
+"no": "5.3.4",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.3 Process validation and control"
+},
+{
+"uuid": "ba415203-742e-4699-b95f-f5c398f9f7c7",
+"no": "5.3.5",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.3 Process validation and control"
+},
+{
+"uuid": "418e073a-febe-4788-bfb0-fe0c43dea329",
+"no": "5.4.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.4 Calibration, adjustment and checking of measuring and monitoring devices"
+},
+{
+"uuid": "06740f22-9c77-4ae8-ae57-0e2b00144b2d",
+"no": "5.4.2",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.4 Calibration, adjustment and checking of measuring and monitoring devices"
+},
+{
+"uuid": "1da69cae-203b-4ec9-8e80-684418879c09",
+"no": "5.4.3",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.4 Calibration, adjustment and checking of measuring and monitoring devices"
+},
+{
+"uuid": "c8c35809-3a96-43f5-ad61-e35f5ba0a604",
+"no": "5.5.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.5 Quantity control monitoring"
+},
+{
+"uuid": "da18b61a-4407-4c61-9b99-71c83cb9bb57",
+"no": "5.5.2",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.5 Quantity control monitoring"
+},
+{
+"uuid": "abd4ca4e-f863-4c17-907d-1b600abcfb0d",
+"no": "5.6.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "ca492fd2-e741-4284-a0cf-a95d1916e1f1",
+"no": "5.6.2",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "29661fc2-bf0d-44f0-ba22-739ab4907bb9",
+"no": "5.6.3",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "e62ca60a-e100-4f23-aa54-8760cf8a332a",
+"no": "5.6.4",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "fd8afaf2-1120-470a-b503-efd0569a6fd0",
+"no": "5.6.5",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "f9bab4a3-0a3f-4873-9eea-dbd77bc7ff2f",
+"no": "5.6.6",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "5d93b2d6-a530-4d76-b829-e0fda4d17478",
+"no": "5.6.7",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "67fb819b-36d1-416c-8a23-f5fe7e539cba",
+"no": "5.6.8",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.6 Product testing and environmental monitoring"
+},
+{
+"uuid": "3f6499ba-5551-4b00-8a34-07cb521b11fe",
+"no": "5.7.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.7 Product release"
+},
+{
+"uuid": "bc1b9307-f511-41ed-931e-df6937f3054a",
+"no": "5.8.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.8 Management of complaints from authorities and customers"
+},
+{
+"uuid": "aac09b39-69d8-4e95-bc90-17a247b2bac5",
+"no": "5.8.2",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.8 Management of complaints from authorities and customers"
+},
+{
+"uuid": "9a771b16-574d-4b7f-80b2-b31e8dfcc473",
+"no": "5.8.3",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.8 Management of complaints from authorities and customers"
+},
+{
+"uuid": "97393a23-4b6c-446d-a007-a8a3992cec65",
+"no": "5.8.4",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.8 Management of complaints from authorities and customers"
+},
+{
+"uuid": "cca76a7e-b61f-48e6-9cb7-0711d1393094",
+"no": "5.9.1",
+"ko": true,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.9 Management of product recalls, product withdrawals and incidents"
+},
+{
+"uuid": "cef78ba6-6a8e-4c11-b627-a94a57799bec",
+"no": "5.9.2",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.9 Management of product recalls, product withdrawals and incidents"
+},
+{
+"uuid": "1f0d1dc1-54bc-4732-8daa-a5d65211c1f1",
+"no": "5.10.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.10 Management of non-conforming products"
+},
+{
+"uuid": "8d96d003-e9fd-40c2-823b-d4bc3b4dd230",
+"no": "5.10.2",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.10 Management of non-conforming products"
+},
+{
+"uuid": "045c2c3a-6bab-4dbf-ae2d-42f06d27fa70",
+"no": "5.10.3",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.10 Management of non-conforming products"
+},
+{
+"uuid": "626dd728-7957-4cac-9243-a64d0d8c8e5a",
+"no": "5.10.4",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.10 Management of non-conforming products"
+},
+{
+"uuid": "2a3ed1b3-1f72-4908-9af8-39a07a572ccd",
+"no": "5.11.1",
+"ko": false,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.11 Management of deviations, non-conformities, corrections and corrective actions"
+},
+{
+"uuid": "32c90b76-2c80-48b7-b205-e9a452221af9",
+"no": "5.11.2",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.11 Management of deviations, non-conformities, corrections and corrective actions"
+},
+{
+"uuid": "8de333af-12bb-40c7-a82b-bf648a56038a",
+"no": "5.11.3",
+"ko": true,
+"star": true,
+"section": "5 Measurements, analyses, improvements › 5.11 Management of deviations, non-conformities, corrections and corrective actions"
+},
+{
+"uuid": "23e14f91-643d-4ecb-bfa2-fcfd004d9488",
+"no": "5.11.4",
+"ko": false,
+"star": false,
+"section": "5 Measurements, analyses, improvements › 5.11 Management of deviations, non-conformities, corrections and corrective actions"
+}
+]

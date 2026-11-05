@@ -23,6 +23,7 @@ EN_INSTRUCTION = ('Translate the auditor\'s text into clear, factual English for
                   'Keep every fact, number, document code, version and date exactly; objective audit language; no additions.')
 EXPL_INSTRUCTION = (
     'Write the English explanation of IFS requirement "{title}" for an official IFS {std} audit report in auditXpress. '
+    'The requirement text, if given, is context only: do not copy or paraphrase it, and do not claim compliance it does not show. '
     'Use only the auditor\'s evidence below (often Turkish or notes): describe what was verified and how (documents, records, '
     'observation, interviews), with document titles, codes, versions and dates exactly as given (dates DD/MM/YYYY). '
     'Objective, factual, third person ("the company"), complete sentences, no headings, no bullet list unless the evidence is a list. '
@@ -303,8 +304,14 @@ class IfsReportView(tk.Frame):
         e.pack(side='left', fill='x', expand=True, padx=(6, 0))
         e.bind('<KeyRelease>', lambda ev: self._fill_tree())
         if not self.report.dictionary:
-            self._label(left, 'Madde numaraları auditXpress dosyasında yok; maddeler dosyadaki sırayla ve iç alanlarının '
-                        'adıyla gösterilir. Madde sözlüğü eklenince numaralar görünür.', muted=True).pack(fill='x', pady=(6, 0))
+            self._label(left, 'Bu standart için madde numarası sözlüğü yok; maddeler dosyadaki sırayla gösterilir.',
+                        muted=True).pack(fill='x', pady=(6, 0))
+        elif not any(e.get('text') for e in self.report.dictionary.values()):
+            tip = tk.Frame(left, bg=c['PANEL'])
+            tip.pack(fill='x', pady=(6, 0))
+            self._label(tip, 'Madde metinleri yok (IFS metni pakete konmaz). Kontrol listesini bir kez içe aktarın; '
+                        'yalnız bu bilgisayarda saklanır.', muted=True).pack(side='left', fill='x', expand=True)
+            self.app.btn(tip, 'Madde metinlerini içe aktar…', self.import_texts, 'ghost', side='right')
         self.tree = ttk.Treeview(left, columns=('score', 'en'), show='tree headings', selectmode='browse')
         self.tree.heading('#0', text='Madde')
         self.tree.heading('score', text='Puan')
@@ -376,7 +383,17 @@ class IfsReportView(tk.Frame):
         b = sc.body
         tk.Label(b, text=r.title(), fg=c['FG'], bg=c['PANEL'], font=('Segoe UI', 12, 'bold'), anchor='w', justify='left',
                  wraplength=640).pack(fill='x')
-        self._label(b, 'Kimlik %s · dosyadaki sıra %d' % (r.uuid, r.index + 1), muted=True).pack(fill='x')
+        e = r.entry()
+        if e.get('section'):
+            self._label(b, e['section'], muted=True).pack(fill='x')
+        if e.get('text'):
+            req = tk.Frame(b, bg=c['PANEL2'], padx=10, pady=8)
+            req.pack(fill='x', pady=(6, 0))
+            tk.Label(req, text='Requirement' + ('  ·  KO' if e.get('ko') else ''), fg=c['ACCENT'], bg=c['PANEL2'],
+                     font=('Segoe UI', 9, 'bold'), anchor='w').pack(fill='x')
+            tk.Label(req, text=e['text'], fg=c['FG'], bg=c['PANEL2'], font=('Segoe UI', 9), anchor='w', justify='left',
+                     wraplength=640).pack(fill='x')
+        self._label(b, 'Kimlik %s · sıra %d' % (r.uuid, r.index + 1), muted=True).pack(fill='x', pady=(4, 0))
         srow = tk.Frame(b, bg=c['PANEL'])
         srow.pack(fill='x', pady=(8, 0))
         self._label(srow, 'Puan', bold=True).pack(side='left')
@@ -413,6 +430,8 @@ class IfsReportView(tk.Frame):
         tk.Frame(b, bg=c['PANEL'], height=20).pack()
 
     def _score_note(self, r):
+        if r.is_ko and r.score_id == 'D':
+            return '⚠ KO maddesinde D: denetim başarısız sayılır.'
         if r.score_id in I.CORRECTION_SCORES:
             return 'Düzeltme gerekir (auditXpress\'te düzeltici faaliyet açılır).'
         if r.score_id == 'NA':
@@ -501,6 +520,9 @@ class IfsReportView(tk.Frame):
             return
         a = r.answers
         parts = []
+        req_text = r.entry().get('text')
+        if req_text:
+            parts.append('IFS requirement %s (for context only; do not repeat it):\n%s' % (r.number(), req_text))
         if (a.get('explanationText') or '').strip():
             parts.append('Explanation / evidence (auditor):\n' + a['explanationText'].strip())
         if (a.get('note') or '').strip():
@@ -515,7 +537,7 @@ class IfsReportView(tk.Frame):
             parts.append('Answers in the requirement\'s fields:\n' + '\n'.join(inner))
         if (a.get('englishExplanationText') or '').strip():
             parts.append('Current English explanation (improve it, keep its facts):\n' + a['englishExplanationText'].strip())
-        if not parts:
+        if len(parts) == (1 if req_text else 0):          # madde metni kanit degildir
             messagebox.showinfo('IFS', 'Önce Explanation ya da Note kutusuna kanıtı (Türkçe olabilir) yazın.', parent=self)
             return
         instr = EXPL_INSTRUCTION.format(title=r.title(), std=self.report.standard_name(),
@@ -578,6 +600,20 @@ class IfsReportView(tk.Frame):
                 nxt()
             self.app.brcgs_ai_call('IFS: %s' % I.label_of(k), EN_INSTRUCTION, _flat(q[I.pair_of(k)]['answer']), done)
         nxt()
+
+    def import_texts(self):
+        p = filedialog.askopenfilename(parent=self, title='IFS kontrol listesi (madde no + metin, sekmeyle ayrılmış)',
+                                       filetypes=[('Metin', '*.txt *.tsv *.csv'), ('Tümü', '*.*')])
+        if not p:
+            return False
+        try:
+            n = I.import_requirement_texts(self.report, p)
+        except I.IfsError as e:
+            messagebox.showerror('Madde metinleri', str(e), parent=self)
+            return False
+        self.app.flash('%d madde metni içe aktarıldı (yalnız bu bilgisayarda saklanır).' % n, 7000)
+        self.show('checklist')
+        return True
 
     # ------------------------------------------------------------------ kayit
     def save(self):
