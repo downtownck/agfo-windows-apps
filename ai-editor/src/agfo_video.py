@@ -619,10 +619,17 @@ def render(proj: dict, speak, ffmpeg, ffprobe, *, gap_ms=600, voice_key='', stat
     say('Video oluşturuluyor (%d sahne, %d sn)…' % (len(scenes), int(total)))
     with open(os.path.join(folder, 'filter.txt'), 'w', encoding='utf-8') as fh:
         fh.write(';\n'.join(filt))
-    _run([ffmpeg, '-y'] + inputs + ['-i', os.path.join('audio', 'voice.wav'), '-filter_complex_script', 'filter.txt',
-                                    '-map', '[vout]', '-map', '%d:a' % len(scenes), '-c:v', 'libx264', '-preset', 'veryfast',
-                                    '-crf', '20', '-r', str(FPS), '-c:a', 'aac', '-b:a', '160k', '-shortest',
-                                    '-movflags', '+faststart', out], cwd=folder)
+    tail = ['-map', '[vout]', '-map', '%d:a' % len(scenes), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+            '-r', str(FPS), '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', out]
+    head = [ffmpeg, '-y'] + inputs + ['-i', os.path.join('audio', 'voice.wav')]
+    # 2.9.1: filtre dosyadan okunur. ffmpeg 7+ '-/filter_complex dosya' ister (yeni surumlerde -filter_complex_script
+    # kaldirildi); 7'den eski surumler yalniz -filter_complex_script bilir.
+    try:
+        _run(head + ['-/filter_complex', 'filter.txt'] + tail, cwd=folder)
+    except VideoError as e:
+        if 'filter_complex' not in str(e) or not re.search(r'Unrecognized option|Option not found', str(e)):
+            raise
+        _run(head + ['-filter_complex_script', 'filter.txt'] + tail, cwd=folder)
     proj['rendered'] = {'file': out, 'seconds': round(total, 2), 'at': time.strftime('%Y-%m-%d %H:%M')}
     save_project(proj)
     return os.path.join(folder, out)
