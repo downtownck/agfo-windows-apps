@@ -1,0 +1,7 @@
+## AGFO AI Editor 2.10.0 — Video projesi editörden bağımsız; yazısız yer tutucu ve tarz çerçevesi
+
+- **Proje dosyasıyla kaldığınız yerden:** Video projesi kendi klasöründe (`proje.json`, sesler, görseller) saklanır. Belgeyi açmadan sürdürmek için üç yol var: Ses sekmesindeki **📂 Proje dosyasını aç…**, **Son projeler ▾** listesi ya da **Aç…** penceresinde `proje.json`'u seçmek. Metin, sahne planı, karakterler, promptlar, seçtiğiniz görseller ve üretilmiş sesler projede durur. Önceden seslendirilmiş paragraflar yeniden üretilmez. Proje klasörünü başka bir yere taşısanız da açılır.
+- **Yer tutucular son üründe yazısız:** "Görsel bekleniyor", kare numarası ya da başlık artık videoya girmez. Yer tutucu, tarzın malzemesini andıran sade bir zemindir: çizgi romanda baskı noktalı kâğıt, mangada ekran tonu, noir'da tarama, sinematikte karanlık sahne, suluboyada boya lekeleri. Sahne notlarını kontrol amaçlı görmek isterseniz pencerenin üstündeki **Taslak** kutusunu işaretleyin.
+- **Tarzın çerçevesi görselin üstünde ayrı bir katman:** Çizgi roman ve mangada kâğıt boşluğu ile kare kenarlığı, noir'da koyu kenar ve vinyet, sinematikte 2.39:1 sinema bantları, suluboyada kâğıt kenarı, gerçekçide hafif vinyet var. Bu çerçeve videoda sabit durur. Alttaki görsel ya da yer tutucu yavaşça yaklaşır. Görsel gelince yalnız alt katman değişir, çerçeve aynı kalır.
+- **Kareyi önizle:** Sahnenin karesini videodaki gibi (görsel ya da yer tutucu, üstünde çerçeve) PNG olarak açar.
+- **Ses sekmesi kaydırılabilir:** Küçük ekranlarda alttaki bölümler kesilmiyor.

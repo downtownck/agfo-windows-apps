@@ -368,31 +368,146 @@ def _font(size, bold=False):
     return ImageFont.load_default()
 
 
-def placeholder(path: str, n: int, total: int, title: str, visual: str, excerpt: str, style_label: str = ''):
-    """Gorsel gelene kadar sahneyi anlatan kart (1920x1080)."""
-    from PIL import Image, ImageDraw
-    hue = (n * 47) % 360
+# 2.10: yer tutucu, gelecek gorselin yerine gecen sade bir zemindir (son urunde yazi yok). Tarzin cercevesi (cizgi roman
+# kenarligi, sinema bantlari, vinyet...) ayri bir saydam katmandir ve videoda gorselin USTUNE sabit olarak bindirilir:
+# yer tutucu da gercek gorsel de ayni cerceveyle gorunur, gorsel gelince yalniz alttaki katman degisir.
+LETTERBOX = int(round((H - W / 2.39) / 2))      # sinematik 2.39:1 bantlari (ust/alt, px)
+
+
+def _vignette(strength: int, start: float = 0.55):
+    """Kenarlara dogru koyulasan saydam siyah (alfa maskesi, L)."""
+    from PIL import Image
+    g = Image.radial_gradient('L').resize((W, H))      # merkez 0, kose ~255
+    lo = int(255 * start)
+    return g.point(lambda v: 0 if v <= lo else min(255, int((v - lo) * strength / max(1, 255 - lo))))
+
+
+def overlay_image(style_key: str):
+    """Tarzin cerceve katmani (RGBA 1920x1080). Ortasi saydamdir; gorselin ustune bindirilir."""
+    from PIL import Image, ImageDraw, ImageFilter
+    key = style_key if style_key in STYLES else DEFAULT_STYLE_KEY
+    ov = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(ov)
+    if key in ('comic', 'manga'):
+        gut, line = 28, (10 if key == 'comic' else 5)
+        dr.rectangle([0, 0, W - 1, H - 1], outline=(250, 248, 240, 255), width=gut)          # sayfa boslugu
+        dr.rectangle([gut, gut, W - 1 - gut, H - 1 - gut], outline=(12, 12, 12, 255), width=line)  # kare kenarligi
+    elif key == 'graphic_novel':
+        black = Image.new('RGBA', (W, H), (0, 0, 0, 255))
+        ov = Image.composite(black, ov, _vignette(170, 0.45))
+        dr = ImageDraw.Draw(ov)
+        dr.rectangle([0, 0, W - 1, H - 1], outline=(8, 8, 8, 255), width=34)
+        dr.rectangle([34, 34, W - 35, H - 35], outline=(205, 200, 190, 255), width=2)
+    elif key == 'cinematic':
+        black = Image.new('RGBA', (W, H), (0, 0, 0, 255))
+        ov = Image.composite(black, ov, _vignette(120, 0.6))
+        dr = ImageDraw.Draw(ov)
+        dr.rectangle([0, 0, W, LETTERBOX], fill=(0, 0, 0, 255))
+        dr.rectangle([0, H - LETTERBOX, W, H], fill=(0, 0, 0, 255))
+    elif key == 'watercolor':
+        m = Image.new('L', (W, H), 255)
+        ImageDraw.Draw(m).rectangle([70, 60, W - 70, H - 60], fill=0)
+        m = m.filter(ImageFilter.GaussianBlur(38))
+        paper = (246, 240, 226)
+        ov = Image.composite(Image.new('RGBA', (W, H), paper + (255,)), Image.new('RGBA', (W, H), paper + (0,)), m)
+    else:                                                   # gercekci / AI secsin: hafif vinyet
+        ov = Image.composite(Image.new('RGBA', (W, H), (0, 0, 0, 255)), ov, _vignette(110, 0.6))
+    return ov
+
+
+def write_overlay(proj: dict) -> str:
+    path = os.path.join(proj['folder'], 'overlay.png')
+    overlay_image(proj.get('style_key') or DEFAULT_STYLE_KEY).save(path, 'PNG')
+    return path
+
+
+def _base_colour(key, n):
     import colorsys
-    r, g, b = [int(255 * c) for c in colorsys.hsv_to_rgb(hue / 360.0, 0.45, 0.32)]
+    hue = {'comic': 0.11, 'manga': 0.0, 'graphic_novel': 0.6, 'cinematic': 0.53, 'watercolor': 0.09}.get(key, 0.58)
+    hue = (hue + (n % 6) * 0.015) % 1.0
+    sat, val = {'comic': (0.10, 0.93), 'manga': (0.0, 0.94), 'graphic_novel': (0.25, 0.22), 'cinematic': (0.35, 0.24),
+                'watercolor': (0.12, 0.92)}.get(key, (0.12, 0.40))
+    return tuple(int(255 * c) for c in colorsys.hsv_to_rgb(hue, sat, val))
+
+
+def placeholder(path: str, n: int, style_key: str = DEFAULT_STYLE_KEY, draft: bool = False, title: str = '',
+                visual: str = ''):
+    """Gorsel gelene kadar kullanilan sade zemin (1920x1080): tarzin malzemesini andirir (kagit, ekran tonu, karanlik
+    sahne), uzerinde yazi yoktur. draft=True ise kontrol icin sol ustte kucuk bir sahne notu yazilir (son urun icin degil)."""
+    from PIL import Image, ImageDraw, ImageFilter
+    key = style_key if style_key in STYLES else DEFAULT_STYLE_KEY
+    r, g, b = _base_colour(key, n)
     img = Image.new('RGB', (W, H), (r, g, b))
     dr = ImageDraw.Draw(img)
-    for y in range(H):                                  # yukaridan asagi koyulasan gecis
+    light = (r + g + b) / 3 > 128
+    for y in range(0, H, 4):                                  # hafif dikey gecis
         k = y / H
-        dr.line([(0, y), (W, y)], fill=(int(r * (1 - 0.55 * k)), int(g * (1 - 0.55 * k)), int(b * (1 - 0.55 * k))))
-    f_small, f_title, f_body = _font(34), _font(76, bold=True), _font(40)
-    dr.text((120, 110), 'KARE %d / %d  ·  %sGÖRSEL BEKLENİYOR' % (n, total, (style_label.upper() + '  ·  ') if style_label else ''),
-            font=f_small, fill=(230, 230, 230))
-    y = 190
-    for line in _wrap_px(dr, title or 'Sahne %d' % n, f_title, W - 240)[:2]:
-        dr.text((120, y), line, font=f_title, fill=(255, 255, 255))
-        y += 96
-    y += 20
-    body = visual or excerpt
-    for line in _wrap_px(dr, body, f_body, W - 240)[:9]:
-        dr.text((120, y), line, font=f_body, fill=(225, 225, 225))
-        y += 56
+        f = (1 - 0.10 * k) if light else (1.15 - 0.45 * k)
+        dr.rectangle([0, y, W, y + 3], fill=tuple(max(0, min(255, int(c * f))) for c in (r, g, b)))
+    if key in ('comic', 'manga'):                             # baski noktasi (halftone / ekran tonu)
+        dot = (max(0, r - 28), max(0, g - 28), max(0, b - 28))
+        for yy in range(0, H, 22):
+            for xx in range((yy // 22 % 2) * 11, W, 22):
+                rad = 1 + 4 * (xx + yy) / (W + H)
+                dr.ellipse([xx - rad, yy - rad, xx + rad, yy + rad], fill=dot)
+    elif key == 'graphic_novel':                              # capraz tarama
+        for x in range(-H, W, 26):
+            dr.line([(x, H), (x + H, 0)], fill=(max(0, r - 14), max(0, g - 14), max(0, b - 14)), width=2)
+    elif key == 'watercolor':                                 # yumusak boya lekeleri
+        import random
+        rnd = random.Random(n)
+        wash = Image.new('RGB', (W, H), (r, g, b))
+        wd = ImageDraw.Draw(wash)
+        for _ in range(7):
+            cx, cy, rr = rnd.randint(0, W), rnd.randint(0, H), rnd.randint(180, 420)
+            wd.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=(max(0, r - rnd.randint(10, 30)), max(0, g - rnd.randint(5, 25)),
+                                                                  max(0, b - rnd.randint(0, 15))))
+        img = Image.blend(img, wash.filter(ImageFilter.GaussianBlur(90)), 0.6)
+        dr = ImageDraw.Draw(img)
+    if draft:
+        fg = (40, 40, 40) if light else (225, 225, 225)
+        f_small, f_title = _font(30), _font(44, bold=True)
+        x0, y0 = 120, 120 if key != 'cinematic' else LETTERBOX + 40
+        dr.text((x0, y0), 'TASLAK · Sahne %d' % n, font=f_small, fill=fg)
+        yy = y0 + 46
+        for line in _wrap_px(dr, title or '', f_title, W - 240)[:1]:
+            dr.text((x0, yy), line, font=f_title, fill=fg)
+            yy += 60
+        for line in _wrap_px(dr, visual or '', f_small, W - 240)[:4]:
+            dr.text((x0, yy), line, font=f_small, fill=fg)
+            yy += 40
     img.save(path, 'PNG')
     return path
+
+
+def _cover(src: str):
+    """Gorseli 1920x1080'i dolduracak sekilde olcekleyip ortadan kirpar."""
+    from PIL import Image, ImageOps
+    with Image.open(src) as im:
+        return ImageOps.fit(im.convert('RGB'), (W, H), method=Image.LANCZOS)
+
+
+def scene_base(proj: dict, idx: int) -> str:
+    """Sahnenin alt katmani: secilen gorsel ya da yer tutucu (yol)."""
+    sc = proj['plan']['scenes'][idx]
+    img = os.path.join(proj['folder'], sc['image']) if sc.get('image') else ''
+    if img and os.path.isfile(img):
+        return img
+    pdir = os.path.join(proj['folder'], 'placeholders')
+    os.makedirs(pdir, exist_ok=True)
+    return placeholder(os.path.join(pdir, '%s.png' % sc['id']), idx + 1, proj.get('style_key') or DEFAULT_STYLE_KEY,
+                       bool(proj.get('draft')), sc.get('title') or '', ' · '.join(x for x in (sc.get('shot'), sc.get('visual')) if x))
+
+
+def preview_frame(proj: dict, idx: int) -> str:
+    """Kare onizlemesi: alt katman (gorsel/yer tutucu) + tarz cercevesi, videodaki gibi (altyazisiz)."""
+    pv = os.path.join(proj['folder'], 'preview')
+    os.makedirs(pv, exist_ok=True)
+    base = _cover(scene_base(proj, idx)).convert('RGBA')
+    base.alpha_composite(overlay_image(proj.get('style_key') or DEFAULT_STYLE_KEY))
+    out = os.path.join(pv, '%s.png' % proj['plan']['scenes'][idx]['id'])
+    base.convert('RGB').save(out, 'PNG')
+    return out
 
 
 def _wrap_px(dr, text, font, width):
@@ -516,6 +631,27 @@ def load_project(folder: str) -> dict | None:
     return p
 
 
+def remember_project(settings: dict, folder: str, keep: int = 8):
+    """Son acilan video projeleri (Ses sekmesi > Son projeler)."""
+    lst = [f for f in settings.get('video_recent') or [] if os.path.normcase(f) != os.path.normcase(folder)]
+    settings['video_recent'] = [folder] + lst[:keep - 1]
+
+
+def recent_projects(settings: dict) -> list:
+    return [f for f in settings.get('video_recent') or [] if os.path.isfile(os.path.join(f, PROJECT_FILE))]
+
+
+def is_project_file(path: str) -> bool:
+    if os.path.basename(path).lower() != PROJECT_FILE:
+        return False
+    try:
+        with open(path, encoding='utf-8') as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    return isinstance(d, dict) and 'paragraphs' in d and 'plan' in d
+
+
 def set_image(proj: dict, idx: int, src: str) -> str:
     """Kullanicinin gorselini projeye kopyalar (proje klasoru tasinabilir kalir)."""
     os.makedirs(os.path.join(proj['folder'], 'images'), exist_ok=True)
@@ -600,11 +736,7 @@ def render(proj: dict, speak, ffmpeg, ffprobe, *, gap_ms=600, voice_key='', stat
         b = starts[sc['end'] + 1] if sc['end'] + 1 < len(starts) else total
         dur = max(0.5, b - a)
         sc['seconds'] = round(dur, 2)
-        img = os.path.join(folder, sc['image']) if sc.get('image') else ''
-        if not img or not os.path.isfile(img):
-            img = placeholder(os.path.join(pdir, '%s.png' % sc['id']), n + 1, len(scenes), sc.get('title'),
-                              ' · '.join(x for x in (sc.get('shot'), sc.get('visual')) if x), scene_text(proj, sc)[:400],
-                              style_of(proj)['label'])
+        img = scene_base(proj, n)
         inputs += ['-i', img]
         frames = max(1, int(round(dur * FPS)))
         zmax = style_of(proj)['zoom']
@@ -614,14 +746,16 @@ def render(proj: dict, speak, ffmpeg, ffprobe, *, gap_ms=600, voice_key='', stat
                     % (n, W * 5 // 4, H * 5 // 4, W * 5 // 4, H * 5 // 4, zoom, frames, W, H, FPS, frames, n))
         labels.append('[v%d]' % n)
     filt.append('%sconcat=n=%d:v=1:a=0[vc]' % (''.join(labels), len(labels)))
-    filt.append('[vc]subtitles=subs.ass,format=yuv420p[vout]')
+    write_overlay(proj)                       # 2.10: tarz cercevesi sabit katman olarak gorselin ustune
+    filt.append('[vc][%d:v]overlay=0:0:format=auto[vf]' % (len(scenes) + 1))
+    filt.append('[vf]subtitles=subs.ass,format=yuv420p[vout]')
     out = out_name or (re.sub(r'[^\w\- ]+', '', proj.get('title') or 'video').strip() or 'video') + '.mov'
     say('Video oluşturuluyor (%d sahne, %d sn)…' % (len(scenes), int(total)))
     with open(os.path.join(folder, 'filter.txt'), 'w', encoding='utf-8') as fh:
         fh.write(';\n'.join(filt))
     tail = ['-map', '[vout]', '-map', '%d:a' % len(scenes), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
             '-r', str(FPS), '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', out]
-    head = [ffmpeg, '-y'] + inputs + ['-i', os.path.join('audio', 'voice.wav')]
+    head = [ffmpeg, '-y'] + inputs + ['-i', os.path.join('audio', 'voice.wav'), '-i', 'overlay.png']
     # 2.9.1: filtre dosyadan okunur. ffmpeg 7+ '-/filter_complex dosya' ister (yeni surumlerde -filter_complex_script
     # kaldirildi); 7'den eski surumler yalniz -filter_complex_script bilir.
     try:

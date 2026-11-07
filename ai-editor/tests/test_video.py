@@ -112,11 +112,54 @@ class PlanTests(unittest.TestCase):
             self.assertLessEqual(c[2].count('\n') + c[2].count('\\N'), 1)
 
     def test_placeholder(self):
-        out = os.path.join(TMP, 'ph.png')
-        V.placeholder(out, 1, 3, 'Liman', 'wide · foggy', 'Leo limana indi.', 'Sinematik')
+        from PIL import Image, ImageChops
+        clean, draft = os.path.join(TMP, 'ph.png'), os.path.join(TMP, 'ph_draft.png')
+        V.placeholder(clean, 1, 'cinematic', False, 'Liman', 'wide · foggy')
+        V.placeholder(draft, 1, 'cinematic', True, 'Liman', 'wide · foggy')
+        clean2 = os.path.join(TMP, 'ph2.png')
+        V.placeholder(clean2, 1, 'cinematic', False, 'Baska baslik', 'baska tarif')
+        with Image.open(clean) as a, Image.open(draft) as b, Image.open(clean2) as c:
+            self.assertEqual(a.size, (1920, 1080))
+            self.assertIsNotNone(ImageChops.difference(a.convert('RGB'), b.convert('RGB')).getbbox())   # taslakta not var
+            self.assertIsNone(ImageChops.difference(a.convert('RGB'), c.convert('RGB')).getbbox())      # son urunde yazi yok
+
+    def test_overlay_frames(self):
+        comic = V.overlay_image('comic')
+        self.assertEqual(comic.mode, 'RGBA')
+        self.assertEqual(comic.getpixel((960, 540))[3], 0)            # orta saydam: gorsel gorunur
+        self.assertEqual(comic.getpixel((5, 5))[3], 255)              # sayfa boslugu
+        self.assertLess(sum(comic.getpixel((32, 540))[:3]), 100)       # siyah kare kenarligi
+        cine = V.overlay_image('cinematic')
+        self.assertEqual(cine.getpixel((960, 20)), (0, 0, 0, 255))     # sinema bandi
+        self.assertEqual(cine.getpixel((960, 540))[3], 0)
+        for k in V.STYLES:
+            self.assertEqual(V.overlay_image(k).getpixel((960, 540))[3], 0, k)
+
+    def test_preview_uses_image_under_frame(self):
         from PIL import Image
-        with Image.open(out) as im:
-            self.assertEqual(im.size, (1920, 1080))
+        folder = tempfile.mkdtemp(dir=TMP)
+        proj = V.new_project(folder, 'Deneme', self.paras, 'comic')
+        src = os.path.join(folder, 'red.png')
+        Image.new('RGB', (800, 600), (220, 20, 20)).save(src)
+        V.set_image(proj, 0, src)
+        with Image.open(V.preview_frame(proj, 0)) as im:
+            self.assertEqual(im.getpixel((960, 540)), (220, 20, 20))   # gorsel ortada
+            self.assertGreater(sum(im.getpixel((5, 5))), 700)          # cerceve gorselin ustunde
+
+    def test_project_file_detection_and_recent(self):
+        folder = tempfile.mkdtemp(dir=TMP)
+        V.save_project(V.new_project(folder, 'Deneme', self.paras))
+        path = os.path.join(folder, V.PROJECT_FILE)
+        self.assertTrue(V.is_project_file(path))
+        other = os.path.join(TMP, 'proje.json')
+        pathlib.Path(other).write_text('{"a": 1}', encoding='utf-8')
+        self.assertFalse(V.is_project_file(other))
+        st = {}
+        V.remember_project(st, folder)
+        V.remember_project(st, os.path.join(TMP, 'yok'))
+        V.remember_project(st, folder)
+        self.assertEqual(st['video_recent'][0], folder)
+        self.assertEqual(V.recent_projects(st), [folder])
 
     def test_project_roundtrip(self):
         folder = tempfile.mkdtemp(dir=TMP)
@@ -184,6 +227,11 @@ class RenderTests(unittest.TestCase):
         self.assertEqual((v['width'], v['height']), (1920, 1080))
         self.assertTrue(os.path.exists(os.path.join(folder, 'subs.srt')))
         self.assertGreater(V.duration(fp, mov), 3)
+        frame = os.path.join(folder, 'f.png')
+        subprocess.run([ff, '-y', '-ss', '1', '-i', mov, '-frames:v', '1', frame], capture_output=True, check=True)
+        from PIL import Image
+        with Image.open(frame) as im:
+            self.assertGreater(sum(im.convert('RGB').getpixel((6, 540))), 650)   # cizgi roman cercevesi videoda
 
 
 def _display():
@@ -238,6 +286,27 @@ class VideoGuiTests(unittest.TestCase):
         win.tree.selection_set(win.tree.get_children()[0])
         self.pump(n=20)
         self.assertIn('cinematic film still', win.prompt_box.get('1.0', 'end'))
+        win.destroy()
+
+    def test_open_project_file_without_document(self):
+        folder = tempfile.mkdtemp(dir=TMP)
+        paras = V.paragraphs_from_markdown(MD)
+        proj = V.new_project(folder, 'Kayitli', paras, 'manga')
+        proj['plan'] = V.parse_plan(json.dumps(PLAN), len(paras), 'manga')
+        proj['planned_by'] = 'ai'
+        V.save_project(proj)
+        n_docs = len(self.app.docs)
+        win = self.app.open_path(os.path.join(folder, V.PROJECT_FILE))     # Ac... ile de ayni yol
+        self.app.update()
+        self.assertIsNotNone(win)
+        self.assertEqual(len(self.app.docs), n_docs)                          # belge acilmadi
+        self.assertEqual(win.proj['style_key'], 'manga')
+        self.assertEqual(win.proj['plan']['characters'][0]['name'], 'Leo')
+        self.assertIn(folder, V.recent_projects(self.app.settings))
+        self.assertTrue(win.preview(0).endswith('.png'))
+        win.draft_var.set(True)
+        win._draft_changed()
+        self.assertTrue(V.load_project(folder)['draft'])
         win.destroy()
 
 

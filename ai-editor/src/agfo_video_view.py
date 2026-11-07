@@ -20,26 +20,33 @@ from agfo_brcgs_view import _colors
 
 
 class VideoProjectWindow(tk.Toplevel):
-    def __init__(self, app, backend, doc, md, what):
+    def __init__(self, app, backend, doc=None, md=None, what='belge', proj=None):
+        """Belgeden (doc + md) ya da 2.10: editorden bagimsiz, kayitli bir proje dosyasindan (proj) acilir. Proje
+        dosyasi metni, plani, gorselleri ve uretilmis sesleri tasir; kalinan yerden devam edilir."""
         super().__init__(app)
         self.app, self.backend, self.doc = app, backend, doc
         self.P = _colors(app)
-        self.title('Sesli çizgi roman — %s' % doc.title)
         self.geometry('1180x780')
         self.minsize(900, 600)
         self.cancel_flag = False
         self.busy = False
-        paras = V.paragraphs_from_markdown(md)
-        base = str(core.data_dir() / 'video')
-        folder = V.project_dir_for(doc.path, doc.title, base)
-        proj = V.load_project(folder)
-        if proj is None or proj.get('paragraphs') != paras:
-            old = proj
-            key = (old or {}).get('style_key') or app.settings.get('video_style') or V.DEFAULT_STYLE_KEY
-            proj = V.new_project(folder, os.path.splitext(doc.title)[0], paras, key)
-            if old and old.get('paragraphs') != paras:
-                app.flash('Metin değiştiği için sahne planı yeniden kuruldu.')
+        if proj is None:
+            paras = V.paragraphs_from_markdown(md)
+            base = str(core.data_dir() / 'video')
+            folder = V.project_dir_for(doc.path, doc.title, base)
+            proj = V.load_project(folder)
+            if proj is None or proj.get('paragraphs') != paras:
+                old = proj
+                key = (old or {}).get('style_key') or app.settings.get('video_style') or V.DEFAULT_STYLE_KEY
+                proj = V.new_project(folder, os.path.splitext(doc.title)[0], paras, key)
+                if old and old.get('paragraphs') != paras:
+                    app.flash('Metin değiştiği için sahne planı yeniden kuruldu.')
+            if doc.path:
+                proj['source'] = doc.path
+        self.title('Sesli çizgi roman — %s' % (proj.get('title') or os.path.basename(proj['folder'])))
         self.proj = proj
+        V.remember_project(app.settings, proj['folder'])
+        core.save_settings(app.settings)
         self.what = what
         self._build()
         self._fill()
@@ -62,6 +69,10 @@ class VideoProjectWindow(tk.Toplevel):
         pb.pack(side='right', padx=6)
         pb.bind('<<ComboboxSelected>>', lambda e: self.change_style())
         tk.Label(top, text='Tarz', fg=P['MUTED'], bg=P['PANEL'], font=('Segoe UI', 9)).pack(side='right')
+        self.draft_var = tk.BooleanVar(value=bool(self.proj.get('draft')))
+        tk.Checkbutton(top, text='Taslak (yer tutuculara sahne notu)', variable=self.draft_var, command=self._draft_changed,
+                       bg=P['PANEL'], fg=P['FG'], selectcolor=P.get('EDIT_BG', P['PANEL']), activebackground=P['PANEL'],
+                       activeforeground=P['FG'], font=('Segoe UI', 9), highlightthickness=0, bd=0).pack(side='right', padx=8)
         self.info = tk.Label(self, text='', fg=P['MUTED'], bg=P['PANEL'], font=('Segoe UI', 9), anchor='w', padx=12)
         self.info.pack(fill='x')
         self.status = tk.Label(self, text='', fg=P['ACCENT'], bg=P['PANEL'], font=('Segoe UI', 9), anchor='w', padx=12)
@@ -198,6 +209,7 @@ class VideoProjectWindow(tk.Toplevel):
         app.btn(row, '🖼 Kendi görselimi seç…', lambda: self.choose_image(i), 'normal')
         if s.get('image'):
             app.btn(row, 'Görseli kaldır', lambda: self.clear_image(i), 'ghost')
+        app.btn(row, '👁 Kareyi önizle', lambda: self.preview(i), 'ghost')
         app.btn(row, '⤒ Öncekiyle birleştir', lambda: self.merge(i), 'ghost')
         app.btn(row, '✂ İkiye böl', lambda: self.split(i), 'ghost')
         tk.Label(self.detail, text='Bu sahnede okunan metin', fg=P['FG'], bg=P['PANEL'], font=('Segoe UI', 10, 'bold'),
@@ -228,6 +240,22 @@ class VideoProjectWindow(tk.Toplevel):
         self._fill()
         self.app.flash('Tarz: %s. Görsel promptları bu tarzla yazılır; kare sayısı ve çekimlerin tarza uyması için '
                        '"Özet ve sahne planı çıkar"ı yeniden çalıştırın.' % V.STYLES[key]['label'], 9000)
+
+    def _draft_changed(self):
+        self.proj['draft'] = bool(self.draft_var.get())
+        V.save_project(self.proj)
+
+    def preview(self, i):
+        """Kare videodaki gibi: gorsel (ya da yer tutucu) + tarzin cerceve katmani."""
+        self._collect_texts()
+        try:
+            out = V.preview_frame(self.proj, i)
+        except Exception as e:  # noqa: BLE001
+            messagebox.showerror('Önizleme', str(e), parent=self)
+            return None
+        if not self.app.smoke:
+            self.app._open_external(out)
+        return out
 
     # ------------------------------------------------------------------ sahne islemleri
     def choose_image(self, i):
@@ -332,7 +360,10 @@ class VideoProjectWindow(tk.Toplevel):
         speed = float(st.get('speech_speed', 1.0))
         gap = int(st.get('speech_paragraph_pause', 700))
         script = bool(st.get('readaloud_script', False))
-        b = self.backend
+        b = self.backend or self.app._speech_backend('Video')
+        if not b:
+            return
+        self.backend = b
         voice_key = '%s|%.2f|%s' % (type(b).__name__, speed, script)
         q = queue.Queue()
         self.cancel_flag = False
