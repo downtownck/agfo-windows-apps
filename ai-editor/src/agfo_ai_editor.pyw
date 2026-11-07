@@ -2113,6 +2113,16 @@ class App(tk.Tk):
         self.sp_play_btn.configure(state='disabled')
         self.sp_folder_btn.configure(state='disabled')
 
+        # 2.9: sesli cizgi roman / video
+        vx = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
+        vx.pack(fill='x', pady=(10, 0))
+        tk.Label(vx, text='Sesli çizgi roman / Video (MOV)', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        self.lbl(vx, 'Metinden 16:9 MOV: seslendirme, görüntüye yakılmış altyazı ve sahne sahne görseller. Tarzı (çizgi roman, '
+                     'sinematik, manga…) seçin; AI özet, karakterler ve sahne planı çıkarır, kare sayısını kendisi belirler. Her '
+                     'sahne için tarza göre görsel promptu yazılır; görsel gelene kadar yer tutucu kullanılır.', muted=True,
+                 bg=PANEL2, wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
+        self.btn(vx, '🎬 Video projesini aç…', self.open_video_project, 'primary', padx=12, pady=6)
+
         box = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
         box.pack(fill='x', pady=(10, 0))
         tk.Label(box, text='Telaffuz sözlüğü', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
@@ -2315,6 +2325,34 @@ class App(tk.Tk):
             win.destroy()
         self.export_win = SpeechExportWindow(self, b, d, sections, what)
         return self.export_win
+
+    def open_video_project(self):
+        """2.9: sesli cizgi roman / video projesi penceresi."""
+        title = 'Sesli çizgi roman'
+        b = self._speech_backend(title)
+        if not b:
+            return None
+        d = self.cur()
+        if not d:
+            messagebox.showinfo(title, 'Video metin belgelerinden oluşturulur. PDF için önce “Metin olarak aç”ı kullanın.', parent=self)
+            return None
+        start, end, what = self._scope_range(d, force_all=self.scope_var.get() == 'all')
+        try:
+            d.text.index('sel.first')
+        except tk.TclError:
+            if what == 'paragraf':
+                start, end, what = '1.0', d.text.index('end-1c'), 'belge'
+        md = d.text.markdown(start, end)[0] if d.rich else d.text.get(start, end)
+        import agfo_video
+        if not agfo_video.paragraphs_from_markdown(md):
+            messagebox.showinfo(title, 'Seslendirilecek metin bulunamadı.', parent=self)
+            return None
+        from agfo_video_view import VideoProjectWindow
+        win = getattr(self, 'video_win', None)
+        if win is not None and win.winfo_exists():
+            win.destroy()
+        self.video_win = VideoProjectWindow(self, b, d, md, what)
+        return self.video_win
 
     # ------------------------------------------------------------------ 1.6: Sesli oku
     def read_aloud(self):
