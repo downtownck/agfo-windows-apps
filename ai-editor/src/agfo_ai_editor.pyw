@@ -792,6 +792,7 @@ class App(tk.Tk):
         self.pdf_views = {}           # 1.3: PDF duzenleyici sekmeleri (cerceve -> PdfView)
         self.brcgs_views = {}         # 2.2: BRCGS rapor sekmeleri (BrcgsReportView)
         self.brcgs_explorer = None    # 2.2: BRCGS rapor gezgini sekmesi
+        self.src_explorer = None      # 2.11: kaynak belge gezgini sekmesi
         self.colors = {'BG': BG, 'PANEL': PANEL, 'PANEL2': PANEL2, 'FG': FG, 'MUTED': MUTED, 'ACCENT': ACCENT,
                        'EDIT_BG': EDIT_BG, 'SEL_BG': SEL_BG, 'LINE': LINE, 'SEL_FG': SEL_FG, 'THEME': THEME}
         self.chat_messages = []
@@ -933,6 +934,10 @@ class App(tk.Tk):
         self.brcgs_btn = tk.Button(right, text='📋 BRCGS reports', command=self.open_brcgs, bg=TITLE_BG, fg=tfg, relief='flat', bd=0,
                                    highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 9), padx=8)
         self.brcgs_btn.pack(side='right')
+        self.srcx_btn = tk.Button(right, text='📚 Kaynaklar', command=self.open_sources_explorer, bg=TITLE_BG, fg=tfg, relief='flat',
+                                  bd=0, highlightthickness=0, activebackground=ACCENT, cursor='hand2', font=('Segoe UI', 9), padx=8)
+        self.srcx_btn.pack(side='right')
+        Tooltip(self.srcx_btn, 'Kaynak belge gezgini: eklenen belgeler ve klasörler, arama; seçtikleriniz sohbetin kapsamı olur')
         Tooltip(self.brcgs_btn, 'BRCGS audit reports: fill the official template like a form; it opens in Word in its original format')
         self.conn_var = tk.StringVar(value='Bağlantı denetleniyor…')
         self.conn_lbl = tk.Label(right, textvariable=self.conn_var, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), padx=10, pady=3)
@@ -2790,6 +2795,7 @@ class App(tk.Tk):
         self.btn(top, '📁 Klasör ekle', self.add_source_folder, 'normal')
         self.btn(top, 'Göster', self.show_selected_source, 'ghost')
         self.btn(top, 'Kaldır', self.remove_sources, 'ghost')
+        self.btn(top, '🗂 Gezgin', self.open_sources_explorer, 'ghost')
         self.src_tree = ttk.Treeview(f, columns=('loc', 'size'), height=5, selectmode='extended')
         self.src_tree.heading('#0', text='Belge')
         self.src_tree.heading('loc', text='Bölüm')
@@ -2920,6 +2926,41 @@ class App(tk.Tk):
         self._start_job('Klasör taranıyor: %s' % os.path.basename(root), scan, scanned)
         return fid
 
+    def open_sources_explorer(self):
+        """2.11: kaynak belge gezgini sekmesi (tek ornek)."""
+        if self.src_explorer is not None:
+            self.src_explorer.refresh()
+            self.nb.select(self.src_explorer)
+            return self.src_explorer
+        import agfo_sources_view
+        v = agfo_sources_view.SourcesExplorer(self, self.nb)
+        self.src_explorer = v
+        self.nb.add(v, text='📚 Kaynaklar')
+        self.nb.select(v)
+        self._drop_blank_doc()
+        try:
+            self.ai_nb.select(4)              # yan panelde Kaynaklar sohbeti: gezginde secilenlerle konusulur
+        except tk.TclError:
+            pass
+        return v
+
+    def sources_changed(self):
+        if self.src_explorer is not None:
+            try:
+                self.src_explorer.refresh()
+            except tk.TclError:
+                pass
+
+    def close_sources_explorer(self):
+        v = self.src_explorer
+        if v is None:
+            return
+        self.nb.forget(v)
+        v.destroy()
+        self.src_explorer = None
+        if not self.nb.tabs():
+            self.new_doc()
+
     @staticmethod
     def _folder_iid(root):
         import hashlib
@@ -3038,6 +3079,7 @@ class App(tk.Tk):
             self._sync_source_settings()
             self._source_summary()
             self._switch_scope()
+            self.sources_changed()
             if errs and not quiet:
                 messagebox.showwarning('Kaynaklar', 'Okunamayan belgeler:\n\n' + '\n'.join(errs), parent=self)
         self._start_job('Belgeler okunuyor (%d)' % len(paths), work, done)
@@ -3076,6 +3118,7 @@ class App(tk.Tk):
         self._sync_source_settings()
         self._source_summary()
         self._switch_scope()
+        self.sources_changed()
 
     def show_selected_source(self):
         sel = self.src_tree.selection()
@@ -4305,6 +4348,9 @@ class App(tk.Tk):
         if frame in getattr(self, 'compare_views', {}):
             self.close_compare(frame)
             return
+        if frame is self.src_explorer:
+            self.close_sources_explorer()
+            return
         d = next((x for x in self.docs if x.frame is frame), None)
         if d:
             self.close_doc(d)
@@ -4565,6 +4611,7 @@ class App(tk.Tk):
         m.add_separator()
         m.add_command(label='BRCGS reports…', command=self.open_brcgs)
         m.add_command(label='Video projesi aç…', command=self.open_video_project_file)
+        m.add_command(label='Kaynak belge gezgini', command=self.open_sources_explorer)
         m.add_separator()
         rec = tk.Menu(m, tearoff=0)
         for p in self.settings.get('recent', [])[:12]:

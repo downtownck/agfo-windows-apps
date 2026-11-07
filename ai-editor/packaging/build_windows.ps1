@@ -37,7 +37,7 @@ if (-not $env:RUNNER_TEMP) { $work = Join-Path $env:TEMP 'agfo-editor-build' }
     --icon (Join-Path $root 'assets\agfo-ai-editor.ico') --paths (Join-Path $root 'src') `
     --add-data ((Join-Path $root 'assets\agfo-ai-editor.ico') + ';assets') `
     --add-data ((Join-Path $root 'src\brcgs_data') + ';brcgs_data') `
-    --add-data ((Join-Path $root 'src\ifs_data') + ';ifs_data') --hidden-import agfo_ifs --hidden-import agfo_ifs_view --hidden-import agfo_video --hidden-import agfo_video_view `
+    --add-data ((Join-Path $root 'src\ifs_data') + ';ifs_data') --hidden-import agfo_ifs --hidden-import agfo_ifs_view --hidden-import agfo_video --hidden-import agfo_video_view --hidden-import agfo_sources_view `
     --hidden-import agfo_brcgs --hidden-import agfo_brcgs.data --hidden-import agfo_brcgs.boxes --hidden-import agfo_brcgs.docx_engine --hidden-import agfo_brcgs.store --hidden-import agfo_brcgs.guide --hidden-import agfo_brcgs.coverage --hidden-import agfo_brcgs.xlsx_reader --hidden-import agfo_brcgs_view --hidden-import agfo_brcgs.findings --hidden-import agfo_brcgs.i18n --hidden-import agfo_brcgs.review --hidden-import agfo_brcgs.review_pack --hidden-import agfo_docrender --hidden-import agfo_wordview --hidden-import lxml.etree `
     --hidden-import agfo_editor_core --hidden-import agfo_ai_client --hidden-import agfo_secrets `
     --hidden-import agfo_editor_update --hidden-import agfo_github_update --hidden-import agfo_sources --hidden-import agfo_pdf --hidden-import agfo_pdf_view --hidden-import agfo_pdf_edit `
