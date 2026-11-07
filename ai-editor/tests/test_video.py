@@ -127,6 +127,36 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(len(back['paragraphs']), len(self.paras))
 
 
+class FilterSyntaxTests(unittest.TestCase):
+    """2.9.1: yeni ffmpeg '-/filter_complex dosya' ister, eski surum -filter_complex_script'e duser."""
+    def _render(self, fail_new):
+        paras = V.paragraphs_from_markdown(MD)
+        folder = tempfile.mkdtemp(dir=TMP)
+        proj = V.new_project(folder, 'Deneme', paras, 'comic')
+        calls = []
+
+        def run(args, cwd=None, timeout=None):
+            calls.append(args)
+            if '-/filter_complex' in args and fail_new:
+                raise V.VideoError("ffmpeg hatası:\nUnrecognized option '/filter_complex'.\n"
+                                   'Error splitting the argument list: Option not found')
+            return None
+        with mock.patch.object(V, '_run', run), mock.patch.object(V, 'duration', return_value=1.0):
+            V.render(proj, lambda t: b'ID3', 'ffmpeg', 'ffprobe')
+        return [c for c in calls if 'filter.txt' in c]
+
+    def test_new_syntax_first(self):
+        calls = self._render(False)
+        self.assertEqual(len(calls), 1)
+        self.assertIn('-/filter_complex', calls[0])
+        self.assertNotIn('-filter_complex_script', calls[0])
+
+    def test_old_ffmpeg_fallback(self):
+        calls = self._render(True)
+        self.assertEqual(len(calls), 2)
+        self.assertIn('-filter_complex_script', calls[1])
+
+
 FF = V.find_ffmpeg()
 
 
