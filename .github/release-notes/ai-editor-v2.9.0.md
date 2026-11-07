@@ -1,0 +1,9 @@
+## AGFO AI Editor 2.9.0 — Sesli çizgi roman / Video (MOV)
+
+- **Metinden video:** Ses sekmesindeki **🎬 Video projesini aç…** ile seçili metinden ya da bütün belgeden 16:9 (1920×1080) bir MOV üretilir. Seslendirme paragraf paragraf yapılır, altyazı görüntüye yakılır ve okunan sözle aynı anda akar. Her sahnenin görseli üzerinde hafif bir yaklaşma (Ken Burns) hareketi vardır.
+- **Tarz seçimi:** Çizgi roman, Sinematik, Manga, Grafik roman (noir), Suluboya illüstrasyon ve Gerçekçi fotoğraf tarzları var. **AI seçsin** derseniz tarzı metnin havasına göre AI belirler. Tarz yalnız görüntüyü değil kurguyu da değiştirir. Çizgi romanda daha çok ve daha kısa kareler, değişen kadrajlar (geniş, yakın plan, alt açı) olur. Sinematikte daha uzun planlar, plan ölçeği ve ışık öne çıkar.
+- **AI özet ve sahne planı:** **Özet ve sahne planı çıkar** düğmesi kısa bir özet, karakterleri ve sahneleri çıkarır. Kaç kare olacağına AI karar verir. Her sahne için bir başlık, bir görsel tarifi ve bir çekim türü yazılır. Sahneleri elle birleştirebilir ya da ikiye bölebilirsiniz.
+- **Karakter tutarlılığı için görsel promptu:** Her sahnenin promptu dört parçadan oluşur: tarz, çekim, sahne tarifi ve o sahnedeki karakterlerin her karede aynı tutulan görünüm tarifi. Prompt düzenlenebilir, **Kopyala** ile alınabilir, **Otomatiğe dön** ile yeniden kurulabilir. Görsellerde yazı ve konuşma balonu istenmez, çünkü metin altyazıda akar.
+- **Yer tutucu görseller:** Görseli olmayan sahneye kare numarası, tarz ve sahne tarifinin yazdığı bir yer tutucu konur. **Kendi görselimi seç…** ile sahneye kendi resminizi koyabilirsiniz. Proje belgenin yanındaki `<belge>_video` klasöründe tutulur (proje dosyası, sesler, görseller, `subs.srt`).
+- **ffmpeg:** Video için ffmpeg gerekir. İlk kullanımda sorulur ve bir kez indirilir (yaklaşık 150 MB).
+- **Sıradaki adım:** Sahne görsellerini AI Manager'daki görsel modelleriyle üretmek. Model listeden seçilecek ve karakter referans görselleri kullanılacak.
