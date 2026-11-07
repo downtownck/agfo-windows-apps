@@ -336,8 +336,8 @@ apply_theme('dark')
 POLL_MS = 80
 AUTOSAVE_MS = 45000
 UPDATE_CHECK_MS = 30 * 60 * 1000   # 1.4.15: acik kaldikca 30 dk'da bir sessiz guncelleme denetimi
-FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm *.pdf *.xlsx *.xlsm *.pptx *.eml *.csv *.ifs'),
-             ('IFS auditXpress', '*.ifs'),
+FILETYPES = [('Desteklenen belgeler', '*.txt *.md *.markdown *.docx *.html *.htm *.pdf *.xlsx *.xlsm *.pptx *.eml *.csv *.ifs proje.json'),
+             ('IFS auditXpress', '*.ifs'), ('Video projesi', 'proje.json'),
              ('Metin', '*.txt'), ('Markdown', '*.md *.markdown'), ('Word belgesi', '*.docx'), ('PDF (metin olarak)', '*.pdf'),
              ('Excel / PowerPoint (metin olarak)', '*.xlsx *.xlsm *.pptx'), ('HTML', '*.html *.htm'), ('Tüm dosyalar', '*.*')]
 SAVE_FILETYPES = [('Word belgesi', '*.docx'), ('Markdown', '*.md'), ('Metin', '*.txt'), ('HTML', '*.html')]
@@ -2036,7 +2036,7 @@ class App(tk.Tk):
         self._tab_chat(self._ai_tab('Sohbet'))
         self._tab_audit(self._ai_tab('Denetim'))
         self._tab_sources(self._ai_tab('Kaynaklar'))
-        self._tab_speech(self._ai_tab('Ses'))   # 1.5
+        self._tab_speech(self._scroll_tab('Ses'))   # 1.5; 2.10: kaydirilabilir (video bolumu eklendi)
 
     # ------------------------------------------------------------------ 1.5: Ses (EMA seslendirme)
     def _tab_speech(self, f):
@@ -2119,9 +2119,14 @@ class App(tk.Tk):
         tk.Label(vx, text='Sesli çizgi roman / Video (MOV)', fg=FG, bg=PANEL2, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
         self.lbl(vx, 'Metinden 16:9 MOV: seslendirme, görüntüye yakılmış altyazı ve sahne sahne görseller. Tarzı (çizgi roman, '
                      'sinematik, manga…) seçin; AI özet, karakterler ve sahne planı çıkarır, kare sayısını kendisi belirler. Her '
-                     'sahne için tarza göre görsel promptu yazılır; görsel gelene kadar yer tutucu kullanılır.', muted=True,
+                     'sahne için tarza göre görsel promptu yazılır; görsel gelene kadar yazısız bir yer tutucu, üstünde tarzın çerçevesiyle '
+                     'kullanılır. Proje kendi klasöründe saklanır; “Proje dosyasını aç” ile belge açmadan kaldığınız yerden sürersiniz.', muted=True,
                  bg=PANEL2, wraplength=int(360 * self.scale)).pack(anchor='w', pady=(0, 6))
-        self.btn(vx, '🎬 Video projesini aç…', self.open_video_project, 'primary', padx=12, pady=6)
+        vrow = tk.Frame(vx, bg=PANEL2)
+        vrow.pack(fill='x')
+        self.btn(vrow, '🎬 Bu metinden video…', self.open_video_project, 'primary', padx=12, pady=6)
+        self.btn(vrow, '📂 Proje dosyasını aç…', self.open_video_project_file, 'ghost', padx=10)
+        self.btn(vrow, 'Son projeler ▾', self.show_video_recent, 'ghost', padx=8)
 
         box = tk.Frame(f, bg=PANEL2, padx=10, pady=8)
         box.pack(fill='x', pady=(10, 0))
@@ -2354,6 +2359,41 @@ class App(tk.Tk):
         self.video_win = VideoProjectWindow(self, b, d, md, what)
         return self.video_win
 
+    def open_video_project_file(self, path=None):
+        """2.10: kayitli video projesini (proje.json) belge acmadan acar; kalinan yerden devam edilir."""
+        import agfo_video
+        title = 'Video projesi'
+        if not path:
+            path = filedialog.askopenfilename(parent=self, title='Video projesi aç (proje.json)',
+                                              filetypes=[('Video projesi', 'proje.json'), ('JSON', '*.json')])
+            if not path:
+                return None
+        if os.path.isdir(path):
+            path = os.path.join(path, agfo_video.PROJECT_FILE)
+        proj = agfo_video.load_project(os.path.dirname(os.path.abspath(path))) if agfo_video.is_project_file(path) else None
+        if proj is None:
+            messagebox.showerror(title, 'Bu dosya bir video projesi değil:\n%s' % path, parent=self)
+            return None
+        from agfo_video_view import VideoProjectWindow
+        win = getattr(self, 'video_win', None)
+        if win is not None and win.winfo_exists():
+            win.destroy()
+        self.video_win = VideoProjectWindow(self, None, proj=proj)
+        return self.video_win
+
+    def show_video_recent(self):
+        import agfo_video
+        m = tk.Menu(self, tearoff=0)
+        lst = agfo_video.recent_projects(self.settings)
+        for f in lst:
+            m.add_command(label=f, command=lambda x=f: self.open_video_project_file(x))
+        if not lst:
+            m.add_command(label='(henüz proje yok)', state='disabled')
+        try:
+            m.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
+        finally:
+            m.grab_release()
+
     # ------------------------------------------------------------------ 1.6: Sesli oku
     def read_aloud(self):
         ses = getattr(self, 'ra_session', None)
@@ -2523,6 +2563,32 @@ class App(tk.Tk):
         f = ttk.Frame(self.ai_nb, padding=(10, 10))
         self.ai_nb.add(f, text=title)
         return f
+
+    def _scroll_tab(self, title):
+        """Icerigi panelden uzun olabilen sekme: dikey kaydirma cubugu ve fare tekerlegi."""
+        outer = ttk.Frame(self.ai_nb)
+        self.ai_nb.add(outer, text=title)
+        cv = tk.Canvas(outer, bg=PANEL, highlightthickness=0, bd=0)
+        sb = ttk.Scrollbar(outer, orient='vertical', command=cv.yview)
+        cv.configure(yscrollcommand=sb.set)
+        sb.pack(side='right', fill='y')
+        cv.pack(side='left', fill='both', expand=True)
+        inner = tk.Frame(cv, bg=PANEL, padx=10, pady=10)
+        win = cv.create_window(0, 0, window=inner, anchor='nw')
+        inner.bind('<Configure>', lambda e: cv.configure(scrollregion=cv.bbox('all')))
+        cv.bind('<Configure>', lambda e: cv.itemconfigure(win, width=e.width))
+
+        def wheel(e):
+            try:
+                w = self.winfo_containing(e.x_root, e.y_root)
+            except (tk.TclError, KeyError):
+                return
+            if w is None or not str(w).startswith(str(cv)) or cv.yview() == (0.0, 1.0):
+                return
+            cv.yview_scroll(-1 if (getattr(e, 'delta', 0) > 0 or getattr(e, 'num', 0) == 4) else 1, 'units')
+        for seq in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            self.bind_all(seq, wheel, add='+')
+        return inner
 
     def _combo(self, parent, var, values, width=22, readonly=True):
         c = ttk.Combobox(parent, textvariable=var, values=values, width=width, state='readonly' if readonly else 'normal')
@@ -3504,6 +3570,10 @@ class App(tk.Tk):
             return self.open_pdf(path)
         if os.path.splitext(path)[1].lower() == '.ifs':
             return self.open_ifs(path)                          # 2.8.0: IFS auditXpress raporu
+        if os.path.basename(path).lower() == 'proje.json':
+            import agfo_video
+            if agfo_video.is_project_file(path):
+                return self.open_video_project_file(path)       # 2.10: video projesi (editorden bagimsiz)
         if os.path.splitext(path)[1].lower() in READ_ONLY_KINDS:
             return self.open_as_text(path)
         blocks = None
@@ -4494,6 +4564,7 @@ class App(tk.Tk):
         m.add_command(label='Farklı kaydet…  (Ctrl+Shift+S)', command=self.save_as)
         m.add_separator()
         m.add_command(label='BRCGS reports…', command=self.open_brcgs)
+        m.add_command(label='Video projesi aç…', command=self.open_video_project_file)
         m.add_separator()
         rec = tk.Menu(m, tearoff=0)
         for p in self.settings.get('recent', [])[:12]:
