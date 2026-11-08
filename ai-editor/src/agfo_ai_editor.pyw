@@ -2154,6 +2154,21 @@ class App(tk.Tk):
         ttk.Radiobutton(svc, text='Bu bilgisayar', value='local', variable=self.sp_service_var,
                         command=self._speech_service_changed).pack(side='left', padx=(0, 8))
         self.sp_sync_btn = self.btn(svc, 'Sözlüğü siteden eşitle', self.sync_local_lexicon, 'ghost', padx=8)
+        # 2.14: bu bilgisayardaki ses servisleri ve sesleri (EMA Türkçe, SILMA / Habibi Arapça)
+        lv = tk.Frame(f, bg=PANEL)
+        self.sp_local_box = lv
+        lr = tk.Frame(lv, bg=PANEL)
+        lr.pack(fill='x', pady=(0, 3))
+        self.lbl(lr, 'Yerel ses', muted=True).pack(side='left')
+        self.sp_local_var = tk.StringVar()
+        self.sp_local_cb = ttk.Combobox(lr, textvariable=self.sp_local_var, state='readonly', width=30)
+        self.sp_local_cb.pack(side='left', padx=(6, 4), fill='x', expand=True)
+        self.sp_local_cb.bind('<<ComboboxSelected>>', lambda e: self._local_voice_changed())
+        self.btn(lr, '⟳', lambda: self._sync_speech_tab(), 'ghost', padx=6)
+        self.btn(lr, '▶ Dene', self.try_speech_voice, 'ghost', padx=8)
+        self.sp_local_note = self.lbl(lv, '', muted=True, wraplength=int(380 * self.scale))
+        self.sp_local_note.pack(anchor='w')
+        self._sp_local_items = []        # [(etiket, servis kimligi, ses kimligi)]
         # 2.13: saglayici, ses ve model (sitedeki AI Manager 17.14+: EMA, OpenAI, ElevenLabs, MiniMax)
         pv = tk.Frame(f, bg=PANEL)
         self.sp_voice_box = pv
@@ -2292,10 +2307,69 @@ class App(tk.Tk):
             pass
 
     # ------------------------------------------------------------------ 1.7: ses servisi (site / bu bilgisayar)
-    def _local_tts_config(self):
+    def _local_services(self):
+        """2.14: bu bilgisayarda kurulu ses servisleri."""
+        if hasattr(self, '_test_local_services'):
+            return list(self._test_local_services)
         if hasattr(self, '_test_local_cfg'):
-            return self._test_local_cfg
-        return localtts.read_config()
+            cfg = self._test_local_cfg
+            return [dict({'id': 'ema', 'engine': 'ema', 'lang': 'tr', 'label': 'EMA Lightning (Türkçe)'}, **cfg)] if cfg else []
+        return localtts.local_services()
+
+    def _local_tts_config(self):
+        """Secili yerel servis (yoksa ilk kurulu olan) ya da None."""
+        svcs = self._local_services()
+        if not svcs:
+            return None
+        want = self.settings.get('local_tts_service')
+        return next((c for c in svcs if c.get('id') == want), svcs[0])
+
+    def _local_voice(self, sid):
+        return str((self.settings.get('local_voice') or {}).get(sid, ''))
+
+    def _local_voice_changed(self):
+        try:
+            label, sid, vid = self._sp_local_items[list(self.sp_local_cb.cget('values')).index(self.sp_local_var.get())]
+        except (ValueError, IndexError):
+            return
+        self.settings['local_tts_service'] = sid
+        self.settings.setdefault('local_voice', {})[sid] = vid
+        try:
+            core.save_settings(self.settings)
+        except OSError:
+            pass
+        self._sync_speech_tab(reload_voices=False)
+
+    def _fill_local_voices(self, found):
+        """found: [(servis cfg, /voices yaniti ya da hata metni)]."""
+        items, labels = [], []
+        for cfg, res in found:
+            sid = cfg.get('id', 'ema')
+            if isinstance(res, dict) and res.get('voices'):
+                for v in res['voices']:
+                    vid = str(v.get('id') or '')
+                    name = str(v.get('name') or vid or cfg.get('label'))
+                    lab = cfg.get('label', sid) if sid == 'ema' else '%s · %s' % (cfg.get('label', sid), name)
+                    items.append((lab, sid, vid))
+            else:
+                items.append(('%s  — kapalı' % cfg.get('label', sid), sid, ''))
+        self._sp_local_items = items
+        labels = [i[0] for i in items]
+        self.sp_local_cb.configure(values=labels)
+        cfg = self._local_tts_config() or {}
+        sid, vid = cfg.get('id', 'ema'), self._local_voice(cfg.get('id', 'ema'))
+        pick = next((i for i in items if i[1] == sid and i[2] == vid), None) or next((i for i in items if i[1] == sid), None)
+        if pick:
+            self.sp_local_var.set(pick[0])
+            if pick[2] != vid:
+                self.settings.setdefault('local_voice', {})[sid] = pick[2]
+        arabic = [c for c, _r in found if c.get('lang') == 'ar']
+        note = ''
+        if arabic:
+            folder = os.path.join(arabic[0].get('dir', ''), 'data', 'voices')
+            note = ('Arapça seste okuma metni ve telaffuz sözlüğü kullanılmaz. Kendi sesinizi eklemek için 5–15 sn kayıt (ad.wav) '
+                    've yazısını (ad.txt) şu klasöre koyun: %s — sesi kullanılan kişinin izni gerekir.' % folder)
+        self.sp_local_note.configure(text=note)
 
     # ------------------------------------------------------------------ 2.13: ses saglayicisi / ses / model
     def _speech_provider(self):
@@ -2313,7 +2387,12 @@ class App(tk.Tk):
     def _voice_sig(self):
         """Onbellek anahtari icin: hangi saglayici / ses / model ile uretildi."""
         if self._speech_mode() == 'local':
-            return 'yerel'
+            cfg = self._local_tts_config() or {}
+            sid = cfg.get('id', 'ema')
+            if sid == 'ema':
+                return 'yerel'
+            v = self._local_voice(sid)
+            return 'yerel-%s-%s' % (sid, hashlib.sha1(v.encode('utf-8')).hexdigest()[:6])
         o = self._speech_opts()
         if o['provider'] == 'ema':
             return 'ema'
@@ -2449,7 +2528,7 @@ class App(tk.Tk):
         if not b:
             return None
         self._speech_voice_changed()
-        sample = 'Merhaba. Bu ses, AGFO AI Editör için seçtiğiniz sestir; denetim raporlarını ve belgeleri böyle okuyacak.'
+        sample = localtts.SAMPLES.get(getattr(b, 'lang', 'tr'), localtts.SAMPLES['tr'])
         speed = float(self.settings.get('speech_speed', 1.0))
         dest = core.data_dir() / 'readaloud' / ('deneme-%s.mp3' % self._voice_sig())
 
@@ -2498,7 +2577,10 @@ class App(tk.Tk):
                 messagebox.showinfo(title, 'Bu bilgisayarda AGFO Ses Servisi kurulu değil. AGFO-Ses-Kur.cmd ile kurun ya da '
                                            'Ses sekmesinde “Site (AI Manager)”ı seçin.', parent=self)
             return None
-        return localtts.LocalSpeechBackend(cfg['endpoint'], cfg['token'], site=self._site_backend())
+        sid = cfg.get('id', 'ema')
+        return localtts.LocalSpeechBackend(cfg['endpoint'], cfg['token'], site=self._site_backend(), lang=cfg.get('lang', 'tr'),
+                                           engine=cfg.get('engine', 'ema'), voice=self._local_voice(sid) if sid != 'ema' else '',
+                                           label=cfg.get('label', ''))
 
     def _speech_backend(self, title):
         """Secili ses servisi: bu bilgisayar ya da sitedeki AI Manager."""
@@ -2510,6 +2592,9 @@ class App(tk.Tk):
         title = 'Sözlüğü eşitle'
         b = self._local_backend(title)
         if not b:
+            return
+        if not getattr(b, 'has_lexicon', True):
+            messagebox.showinfo(title, '%s için telaffuz sözlüğü yok; sözlük yalnız Türkçe sesle çalışır.' % b.label, parent=self)
             return
         if b.site is None:
             messagebox.showinfo(title, 'Ortak sözlük sitedeki AI Manager üzerinden alınır; Ayarlar › Bağlantı bölümünden sitenizi ekleyin.',
@@ -2528,24 +2613,45 @@ class App(tk.Tk):
             self.sp_result_var.set(msg)
         self._start_job('Sözlük eşitleniyor', b.sync_from_site, done)
 
-    def _sync_speech_tab(self):
+    def _sync_speech_tab(self, reload_voices=True):
         if not hasattr(self, 'sp_state_var'):
             return
         local = self._speech_mode() == 'local'
-        try:
-            self.sp_sync_btn.configure(state='normal' if local else 'disabled')
-        except (AttributeError, tk.TclError):
-            pass
         if local and hasattr(self, 'sp_voice_box'):
-            self.sp_voice_box.pack_forget()                           # yerel servis yalniz EMA
+            self.sp_voice_box.pack_forget()                           # saglayici secimi yalniz sitede
+        if hasattr(self, 'sp_local_box'):
+            if local and self._local_services():
+                if not self.sp_local_box.winfo_manager():
+                    self.sp_local_box.pack(fill='x', pady=(0, 6), after=self._sp_anchor)
+            else:
+                self.sp_local_box.pack_forget()
         if local:
             b = self._local_backend()
+            try:
+                self.sp_sync_btn.configure(state='normal' if b is not None and b.has_lexicon else 'disabled')
+            except (AttributeError, tk.TclError):
+                pass
             if b is None:
-                self.sp_state_var.set('● Bu bilgisayarda ses servisi kurulu değil: AGFO-Ses-Kur.cmd ile kurun.')
+                self.sp_state_var.set('● Bu bilgisayarda ses servisi kurulu değil: AGFO-Ses-Kur.cmd (Türkçe) ya da '
+                                      'AGFO-Arapca-Servis-Kur.cmd (Arapça) ile kurun.')
                 self.sp_state_lbl.configure(fg=WARN)
                 return
             self.sp_state_var.set('● Bu bilgisayardaki ses servisi denetleniyor…')
             self.sp_state_lbl.configure(fg=MUTED)
+            svcs = self._local_services()
+            if reload_voices and svcs and (len(svcs) > 1 or svcs[0].get('lang') != 'tr'):
+                def scan():
+                    out = []
+                    for c in svcs:
+                        sb = localtts.LocalSpeechBackend(c['endpoint'], c['token'], lang=c.get('lang', 'tr'), label=c.get('label', ''))
+                        try:
+                            out.append((c, sb.voices()))
+                        except Exception as e:                        # noqa: BLE001 - kapali servis listede gorunsun
+                            out.append((c, str(e)))
+                    return out
+                self._start_job('Yerel sesler alınıyor', scan, lambda ok, res: ok and self._fill_local_voices(res))
+            elif reload_voices and svcs:
+                self._fill_local_voices([(svcs[0], {'voices': [{'id': '', 'name': 'EMA Lightning'}]})])
 
             def done(ok, res):
                 if self._speech_mode() != 'local':
@@ -2553,13 +2659,20 @@ class App(tk.Tk):
                 if ok:
                     dev = str(res.get('device') or 'cpu')
                     where = 'ekran kartında' if dev.startswith('cuda') else 'işlemcide'
-                    self.sp_state_var.set('● EMA Lightning bu bilgisayarda hazır (%s, %s kelimelik sözlük)' % (where, res.get('lexicon_entries', '?')))
+                    if b.lang == 'tr':
+                        self.sp_state_var.set('● EMA Lightning bu bilgisayarda hazır (%s, %s kelimelik sözlük)' % (where, res.get('lexicon_entries', '?')))
+                    else:
+                        self.sp_state_var.set('● %s bu bilgisayarda hazır (%s, %s ses)' % (b.label, where, res.get('voices', '?')))
                     self.sp_state_lbl.configure(fg=OK_C)
                 else:
-                    self.sp_state_var.set('● ' + str(res))
+                    self.sp_state_var.set('● %s: %s' % (b.label, res) if b.lang != 'tr' else '● ' + str(res))
                     self.sp_state_lbl.configure(fg=WARN)
             self._start_job('Ses servisi denetleniyor', b.health, done)
             return
+        try:
+            self.sp_sync_btn.configure(state='disabled')
+        except (AttributeError, tk.TclError):
+            pass
         info = (self.manager_info or {}).get('speech') if isinstance(self.manager_info, dict) else None
         if not isinstance(info, dict):
             self.sp_state_var.set('Seslendirme için sitede AGFO AI Manager 17.12.0 veya üstü gerekir.')
@@ -2872,6 +2985,10 @@ class App(tk.Tk):
     def open_lexicon(self, word=''):
         b = self._speech_backend('Telaffuz sözlüğü')
         if not b:
+            return None
+        if not getattr(b, 'has_lexicon', True):           # 2.14: Arapca yerel ses
+            messagebox.showinfo('Telaffuz sözlüğü', '%s için telaffuz sözlüğü yok; sözlük Türkçe seste (EMA Lightning) ya da '
+                                'Ses servisi “Site” seçiliyken çalışır.' % b.label, parent=self)
             return None
         win = getattr(self, 'lexicon_win', None)
         if win is not None and win.winfo_exists() and getattr(win.b, 'kind', '') != getattr(b, 'kind', ''):

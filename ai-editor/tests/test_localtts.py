@@ -153,7 +153,8 @@ class ConfigTests(unittest.TestCase):
         p = os.path.join(d, '.env')
         with open(p, 'w', encoding='utf-8-sig') as fh:
             fh.write('# yorum\nAGFO_TTS_PORT=8771\nAGFO_TTS_TOKEN=abc123\n')
-        self.assertEqual(lt.read_config(p), {'endpoint': 'http://127.0.0.1:8771', 'token': 'abc123', 'dir': d})
+        self.assertEqual(lt.read_config(p), {'endpoint': 'http://127.0.0.1:8771', 'token': 'abc123', 'dir': d, 'id': 'ema',
+                                             'engine': 'ema', 'lang': 'tr', 'label': 'EMA Lightning (Türkçe)'})
         with open(p, 'w', encoding='utf-8') as fh:
             fh.write('AGFO_TTS_PORT=8771\n')
         self.assertIsNone(lt.read_config(p))
