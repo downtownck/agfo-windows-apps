@@ -9,6 +9,7 @@ name: Release
 #   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + AGFO-AI-Editor-Kur.cmd (yoneticisiz kurulum) + ekran goruntusu
 #   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd: EXE kullanicinin PC'sinde derlenir) + AGFO-Phantom-Shot.exe (uygulama ici guncelleme)
 #   mic-monitor-vX.Y.Z  -> AGFO-Mic-Monitor-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd) + AGFO-Mic-Monitor.exe (uygulama ici guncelleme)
+#   subscription-manager-vX.Y.Z -> AGFO-Subscription-Manager-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd; uygulama ici guncelleme de bunu kullanir)
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -33,6 +34,7 @@ jobs:
       ae: ${{ steps.d.outputs.ae }}
       ps: ${{ steps.d.outputs.ps }}
       mm: ${{ steps.d.outputs.mm }}
+      sm: ${{ steps.d.outputs.sm }}
     steps:
       - uses: actions/checkout@v4
       - id: d
@@ -53,6 +55,8 @@ jobs:
           echo "ps=$(need phantom-shot-v$PS)" >> "$GITHUB_OUTPUT"
           MM=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" mic-monitor/mic_core.py)
           echo "mm=$(need mic-monitor-v$MM)" >> "$GITHUB_OUTPUT"
+          SM=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" subscription-manager/subscription_core.py)
+          echo "sm=$(need subscription-manager-v$SM)" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   system-care:
@@ -480,3 +484,39 @@ jobs:
           $notes = ".github/release-notes/$env:TAG.md"
           if (-not (Test-Path $notes)) { "AGFO Mic Monitor $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
           gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO Mic Monitor $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA
+
+  subscription-manager:
+    needs: detect
+    if: needs.detect.outputs.sm != ''
+    runs-on: ubuntu-latest
+    env: { TAG: '${{ needs.detect.outputs.sm }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket ve ortak modul denetimi
+        run: |
+          V="${TAG#subscription-manager-v}"
+          C=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" subscription-manager/subscription_core.py)
+          [ "$V" = "$C" ] || { echo "Etiket $V ile subscription_core.py VERSION $C uyusmuyor"; exit 1; }
+          cmp shared/agfo_github_update.py subscription-manager/agfo_github_update.py
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - name: Testler
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          python -I shared/tests/test_agfo_github_update.py shared
+          python -I subscription-manager/tests/test_core.py subscription-manager
+          xvfb-run -a python -I subscription-manager/tests/test_gui.py subscription-manager
+      - name: Paketle
+        run: |
+          mkdir -p out pkg
+          D="AGFO-Subscription-Manager-v${VERSION}"
+          rsync -a --exclude '__pycache__' --exclude 'dist' subscription-manager/ "pkg/$D/"
+          test -f "pkg/$D/Derle-ve-Kur.cmd"
+          (cd pkg && zip -qr "../out/$D-Kurulum.zip" "$D")
+          (cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          NOTES=".github/release-notes/${TAG}.md"; [ -f "$NOTES" ] || { echo "AGFO Subscription Manager ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
+          gh release create "$TAG" out/* --title "AGFO Subscription Manager ${VERSION}" --notes-file "$NOTES" --target "$GITHUB_SHA"
