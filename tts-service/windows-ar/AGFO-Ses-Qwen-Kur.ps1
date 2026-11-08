@@ -115,10 +115,11 @@ Write-Host '  Qwen3-TTS ve bağımlılıkları…'
 & $uv pip install --python $Py --no-deps qwen-tts 2>&1 | ForEach-Object { "$_" } | Show
 if ($LASTEXITCODE -ne 0) { Fail 'qwen-tts indirilemedi.'; Done 1 }
 & $uv pip install --python $Py -c $cons transformers==4.57.3 accelerate==1.12.0 librosa soundfile sox onnxruntime einops `
-    huggingface_hub 'numpy<2.3' fastapi 'uvicorn[standard]' num2words 2>&1 | ForEach-Object { "$_" } | Show
+    huggingface_hub hf_xet 'numpy<2.3' fastapi 'uvicorn[standard]' num2words 2>&1 | ForEach-Object { "$_" } | Show
 if ($LASTEXITCODE -ne 0) { Fail 'Bağımlılıklar kurulamadı.'; Done 1 }
-$probe = ((& $Py -c "import torch, qwen_tts; print(torch.__version__, 'cuda' if torch.cuda.is_available() else 'cpu')" 2>&1 |
-          Where-Object { "$_" -notmatch 'SoX could not be found|Redirects are currently|warnings.warn' }) -join ' ')
+# qwen_tts ice aktarilirken SoX ve flash-attn uyarilari yazar; zararsizdir, yalniz son satir (surum) alinir
+$probe = ((& $Py -c "import torch, qwen_tts; print('AGFO-PROBE', torch.__version__, 'cuda' if torch.cuda.is_available() else 'cpu')" 2>&1 |
+          ForEach-Object { "$_" } | Where-Object { $_ -match '^AGFO-PROBE ' }) -join ' ') -replace '^AGFO-PROBE ', ''
 if ($probe -notmatch '\d+\.\d+') { Fail "Paketler yüklenemedi: $probe"; Done 1 }
 Ok "torch $probe"
 if ($gpu -and $probe -notmatch 'cuda') { Warn 'PyTorch ekran kartını görmüyor; NVIDIA sürücüsünü güncelleyin.' }
@@ -128,11 +129,20 @@ Step "Qwen3-TTS $Boyut modelleri indiriliyor (hazır sesler + kendi sesiniz içi
 $env:HF_HOME = Join-Path $D 'hf'
 $env:HF_HUB_DISABLE_SYMLINKS_WARNING = '1'
 $env:PYTHONIOENCODING = 'utf-8'
-$dl = "from huggingface_hub import snapshot_download as s`nfor r in ('Qwen/Qwen3-TTS-12Hz-$Boyut-CustomVoice', 'Qwen/Qwen3-TTS-12Hz-$Boyut-Base'):`n    print('  ', r, flush=True); s(r)`nprint('ok')"
+# Modeller dogrudan models\<ad> klasorune indirilir: Hugging Face onbellegi Windows'ta sembolik baglanti ister ve
+# Gelistirici Modu kapaliyken yarida kalabilir (WinError 1314). Yarim kalan indirme kaldigi yerden surer.
+$Models = Join-Path $D 'models'
+$env:AGFO_MODELS = $Models
+$dl = "import os`nfrom huggingface_hub import snapshot_download as s`nfor k in ('CustomVoice', 'Base'):`n    r = 'Qwen3-TTS-12Hz-$Boyut-' + k`n    print('  ', r, flush=True); s('Qwen/' + r, local_dir=os.path.join(os.environ['AGFO_MODELS'], r))`nprint('ok')"
 $res = & $Py -c $dl 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch 'it/s\]|B/s\]|RemoteException|^\s*$' }
 $res | Show
 if (($res -join ' ') -notmatch '\bok\b') { Fail 'Modeller indirilemedi (ayrıntı yukarıda).'; Done 1 }
-Ok 'Modeller hazır'
+Ok "Modeller hazır: $Models"
+# onceki surumun Hugging Face onbellegindeki kopyalari artik gerekmez
+foreach ($old in 'models--Qwen--Qwen3-TTS-12Hz-1.7B-CustomVoice', 'models--Qwen--Qwen3-TTS-12Hz-1.7B-Base', 'models--Qwen--Qwen3-TTS-12Hz-0.6B-CustomVoice', 'models--Qwen--Qwen3-TTS-12Hz-0.6B-Base') {
+    $op = Join-Path $D "hf\hub\$old"
+    if (Test-Path $op) { Remove-Item $op -Recurse -Force -ErrorAction SilentlyContinue }
+}
 
 # ---------------------------------------------------------------- 5. servis
 Step 'Servis'
@@ -161,6 +171,7 @@ $envMap['AGFO_TTS_ENGINE'] = 'qwen'
 $envMap['AGFO_TTS_LANG'] = 'en'
 $envMap['AGFO_TTS_LABEL'] = 'Qwen3-TTS (İngilizce, İspanyolca)'
 $envMap['AGFO_TTS_QWEN_SIZE'] = $Boyut
+$envMap['AGFO_TTS_QWEN_DIR'] = $Models
 $envMap['AGFO_TTS_FFMPEG'] = $ffmpeg
 $envMap['AGFO_TTS_CACHE_DIR'] = (Join-Path $D 'cache')
 $envMap['AGFO_TTS_DATA_DIR'] = (Join-Path $D 'data')
