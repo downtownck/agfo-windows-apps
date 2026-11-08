@@ -35,7 +35,8 @@ PARA_FIXED = set(STYLE_TAGS + LIST_TAGS + LEVEL_TAGS + ALIGN_TAGS + ('tbl', 'pb'
 CHAR_FIXED = {'b', 'i', 'u', 's', 'sup', 'sub'}
 CHAR_PREFIX = ('c_', 'h_', 'fn_', 'sz_', 'ln_')
 PARA_PREFIX = ('tb_', 'ls_', 'sb_', 'sa_', 'in_')
-TRANSIENT = {'sel', 'found', 'ai_new', 'hover', 'md_h', 'md_mark', 'md_li', 'fmt_flash', 'pairhl', 'trwork', 'trdone', 'spell'}
+TRANSIENT = {'sel', 'found', 'ai_new', 'hover', 'md_h', 'md_mark', 'md_li', 'fmt_flash', 'pairhl', 'trwork', 'trdone', 'spell',
+             'pgend'}          # 2.12: pgend ve pgap_* - sayfa gorunumunde sayfa araligi (agfo_pages)
 OVERLAY = ('spell', 'trdone', 'trwork', 'found', 'ai_new', 'sel')
 LINK_COLOR = '0563C1'
 ERR_MARK = '\x01AGFOERR\x01'
@@ -107,7 +108,7 @@ def fmt_from_tags(tags):
 
 
 def recorded(t):
-    return t not in TRANSIENT and not t.startswith('ais_') and not t.startswith('aie_')
+    return t not in TRANSIENT and not t.startswith(('ais_', 'aie_', 'pgap_'))
 
 
 class _LineTrack(list):

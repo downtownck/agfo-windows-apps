@@ -409,6 +409,7 @@ class Doc:
         self.speech_script = False   # 1.5: bu sekme AI ile hazirlanmis bir okuma metni mi
         self.hf = None               # 2.7.0: ozgun ust/alt bilgi parcalari (rdoc.read_docx_hf)
         self.wordv = None            # 2.7.0: Word gorunumu (cizilmis sayfalar) acikken {'frame', 'view', ...}
+        self.pages = None            # 2.12: sayfa gorunumunde sayfalara bolme (agfo_pages.PageDecor)
 
     @property
     def rich(self) -> bool:
@@ -810,6 +811,7 @@ class App(tk.Tk):
         self._style()
         self._build()
         self._bind_keys()
+        self._install_context_menus()        # 2.12
         for f in files:
             self.open_path(f)
         if not self.docs:
@@ -1125,6 +1127,10 @@ class App(tk.Tk):
         self.rbtn(r, '⇄ Değiştir', lambda: self.toggle_find(replace=True), tip='Değiştir (Ctrl+H)')
         r = self._rrow(g)
         self.rbtn(r, '▭ Tümünü seç', self.select_all, tip='Tümünü seç (Ctrl+A)')
+        g = self._group(pg, 'Metin')                                   # 2.12: metin islemleri
+        r = self._rrow(g)
+        tb = self.rbtn(r, 'Aa\nMetin işlemleri ▾', lambda: self._popup(self.textops_menu(), tb),
+                       tip='Harf düzeni, satır sıralama, tekrar silme, boşluk ve tırnak düzeltme, tarih ekleme', big=True)
 
     def _page_insert(self, pg):
         g = self._group(pg, 'Tablolar ve görseller')
@@ -1227,6 +1233,88 @@ class App(tk.Tk):
         if d:
             d.text.tag_add('sel', '1.0', 'end-1c')
             d.text.focus_set()
+
+    # ------------------------------------------------------------------ 2.12: metin islemleri
+    def textops_menu(self, parent=None):
+        """Secime (secim yoksa imlecin paragrafina; satir islemlerinde butun belgeye) uygulanan metin islemleri."""
+        import agfo_textops as TO
+        m = tk.Menu(parent or self, tearoff=0)
+        cm = tk.Menu(m, tearoff=0)
+        for key, (label, _fn) in TO.CASE_OPS.items():
+            cm.add_command(label=label, command=lambda k=key: self.text_op('case', k))
+        m.add_cascade(label='Harf düzeni', menu=cm)
+        lm = tk.Menu(m, tearoff=0)
+        for key, label in TO.LINE_OPS.items():
+            lm.add_command(label=label, command=lambda k=key: self.text_op('lines', k))
+        m.add_cascade(label='Satırlar', menu=lm)
+        tm = tk.Menu(m, tearoff=0)
+        for key, (label, _fn) in TO.TEXT_OPS.items():
+            tm.add_command(label=label, command=lambda k=key: self.text_op('text', k))
+        m.add_cascade(label='Temizle ve dönüştür', menu=tm)
+        im = tk.Menu(m, tearoff=0)
+        im.add_command(label='Tarih  (%s)' % TO.now_text('date'), command=lambda: self.insert_text_at_cursor(TO.now_text('date')))
+        im.add_command(label='Tarih ve saat', command=lambda: self.insert_text_at_cursor(TO.now_text('datetime')))
+        im.add_command(label='Uzun tarih  (%s)' % TO.now_text('long'), command=lambda: self.insert_text_at_cursor(TO.now_text('long')))
+        m.add_cascade(label='Ekle', menu=im)
+        m.add_separator()
+        m.add_command(label='Sayım (kelime, cümle, okuma süresi)…', command=self.text_stats_dialog)
+        return m
+
+    def text_op(self, kind, key):
+        import agfo_textops as TO
+        d = self.cur()
+        if not d:
+            return None
+        t = d.text
+        try:
+            if kind == 'case':
+                n = TO.apply_case(t, key)
+                self.flash('%s: %d harf değişti.' % (TO.CASE_OPS[key][0], n) if n else 'Değişecek harf yok.')
+            elif kind == 'lines':
+                before, after = TO.apply_lines(t, key)
+                msg = TO.LINE_OPS[key]
+                self.flash('%s: %d satır%s.' % (msg, before, (' → %d' % after) if after != before else ''))
+            else:
+                ok = TO.apply_text(t, key)
+                self.flash(TO.TEXT_OPS[key][0] + (': yapıldı.' if ok else ': değişecek bir şey yok.'))
+        except ValueError as e:
+            messagebox.showinfo('Metin işlemleri', str(e), parent=self)
+            return None
+        except tk.TclError as e:
+            messagebox.showerror('Metin işlemleri', str(e), parent=self)
+            return None
+        d.text.focus_set()
+        self._update_status()
+        return True
+
+    def insert_text_at_cursor(self, txt):
+        d = self.cur()
+        if d:
+            try:
+                d.text.delete('sel.first', 'sel.last')
+            except tk.TclError:
+                pass
+            d.text.insert('insert', txt)
+            d.text.focus_set()
+
+    def text_stats_dialog(self):
+        import agfo_textops as TO
+        d = self.cur()
+        if not d:
+            return None
+        try:
+            txt, what = d.text.get('sel.first', 'sel.last'), 'Seçim'
+        except tk.TclError:
+            txt, what = d.text.get('1.0', 'end-1c'), 'Belge'
+        st = TO.stats(txt)
+        pages = ''
+        if d.pages and d.pages.enabled and what == 'Belge':
+            pages = '\nSayfa: %d' % d.pages.count()
+        messagebox.showinfo('Sayım — %s' % what,
+                            'Kelime: {words:,}\nKarakter: {chars:,} (boşluksuz {chars_nospace:,})\nCümle: {sentences:,}\n'
+                            'Paragraf: {paragraphs:,}\nOkuma süresi: yaklaşık {minutes} dk'.format(**st).replace(',', '.') + pages,
+                            parent=self)
+        return st
 
     def _font_families(self):
         try:
@@ -1470,6 +1558,8 @@ class App(tk.Tk):
         for d in self.docs:
             if d.text.rich:
                 d.text.set_page_mode(on)
+                if d.pages:
+                    d.pages.set_enabled(on)
                 self._place_text(d)
         self._sync_fmt_bar()
         self.flash('Sayfa görünümü açık: sayfa genişliği ve kenar boşlukları.' if on else 'Sayfa görünümü kapalı (tam genişlik).')
@@ -1604,12 +1694,16 @@ class App(tk.Tk):
                     t.configure(padx=full)
                 t.place_forget()
                 t.place(relx=0.5, y=10, anchor='n', width=w, relheight=1, height=-10)
+                if d.pages:
+                    d.pages.schedule()
                 return
             narrow = int(min(full, max(14, avail * 0.05)))
             if int(t.cget('padx')) != narrow:
                 t.configure(padx=narrow)
         t.place_forget()
         t.place(x=0, y=0, relwidth=1, relheight=1)
+        if d.pages:
+            d.pages.schedule()
 
     # ------------------------------------------------------------------ 2.0: sayfa yapisi
     def _page_changed(self, d, page, msg=None):
@@ -3370,6 +3464,12 @@ class App(tk.Tk):
         doc = Doc(frame, t, title, path, docfile)
         doc.desk = desk
         doc.ys = ys
+        if rich:                                          # 2.12: sayfa gorunumunde gercek sayfalar
+            import agfo_pages
+            doc.pages = agfo_pages.PageDecor(t, desk, rtext.PAGE_COLORS['desk'])
+            t.configure(yscrollcommand=lambda *a, dd=doc: (ys.set(*a), dd.pages.draw_soon()))
+            doc.pages.on_update = self._update_status
+            doc.pages.set_enabled(t.page_mode)
         if not path and (text or blocks):
             t.undo.saved = -1                       # yeni icerik: kaydedilmemis say
         self.docs.append(doc)
@@ -3387,7 +3487,7 @@ class App(tk.Tk):
         t.bind('<KeyRelease>', lambda e, dd=doc: self._spell_typed(dd), add='+')
         self._highlight(doc)
         t.bind('<<Modified>>', lambda e, d=doc: self._on_modified(d))
-        t.on_change = lambda d=doc: self._doc_changed(d)
+        t.on_change = lambda d=doc: (self._doc_changed(d), d.pages.schedule() if d.pages else None)
         t.bind('<Button-3>', self._context_menu)
         t.focus_set()
         self._update_status()
@@ -4588,7 +4688,10 @@ class App(tk.Tk):
         enc = d.docfile.encoding.upper() if d.docfile.kind in ('txt', 'md') and d.path else ''
         pages = ''
         if d.rich and d.text.page_mode:
-            pages = ' · ≈%d sayfa' % d.text.page_count()
+            if d.pages and d.pages.enabled:
+                pages = ' · Sayfa %d / %d' % (min(d.pages.page_of(), d.pages.count()), d.pages.count())
+            else:
+                pages = ' · ≈%d sayfa' % d.text.page_count()
         if d.rich:
             self.status_var.set('Paragraf %s · %d kelime · %d karakter%s%s · %s%s' % (
                 line, st['words'], st['chars'], sel_info, pages, kind, (' · ' + enc) if enc else ''))
@@ -4663,9 +4766,38 @@ class App(tk.Tk):
             m.add_command(label='Bağlantıyı düzenle…', command=lambda: (t.mark_set('insert', here), self.insert_link()))
             m.add_command(label='Bağlantıyı kaldır', command=lambda: (t.mark_set('insert', here), t.remove_link(here)))
             m.add_separator()
-        m.add_command(label='Kes', command=lambda: d.text.event_generate('<<Cut>>'))
-        m.add_command(label='Kopyala', command=lambda: d.text.event_generate('<<Copy>>'))
-        m.add_command(label='Yapıştır', command=lambda: d.text.event_generate('<<Paste>>'))
+        try:
+            has_sel = bool(t.get('sel.first', 'sel.last'))
+        except tk.TclError:
+            has_sel = False
+        if not has_sel:                                     # 2.12: secim yokken tiklanan yere imleci tasi
+            t.mark_set('insert', here)
+        st = 'normal' if has_sel else 'disabled'
+        m.add_command(label='Kes  (Ctrl+X)', command=lambda: d.text.event_generate('<<Cut>>'), state=st)
+        m.add_command(label='Kopyala  (Ctrl+C)', command=lambda: d.text.event_generate('<<Copy>>'), state=st)
+        m.add_command(label='Yapıştır  (Ctrl+V)', command=lambda: d.text.event_generate('<<Paste>>'))
+        m.add_command(label='Tümünü seç  (Ctrl+A)', command=self.select_all)
+        m.add_separator()
+        if t.rich:                                          # 2.12: hizli bicim ve stil
+            fm = tk.Menu(m, tearoff=0)
+            fm.add_command(label='Kalın  (Ctrl+B)', command=lambda: t.toggle_char('b'))
+            fm.add_command(label='İtalik  (Ctrl+I)', command=lambda: t.toggle_char('i'))
+            fm.add_command(label='Altı çizili  (Ctrl+U)', command=lambda: t.toggle_char('u'))
+            fm.add_separator()
+            for key in ('normal', 'h1', 'h2', 'h3', 'quote'):
+                fm.add_command(label=rdoc.STYLE_LABELS.get(key, key), command=lambda k=key: self._ctx_style(t, k))
+            fm.add_separator()
+            fm.add_command(label='Madde işaretli liste', command=lambda: t.toggle_list('bullet'))
+            fm.add_command(label='Numaralı liste', command=lambda: t.toggle_list('number'))
+            m.add_cascade(label='Biçim', menu=fm)
+        m.add_cascade(label='Metin işlemleri', menu=self.textops_menu(m))
+        if has_sel:
+            sm = tk.Menu(m, tearoff=0)
+            sm.add_command(label='Belgede ara', command=self._ctx_find_selection)
+            sm.add_command(label='Kaynaklarda sor', command=self._ctx_ask_sources)
+            sm.add_command(label='Seçimi seslendir', command=self._ctx_read_aloud)
+            sm.add_command(label='Web\'de ara', command=self._ctx_web_search)
+            m.add_cascade(label='Seçimle', menu=sm)
         m.add_separator()
         line = int(here.split('.')[0])
         if t.rich and t.para_props(line)['table']:
@@ -4752,6 +4884,213 @@ class App(tk.Tk):
         messagebox.showinfo('AGFO AI Editor', 'AGFO AI Editor %s\n\nYazdıklarınızın içeriğini yapay zekâyla düzenleyen metin editörü.\n'
                             'Bağlantı: AGFO AI Manager (WordPress) veya doğrudan sağlayıcı.\n\n'
                             'Veri klasörü: %s' % (core.VERSION, core.data_dir()), parent=self)
+
+    # ------------------------------------------------------------------ 2.12: sag tik menuleri her yerde
+    def _install_context_menus(self):
+        for cls in ('Entry', 'TEntry', 'TCombobox', 'Spinbox', 'TSpinbox', 'Text'):
+            self.bind_class(cls, '<Button-3>', self._generic_context, add='+')
+        self.nb.bind('<Button-3>', self._tab_context, add='+')
+        if getattr(self, 'src_tree', None) is not None:
+            self.src_tree.bind('<Button-3>', self._src_tree_context, add='+')
+        for name, extra in (('src_view', (('Yanıtı imlece ekle', 'insert_source_answer'), ('Sohbeti temizle', 'clear_source_thread'))),
+                            ('chat_view', (('Yanıtı imlece ekle', 'insert_last_answer'),))):
+            w = getattr(self, name, None)
+            if w is not None:
+                w._ctx_extra = [(label, getattr(self, fn)) for label, fn in extra if hasattr(self, fn)]
+
+    def _generic_context(self, e):
+        """Giris kutulari ve metin alanlari icin standart menu (belge editoru ve kendi menusu olanlar haric)."""
+        w = e.widget
+        if any(d.text is w for d in self.docs):
+            return None
+        try:
+            if w.bind('<Button-3>'):                     # bilesenin kendi sag tik menusu var
+                return None
+        except tk.TclError:
+            return None
+        is_text = isinstance(w, tk.Text)
+        try:
+            readonly = str(w.cget('state')) in ('disabled', 'readonly')
+        except tk.TclError:
+            readonly = False
+        try:
+            if is_text:
+                has_sel = bool(w.tag_ranges('sel'))
+            else:
+                has_sel = bool(w.selection_present())
+        except (tk.TclError, AttributeError):
+            has_sel = False
+        try:
+            w.focus_set()
+        except tk.TclError:
+            pass
+        m = tk.Menu(self, tearoff=0)
+        edit = 'normal' if not readonly else 'disabled'
+        m.add_command(label='Kes', state=edit if has_sel else 'disabled', command=lambda: w.event_generate('<<Cut>>'))
+        m.add_command(label='Kopyala', state='normal' if has_sel else 'disabled', command=lambda: self._ctx_copy(w, is_text))
+        m.add_command(label='Yapıştır', state=edit, command=lambda: w.event_generate('<<Paste>>'))
+        m.add_command(label='Sil', state=edit if has_sel else 'disabled', command=lambda: w.event_generate('<<Clear>>'))
+        m.add_separator()
+        m.add_command(label='Tümünü seç', command=lambda: self._ctx_select_all(w, is_text))
+        if is_text:
+            m.add_command(label='Tümünü kopyala', command=lambda: self._ctx_copy_all(w))
+            if not readonly:
+                m.add_command(label='Temizle', command=lambda: w.delete('1.0', 'end'))
+        extra = getattr(w, '_ctx_extra', None)
+        if extra:
+            m.add_separator()
+            for label, fn in extra:
+                m.add_command(label=label, command=fn)
+        try:
+            m.tk_popup(e.x_root, e.y_root)
+        finally:
+            m.grab_release()
+        return 'break'
+
+    def _ctx_copy(self, w, is_text):
+        try:
+            txt = w.get('sel.first', 'sel.last') if is_text else w.selection_get()
+        except tk.TclError:
+            return
+        self.clipboard_clear()
+        self.clipboard_append(txt)
+
+    def _ctx_copy_all(self, w):
+        self.clipboard_clear()
+        self.clipboard_append(w.get('1.0', 'end-1c'))
+        self.flash('Tümü kopyalandı.')
+
+    @staticmethod
+    def _ctx_select_all(w, is_text):
+        try:
+            if is_text:
+                w.tag_add('sel', '1.0', 'end-1c')
+            else:
+                w.select_range(0, 'end')
+                w.icursor('end')
+        except tk.TclError:
+            pass
+
+    def _tab_context(self, e):
+        try:
+            idx = self.nb.index('@%d,%d' % (e.x, e.y))
+            frame = self.nametowidget(self.nb.tabs()[idx])
+        except (tk.TclError, IndexError, KeyError):
+            return None
+        self.nb.select(frame)
+        d = next((x for x in self.docs if x.frame is frame), None)
+        tabs = [self.nametowidget(t) for t in self.nb.tabs()]
+        m = tk.Menu(self, tearoff=0)
+        m.add_command(label='Kapat  (Ctrl+W)', command=lambda: self.close_tab_frame(frame))
+        m.add_command(label='Diğerlerini kapat', state='normal' if len(tabs) > 1 else 'disabled',
+                      command=lambda: self._close_frames([f for f in tabs if f is not frame]))
+        m.add_command(label='Sağdakileri kapat', state='normal' if idx < len(tabs) - 1 else 'disabled',
+                      command=lambda: self._close_frames(tabs[idx + 1:]))
+        m.add_command(label='Tümünü kapat', command=lambda: self._close_frames(tabs))
+        if d:
+            m.add_separator()
+            m.add_command(label='Kaydet  (Ctrl+S)', command=lambda: self.save(d))
+            m.add_command(label='Farklı kaydet…', command=self.save_as)
+            if d.path:
+                m.add_command(label='Yolu kopyala', command=lambda: (self.clipboard_clear(), self.clipboard_append(d.path),
+                                                                     self.flash('Yol kopyalandı.')))
+                m.add_command(label='Dosya konumunu aç', command=lambda: self._open_external(os.path.dirname(d.path)))
+                if d.path.lower().endswith('.docx'):
+                    m.add_command(label="Word'de aç", command=lambda: self.open_external(d.path))
+            if d.rich:
+                m.add_command(label='Word görünümü', command=lambda: self.toggle_word_view(d))
+        m.add_separator()
+        m.add_command(label='Yeni belge  (Ctrl+N)', command=self.new_doc)
+        try:
+            m.tk_popup(e.x_root, e.y_root)
+        finally:
+            m.grab_release()
+        return 'break'
+
+    def _close_frames(self, frames):
+        for f in list(frames):
+            try:
+                if str(f) in self.nb.tabs():
+                    self.close_tab_frame(f)
+            except tk.TclError:
+                pass
+
+    def _src_tree_context(self, e):
+        tv = self.src_tree
+        row = tv.identify_row(e.y)
+        if row and row not in tv.selection():
+            tv.selection_set(row)
+        sel = tv.selection()
+        doc_ids = [i for i in sel if i in self.src_docs]
+        m = tk.Menu(self, tearoff=0)
+        m.add_command(label='Metni göster', state='normal' if len(doc_ids) == 1 else 'disabled', command=self.show_selected_source)
+        m.add_command(label='Bu seçimle sohbet et', state='normal' if sel else 'disabled',
+                      command=lambda: (self._switch_scope(), self.src_q.focus_set()))
+        if len(doc_ids) == 1:
+            path = self.src_docs[doc_ids[0]]['path']
+            m.add_command(label='Özgün dosyayı aç', command=lambda: self.open_path(path))
+            m.add_command(label='Dosya konumunu aç', command=lambda: self._open_external(os.path.dirname(path)))
+        m.add_command(label='Gezginde göster', command=self.open_sources_explorer)
+        m.add_separator()
+        m.add_command(label='+ Belge ekle…', command=self.add_sources)
+        m.add_command(label='📁 Klasör ekle…', command=self.add_source_folder)
+        m.add_command(label='Kaldır (dosya silinmez)', state='normal' if sel else 'disabled', command=self.remove_sources)
+        try:
+            m.tk_popup(e.x_root, e.y_root)
+        finally:
+            m.grab_release()
+        return 'break'
+
+    # ---- editor sag tik yardimcilari
+    def _ctx_style(self, t, key):
+        t.set_style(key)
+        self._sync_fmt_bar()
+
+    def _ctx_selection(self):
+        d = self.cur()
+        if not d:
+            return ''
+        try:
+            return d.text.get('sel.first', 'sel.last')
+        except tk.TclError:
+            return ''
+
+    def _ctx_find_selection(self):
+        sel = self._ctx_selection().strip()
+        if not sel:
+            return
+        if not self.find_bar.winfo_manager():
+            self.toggle_find()
+        self.find_var.set(sel.split('\n')[0][:200])
+        self.find_next()
+
+    def _ctx_ask_sources(self):
+        sel = self._ctx_selection().strip()
+        if not sel:
+            return
+        if not self.src_docs:
+            messagebox.showinfo('Kaynaklar', 'Önce Kaynaklar sekmesinden belge ya da klasör ekleyin.', parent=self)
+            return
+        if str(self.side_panel) not in self.paned.panes():
+            self.toggle_ai_panel()
+        self.ai_nb.select(4)
+        self.src_q.delete('1.0', 'end')
+        self.src_q.insert('1.0', 'Kaynaklar bu konuda ne diyor: “%s”' % sel[:600])
+        self.ask_sources()
+
+    def _ctx_read_aloud(self):
+        try:
+            self.scope_var.set('selection')
+        except (AttributeError, tk.TclError):
+            pass
+        self.read_aloud()
+
+    def _ctx_web_search(self):
+        import urllib.parse
+        import webbrowser
+        sel = ' '.join(self._ctx_selection().split())[:200]
+        if sel:
+            webbrowser.open('https://www.google.com/search?q=' + urllib.parse.quote(sel))
 
     def _bind_keys(self):
         b = self.bind_all
