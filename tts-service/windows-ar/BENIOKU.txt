@@ -27,3 +27,14 @@ Kaldırma
     AGFO-Arapca-Dene.cmd -Kaldir
 
 Sorun olursa masaüstündeki agfo-arapca-dene-sonuc.txt dosyasını gönderin.
+
+Aksan karşılaştırması (Mısırlı dinleyiciler için)
+  AGFO-Arapca-Karsilastir.cmd dosyasına çift tıklayın. Habibi-TTS'i (Apache-2.0 lisanslı Mısır ve Fusha
+  modelleri) ayrı bir klasöre kurar ve masaüstündeki AGFO-Arapca-Karsilastirma klasörüne şunları üretir:
+    habibi\A-misir-modeli-fusha-metin.mp3   Mısır modeli, Fusha denetim metni (Mısır aksanlı Fusha)
+    habibi\B-misir-modeli-misir-agzi.mp3    Mısır modeli, aynı içerik Mısır ağzıyla
+    habibi\C-fusha-modeli.mp3               Fusha modeli
+    silma-misirli-ses\*.mp3                 SILMA, Mısırlı referans sesle (SILMA denemesi kuruluysa)
+  Referans sesler paketlerin örnek kayıtlarıdır, yalnız deneme içindir. Kalıcı kullanımda kendi
+  izinli kaydımız (ör. 10-15 saniyelik Mısırlı bir ses) kullanılmalı.
+  Kaldırma: AGFO-Arapca-Karsilastir.cmd -Kaldir
