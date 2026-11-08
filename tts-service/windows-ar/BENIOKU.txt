@@ -1,0 +1,29 @@
+AGFO Arapça ses denemesi (SILMA TTS)
+====================================
+
+Ne yapar
+  SILMA TTS'i (Arapça + İngilizce, Apache-2.0) bu bilgisayara, NVIDIA ekran kartında çalışacak şekilde kurar,
+  dört örnek metni seslendirir ve süreleri ölçer. Türkçe ses servisine (AGFO-Ses-Kur) dokunmaz.
+
+Kullanım
+  1. ZIP'i bir klasöre çıkarın.
+  2. AGFO-Arapca-Dene.cmd dosyasına çift tıklayın. İlk kurulum yaklaşık 5 GB indirir (10-20 dakika).
+  3. Sesler masaüstünde: AGFO-Arapca-Deneme klasörü
+       1-fusha-harekesiz.mp3   harekesiz Fusha metin
+       2-sayilar.mp3           rakamlar (yazıya çevrilerek)
+       3-arapca-ingilizce.mp3  aynı cümlede Arapça ve İngilizce
+       4-uzun-paragraf.mp3     uzun paragraf
+     Ekranda her ses için süre ve RTF yazar (RTF 0,2 = 10 saniyelik sesi 2 saniyede üretti).
+
+Kendi sesinizle (ses klonlama)
+  5-15 saniyelik, gürültüsüz bir Arapça kayıt ve kayıttaki cümlenin yazısı:
+    AGFO-Arapca-Dene.cmd -Ses C:\kayit.wav -SesMetni "kayıttaki cümle"
+  Sesi kullanılan kişinin açık izni gerekir.
+
+Daha temiz ses için
+    AGFO-Arapca-Dene.cmd -Adim 32      (daha yavaş)
+
+Kaldırma
+    AGFO-Arapca-Dene.cmd -Kaldir
+
+Sorun olursa masaüstündeki agfo-arapca-dene-sonuc.txt dosyasını gönderin.
