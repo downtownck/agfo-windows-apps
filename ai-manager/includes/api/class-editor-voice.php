@@ -24,9 +24,11 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Voice' ) ) {
             'openai'     => [ 'label' => 'OpenAI', 'max' => 4000, 'speed' => [ 0.25, 4.0 ], 'model' => 'gpt-4o-mini-tts', 'voice' => 'marin' ],
             'elevenlabs' => [ 'label' => 'ElevenLabs', 'max' => 4000, 'speed' => [ 0.7, 1.2 ], 'model' => 'eleven_multilingual_v2', 'voice' => '' ],
             'minimax'    => [ 'label' => 'MiniMax', 'max' => 4000, 'speed' => [ 0.5, 2.0 ], 'model' => 'speech-2.8-hd', 'voice' => '' ],
+            // NEW 17.15.0: tek anahtarla Gemini TTS, Grok, Kokoro, OpenAI... (ses modele göre değişir)
+            'openrouter' => [ 'label' => 'OpenRouter (Gemini, Grok, Kokoro…)', 'max' => 4000, 'speed' => [ 0.5, 2.0 ], 'model' => 'google/gemini-3.8-flash-tts', 'voice' => 'Kore' ],
         ];
         /** İş kuyruğunda (uzun ses dosyası) parça başına üst sınır; sağlayıcının kendi sınırının altında. */
-        const JOB_MAX = [ 'ema' => 60000, 'openai' => 4000, 'elevenlabs' => 9000, 'minimax' => 9000 ];
+        const JOB_MAX = [ 'ema' => 60000, 'openai' => 4000, 'elevenlabs' => 9000, 'minimax' => 9000, 'openrouter' => 4000 ];
 
         public static function known( string $provider ): bool {
             return isset( self::PROVIDERS[ sanitize_key( $provider ) ] );
@@ -61,7 +63,8 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Voice' ) ) {
                     'default_voice' => $p['voice'],
                     'pauses'        => 'ema' === $id,       // cümle / paragraf arası duraklama yalnız EMA'da
                     'lexicon'       => 'ema' === $id,       // ortak telaffuz sözlüğü EMA sunucusunda
-                    'instructions'  => 'openai' === $id,    // okuma talimatı (ton, tempo) yalnız OpenAI gpt-4o-mini-tts
+                    'instructions'  => in_array( $id, [ 'openai', 'openrouter' ], true ), // okuma talimatı: OpenAI, Gemini (OpenRouter)
+                    'voices_by_model' => 'openrouter' === $id, // NEW 17.15.0: ses listesi seçili modele göre
                 ];
             }
             return $out;
@@ -94,13 +97,20 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Voice' ) ) {
                 return new WP_Error( 'agfo_editor_voice_required', $p['label'] . ' için bir ses seçin (AI Editor › Ses › Ses).' );
             }
             $model   = sanitize_text_field( (string) ( $opts['model'] ?? '' ) ) ?: $p['model'];
+            if ( 'openrouter' === $provider && class_exists( 'AGFO_AIM_OpenRouter_TTS_Catalog' ) ) {
+                // Seçili ses bu modelin ailesinde yoksa (ör. Gemini sesi Grok modeliyle) modelin ilk sesi kullanılır.
+                $fam = AGFO_AIM_OpenRouter_TTS_Catalog::family_voices( $model );
+                if ( $fam && ! isset( $fam[ $voice ] ) ) {
+                    $voice = (string) array_key_first( $fam );
+                }
+            }
             $payload = [
                 'text'   => $text,
                 'voice'  => $voice,
                 'format' => 'mp3',
                 'speed'  => self::clamp_speed( $provider, (float) ( $opts['speed'] ?? 1.0 ) ),
             ];
-            if ( 'openai' === $provider && ! empty( $opts['instructions'] ) ) {
+            if ( in_array( $provider, [ 'openai', 'openrouter' ], true ) && ! empty( $opts['instructions'] ) ) {
                 $payload['instructions'] = mb_substr( sanitize_textarea_field( (string) $opts['instructions'] ), 0, 1000, 'UTF-8' );
             }
             if ( 'elevenlabs' === $provider ) {
@@ -173,6 +183,11 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Voice' ) ) {
          */
         public static function mp3_seconds( string $data ): float {
             $len = strlen( $data );
+            if ( $len > 44 && 'RIFF' === substr( $data, 0, 4 ) && 'WAVE' === substr( $data, 8, 4 ) ) {
+                // NEW 17.15.0: FFmpeg'siz sunucuda OpenRouter PCM'i WAV olarak döner
+                $rate = unpack( 'V', substr( $data, 28, 4 ) )[1];        // bayt/saniye
+                return $rate > 0 ? round( ( $len - 44 ) / $rate, 3 ) : 0.0;
+            }
             $pos = 0;
             if ( $len > 10 && 'ID3' === substr( $data, 0, 3 ) ) {
                 $size = ( ( ord( $data[6] ) & 0x7f ) << 21 ) | ( ( ord( $data[7] ) & 0x7f ) << 14 ) | ( ( ord( $data[8] ) & 0x7f ) << 7 ) | ( ord( $data[9] ) & 0x7f );

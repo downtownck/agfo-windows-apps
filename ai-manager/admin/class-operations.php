@@ -80,12 +80,14 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
                             'elevenlabs' => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::elevenlabs_fallback_catalog() : [],
                             'minimax'     => class_exists( 'AGFO_AIM_TTS_Catalog' ) ? AGFO_AIM_TTS_Catalog::minimax_fallback_catalog() : [],
                             'ema'         => class_exists( 'AGFO_AIM_Adapter_EMA' ) ? AGFO_AIM_Adapter_EMA::catalog( false ) : [],
+                            'openrouter'  => class_exists( 'AGFO_AIM_OpenRouter_TTS_Catalog' ) ? AGFO_AIM_OpenRouter_TTS_Catalog::fallback_catalog() : [],
                         ],
                         'hasKeys'  => [
                             'openai'     => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openai' ) ),
                             'elevenlabs' => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'elevenlabs' ) ),
                             'minimax'     => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'minimax' ) ),
                             'ema'         => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'ema' ) ),
+                            'openrouter'  => function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openrouter' ) ),
                         ],
                         'emaSettings' => class_exists( 'AGFO_AIM_Adapter_EMA' ) ? AGFO_AIM_Adapter_EMA::settings() : [],
                         'messages' => [
@@ -111,6 +113,8 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
             $openai_key    = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openai' ) );
             $eleven_key    = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'elevenlabs' ) );
             $minimax_key   = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'minimax' ) );
+            $openrouter_key = function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'openrouter' ) );
+            $openrouter_catalog = class_exists( 'AGFO_AIM_OpenRouter_TTS_Catalog' ) ? AGFO_AIM_OpenRouter_TTS_Catalog::fallback_catalog() : [ 'models' => [], 'voices' => [] ];
             $ema_key       = class_exists( 'AGFO_AIM_Adapter_EMA' ) && function_exists( 'agfo_get_api_key' ) && ! empty( agfo_get_api_key( 'ema' ) );
             $ema_settings  = class_exists( 'AGFO_AIM_Adapter_EMA' ) ? AGFO_AIM_Adapter_EMA::settings() : [];
             $storage_error = (string) get_option( 'agfo_ai_storage_error', '' );
@@ -121,7 +125,7 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
             ?>
             <div class="wrap agfo-ops-wrap">
                 <h1>Ses Stüdyosu</h1>
-                <p class="description">Metni OpenAI, ElevenLabs, MiniMax veya sunucudaki EMA Lightning (Türkçe, ücretsiz) üzerinden sese dönüştürür. Model ve konuşmacı listeleri sağlayıcıya göre hazırlanır; hesap sesleri yalnız sunucu tarafında güvenli biçimde okunur.</p>
+                <p class="description">Metni OpenAI, ElevenLabs, MiniMax, OpenRouter (Gemini, Grok, Kokoro…) veya sunucudaki EMA Lightning (Türkçe, ücretsiz) üzerinden sese dönüştürür. Model ve konuşmacı listeleri sağlayıcıya göre hazırlanır; hesap sesleri yalnız sunucu tarafında güvenli biçimde okunur.</p>
 
                 <?php if ( $schema_error ) : ?>
                     <div class="notice notice-error inline"><p><strong>Veri tabanı şeması hazır değil:</strong> <?php echo esc_html( $schema_error ); ?></p></div>
@@ -370,6 +374,47 @@ if ( ! class_exists( 'AGFO_AIM_Operations_Admin' ) ) {
                                     </div>
                                     <p class="description">MiniMax hız aralığı sağlayıcı seçildiğinde otomatik olarak 0.5–2.0 ile sınırlandırılır.</p>
                                 </details>
+                            </section>
+
+                            <?php // NEW 17.15.0: OpenRouter ses modelleri (tek anahtar; ses listesi seçili modele göre) ?>
+                            <section class="agfo-provider-settings" data-provider-panel="openrouter">
+                                <div class="agfo-provider-heading">
+                                    <div>
+                                        <h2>OpenRouter konuşma ayarları</h2>
+                                        <p class="description">Tek OpenRouter anahtarıyla Gemini TTS, Grok Voice, Kokoro ve OpenAI ses modelleri. Sesler seçilen modele göre listelenir.</p>
+                                    </div>
+                                    <div class="agfo-provider-actions">
+                                        <span class="agfo-provider-badge <?php echo $openrouter_key ? 'is-ready' : 'is-missing'; ?>"><?php echo esc_html( $openrouter_key ? 'Anahtar hazır' : 'Anahtar yok' ); ?></span>
+                                        <button type="button" id="agfo-openrouter-refresh" class="button button-secondary" <?php disabled( ! $openrouter_key ); ?>>Listeyi yenile</button>
+                                    </div>
+                                </div>
+                                <div id="agfo-openrouter-catalog-status" class="agfo-catalog-status" aria-live="polite">
+                                    <?php echo esc_html( $openrouter_key ? 'OpenRouter ses modelleri yükleniyor…' : 'OpenRouter API anahtarı Sağlayıcılar ekranında girildiğinde kullanılabilir.' ); ?>
+                                </div>
+                                <div class="agfo-inline-fields agfo-inline-fields-two">
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-tts-model-openrouter">OpenRouter ses modeli</label>
+                                        <select id="agfo-tts-model-openrouter" name="model_openrouter">
+                                            <?php foreach ( (array) $openrouter_catalog['models'] as $model ) : ?>
+                                                <option value="<?php echo esc_attr( (string) $model['id'] ); ?>" <?php selected( ! empty( $model['recommended'] ) ); ?>>
+                                                    <?php echo esc_html( (string) $model['name'] . ( ! empty( $model['recommended'] ) ? ' — önerilen' : '' ) ); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                            <option value="__manual__">Özel / yeni model kimliği…</option>
+                                        </select>
+                                        <input id="agfo-tts-model-openrouter-manual" class="agfo-manual-field" type="text" placeholder="ör. google/gemini-3.8-flash-tts" hidden>
+                                        <p id="agfo-openrouter-model-help" class="description"></p>
+                                    </div>
+                                    <div class="agfo-field-row">
+                                        <label for="agfo-tts-voice-openrouter">OpenRouter sesi</label>
+                                        <select id="agfo-tts-voice-openrouter" name="voice_openrouter">
+                                            <option value="Kore">Kore</option>
+                                            <option value="__manual__">Ses adını manuel gir…</option>
+                                        </select>
+                                        <input id="agfo-tts-voice-openrouter-manual" class="agfo-manual-field" type="text" placeholder="Modelin ses adı" hidden>
+                                        <p class="description">Gemini sesleri 70+ dili konuşur (Türkçe, Arapça dahil). Okuma talimatı (ton, aksan, tempo) Gemini ve OpenAI modellerinde uygulanır.</p>
+                                    </div>
+                                </div>
                             </section>
 
                             <?php if ( class_exists( 'AGFO_AIM_Adapter_EMA' ) ) : ?>

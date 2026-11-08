@@ -109,11 +109,12 @@
         if (provider === 'elevenlabs') return 'eleven_multilingual_v2';
         if (provider === 'minimax') return 'speech-2.8-hd';
         if (provider === 'ema') return 'ema-lightning';
+        if (provider === 'openrouter') return 'google/gemini-3.8-flash-tts';
         return '';
     }
 
-    var PROVIDER_LABELS = { openai: 'OpenAI', elevenlabs: 'ElevenLabs', minimax: 'MiniMax', ema: 'EMA Lightning' };
-    var SPEECH_PROVIDERS = ['openai', 'elevenlabs', 'minimax', 'ema'];
+    var PROVIDER_LABELS = { openai: 'OpenAI', elevenlabs: 'ElevenLabs', minimax: 'MiniMax', ema: 'EMA Lightning', openrouter: 'OpenRouter' };
+    var SPEECH_PROVIDERS = ['openai', 'elevenlabs', 'minimax', 'ema', 'openrouter'];
 
     function providerLabel(provider) {
         return PROVIDER_LABELS[provider] || provider;
@@ -149,6 +150,30 @@
             $select.prop('selectedIndex', 0);
         }
         toggleManualField('#agfo-tts-model-' + provider, '#agfo-tts-model-' + provider + '-manual');
+    }
+
+    // NEW 17.15.0: OpenRouter sesleri seçili modele göre (modelin voice_ids alanı).
+    function populateOpenRouterVoices() {
+        var catalog = catalogs.openrouter || {};
+        var $select = $('#agfo-tts-voice-openrouter');
+        var previous = $select.val();
+        var model = findModel('openrouter', providerModel('openrouter'));
+        var allowed = model && model.voice_ids && model.voice_ids.length ? model.voice_ids : null;
+        $select.empty();
+        (catalog.voices || []).forEach(function (voice) {
+            if (allowed && allowed.indexOf(voice.id) === -1) return;
+            if (!allowed && model) return;
+            var label = String(voice.name || voice.id || '');
+            if (voice.description) label += ' — ' + String(voice.description);
+            $('<option>').val(voice.id).text(label).appendTo($select);
+        });
+        $('<option>').val('__manual__').text('Ses adını manuel gir…').appendTo($select);
+        if (previous && previous !== '__manual__' && optionWithValue($select, previous).length) $select.val(previous);
+        else if (model && model.default_voice && optionWithValue($select, model.default_voice).length) $select.val(model.default_voice);
+        else $select.prop('selectedIndex', 0);
+        toggleManualField('#agfo-tts-voice-openrouter', '#agfo-tts-voice-openrouter-manual');
+        $('#agfo-openrouter-model-help').text(model ? (model.description || '') : 'Özel model kimliği: sesi manuel girin.');
+        updateInstructionsState();
     }
 
     function populateOpenAiVoices(catalog) {
@@ -292,9 +317,14 @@
         var supports = !!(model && model.supports_instructions);
         var hasOpenAi = agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.openai;
         var enabled = provider === 'openai' && hasOpenAi && supports;
-        $('#agfo-tts-instructions').prop('disabled', !enabled);
+        var orModel = findModel('openrouter', providerModel('openrouter'));
+        var orEnabled = provider === 'openrouter' && agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.openrouter
+            && !!(orModel && orModel.supports_instructions);
+        $('#agfo-tts-instructions').prop('disabled', !(enabled || orEnabled));
         var help;
         if (enabled) help = 'Seçilen OpenAI modeli aksan, ton, duygu, hız ve fısıltı gibi talimatları yorumlayabilir.';
+        else if (orEnabled) help = 'Seçilen model ton, aksan, tempo ve duygu talimatlarını yorumlayabilir (ör. “Mısır Arapçasıyla, sakin oku”).';
+        else if (provider === 'openrouter') help = 'Bu OpenRouter modeli okuma talimatı almaz; Gemini ya da OpenAI modeli seçin.';
         else if (provider === 'elevenlabs') help = 'ElevenLabs için okuma biçimini ses seçimi ve gelişmiş ses ayarlarıyla belirleyin.';
         else if (provider === 'minimax') help = 'MiniMax için okuma biçimini ses, duygu, perde, ses düzeyi ve hız ayarlarıyla belirleyin.';
         else if (provider === 'ema') help = 'EMA Lightning talimat almaz; okumayı hız, duraklama ve telaffuz sözlüğüyle ayarlayın.';
@@ -307,6 +337,7 @@
             openai: ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'],
             elevenlabs: ['mp3', 'wav', 'pcm', 'ulaw', 'alaw', 'opus'],
             minimax: ['mp3', 'wav', 'flac'],
+            openrouter: ['mp3', 'wav'],
             ema: ['mp3', 'wav']
         };
         return (catalogs[provider] && catalogs[provider].formats) || defaults[provider] || ['mp3'];
@@ -347,7 +378,7 @@
 
     function modelLimit(provider) {
         var model = findModel(provider, providerModel(provider));
-        var fallback = provider === 'openai' ? 4096 : (provider === 'minimax' ? 9999 : (provider === 'ema' ? 60000 : 40000));
+        var fallback = provider === 'openai' ? 4096 : (provider === 'minimax' ? 9999 : (provider === 'ema' ? 60000 : (provider === 'openrouter' ? 4000 : 40000)));
         return model && Number(model.max_characters) > 0 ? Number(model.max_characters) : fallback;
     }
 
@@ -393,6 +424,7 @@
         $('#agfo-elevenlabs-refresh').prop('disabled', !(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.elevenlabs));
         $('#agfo-minimax-refresh').prop('disabled', !(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.minimax));
         $('#agfo-ema-refresh').prop('disabled', !(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.ema));
+        $('#agfo-openrouter-refresh').prop('disabled', !(agfoTtsStudio.hasKeys && agfoTtsStudio.hasKeys.openrouter));
         updateSpeedRange();
         updateFormats();
         updateInstructionsState();
@@ -410,6 +442,7 @@
         if (!hasKey) {
             if (provider === 'elevenlabs') notice = 'ElevenLabs API anahtarı eklendiğinde hesabınızdaki sesler otomatik yüklenecek.';
             else if (provider === 'ema') notice = 'EMA servis token’ı Sağlayıcılar ekranında “EMA Lightning (yerel TTS)” alanına girildiğinde kullanılabilir.';
+            else if (provider === 'openrouter') notice = 'OpenRouter API anahtarı Sağlayıcılar ekranında girildiğinde güncel model listesi alınır; şimdilik bilinen modeller gösteriliyor.';
             else notice = 'MiniMax API anahtarı eklendiğinde hesabınızdaki sistem ve özel sesler otomatik yüklenecek.';
         }
         if (provider === 'ema') {
@@ -427,6 +460,9 @@
             populateOpenAiVoices(catalogs[provider]);
         } else if (provider === 'ema') {
             catalogStatus('ema');
+        } else if (provider === 'openrouter') {
+            populateOpenRouterVoices();
+            catalogStatus('openrouter');
         } else {
             var searchId = provider === 'elevenlabs' ? '#agfo-tts-voice-elevenlabs-search' : '#agfo-tts-voice-minimax-search';
             populateProviderVoices(provider, catalogs[provider], $(searchId).val());
@@ -521,8 +557,18 @@
     $('#agfo-tts-provider').on('change', function () {
         updateProviderPanels();
         var provider = $(this).val();
-        if (provider === 'elevenlabs' || provider === 'minimax') loadProviderCatalog(provider, false);
+        if (provider === 'elevenlabs' || provider === 'minimax' || provider === 'openrouter') loadProviderCatalog(provider, false);
     });
+
+    $('#agfo-tts-model-openrouter').on('change', function () {
+        toggleManualField('#agfo-tts-model-openrouter', '#agfo-tts-model-openrouter-manual');
+        populateOpenRouterVoices();
+        updateTextLimit();
+    });
+    $('#agfo-tts-voice-openrouter').on('change', function () {
+        toggleManualField('#agfo-tts-voice-openrouter', '#agfo-tts-voice-openrouter-manual');
+    });
+    $('#agfo-openrouter-refresh').on('click', function () { loadProviderCatalog('openrouter', true); });
 
     ['openai', 'elevenlabs', 'minimax'].forEach(function (provider) {
         $('#agfo-tts-model-' + provider).on('change', function () {
@@ -732,6 +778,7 @@
     applyCatalog('elevenlabs', catalogs.elevenlabs || {});
     applyCatalog('minimax', catalogs.minimax || {});
     if ($('#agfo-tts-model-ema').length) applyCatalog('ema', catalogs.ema || {});
+    if ($('#agfo-tts-model-openrouter').length) applyCatalog('openrouter', catalogs.openrouter || {});
     updateProviderPanels();
     loadProviderCatalog('elevenlabs', false);
     loadProviderCatalog('minimax', false);

@@ -3,7 +3,7 @@
  * Plugin Name: AGFO AI Manager
  * Plugin URI: https://agfocert.com/
  * Description: AI Model Yönetimi + Multi-Source Benchmark
- * Version: 17.14.0
+ * Version: 17.15.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AGFOCERT
@@ -16,7 +16,7 @@
  */
 if (!defined('ABSPATH')) exit;
 
-define('AGFO_AIM_VERSION',    '17.14.0');
+define('AGFO_AIM_VERSION',    '17.15.0');
 define('AGFO_AIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AGFO_AIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AGFO_AIM_DATA_DIR',   AGFO_AIM_PLUGIN_DIR . 'data/');
@@ -55,6 +55,7 @@ require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-openai.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-elevenlabs.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-minimax.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-gemini.php';
+require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-openrouter.php'; // NEW 17.15.0: OpenRouter seslendirme
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-image.php';
 // NEW 17.9.0: self-hosted Turkish TTS (EMA Lightning service on the same server).
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-ema.php';
@@ -64,6 +65,7 @@ require_once AGFO_AIM_PLUGIN_DIR . 'includes/tts/class-speech-script.php';
 AGFO_AIM_Speech_Script::register_hooks();
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/adapters/class-adapter-registry.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/tts/class-tts-catalog.php';
+require_once AGFO_AIM_PLUGIN_DIR . 'includes/tts/class-openrouter-tts-catalog.php'; // NEW 17.15.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/tts/class-speech-long.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/content/class-content-prompt-library.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/content/class-content-context.php';

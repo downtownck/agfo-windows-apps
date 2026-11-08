@@ -56,7 +56,7 @@ $V = 'AGFO_AIM_Editor_Voice';
 
 // Sağlayıcı listesi
 $prov = array_column( $V::providers(), null, 'id' );
-t( 'V01 four providers, ema first', array_keys( $prov ) === [ 'ema', 'openai', 'elevenlabs', 'minimax' ] );
+t( 'V01 five providers, ema first, openrouter last', array_keys( $prov ) === [ 'ema', 'openai', 'elevenlabs', 'minimax', 'openrouter' ] );
 t( 'V02 openai ready with key, others not', $prov['openai']['ready'] && ! $prov['elevenlabs']['ready'] && ! $prov['minimax']['ready'] );
 t( 'V03 ema not ready without adapter class', false === $prov['ema']['ready'] );
 t( 'V04 pauses and lexicon only on ema', $prov['ema']['pauses'] && $prov['ema']['lexicon'] && ! $prov['openai']['pauses'] && ! $prov['minimax']['lexicon'] );
@@ -97,6 +97,20 @@ $GLOBALS['KILL'] = true;
 t( 'V21 xing frame count wins', abs( $V::mp3_seconds( fake_mp3( 10, 500 ) ) - 500 * 1152 / 44100 ) < 0.001 );
 t( 'V22 id3 tag skipped', abs( $V::mp3_seconds( "ID3\x04\x00\x00\x00\x00\x00\x0A" . str_repeat( "\x00", 10 ) . fake_mp3( 50 ) ) - 50 * 417 * 8 / 128000 ) < 0.01 );
 t( 'V23 garbage -> 0', 0.0 === $V::mp3_seconds( 'not audio' ) );
+
+// NEW 17.15.0: OpenRouter
+final class AGFO_AIM_Adapter_OpenRouter { const MAX_CHARS = 4000; }
+require $root . '/includes/tts/class-openrouter-tts-catalog.php';
+$prov = array_column( $V::providers(), null, 'id' );
+t( 'V24 openrouter instructions + voices_by_model, no key', $prov['openrouter']['instructions'] && $prov['openrouter']['voices_by_model'] && ! $prov['openrouter']['ready'] && 4000 === $prov['openrouter']['job_max_chars'] );
+list( $p, $ctx ) = $V::payload( 'openrouter', 'مرحبا', [ 'voice' => '', 'model' => '', 'instructions' => 'Mısır Arapçasıyla oku' ] );
+t( 'V25 openrouter defaults gemini + Kore + instructions', 'Kore' === $p['voice'] && 'google/gemini-3.8-flash-tts' === $ctx['model'] && 'Mısır Arapçasıyla oku' === $p['instructions'] );
+list( $p, $ctx ) = $V::payload( 'openrouter', 'Hola', [ 'voice' => 'Kore', 'model' => 'x-ai/grok-voice-tts-1.0' ] );
+t( 'V26 voice outside model family replaced', 'Eve' === $p['voice'] );
+list( $p, $ctx ) = $V::payload( 'openrouter', 'Hi', [ 'voice' => 'en-US-Harper:MAI-Voice-2.1', 'model' => 'microsoft/mai-voice-2.1' ] );
+t( 'V27 unknown family keeps voice', 'en-US-Harper:MAI-Voice-2.1' === $p['voice'] );
+$wav = 'RIFF' . pack( 'V', 36 + 48000 ) . 'WAVEfmt ' . pack( 'VvvVVvv', 16, 1, 1, 24000, 48000, 2, 16 ) . 'data' . pack( 'V', 48000 ) . str_repeat( "\0", 48000 );
+t( 'V28 wav seconds', 1.0 === $V::mp3_seconds( $wav ) );
 
 echo "\n{$pass} passed, {$fail} failed\n";
 exit( $fail ? 1 : 0 );

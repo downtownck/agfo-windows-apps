@@ -292,6 +292,9 @@ if ( ! function_exists( 'agfo_get_provider_for_capability' ) ) {
 
         if ( $provider === '' ) {
             $candidates = agfo_providers_for_capability( $capability, true );
+            if ( 'speech_synthesize' === $capability ) {
+                unset( $candidates['openrouter'] );   // NEW 17.15.0: OpenRouter sesi yalniz acikca secilince
+            }
             $provider   = (string) ( array_key_first( $candidates ) ?? '' );
         }
 
