@@ -125,17 +125,18 @@ $env:HF_HOME = Join-Path $D 'hf'
 $env:AGFO_TTS_FFMPEG = $ffmpeg
 $env:PYTHONIOENCODING = 'utf-8'
 $env:Path = (Split-Path $ffmpeg) + ';' + $env:Path          # pydub ffmpeg'i PATH'te arar
-$pyArgs = @((Join-Path $D 'dene_arapca.py'), '--ffmpeg', $ffmpeg, '--adim', "$Adim")
+$Out = Join-Path $Desk 'AGFO-Arapca-Deneme'        # OneDrive'a tasinmis masaustu de dogru bulunur
+$pyArgs = @((Join-Path $D 'dene_arapca.py'), '--ffmpeg', $ffmpeg, '--adim', "$Adim", '--cikti', $Out)
 if ($Ses) {
     if (-not (Test-Path $Ses)) { Fail "Referans ses bulunamadı: $Ses"; Done 1 }
     $pyArgs += @('--ses', $Ses)
     if ($SesMetni) { $pyArgs += @('--ses-metni', $SesMetni) }
 }
-& $Py @pyArgs 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch '^\s*\d+%\|' } | Show
+& $Py @pyArgs 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch '^\s*\d+%\|' -and $_ -notmatch 'RemoteException|Redirects are currently not supported|^\s*warnings\.warn|torchaudio\\_backend' } | Show
 if ($LASTEXITCODE -ne 0) { Fail 'Deneme tamamlanamadı (ayrıntı yukarıda).'; Done 1 }
 
 Step 'Bitti'
-Write-Host "  Sesleri dinleyin: $(Join-Path $Desk 'AGFO-Arapca-Deneme')"
+Write-Host "  Sesleri dinleyin: $Out"
 Write-Host '  Beğenirseniz Arapça ses, AGFO Ses Servisi''ne ikinci dil olarak eklenecek (editörde ve AI Manager''da seçilebilir).'
 Write-Host '  Kendi sesinizle: AGFO-Arapca-Dene.cmd -Ses C:\kayit.wav -SesMetni "kayıttaki cümle"'
 Write-Host '  Kaldırmak için: AGFO-Arapca-Dene.cmd -Kaldir'
