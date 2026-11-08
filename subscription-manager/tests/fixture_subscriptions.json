@@ -1,0 +1,82 @@
+{
+  "items": [
+    {
+      "id": "t000000001",
+      "name": "Suno Premier",
+      "vendor": "Suno",
+      "scope": "Kişisel",
+      "amount": 30.0,
+      "currency": "USD",
+      "period": "monthly",
+      "next_renewal": "2099-01-23",
+      "channel": "Stripe/Web",
+      "status": "active",
+      "account_email": "user@example.com"
+    },
+    {
+      "id": "t000000002",
+      "name": "Storytel Yıllık Sınırsız",
+      "vendor": "Storytel Sweden AB",
+      "scope": "Kişisel",
+      "amount": 1499.99,
+      "currency": "TRY",
+      "period": "yearly",
+      "next_renewal": "2099-10-11",
+      "channel": "Google Play",
+      "status": "active",
+      "account_email": "user@example.com"
+    },
+    {
+      "id": "t000000003",
+      "name": "Example Cloud",
+      "vendor": "Example Cloud GmbH",
+      "scope": "AGFO",
+      "amount": 6.99,
+      "currency": "EUR",
+      "period": "monthly",
+      "next_renewal": "2099-01-10",
+      "channel": "Doğrudan",
+      "status": "active",
+      "account_email": "admin@example.com"
+    },
+    {
+      "id": "t000000004",
+      "name": "Example AI Pro",
+      "vendor": "Example AI",
+      "scope": "Kişisel",
+      "amount": 20.0,
+      "currency": "USD",
+      "period": "monthly",
+      "next_renewal": "",
+      "channel": "Stripe/Web",
+      "status": "failing",
+      "account_email": "user@example.com"
+    },
+    {
+      "id": "t000000005",
+      "name": "Example Music App",
+      "vendor": "Example Music",
+      "scope": "Kişisel",
+      "amount": null,
+      "currency": "TRY",
+      "period": "unknown",
+      "next_renewal": "",
+      "channel": "Google Play",
+      "status": "check",
+      "account_email": "user@example.com"
+    },
+    {
+      "id": "t000000006",
+      "name": "Example Paddle Tool",
+      "vendor": "Example Tool GmbH",
+      "scope": "Kişisel",
+      "amount": null,
+      "currency": "USD",
+      "period": "monthly",
+      "next_renewal": "2099-11-09",
+      "channel": "Paddle",
+      "status": "cancel_scheduled",
+      "account_email": "user@example.com"
+    }
+  ]
+}
