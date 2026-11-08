@@ -110,15 +110,18 @@ if ($LASTEXITCODE -ne 0) { Fail 'PyTorch kurulamadı.'; Done 1 }
 $utf8 = New-Object Text.UTF8Encoding($false)
 $cons = Join-Path $D 'constraints.txt'
 [IO.File]::WriteAllText($cons, "torch==2.8.0`ntorchaudio==2.8.0`ntorchvision==0.23.0`n", $utf8)
-# qwen-tts'in demo arayuzu (gradio) gerekmez; paket bagimliliksiz kurulur, gerekenler ayrica eklenir
-Write-Host '  Qwen3-TTS ve bağımlılıkları…'
-& $uv pip install --python $Py --no-deps qwen-tts 2>&1 | ForEach-Object { "$_" } | Show
-if ($LASTEXITCODE -ne 0) { Fail 'qwen-tts indirilemedi.'; Done 1 }
-& $uv pip install --python $Py -c $cons transformers==4.57.3 accelerate==1.12.0 librosa soundfile sox onnxruntime einops `
-    huggingface_hub hf_xet 'numpy<2.3' fastapi 'uvicorn[standard]' num2words 2>&1 | ForEach-Object { "$_" } | Show
+# Qwen3-TTS, faster-qwen3-tts (MIT) ile calisir: ayni model agirliklari, CUDA graph ile 5-10 kat hizli uretim.
+# qwen-tts-hf, Qwen'in resmi paketinin (qwen-tts) yeni transformers ile calisan kopyasidir; ikisi birlikte kurulmaz.
+# Demo arayuzu (gradio) gerekmez: paketler bagimliliksiz kurulur, gerekenler ayrica eklenir.
+Write-Host '  Qwen3-TTS (faster-qwen3-tts) ve bağımlılıkları…'
+& $uv pip uninstall --python $Py qwen-tts 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch 'not installed|RemoteException' } | Show
+& $uv pip install --python $Py --no-deps 'qwen-tts-hf>=0.1.1.post1,<0.2' 'faster-qwen3-tts>=0.5.4,<0.6' 2>&1 | ForEach-Object { "$_" } | Show
+if ($LASTEXITCODE -ne 0) { Fail 'faster-qwen3-tts indirilemedi.'; Done 1 }
+& $uv pip install --python $Py -c $cons 'transformers>=5.15.1,<6' 'huggingface_hub>=1.5,<2' hf_xet accelerate==1.12.0 librosa `
+    soundfile sox onnxruntime einops 'numpy<2.3' fastapi 'uvicorn[standard]' num2words 2>&1 | ForEach-Object { "$_" } | Show
 if ($LASTEXITCODE -ne 0) { Fail 'Bağımlılıklar kurulamadı.'; Done 1 }
 # qwen_tts ice aktarilirken SoX ve flash-attn uyarilari yazar; zararsizdir, yalniz son satir (surum) alinir
-$probe = ((& $Py -c "import torch, qwen_tts; print('AGFO-PROBE', torch.__version__, 'cuda' if torch.cuda.is_available() else 'cpu')" 2>&1 |
+$probe = ((& $Py -c "import torch, qwen_tts, faster_qwen3_tts; print('AGFO-PROBE', torch.__version__, 'cuda' if torch.cuda.is_available() else 'cpu')" 2>&1 |
           ForEach-Object { "$_" } | Where-Object { $_ -match '^AGFO-PROBE ' }) -join ' ') -replace '^AGFO-PROBE ', ''
 if ($probe -notmatch '\d+\.\d+') { Fail "Paketler yüklenemedi: $probe"; Done 1 }
 Ok "torch $probe"
@@ -230,6 +233,10 @@ foreach ($smp in $samples) {
     }
 }
 if (-not $okCount) { Done 1 }
+try {
+    $h2 = Invoke-RestMethod "$Api/health" -Headers $hdr -TimeoutSec 5
+    if ($h2.fast) { Ok 'Hızlı üretim (CUDA graph) etkin' } elseif ($gpu) { Warn "Hızlı üretim etkin değil; ayrıntı: $D\service.log" }
+} catch {}
 if ($gpu) {
     $mem = (& nvidia-smi --query-gpu=memory.used --format=csv,noheader 2>$null | Select-Object -First 1)
     if ($mem) { Write-Host "  Ekran kartı belleği (toplam kullanım): $mem" }
