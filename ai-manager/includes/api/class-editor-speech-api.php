@@ -49,6 +49,11 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
                 'callback'            => [ __CLASS__, 'rest_quick' ],
                 'permission_callback' => $auth,
             ] );
+            register_rest_route( $ns, '/editor/voices', [          // NEW 17.14.0: sağlayıcının sesleri ve modelleri
+                'methods'             => [ 'GET', 'POST' ],
+                'callback'            => [ __CLASS__, 'rest_voices' ],
+                'permission_callback' => $auth,
+            ] );
             register_rest_route( $ns, '/editor/speech-script', [
                 'methods'             => 'POST',
                 'callback'            => [ __CLASS__, 'rest_script' ],
@@ -87,9 +92,12 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
 
         /** Capability summary for /editor/info. */
         public static function info(): array {
-            $ema = class_exists( 'AGFO_AIM_Adapter_EMA' );
+            $ema       = class_exists( 'AGFO_AIM_Adapter_EMA' );
+            $ema_ready = $ema && '' !== AGFO_AIM_Adapter_EMA::token();
+            $providers = class_exists( 'AGFO_AIM_Editor_Voice' ) ? AGFO_AIM_Editor_Voice::providers() : [];
             return [
-                'speech_ready'          => $ema && '' !== AGFO_AIM_Adapter_EMA::token(),
+                'speech_ready'          => $ema_ready || in_array( true, array_column( $providers, 'ready' ), true ), // 17.14: herhangi bir sağlayıcı
+                'ema_ready'             => $ema_ready,
                 'speech_provider'       => 'ema',
                 'speech_max_chars'      => $ema ? AGFO_AIM_Adapter_EMA::MAX_CHARS : 0,
                 'reading_script'        => class_exists( 'AGFO_AIM_Speech_Script' ),
@@ -97,7 +105,55 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
                 'lexicon_edit'          => current_user_can( 'manage_options' ),
                 'quick'                 => true,              // 17.13.0: /editor/speech-quick
                 'quick_max_chars'       => self::QUICK_MAX,
+                'providers'             => $providers, // 17.14.0
+                'voices_endpoint'       => class_exists( 'AGFO_AIM_Editor_Voice' ),
             ];
+        }
+
+        /** NEW 17.14.0: istekteki sağlayıcı (boş ya da tanınmayan: EMA). */
+        private static function provider_of( $request ): string {
+            $p = sanitize_key( (string) $request->get_param( 'provider' ) );
+            return ( '' !== $p && class_exists( 'AGFO_AIM_Editor_Voice' ) && AGFO_AIM_Editor_Voice::known( $p ) ) ? $p : 'ema';
+        }
+
+        private static function voice_opts( $request ): array {
+            return [
+                'voice'        => (string) $request->get_param( 'voice' ),
+                'model'        => (string) $request->get_param( 'model' ),
+                'instructions' => (string) $request->get_param( 'instructions' ),
+                'speed'        => (float) ( $request->get_param( 'speed' ) ?: 1.0 ),
+            ];
+        }
+
+        /** NEW 17.14.0: GET|POST /editor/voices  provider=openai|elevenlabs|minimax|ema, refresh=1 (katalog önbelleğini yenile) */
+        public static function rest_voices( $request ) {
+            if ( ! class_exists( 'AGFO_AIM_Editor_Voice' ) ) {
+                return self::error( 'agfo_editor_voice_missing', 'Ses sağlayıcı bileşeni yüklü değil.', 500 );
+            }
+            $provider = sanitize_key( (string) $request->get_param( 'provider' ) );
+            if ( ! AGFO_AIM_Editor_Voice::known( $provider ) ) {
+                return self::error( 'agfo_editor_voice_provider', 'Geçersiz sağlayıcı.', 400 );
+            }
+            if ( ! AGFO_AIM_Editor_Voice::key_ready( $provider ) ) {
+                return self::error( 'agfo_no_api_key', 'Bu sağlayıcının anahtarı sitede tanımlı değil (AI Manager › Sağlayıcılar).', 400 );
+            }
+            $cat = AGFO_AIM_Editor_Voice::catalog( $provider, filter_var( $request->get_param( 'refresh' ), FILTER_VALIDATE_BOOLEAN ) );
+            if ( is_wp_error( $cat ) ) {
+                return self::error( $cat->get_error_code(), $cat->get_error_message(), 502 );
+            }
+            return new WP_REST_Response( $cat, 200 );
+        }
+
+        /** NEW 17.14.0: AI okuma metni (sayılar, kısaltmalar, yabancı adlar) - her sağlayıcı için ortak. */
+        private static function reading_script_text( string $text ): array {
+            if ( ! class_exists( 'AGFO_AIM_Speech_Script' ) ) {
+                return [ $text, false ];
+            }
+            $prep = AGFO_AIM_Speech_Script::prepare( $text );
+            if ( is_wp_error( $prep ) ) {
+                return [ $text, false ];
+            }
+            return [ (string) $prep['text'], $prep['rewritten'] > 0 ];
         }
 
         private static function ready() {
@@ -111,6 +167,10 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
         }
 
         public static function rest_submit( $request ) {
+            $provider = self::provider_of( $request );
+            if ( 'ema' !== $provider ) {
+                return self::submit_other( $request, $provider );
+            }
             $ready = self::ready();
             if ( true !== $ready ) {
                 return $ready;
@@ -151,6 +211,58 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
                 [
                     'provider'        => 'ema',
                     'model'           => 'ema-lightning',
+                    'source_plugin'   => 'agfo-ai-editor',
+                    'created_by'      => get_current_user_id(),
+                    'idempotency_key' => substr( sanitize_text_field( (string) $request->get_param( 'request_id' ) ), 0, 80 ),
+                ]
+            );
+            if ( is_wp_error( $job ) ) {
+                return self::error( $job->get_error_code(), $job->get_error_message(), 400 );
+            }
+            return new WP_REST_Response( self::public_job( $job ), 202 );
+        }
+
+        /** NEW 17.14.0: OpenAI / ElevenLabs / MiniMax ile ses dosyası işi (kuyruk, kullanım ve bütçe kayıtları dahil). */
+        private static function submit_other( $request, string $provider ) {
+            if ( ! class_exists( 'AGFO_AIM_Editor_Voice' ) || ! class_exists( 'AGFO_AIM_Job_API' ) ) {
+                return self::error( 'agfo_editor_voice_missing', 'Ses sağlayıcı bileşeni yüklü değil.', 500 );
+            }
+            if ( ! AGFO_AIM_Editor_Voice::key_ready( $provider ) ) {
+                return self::error( 'agfo_no_api_key', 'Bu sağlayıcının anahtarı sitede tanımlı değil (AI Manager › Sağlayıcılar).', 400 );
+            }
+            $text = AGFO_AIM_Job_API::sanitize_speech_text( (string) $request->get_param( 'text' ) );
+            if ( '' === $text ) {
+                return self::error( 'agfo_editor_speech_empty', 'Seslendirilecek metin boş.', 400 );
+            }
+            $max = AGFO_AIM_Editor_Voice::JOB_MAX[ $provider ];
+            if ( mb_strlen( $text, 'UTF-8' ) > $max ) {
+                return self::error( 'agfo_editor_speech_long', 'Metin bu sağlayıcı için ' . number_format_i18n( $max ) . ' karakteri aşıyor; bölerek seslendirin.', 400 );
+            }
+            $script_ready = filter_var( $request->get_param( 'script_ready' ), FILTER_VALIDATE_BOOLEAN );
+            if ( ! $script_ready && filter_var( $request->get_param( 'reading_script' ), FILTER_VALIDATE_BOOLEAN ) ) {
+                if ( function_exists( 'set_time_limit' ) ) {
+                    @set_time_limit( 600 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+                }
+                $text = self::reading_script_text( $text )[0];
+            }
+            $built = AGFO_AIM_Editor_Voice::payload( $provider, $text, self::voice_opts( $request ) );
+            if ( is_wp_error( $built ) ) {
+                return self::error( $built->get_error_code(), $built->get_error_message(), 400 );
+            }
+            list( $payload, $context ) = $built;
+            $payload += [
+                'provider_voices'          => [ $provider => $payload['voice'] ],
+                'retention_days'           => 30,
+                'publish_to_media_library' => false,
+                'visibility'               => 'private',
+                'title'                    => sanitize_text_field( (string) ( $request->get_param( 'title' ) ?: 'AGFO AI Editor' ) ),
+            ];
+            $job = AGFO_AIM_Job_API::submit(
+                'speech_synthesize',
+                $payload,
+                [
+                    'provider'        => $provider,
+                    'model'           => $context['model'],
                     'source_plugin'   => 'agfo-ai-editor',
                     'created_by'      => get_current_user_id(),
                     'idempotency_key' => substr( sanitize_text_field( (string) $request->get_param( 'request_id' ) ), 0, 80 ),
@@ -214,6 +326,10 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
          * paragraph by paragraph. Optional reading script (cached per chunk on the site).
          */
         public static function rest_quick( $request ) {
+            $provider = self::provider_of( $request );
+            if ( 'ema' !== $provider ) {
+                return self::quick_other( $request, $provider );
+            }
             $ready = self::ready();
             if ( true !== $ready ) {
                 return $ready;
@@ -247,6 +363,42 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Speech_API' ) ) {
                     'audio_base64' => base64_encode( $res['audio'] ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
                     'seconds'      => $res['seconds'],
                     'script'       => $script,
+                ],
+                200
+            );
+        }
+
+        /** NEW 17.14.0: kısa metin -> MP3, OpenAI / ElevenLabs / MiniMax ile (kuyruksuz). */
+        private static function quick_other( $request, string $provider ) {
+            if ( ! class_exists( 'AGFO_AIM_Editor_Voice' ) ) {
+                return self::error( 'agfo_editor_voice_missing', 'Ses sağlayıcı bileşeni yüklü değil.', 500 );
+            }
+            $text = class_exists( 'AGFO_AIM_Job_API' ) ? AGFO_AIM_Job_API::sanitize_speech_text( (string) $request->get_param( 'text' ) )
+                : trim( wp_strip_all_tags( (string) $request->get_param( 'text' ) ) );
+            if ( '' === $text ) {
+                return self::error( 'agfo_editor_quick_empty', 'Metin boş.', 400 );
+            }
+            if ( mb_strlen( $text, 'UTF-8' ) > self::QUICK_MAX ) {
+                return self::error( 'agfo_editor_quick_long', 'Sesli okuma parçası en fazla ' . self::QUICK_MAX . ' karakter olabilir.', 400 );
+            }
+            $script = false;
+            if ( ! filter_var( $request->get_param( 'script_ready' ), FILTER_VALIDATE_BOOLEAN )
+                && filter_var( $request->get_param( 'reading_script' ), FILTER_VALIDATE_BOOLEAN ) ) {
+                list( $text, $script ) = self::reading_script_text( $text );
+            }
+            $res = AGFO_AIM_Editor_Voice::synthesize( $provider, $text, self::voice_opts( $request ) );
+            if ( is_wp_error( $res ) ) {
+                $code = (string) $res->get_error_code();
+                return self::error( $code, $res->get_error_message(), in_array( $code, [ 'agfo_no_api_key', 'agfo_editor_voice_required', 'agfo_tts_voice_required' ], true ) ? 400 : 502 );
+            }
+            return new WP_REST_Response(
+                [
+                    'mime'         => 'audio/mpeg',
+                    'audio_base64' => base64_encode( $res['audio'] ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+                    'seconds'      => $res['seconds'],
+                    'script'       => $script,
+                    'provider'     => $res['provider'],
+                    'model'        => $res['model'],
                 ],
                 200
             );

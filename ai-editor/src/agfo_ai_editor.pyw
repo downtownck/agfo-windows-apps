@@ -12,6 +12,7 @@ from __future__ import annotations
 import ctypes
 import json
 import gc
+import hashlib
 import os
 import pathlib
 import queue
@@ -2153,6 +2154,45 @@ class App(tk.Tk):
         ttk.Radiobutton(svc, text='Bu bilgisayar', value='local', variable=self.sp_service_var,
                         command=self._speech_service_changed).pack(side='left', padx=(0, 8))
         self.sp_sync_btn = self.btn(svc, 'Sözlüğü siteden eşitle', self.sync_local_lexicon, 'ghost', padx=8)
+        # 2.13: saglayici, ses ve model (sitedeki AI Manager 17.14+: EMA, OpenAI, ElevenLabs, MiniMax)
+        pv = tk.Frame(f, bg=PANEL)
+        self.sp_voice_box = pv
+        self._sp_anchor = svc
+        r1 = tk.Frame(pv, bg=PANEL)
+        r1.pack(fill='x', pady=(0, 3))
+        self.lbl(r1, 'Sağlayıcı', muted=True).pack(side='left')
+        self.sp_provider_var = tk.StringVar()
+        self.sp_provider_cb = ttk.Combobox(r1, textvariable=self.sp_provider_var, state='readonly', width=34)
+        self.sp_provider_cb.pack(side='left', padx=(6, 0), fill='x', expand=True)
+        self.sp_provider_cb.bind('<<ComboboxSelected>>', lambda e: self._speech_provider_changed())
+        r2 = tk.Frame(pv, bg=PANEL)
+        r2.pack(fill='x', pady=(0, 3))
+        self.lbl(r2, 'Ses', muted=True).pack(side='left')
+        self.sp_voice_var = tk.StringVar()
+        self.sp_voice_cb = ttk.Combobox(r2, textvariable=self.sp_voice_var, state='readonly', width=26)
+        self.sp_voice_cb.pack(side='left', padx=(6, 4), fill='x', expand=True)
+        self.sp_voice_cb.bind('<<ComboboxSelected>>', lambda e: self._speech_voice_changed())
+        self.btn(r2, '⟳', lambda: self.load_speech_voices(refresh=True), 'ghost', padx=6)
+        self.sp_try_btn = self.btn(r2, '▶ Dene', self.try_speech_voice, 'ghost', padx=8)
+        r3 = tk.Frame(pv, bg=PANEL)
+        r3.pack(fill='x', pady=(0, 3))
+        self.lbl(r3, 'Model', muted=True).pack(side='left')
+        self.sp_model_var = tk.StringVar()
+        self.sp_model_cb = ttk.Combobox(r3, textvariable=self.sp_model_var, state='readonly', width=26)
+        self.sp_model_cb.pack(side='left', padx=(6, 0), fill='x', expand=True)
+        self.sp_model_cb.bind('<<ComboboxSelected>>', lambda e: self._speech_voice_changed())
+        self.sp_instr_row = r4 = tk.Frame(pv, bg=PANEL)
+        self.lbl(r4, 'Okuma talimatı', muted=True).pack(side='left')
+        self.sp_instr_var = tk.StringVar(value=str(self.settings.get('speech_instructions', '')))
+        ie = ttk.Entry(r4, textvariable=self.sp_instr_var)
+        ie.pack(side='left', padx=(6, 0), fill='x', expand=True)
+        ie.bind('<FocusOut>', lambda e: self._speech_voice_changed())
+        self.sp_voice_note = self.lbl(pv, '', muted=True, wraplength=int(380 * self.scale))
+        self.sp_voice_note.pack(anchor='w')
+        self._sp_providers = {}          # id -> saglayici bilgisi (AI Manager /editor/info)
+        self._sp_voice_items = []        # [(etiket, ses kimligi)]
+        self._sp_model_items = []
+        self._sp_voice_cache = {}        # saglayici -> katalog
         row = tk.Frame(f, bg=PANEL)
         row.pack(fill='x', pady=(0, 4))
         self.lbl(row, 'Hız', muted=True).pack(side='left')
@@ -2257,6 +2297,178 @@ class App(tk.Tk):
             return self._test_local_cfg
         return localtts.read_config()
 
+    # ------------------------------------------------------------------ 2.13: ses saglayicisi / ses / model
+    def _speech_provider(self):
+        p = str(self.settings.get('speech_provider') or 'ema')
+        return p if (p == 'ema' or p in getattr(self, '_sp_providers', {})) else 'ema'
+
+    def _speech_opts(self):
+        p = self._speech_provider()
+        info = getattr(self, '_sp_providers', {}).get(p, {})
+        return {'provider': p, 'voice': (self.settings.get('speech_voice') or {}).get(p, ''),
+                'model': (self.settings.get('speech_model') or {}).get(p, ''),
+                'instructions': str(self.settings.get('speech_instructions') or '') if p == 'openai' else '',
+                'job_max_chars': int(info.get('job_max_chars') or 0) if p != 'ema' else 0}
+
+    def _voice_sig(self):
+        """Onbellek anahtari icin: hangi saglayici / ses / model ile uretildi."""
+        if self._speech_mode() == 'local':
+            return 'yerel'
+        o = self._speech_opts()
+        if o['provider'] == 'ema':
+            return 'ema'
+        raw = '%s|%s|%s|%s' % (o['provider'], o['voice'], o['model'], o['instructions'])
+        return o['provider'] + '-' + hashlib.sha1(raw.encode('utf-8')).hexdigest()[:8]
+
+    def _fill_speech_providers(self, info):
+        """AI Manager'in bildirdigi saglayicilarla sag listeyi doldurur (17.14 oncesinde yalniz EMA)."""
+        provs = info.get('providers') if isinstance(info, dict) else None
+        if not isinstance(provs, list) or not provs:
+            self._sp_providers = {}
+            self.sp_voice_box.pack_forget()
+            return
+        self._sp_providers = {str(p.get('id')): p for p in provs if isinstance(p, dict) and p.get('id')}
+        labels = []
+        for pid, p in self._sp_providers.items():
+            labels.append(p.get('label', pid) + ('' if p.get('ready') else '  — anahtar tanımlı değil'))
+        self.sp_provider_cb.configure(values=labels)
+        cur = self._speech_provider()
+        ids = list(self._sp_providers)
+        self.sp_provider_var.set(labels[ids.index(cur)] if cur in ids else labels[0])
+        if self._speech_mode() == 'site' and not self.sp_voice_box.winfo_manager():
+            self.sp_voice_box.pack(fill='x', pady=(0, 6), after=self._sp_anchor)
+        self._show_provider_details(load=True)
+
+    def _speech_provider_changed(self):
+        ids = list(self._sp_providers)
+        try:
+            pid = ids[list(self.sp_provider_cb.cget('values')).index(self.sp_provider_var.get())]
+        except (ValueError, IndexError):
+            return
+        p = self._sp_providers.get(pid, {})
+        if not p.get('ready'):
+            messagebox.showinfo('Ses sağlayıcısı', '%s için sitede API anahtarı tanımlı değil. WordPress › AI Manager › '
+                                'Sağlayıcılar sayfasından anahtarı girin, sonra burada yeniden seçin.' % p.get('label', pid), parent=self)
+            self._fill_speech_providers({'providers': list(self._sp_providers.values())})
+            return
+        self.settings['speech_provider'] = pid
+        self._save_settings_quiet()
+        self._show_provider_details(load=True)
+        self._sync_speech_tab()
+
+    def _save_settings_quiet(self):
+        try:
+            core.save_settings(self.settings)
+        except OSError:
+            pass
+
+    def _show_provider_details(self, load=False):
+        pid = self._speech_provider()
+        p = self._sp_providers.get(pid, {})
+        ema = pid == 'ema'
+        for cb in (self.sp_voice_cb, self.sp_model_cb):
+            cb.configure(state='disabled' if ema else 'readonly')
+        if pid == 'openai':
+            if not self.sp_instr_row.winfo_manager():
+                self.sp_instr_row.pack(fill='x', pady=(0, 3), before=self.sp_voice_note)
+        else:
+            self.sp_instr_row.pack_forget()
+        notes = []
+        if ema:
+            self.sp_voice_var.set('EMA (Türkçe)')
+            self.sp_model_var.set('EMA Lightning')
+        else:
+            notes.append('Cümle ve paragraf arası duraklama ile ortak telaffuz sözlüğü yalnız EMA\'da; AI okuma metni '
+                         'her sağlayıcıda çalışır.')
+            if p.get('speed_min') is not None:
+                notes.append('Hız %.2f–%.2f arasında uygulanır.' % (float(p['speed_min']), float(p['speed_max'])))
+            if load:
+                self.load_speech_voices()
+        self.sp_voice_note.configure(text=' '.join(notes))
+
+    def load_speech_voices(self, refresh=False):
+        pid = self._speech_provider()
+        if pid == 'ema':
+            return None
+        if not refresh and pid in self._sp_voice_cache:
+            self._apply_voice_catalog(pid, self._sp_voice_cache[pid])
+            return None
+        b = next((x for x in self.backends() if getattr(x, 'kind', '') == 'manager'), None)
+        if b is None or not hasattr(b, 'voices'):
+            return None
+        self.sp_voice_var.set('Sesler alınıyor…')
+
+        def done(ok, res):
+            if not ok:
+                self.sp_voice_var.set('')
+                self.sp_voice_note.configure(text='Ses listesi alınamadı: %s' % res)
+                return
+            self._sp_voice_cache[pid] = res
+            if self._speech_provider() == pid:
+                self._apply_voice_catalog(pid, res)
+        self._start_job('Ses listesi alınıyor', lambda: b.voices(pid, refresh), done)
+        return True
+
+    def _apply_voice_catalog(self, pid, cat):
+        voices = [v for v in (cat.get('voices') or []) if isinstance(v, dict) and v.get('id')]
+        models = [m for m in (cat.get('models') or []) if isinstance(m, dict) and m.get('id')]
+        self._sp_voice_items = [('%s%s' % (v.get('name') or v['id'], (' — ' + v['description']) if v.get('description') else ''),
+                                 str(v['id'])) for v in voices]
+        self._sp_model_items = [('%s%s' % (m.get('name') or m['id'], '  (önerilen)' if m.get('recommended') else ''), str(m['id']))
+                                for m in models]
+        self.sp_voice_cb.configure(values=[x[0] for x in self._sp_voice_items])
+        self.sp_model_cb.configure(values=[x[0] for x in self._sp_model_items])
+        info = self._sp_providers.get(pid, {})
+        want_v = (self.settings.get('speech_voice') or {}).get(pid) or info.get('default_voice') or \
+            (self._sp_voice_items[0][1] if self._sp_voice_items else '')
+        want_m = (self.settings.get('speech_model') or {}).get(pid) or info.get('default_model') or \
+            next((i for _l, i in self._sp_model_items), '')
+        self.sp_voice_var.set(next((l for l, i in self._sp_voice_items if i == want_v), want_v))
+        self.sp_model_var.set(next((l for l, i in self._sp_model_items if i == want_m), want_m))
+        self._speech_voice_changed()
+        if not self._sp_voice_items:
+            self.sp_voice_note.configure(text='Bu hesapta kullanılabilir ses bulunamadı (sağlayıcının panelinden ses ekleyin).')
+
+    def _speech_voice_changed(self):
+        pid = self._speech_provider()
+        if pid == 'ema':
+            return
+        v = next((i for l, i in self._sp_voice_items if l == self.sp_voice_var.get()), '')
+        m = next((i for l, i in self._sp_model_items if l == self.sp_model_var.get()), '')
+        if v:
+            self.settings.setdefault('speech_voice', {})[pid] = v
+        if m:
+            self.settings.setdefault('speech_model', {})[pid] = m
+        self.settings['speech_instructions'] = self.sp_instr_var.get().strip()[:1000]
+        self._save_settings_quiet()
+
+    def try_speech_voice(self):
+        """Secili ses ile kisa bir ornek."""
+        title = 'Sesi dene'
+        b = self._speech_backend(title)
+        if not b:
+            return None
+        self._speech_voice_changed()
+        sample = 'Merhaba. Bu ses, AGFO AI Editör için seçtiğiniz sestir; denetim raporlarını ve belgeleri böyle okuyacak.'
+        speed = float(self.settings.get('speech_speed', 1.0))
+        dest = core.data_dir() / 'readaloud' / ('deneme-%s.mp3' % self._voice_sig())
+
+        def work():
+            audio, _secs = b.speech_quick(sample, speed=speed, pause_ms=250, paragraph_pause_ms=0)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(audio)
+            return str(dest)
+
+        def done(ok, res):
+            if not ok:
+                messagebox.showerror(title, res, parent=self)
+                return
+            if not self.smoke:
+                self._open_external(res)
+            self.flash('Örnek ses hazır.')
+        self._start_job('Örnek ses hazırlanıyor', work, done)
+        return True
+
     def _speech_mode(self):
         mode = self.settings.get('speech_service')
         if mode in ('site', 'local'):
@@ -2324,6 +2536,8 @@ class App(tk.Tk):
             self.sp_sync_btn.configure(state='normal' if local else 'disabled')
         except (AttributeError, tk.TclError):
             pass
+        if local and hasattr(self, 'sp_voice_box'):
+            self.sp_voice_box.pack_forget()                           # yerel servis yalniz EMA
         if local:
             b = self._local_backend()
             if b is None:
@@ -2351,11 +2565,22 @@ class App(tk.Tk):
             self.sp_state_var.set('Seslendirme için sitede AGFO AI Manager 17.12.0 veya üstü gerekir.')
             self.sp_state_lbl.configure(fg=WARN)
             return
-        if info.get('speech_ready'):
+        self._fill_speech_providers(info)                              # 2.13
+        pid = self._speech_provider()
+        if pid != 'ema':
+            p = self._sp_providers.get(pid, {})
+            if p.get('ready'):
+                self.sp_state_var.set('● %s hazır (sitedeki AI Manager üzerinden)' % p.get('label', pid))
+                self.sp_state_lbl.configure(fg=OK_C)
+            else:
+                self.sp_state_var.set('● %s için sitede anahtar yok: AI Manager › Sağlayıcılar' % p.get('label', pid))
+                self.sp_state_lbl.configure(fg=WARN)
+        elif info.get('ema_ready', info.get('speech_ready')):
             self.sp_state_var.set('● EMA Lightning hazır (sitedeki AI Manager üzerinden)')
             self.sp_state_lbl.configure(fg=OK_C)
         else:
-            self.sp_state_var.set('● Sitede EMA servis token’ı yok: AI Manager › Sağlayıcılar › EMA Lightning')
+            self.sp_state_var.set('● Sitede EMA servis token’ı yok: AI Manager › Sağlayıcılar › EMA Lightning'
+                                  + ('  — ya da yukarıdan başka bir sağlayıcı seçin' if info.get('providers') else ''))
             self.sp_state_lbl.configure(fg=WARN)
         if 'speech_script' not in self.settings and 'reading_script_default' in info:
             self.sp_script_var.set(bool(info.get('reading_script_default')))
@@ -2363,6 +2588,7 @@ class App(tk.Tk):
     def _manager_backend(self, title):
         for b in self.backends():
             if getattr(b, 'kind', '') == 'manager':
+                b.speech_opts = self._speech_opts()          # 2.13: secili saglayici / ses / model
                 return b
         messagebox.showinfo(title, 'Bu özellik sitenizdeki AGFO AI Manager üzerinden çalışır. Ayarlar › Bağlantı bölümünden '
                                    'AI Manager site adresini ve bağlantı anahtarını girin.', parent=self)
@@ -2537,7 +2763,7 @@ class App(tk.Tk):
         ready = bool(getattr(d, 'speech_script', False))
         opts = {'reading_script': bool(self.ra_script_var.get()) and not ready, 'script_ready': ready,
                 'speed': float(self.settings.get('speech_speed', 1.0)), 'pause_ms': 280, 'paragraph_pause_ms': 0}
-        key = '%s-%.2f' % ('hazir' if ready else ('ai' if opts['reading_script'] else 'sozluk'), opts['speed'])
+        key = '%s-%.2f-%s' % ('hazir' if ready else ('ai' if opts['reading_script'] else 'sozluk'), opts['speed'], self._voice_sig())
         cache = core.data_dir() / 'readaloud' / key
         self._prune_readaloud_cache()
         t.tag_configure('readaloud', background=READ_BG, foreground=FG)
