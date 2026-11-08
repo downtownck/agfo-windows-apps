@@ -58,3 +58,16 @@ Editöre bağlama (AGFO AI Editor 2.14.0 ve üstü)
   Arapça seste AI okuma metni ve telaffuz sözlüğü kullanılmaz; metin olduğu gibi okunur.
   Kaldırma: AGFO-Arapca-Servis-Kur.cmd -Kaldir  (modeller ve deneme kurulumları yerinde kalır)
   Sorun olursa masaüstündeki agfo-arapca-servis-sonuc.txt dosyasını gönderin.
+
+İngilizce ve İspanyolca ses (Qwen3-TTS, Apache-2.0)
+  AGFO-Ses-Qwen-Kur.cmd dosyasına çift tıklayın. Qwen3-TTS'i %LOCALAPPDATA%\AGFO\TTS-QWEN klasörüne kurar
+  (yaklaşık 10 GB indirir), modelleri indirir, kalıcı servisi açar ve masaüstüne iki deneme sesi yazar:
+    agfo-ses-qwen-ingilizce.mp3, agfo-ses-qwen-ispanyolca.mp3
+  Editörde: Ses sekmesi > Bu bilgisayar > Yerel ses > "Qwen3-TTS (İngilizce, İspanyolca) · Aiden" gibi.
+  Metnin dili paragraf paragraf kendiliğinden seçilir. Hazır sesler: Aiden ve Ryan (anadili İngilizce),
+  Serena, Vivian ve diğerleri. İspanyolcayı anadil gibi okuyan bir ses için izinli bir İspanyolca kaydı
+  (ad.wav + ad.txt) %LOCALAPPDATA%\AGFO\TTS-QWEN\data\voices klasörüne koyun.
+  Türkçe ve Arapça bu modelde yok; Türkçe için EMA Lightning, Arapça için SILMA/Habibi kullanılır.
+  Daha hızlı ama biraz daha düşük kaliteli model:  AGFO-Ses-Qwen-Kur.cmd -Boyut 0.6B
+  Kaldırma: AGFO-Ses-Qwen-Kur.cmd -Kaldir
+  Sorun olursa masaüstündeki agfo-ses-qwen-sonuc.txt dosyasını gönderin.

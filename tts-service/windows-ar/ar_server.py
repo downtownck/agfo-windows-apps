@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""AGFO Arapca Ses Servisi - SILMA TTS ya da Habibi-TTS, bu bilgisayarin ekran kartinda.
+"""AGFO Yerel Ses Servisi - bu bilgisayarin ekran kartinda Arapca (SILMA TTS, Habibi-TTS) ya da
+Ingilizce / Ispanyolca (Qwen3-TTS).
 
 Turkce AGFO TTS Service (EMA Lightning) ile ayni API'yi sunar; AGFO AI Editor onu ayni sekilde kullanir:
   GET  /health             durum (motor, aygit, ses sayisi)
@@ -7,7 +8,9 @@ Turkce AGFO TTS Service (EMA Lightning) ile ayni API'yi sunar; AGFO AI Editor on
   POST /tts                {"text", "voice", "speed", "paragraph_pause_ms", "format", "seed"} -> ses dosyasi
   GET  /lexicon            bos liste (Arapca icin telaffuz sozlugu yok; editorun sozluk penceresi bozulmasin)
 Her istekte X-AGFO-Token basligi zorunludur. Ayarlar .env dosyasindan okunur (run_ar.py):
-  AGFO_TTS_ENGINE   silma | habibi
+  AGFO_TTS_ENGINE   silma | habibi | qwen
+  AGFO_TTS_QWEN_SIZE  1.7B (varsayilan) | 0.6B
+  AGFO_TTS_QWEN_DIR   indirilmis Qwen modellerinin klasoru (yoksa Hugging Face onbellegi)
   AGFO_TTS_NFE      cizim adimi (varsayilan 32; 16 daha hizli)
 Sesler (referans kayitlar) iki yerden gelir: motorun hazir sesleri ve DATA_DIR/voices klasoru. Kendi sesinizi
 eklemek icin oraya 5-15 saniyelik bir kayit (ad.wav ya da ad.mp3) ve kayittaki cumlenin yazisini (ad.txt) koyun.
@@ -30,7 +33,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 ENGINE = os.environ.get('AGFO_TTS_ENGINE', 'silma').strip().lower()
 TOKEN = os.environ.get('AGFO_TTS_TOKEN', '')
 CACHE_DIR = Path(os.environ.get('AGFO_TTS_CACHE_DIR', './cache'))
@@ -43,7 +46,7 @@ AUDIO_EXT = ('.wav', '.mp3', '.flac')
 
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 VOICES_DIR.mkdir(parents=True, exist_ok=True)
-app = FastAPI(title='AGFO Arapca Ses Servisi', version=VERSION)
+app = FastAPI(title='AGFO Yerel Ses Servisi', version=VERSION)
 _lock = threading.Lock()
 
 SILMA_REF_TEXT = 'ويدقق النظر في القرآن الكريم وسائر الكتب السماوية ويتبع مسالك الرسل العظام عليهم الصلاة والسلام.'
@@ -68,6 +71,55 @@ def numbers_to_words(text: str) -> str:
         except (NotImplementedError, ValueError, OverflowError):
             return m.group(0)
     return re.sub(r'(?<![A-Za-z])\d+(?![A-Za-z])', repl, text)
+
+
+_ES_WORDS = set('el la los las de que y en un una por para con del al es se no lo como pero sus su más este esta '
+                'son están está fue han debe deberá durante entre sobre también'.split())
+_EN_WORDS = set('the and of to in is that for with on as was by be are this it from at which shall must will has have'.split())
+
+
+def detect_lang(text: str) -> str:
+    """Qwen3 icin paragraf dili: 'spanish' ya da 'english' (kaba ama yeterli)."""
+    if re.search(r'[ñÑ¿¡]', text):
+        return 'spanish'
+    words = re.findall(r"[a-záéíóúü]+", text.lower())
+    es = sum(w in _ES_WORDS for w in words) + 2 * len(re.findall(r'[áéíóú]', text.lower()))
+    en = sum(w in _EN_WORDS for w in words)
+    return 'spanish' if es > en else 'english'
+
+
+def split_sentences(text: str, limit: int = 320) -> list[str]:
+    """Uzun paragrafi cumle sinirindan parcalara boler (otoregresif model uzun metinde kelime atlayabilir)."""
+    if len(text) <= limit:
+        return [text]
+    parts, cur = [], ''
+    for sent in re.split(r'(?<=[.!?;:])\s+', text):
+        if cur and len(cur) + len(sent) + 1 > limit:
+            parts.append(cur)
+            cur = sent
+        else:
+            cur = (cur + ' ' + sent).strip()
+    if cur:
+        parts.append(cur)
+    out = []
+    for p in parts:                                   # tek cumle sinirdan uzunsa virgulden bol
+        while len(p) > limit * 1.5:
+            cut = p.rfind(', ', 0, limit)
+            if cut < limit // 3:
+                break
+            out.append(p[:cut + 1])
+            p = p[cut + 2:]
+        out.append(p)
+    return out
+
+
+def retime(wav_bytes: bytes, speed: float) -> bytes:
+    """Hiz ayari olmayan motorlarda (Qwen3) ffmpeg atempo ile perde bozulmadan hizlandirir/yavaslatir."""
+    if abs(speed - 1.0) < 0.01:
+        return wav_bytes
+    p = subprocess.run([FFMPEG, '-loglevel', 'error', '-i', 'pipe:0', '-filter:a', 'atempo=%.3f' % speed, '-f', 'wav', 'pipe:1'],
+                       input=wav_bytes, capture_output=True, check=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    return p.stdout
 
 
 def _ref_text_for(path: Path) -> str:
@@ -182,11 +234,76 @@ class HabibiEngine:
         return np.asarray(wave, dtype=np.float32), int(sr)
 
 
+class QwenEngine:
+    """Qwen3-TTS (Apache-2.0): hazir sesler CustomVoice modeliyle, data/voices kayitlari Base (klon) modeliyle.
+    8 GB ekran kartinda iki 1.7B model birlikte tutulmaz; gerekince digeri bosaltilir."""
+    label = 'Qwen3-TTS'
+    native_speed = False
+    SIZE = os.environ.get('AGFO_TTS_QWEN_SIZE', '1.7B')
+    SPEAKERS = [('aiden', 'Aiden', 'Aiden (erkek, Amerikan İngilizcesi)'), ('ryan', 'Ryan', 'Ryan (erkek, İngilizce)'),
+                ('serena', 'Serena', 'Serena (kadın, sıcak)'), ('vivian', 'Vivian', 'Vivian (kadın, canlı)'),
+                ('ono_anna', 'Ono_Anna', 'Ono Anna (kadın, hafif)'), ('sohee', 'Sohee', 'Sohee (kadın, duygulu)'),
+                ('uncle_fu', 'Uncle_Fu', 'Uncle Fu (erkek, tok)')]
+
+    def __init__(self):
+        self.kind = None
+        self.model = None
+        self.prompts = {}
+        self.device = 'cpu'
+
+    def builtin(self) -> list[dict]:
+        return [{'id': vid, 'name': name, 'file': '', 'text': '', 'speaker': spk} for vid, spk, name in self.SPEAKERS]
+
+    def _load(self, kind: str):
+        if self.kind == kind and self.model is not None:
+            return self.model
+        import torch
+        from qwen_tts import Qwen3TTSModel
+        if self.model is not None:
+            self.model = None
+            self.prompts = {}
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        dtype = torch.bfloat16 if self.device.startswith('cuda') else torch.float32
+        name = 'Qwen3-TTS-12Hz-%s-%s' % (self.SIZE, 'CustomVoice' if kind == 'custom' else 'Base')
+        local = os.path.join(os.environ.get('AGFO_TTS_QWEN_DIR', ''), name)
+        repo = local if os.environ.get('AGFO_TTS_QWEN_DIR') and os.path.isdir(local) else 'Qwen/' + name
+        self.model = Qwen3TTSModel.from_pretrained(repo, device_map=self.device, dtype=dtype, attn_implementation='sdpa')
+        self.kind = kind
+        return self.model
+
+    def load(self):
+        self._load('custom')
+
+    def say(self, text: str, voice: dict, speed: float, seed: int):
+        import torch
+        lang = detect_lang(text)
+        if seed:
+            torch.manual_seed(seed)
+        pieces, sr = [], 24000
+        for chunk in split_sentences(text):
+            if voice.get('speaker'):
+                m = self._load('custom')
+                wavs, sr = m.generate_custom_voice(text=chunk, language=lang, speaker=voice['speaker'])
+            else:
+                m = self._load('base')
+                key = voice['file']
+                if key not in self.prompts:
+                    rt = voice.get('text') or ''
+                    self.prompts[key] = m.create_voice_clone_prompt(ref_audio=voice['file'], ref_text=rt or None,
+                                                                    x_vector_only_mode=not rt)
+                wavs, sr = m.generate_voice_clone(text=chunk, language=lang, voice_clone_prompt=self.prompts[key])
+            pieces.append(np.asarray(wavs[0], dtype=np.float32))
+            pieces.append(np.zeros(int(sr * 0.12), dtype=np.float32))
+        return np.concatenate(pieces[:-1] or pieces), int(sr)
+
+
 def _noop(*_a, **_k):
     return None
 
 
-engine = HabibiEngine() if ENGINE == 'habibi' else SilmaEngine()
+engine = {'habibi': HabibiEngine, 'qwen': QwenEngine}.get(ENGINE, SilmaEngine)()
 
 
 def voices() -> list[dict]:
@@ -194,7 +311,7 @@ def voices() -> list[dict]:
         base = engine.builtin()
     except Exception:
         base = []
-    return [v for v in base if Path(v['file']).exists()] + user_voices()
+    return [v for v in base if not v['file'] or Path(v['file']).exists()] + user_voices()
 
 
 def find_voice(vid: str) -> dict:
@@ -230,8 +347,10 @@ def health(x_agfo_token: str | None = Header(default=None)):
         gpu = torch.cuda.get_device_name(0) if dev == 'cuda' else ''
     except Exception:
         dev, gpu = 'cpu', ''
-    return {'ok': True, 'version': VERSION, 'model': ENGINE, 'engine': engine.label, 'language': 'ar', 'device': dev,
-            'gpu': gpu, 'voices': len(voices()), 'lexicon_entries': 0, 'loaded': bool(getattr(engine, 'tts', None) or getattr(engine, 'models', None))}
+    return {'ok': True, 'version': VERSION, 'model': ENGINE, 'engine': engine.label,
+            'language': os.environ.get('AGFO_TTS_LANG') or ('en' if ENGINE == 'qwen' else 'ar'), 'device': dev,
+            'gpu': gpu, 'voices': len(voices()), 'lexicon_entries': 0,
+            'loaded': bool(getattr(engine, 'tts', None) or getattr(engine, 'models', None) or getattr(engine, 'model', None))}
 
 
 @app.get('/voices')
@@ -245,14 +364,15 @@ def list_voices(x_agfo_token: str | None = Header(default=None)):
 @app.get('/lexicon')
 def lexicon_list(x_agfo_token: str | None = Header(default=None)):
     check_token(x_agfo_token)
-    return {'entries': [], 'count': 0, 'base': 0, 'custom': 0, 'note': 'Arapça ses için telaffuz sözlüğü yok.'}
+    return {'entries': [], 'count': 0, 'base': 0, 'custom': 0, 'note': 'Bu ses için telaffuz sözlüğü yok.'}
 
 
 @app.post('/tts')
 def synthesize(req: TTSRequest, x_agfo_token: str | None = Header(default=None)):
     check_token(x_agfo_token)
     voice = find_voice(req.voice)
-    vstamp = '%s|%s' % (voice['file'], os.path.getmtime(voice['file']) if os.path.exists(voice['file']) else 0)
+    vstamp = '%s|%s|%s' % (voice.get('speaker', ''), voice['file'],
+                           os.path.getmtime(voice['file']) if voice['file'] and os.path.exists(voice['file']) else 0)
     key = hashlib.sha256(('%s|%s|%d|%s' % (ENGINE, req.model_dump_json(), NFE, vstamp)).encode('utf-8')).hexdigest()
     cached = CACHE_DIR / ('%s.%s' % (key, req.format))
     if cached.exists():
@@ -268,7 +388,8 @@ def synthesize(req: TTSRequest, x_agfo_token: str | None = Header(default=None))
     with _lock:
         for i, para in enumerate(paragraphs):
             text = numbers_to_words(' '.join(para.split()))
-            audio, sr = engine.say(text, voice, req.speed, req.seed)
+            native = getattr(engine, 'native_speed', True)
+            audio, sr = engine.say(text, voice, req.speed if native else 1.0, req.seed)
             pieces.append(audio)
             if i < len(paragraphs) - 1 and req.paragraph_pause_ms:
                 pieces.append(np.zeros(int(sr * req.paragraph_pause_ms / 1000), dtype=np.float32))
@@ -276,6 +397,9 @@ def synthesize(req: TTSRequest, x_agfo_token: str | None = Header(default=None))
     buf = io.BytesIO()
     sf.write(buf, full, sr, format='WAV', subtype='PCM_16')
     data = buf.getvalue()
+    if not getattr(engine, 'native_speed', True) and abs(req.speed - 1.0) >= 0.01:
+        data = retime(data, req.speed)
+        full = full[:int(len(full) / req.speed)]                 # sure hesabi icin
     if req.format == 'mp3':
         data = to_mp3(data)
     cached.write_bytes(data)
