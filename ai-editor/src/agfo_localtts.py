@@ -9,6 +9,10 @@ ve sozluk penceresi hangi servisin kullanildigini bilmeden calisir.
 AI okuma metni yerelde uretilmez: istenirse metin sitedeki AI Manager'a (/editor/speech-script) gonderilir,
 donen okuma metni burada sozluk yeniden uygulanmadan seslendirilir. Site yoksa ya da hata verirse metin yerel
 sozlukle okunur.
+
+2.14: ayni bilgisayarda birden cok ses servisi olabilir: Turkce EMA (%LOCALAPPDATA%\\AGFO\\TTS) ve Arapca SILMA
+(TTS-AR) ya da Habibi (TTS-HABIBI). Hepsi ayni API'yi sunar; Arapca servisler ayrica /voices ile referans seslerini
+listeler. Arapcada okuma metni ve telaffuz sozlugu yoktur.
 """
 from __future__ import annotations
 
@@ -23,14 +27,40 @@ from agfo_ai_client import AIError, _error_message, _json
 MP3_BITRATE = 96_000      # servis MP3'u 96 kbit/s yazar; onbellekten gelen sesin suresi buradan kestirilir
 
 
-def install_dir() -> str:
-    base = os.environ.get('LOCALAPPDATA') or os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
-    return os.path.join(base, 'AGFO', 'TTS')
+# (kimlik, klasor, varsayilan motor, dil, etiket)
+SERVICES = (
+    ('ema', 'TTS', 'ema', 'tr', 'EMA Lightning (Türkçe)'),
+    ('silma', 'TTS-AR', 'silma', 'ar', 'SILMA (Arapça)'),
+    ('habibi', 'TTS-HABIBI', 'habibi', 'ar', 'Habibi (Arapça)'),
+)
+SAMPLES = {
+    'tr': 'Merhaba. Bu ses, AGFO AI Editör için seçtiğiniz sestir; denetim raporlarını ve belgeleri böyle okuyacak.',
+    'ar': 'مرحبا. هذا هو الصوت الذي اخترته لمحرر AGFO، وبه ستتم قراءة تقارير التدقيق والمستندات.',
+}
 
 
-def read_config(path: str | None = None) -> dict | None:
-    """Kurulu servisin {'endpoint', 'token', 'dir'} bilgisi ya da None."""
+def _base() -> str:
+    return os.environ.get('LOCALAPPDATA') or os.path.join(os.path.expanduser('~'), 'AppData', 'Local')
+
+
+def install_dir(folder: str = 'TTS') -> str:
+    return os.path.join(_base(), 'AGFO', folder)
+
+
+def local_services() -> list[dict]:
+    """Bu bilgisayarda kurulu ses servisleri (Turkce once)."""
+    out = []
+    for sid, folder, engine, lang, label in SERVICES:
+        cfg = read_config(os.path.join(install_dir(folder), '.env'), defaults=(sid, engine, lang, label))
+        if cfg:
+            out.append(cfg)
+    return out
+
+
+def read_config(path: str | None = None, defaults=None) -> dict | None:
+    """Kurulu servisin {'endpoint', 'token', 'dir', 'id', 'engine', 'lang', 'label'} bilgisi ya da None."""
     path = path or os.path.join(install_dir(), '.env')
+    sid, engine, lang, label = defaults or ('ema', 'ema', 'tr', 'EMA Lightning (Türkçe)')
     env = {}
     try:
         with open(path, encoding='utf-8-sig') as fh:
@@ -45,16 +75,23 @@ def read_config(path: str | None = None) -> dict | None:
     if not token:
         return None
     port = env.get('AGFO_TTS_PORT', '8765')
-    return {'endpoint': 'http://127.0.0.1:%s' % port, 'token': token, 'dir': os.path.dirname(path)}
+    return {'endpoint': 'http://127.0.0.1:%s' % port, 'token': token, 'dir': os.path.dirname(path), 'id': sid,
+            'engine': env.get('AGFO_TTS_ENGINE') or engine, 'lang': env.get('AGFO_TTS_LANG') or lang,
+            'label': env.get('AGFO_TTS_LABEL') or label}
 
 
 class LocalSpeechBackend:
     kind = 'local'
     name = 'Bu bilgisayar'
 
-    def __init__(self, endpoint: str, token: str, site=None, opener=None):
+    def __init__(self, endpoint: str, token: str, site=None, opener=None, lang: str = 'tr', engine: str = 'ema',
+                 voice: str = '', label: str = ''):
         self.endpoint = endpoint.rstrip('/')
         self.token = token
+        self.lang = lang or 'tr'
+        self.engine = engine or 'ema'
+        self.voice = voice or ''              # 2.14: Arapca serviste referans ses kimligi
+        self.label = label or 'EMA Lightning'
         self.site = site                     # AI Manager baglantisi (okuma metni ve ortak sozluk icin), yoksa None
         # Sistem proxy'si 127.0.0.1 isteklerini yoldan cikarmasin
         self._opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -91,12 +128,27 @@ class LocalSpeechBackend:
     def health(self) -> dict:
         return self._call('/health', timeout=5)
 
+    def voices(self) -> dict:
+        """{'voices': [{'id', 'name', ...}], 'default'}. EMA servisinde tek ses vardir."""
+        if self.lang == 'tr':
+            return {'voices': [{'id': '', 'name': 'EMA Lightning'}], 'default': ''}
+        return self._call('/voices', timeout=10)
+
+    @property
+    def has_lexicon(self) -> bool:
+        return self.lang == 'tr'
+
+    def _no_lexicon(self):
+        raise AIError('%s için telaffuz sözlüğü yok; sözlük yalnız Türkçe sesle (EMA Lightning) çalışır.' % self.label)
+
     def tts(self, text: str, apply_lexicon: bool = True, speed: float = 1.0, pause_ms: int = 350,
             paragraph_pause_ms: int = 700, timeout=1800):
         """(mp3_bytes, saniye)."""
         payload = {'text': text, 'speed': round(max(0.7, min(1.4, float(speed))), 2), 'format': 'mp3',
                    'pause_ms': int(max(0, min(2000, pause_ms))), 'paragraph_pause_ms': int(max(0, min(3000, paragraph_pause_ms))),
                    'apply_lexicon': bool(apply_lexicon)}
+        if self.voice:
+            payload['voice'] = self.voice
         audio, headers = self._raw('/tts', payload, timeout)
         if not audio:
             raise AIError('Yerel ses servisi boş ses döndürdü.')
@@ -116,6 +168,9 @@ class LocalSpeechBackend:
         """(okunacak metin, sozluk uygulansin mi, okuma metni ozeti)."""
         if script_ready:
             return text, False, {'status': 'ready'}
+        if self.lang != 'tr':
+            return text, False, ({'status': 'skipped', 'reason': 'okuma metni yalnız Türkçe seste hazırlanır'}
+                                 if reading_script else {'status': 'off'})
         if not reading_script:
             return text, True, {'status': 'off'}
         if self.site is None:
@@ -165,12 +220,16 @@ class LocalSpeechBackend:
         return self.tts(spoken, apply_lexicon=lex, speed=speed, pause_ms=pause_ms, paragraph_pause_ms=paragraph_pause_ms, timeout=300)
 
     def speech_script(self, text: str) -> dict:
+        if self.lang != 'tr':
+            raise AIError('AI okuma metni yalnız Türkçe seste hazırlanır; %s metni olduğu gibi okur.' % self.label)
         if self.site is None:
             raise AIError('Okuma metni sitedeki AI Manager ile hazırlanır; Ayarlar › Bağlantı bölümünden sitenizi ekleyin.')
         return self.site.speech_script(text)
 
     # ------------------------------------------------------------------ sozluk
     def lexicon_list(self) -> dict:
+        if self.lang != 'tr':
+            return {'entries': [], 'count': 0, 'can_edit': False, 'local': True}
         d = self._call('/lexicon', timeout=60)
         d.setdefault('can_edit', True)
         d['local'] = True
@@ -178,6 +237,8 @@ class LocalSpeechBackend:
 
     def lexicon_change(self, op: str, word: str, reading: str = '') -> dict:
         """Yerel sozlugu degistirir; site bagliysa ve yetki varsa ortak sozluge de yazar."""
+        if self.lang != 'tr':
+            self._no_lexicon()
         if op == 'save':
             d = self._call('/lexicon/entry', {'word': word, 'reading': reading})
         elif op == 'delete':
@@ -197,11 +258,15 @@ class LocalSpeechBackend:
         return d
 
     def lexicon_listen(self, reading: str) -> bytes:
+        if self.lang != 'tr':
+            self._no_lexicon()
         audio, _s = self.tts(reading, apply_lexicon=False, pause_ms=0, paragraph_pause_ms=0, timeout=120)
         return audio
 
     def sync_from_site(self) -> dict:
         """Sunucudaki ortak sozlukte eklenen/degistirilen/kaldirilan kelimeleri bu bilgisayara uygular."""
+        if self.lang != 'tr':
+            self._no_lexicon()
         if self.site is None:
             raise AIError('Eşitlemek için Ayarlar › Bağlantı bölümünden AI Manager sitenizi ekleyin.')
         remote = self.site.lexicon_list().get('entries') or []

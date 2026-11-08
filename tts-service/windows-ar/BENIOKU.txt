@@ -1,0 +1,60 @@
+AGFO Arapça ses denemesi (SILMA TTS)
+====================================
+
+Ne yapar
+  SILMA TTS'i (Arapça + İngilizce, Apache-2.0) bu bilgisayara, NVIDIA ekran kartında çalışacak şekilde kurar,
+  dört örnek metni seslendirir ve süreleri ölçer. Türkçe ses servisine (AGFO-Ses-Kur) dokunmaz.
+
+Kullanım
+  1. ZIP'i bir klasöre çıkarın.
+  2. AGFO-Arapca-Dene.cmd dosyasına çift tıklayın. İlk kurulum yaklaşık 5 GB indirir (10-20 dakika).
+  3. Sesler masaüstünde: AGFO-Arapca-Deneme klasörü
+       1-fusha-harekesiz.mp3   harekesiz Fusha metin
+       2-sayilar.mp3           rakamlar (yazıya çevrilerek)
+       3-arapca-ingilizce.mp3  aynı cümlede Arapça ve İngilizce
+       4-uzun-paragraf.mp3     uzun paragraf
+     Ekranda her ses için süre ve RTF yazar (RTF 0,2 = 10 saniyelik sesi 2 saniyede üretti).
+
+Kendi sesinizle (ses klonlama)
+  5-15 saniyelik, gürültüsüz bir Arapça kayıt ve kayıttaki cümlenin yazısı:
+    AGFO-Arapca-Dene.cmd -Ses C:\kayit.wav -SesMetni "kayıttaki cümle"
+  Sesi kullanılan kişinin açık izni gerekir.
+
+Daha temiz ses için
+    AGFO-Arapca-Dene.cmd -Adim 32      (daha yavaş)
+
+Kaldırma
+    AGFO-Arapca-Dene.cmd -Kaldir
+
+Sorun olursa masaüstündeki agfo-arapca-dene-sonuc.txt dosyasını gönderin.
+
+Aksan karşılaştırması (Mısırlı dinleyiciler için)
+  AGFO-Arapca-Karsilastir.cmd dosyasına çift tıklayın. Habibi-TTS'i (Apache-2.0 lisanslı Mısır ve Fusha
+  modelleri) ayrı bir klasöre kurar ve masaüstündeki AGFO-Arapca-Karsilastirma klasörüne şunları üretir:
+    habibi\A-misir-modeli-fusha-metin.mp3   Mısır modeli, Fusha denetim metni (Mısır aksanlı Fusha)
+    habibi\B-misir-modeli-misir-agzi.mp3    Mısır modeli, aynı içerik Mısır ağzıyla
+    habibi\C-fusha-modeli.mp3               Fusha modeli
+    silma-misirli-ses\*.mp3                 SILMA, Mısırlı referans sesle (SILMA denemesi kuruluysa)
+  Referans sesler paketlerin örnek kayıtlarıdır, yalnız deneme içindir. Kalıcı kullanımda kendi
+  izinli kaydımız (ör. 10-15 saniyelik Mısırlı bir ses) kullanılmalı.
+  Kaldırma: AGFO-Arapca-Karsilastir.cmd -Kaldir
+
+Editöre bağlama (AGFO AI Editor 2.14.0 ve üstü)
+  Deneme betikleriyle kurulan modelleri (SILMA ve/veya Habibi) bu bilgisayarda kalıcı bir ses servisine
+  çevirir. Yeni model indirmez.
+  1. AGFO-Arapca-Servis-Kur.cmd dosyasına çift tıklayın. Kurulu her model için ayrı bir servis açılır
+     (127.0.0.1, yalnız bu bilgisayardan erişilir) ve oturum açılınca kendiliğinden başlar. Sonunda her
+     servis için masaüstüne bir deneme sesi yazar: agfo-arapca-servis-silma.mp3 / -habibi.mp3
+  2. Editörde: Ses sekmesi > Ses servisi: Bu bilgisayar > Yerel ses listesinden seçin, ör.
+       SILMA (Arapça) · Mısırlı ses (deneme kaydı)
+       Habibi (Arapça) · Mısır (Habibi Mısır modeli)
+     "▶ Dene" Arapça bir örnek cümle okur. Sesli oku, Ses dosyası ve Video seçilen sesle çalışır.
+     Türkçe için listeden "EMA Lightning (Türkçe)"yi seçin.
+  3. Kendi sesinizi eklemek için: 5-15 saniyelik gürültüsüz kayıt (ad.wav) ve kayıttaki cümlenin yazısı
+     (ad.txt), şu klasöre:
+       %LOCALAPPDATA%\AGFO\TTS-AR\data\voices        (SILMA)
+       %LOCALAPPDATA%\AGFO\TTS-HABIBI\data\voices    (Habibi; ad__MSA.wav Fusha modelini kullanır)
+     Editörde ⟳ ile listeyi yenileyin. Sesi kullanılan kişinin açık izni gerekir.
+  Arapça seste AI okuma metni ve telaffuz sözlüğü kullanılmaz; metin olduğu gibi okunur.
+  Kaldırma: AGFO-Arapca-Servis-Kur.cmd -Kaldir  (modeller ve deneme kurulumları yerinde kalır)
+  Sorun olursa masaüstündeki agfo-arapca-servis-sonuc.txt dosyasını gönderin.
