@@ -104,7 +104,7 @@ def narrate(backend, text: str, dest: str, *, reading_script=True, script_ready=
     """Metni seslendirir ve MP3'u `dest`e yazar. Uzun metin birden cok ise bolunur, parcalar sirayla birlestirilir.
     progress(mesaj) ilerleme bildirir; cancel() True donerse durur. Donus: {'path', 'parts', 'duration_ms', 'scripts'}."""
     poll = POLL_SECONDS if poll is None else poll
-    parts = split_parts(text)
+    parts = split_parts(text, getattr(backend, 'speech_part_limit', 0) or PART_LIMIT)   # 2.13: saglayicinin siniri
     if not parts:
         raise ValueError('Seslendirilecek metin boş.')
     tmp_files, durations, scripts = [], [], []

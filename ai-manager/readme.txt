@@ -3,7 +3,7 @@ Contributors: agfocert
 Tags: ai, image-generation, featured-image, music-generation, tts, gemini, wordpress
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 17.13.0
+Stable tag: 17.14.0
 License: GPL-2.0-or-later
 
 Central AI provider, capability, persistent job, private asset and budget management for the AGFO ecosystem.
@@ -43,6 +43,9 @@ Existing public agfo_* APIs, AJAX action names, option keys and data/data.json r
 * Added agfo_content_generate_structured() with JSON Schema Structured Outputs for trusted AGFO plugin integrations.
 * Academy Content Studio timeout is capped at 60 seconds; general content transformations at 45 seconds.
 * Added elapsed time, finish reason and reasoning-token diagnostics.
+
+= 17.14.0 =
+* AI Editor seslendirmesinde OpenAI, ElevenLabs ve MiniMax: /editor/speech-quick ve /editor/speech provider, voice, model (OpenAI için instructions) alır; boş ya da tanınmayan sağlayıcı EMA'dır (eski editörler aynen çalışır). Yeni /editor/voices (GET ya da POST, provider=…) sağlayıcının seslerini ve modellerini döndürür (ses kataloğu). /editor/info speech özetinde providers (hazır olanlar, karakter sınırları, hız aralıkları) ve ema_ready. Kısa seslendirme kullanımı Kullanım tablosuna yazılır; ses dosyası işleri kuyruk, bütçe ve geçiş kurallarıyla çalışır. AI Editor 2.13.0 ile kullanılır.
 
 = 17.13.0 =
 * AI Editor "Sesli oku" için POST /editor/speech-quick: en çok 4.000 karakterlik parçayı iş kuyruğuna girmeden hemen MP3'e çevirir (sunucu sözlüğü, isteğe bağlı okuma metni, hazır okuma metni). /editor/info speech özetinde quick ve quick_max_chars. AI Editor 1.6.0 ile kullanılır.

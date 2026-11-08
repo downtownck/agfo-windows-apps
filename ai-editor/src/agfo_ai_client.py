@@ -391,10 +391,11 @@ class ManagerBackend:
     # ------------------------------------------------------------------ 1.5: seslendirme (AI Manager 17.12+)
     def speech_submit(self, text: str, reading_script: bool = True, script_ready: bool = False, speed: float = 1.0,
                       pause_ms=None, paragraph_pause_ms=None, fmt: str = 'mp3', title: str = '', request_id: str = '') -> dict:
-        """EMA seslendirme isi baslatir: {'job', 'status', ...}."""
+        """Seslendirme isi baslatir: {'job', 'status', ...}. 2.13: secili saglayici/ses (speech_opts) eklenir."""
         payload = {'text': text, 'reading_script': bool(reading_script), 'script_ready': bool(script_ready),
                    'speed': round(float(speed), 2), 'format': 'wav' if fmt == 'wav' else 'mp3',
                    'title': title or 'AGFO AI Editor', 'request_id': request_id}
+        payload.update(self._voice_fields())
         if pause_ms is not None:
             payload['pause_ms'] = int(pause_ms)
         if paragraph_pause_ms is not None:
@@ -441,9 +442,10 @@ class ManagerBackend:
     def speech_quick(self, text: str, reading_script: bool = False, speed: float = 1.0, pause_ms: int = 300,
                      paragraph_pause_ms: int = 500, script_ready: bool = False):
         """1.6 Sesli oku (AI Manager 17.13+): kisa metnin sesi bekletmeden (mp3_bytes, saniye)."""
-        d = self._call('/editor/speech-quick', {'text': text, 'reading_script': bool(reading_script), 'script_ready': bool(script_ready),
-                                                'speed': round(float(speed), 2),
-                                                'pause_ms': int(pause_ms), 'paragraph_pause_ms': int(paragraph_pause_ms)}, timeout=120)
+        payload = {'text': text, 'reading_script': bool(reading_script), 'script_ready': bool(script_ready),
+                   'speed': round(float(speed), 2), 'pause_ms': int(pause_ms), 'paragraph_pause_ms': int(paragraph_pause_ms)}
+        payload.update(self._voice_fields())
+        d = self._call('/editor/speech-quick', payload, timeout=120)
         try:
             audio = base64.b64decode(d.get('audio_base64') or '')
         except (ValueError, TypeError):
@@ -451,6 +453,31 @@ class ManagerBackend:
         if not audio:
             raise AIError('AI Manager ses döndürmedi.')
         return audio, float(d.get('seconds') or 0)
+
+    # 2.13 (AI Manager 17.14+): EMA disinda OpenAI / ElevenLabs / MiniMax
+    speech_opts = None          # {'provider', 'voice', 'model', 'instructions'} - uygulama ayarlardan doldurur
+
+    def _voice_fields(self) -> dict:
+        o = self.speech_opts or {}
+        prov = str(o.get('provider') or '').strip()
+        if not prov or prov == 'ema':
+            return {}
+        out = {'provider': prov}
+        for k in ('voice', 'model', 'instructions'):
+            if o.get(k):
+                out[k] = str(o[k])
+        return out
+
+    @property
+    def speech_part_limit(self) -> int:
+        """Ses dosyasi islerinde parca boyu (okuma metni metni uzatabilir: payli)."""
+        o = self.speech_opts or {}
+        lim = int(o.get('job_max_chars') or 0)
+        return int(lim * 0.85) if lim else 0
+
+    def voices(self, provider: str, refresh: bool = False) -> dict:
+        """Saglayicinin sesleri ve modelleri: {'voices': [{'id','name','description'}], 'models': [...]}."""
+        return self._call('/editor/voices', {'provider': provider, 'refresh': bool(refresh)}, timeout=60)
 
     def speech_script(self, text: str) -> dict:
         """Okuma metni onizlemesi: {'text', 'chunks', 'rewritten', 'kept_original', 'model', ...}."""

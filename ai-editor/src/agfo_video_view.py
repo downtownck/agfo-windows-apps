@@ -364,7 +364,7 @@ class VideoProjectWindow(tk.Toplevel):
         if not b:
             return
         self.backend = b
-        voice_key = '%s|%.2f|%s' % (type(b).__name__, speed, script)
+        voice_key = '%s|%.2f|%s|%s' % (type(b).__name__, speed, script, self.app._voice_sig())
         q = queue.Queue()
         self.cancel_flag = False
         self._busy('Hazırlanıyor…')

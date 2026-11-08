@@ -3,7 +3,7 @@
  * Plugin Name: AGFO AI Manager
  * Plugin URI: https://agfocert.com/
  * Description: AI Model Yönetimi + Multi-Source Benchmark
- * Version: 17.13.0
+ * Version: 17.14.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AGFOCERT
@@ -16,7 +16,7 @@
  */
 if (!defined('ABSPATH')) exit;
 
-define('AGFO_AIM_VERSION',    '17.13.0');
+define('AGFO_AIM_VERSION',    '17.14.0');
 define('AGFO_AIM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AGFO_AIM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AGFO_AIM_DATA_DIR',   AGFO_AIM_PLUGIN_DIR . 'data/');
@@ -40,6 +40,7 @@ require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-ai-image.php';
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-model-catalog.php'; // NEW 17.1.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/class-code-review.php'; // NEW 17.2.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-api.php'; // NEW 17.4.0
+require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-voice.php'; // NEW 17.14.0: editör seslendirmesinde OpenAI / ElevenLabs / MiniMax
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-speech-api.php'; // NEW 17.12.0: AI Editor seslendirme + sözlük
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/api/class-editor-tokens.php'; // NEW 17.5.0
 require_once AGFO_AIM_PLUGIN_DIR . 'includes/core/class-github-updater.php'; // NEW 17.4.0
