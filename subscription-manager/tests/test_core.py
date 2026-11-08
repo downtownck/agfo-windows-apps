@@ -95,6 +95,14 @@ def paddle_paypal_renewal():
 
 
 @test
+def generic_receipt_uses_total():
+    f = p('Example Hosting <bilgi@hosting.example>', 'Ödeme Makbuzu',
+          'Alan Adı Yenileme - a.com - 1 Yıl ₺820.81 TL\nAlan Adı Yenileme - b.net - 1 Yıl ₺945.25 TL\n'
+          'Ara Toplam: ₺1766.06 TL\n20.00% KDV: ₺353.21 TL\nToplam: ₺2119.27 TL\n')
+    assert (f['amount'], f['currency'], f['period']) == (2119.27, 'TRY', 'yearly'), f
+
+
+@test
 def noise_ignored():
     assert p('Friend <a@b.com>', 'Lunch?', 'see you at 12') is None
 

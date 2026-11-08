@@ -29,7 +29,7 @@ MONTHS_TR = {m: i for i, m in enumerate(
 
 CUR_MAP = {"$": "USD", "€": "EUR", "£": "GBP", "₺": "TRY", "TL": "TRY", "TRY": "TRY",
            "USD": "USD", "EUR": "EUR", "GBP": "GBP"}
-NUM = r"\d{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?"
+NUM = r"\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d{1,2})?(?!\d)|\d+(?:[.,]\d{1,2})?(?!\d)"
 AMOUNT_RE = re.compile(rf"(?P<cur>[$€£₺]|TRY|USD|EUR|GBP)\s?(?P<num>{NUM})|(?P<num2>{NUM})\s?(?P<cur2>TL|TRY|₺|USD|EUR)\b")
 
 
@@ -64,9 +64,20 @@ def find_amount(text):
     return None, None
 
 
+TOTAL_RE = re.compile(r"(?:Genel Toplam|Toplam|Total|Tutar|Amount paid|Amount due)\s*:?\s*"
+                      r"((?:[$€£₺]|TRY|USD|EUR|GBP)?\s?[\d.,]+\s?(?:TL|TRY|USD|EUR|₺)?)", re.I)
+
+
+def find_total(text):
+    """Last 'Toplam / Total / Tutar' amount on the page (receipts list items before the total)."""
+    hits = [find_amount(m.group(1)) for m in TOTAL_RE.finditer(text or "")]
+    hits = [h for h in hits if h[0]]
+    return hits[-1] if hits else (None, None)
+
+
 def detect_period(text):
     t = (text or "").lower()
-    if re.search(r"/\s?(yıl|year|yr)\b|yearly|annual|yıllık|\b1 year\b|per year|this past year|another full year", t):
+    if re.search(r"/\s?(yıl|year|yr)\b|yearly|annual|yıllık|\b1 year\b|\b1 yıl\b|per year|this past year|another full year", t):
         return "yearly"
     if re.search(r"/\s?(ay|month|mo)\b|monthly|aylık|per month", t):
         return "monthly"
@@ -317,7 +328,7 @@ def parse_message(sender, subject, date, body, account=""):
     # ---- generic
     if not any(h in low_subj for h in SUBJECT_HINTS):
         return None
-    amount, cur = find_amount(text)
+    amount, cur = find_total(body) if find_total(body)[0] else find_amount(text)
     renew = find_date_after(body, "renew on", "renews on", "will renew", "yenilenecek", "yenileme tarihi", "Yenileme:")
     if amount is None and renew is None and f["status"] == "active":
         return None

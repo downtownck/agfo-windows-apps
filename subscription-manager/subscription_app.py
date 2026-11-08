@@ -863,9 +863,10 @@ class ScanDialog(tk.Toplevel):
         self.remember = tk.BooleanVar(value=keyring is not None)
         ttk.Checkbutton(opt, text="Şifreleri Windows Kimlik Yöneticisinde sakla", variable=self.remember,
                         state="normal" if keyring else "disabled").pack(side="left", padx=12)
-        tip = ("Gmail için normal şifre değil 'Uygulama şifresi' gerekir: Google Hesabı > Güvenlik > 2 Adımlı Doğrulama > "
-               "Uygulama şifreleri (myaccount.google.com/apppasswords). Diğer adresler için posta sunucusunun IMAP adresini "
-               "ve şifreni gir. Taramadan sonra bulguları tek tek onaylayarak eklersin.")
+        tip = ("Gmail ve Google Workspace hesapları (kendi alan adınla Gmail) için sunucu imap.gmail.com'dur ve normal "
+               "şifre değil 'Uygulama şifresi' gerekir: o hesapla myaccount.google.com/apppasswords (2 Adımlı Doğrulama "
+               "açık olmalı). Workspace'te IMAP kapalıysa yönetici konsolunda Gmail > Son kullanıcı erişimi > POP ve IMAP'i "
+               "aç. Diğer adresler için posta sunucusunun IMAP adresini gir. Bulguları tek tek onaylayarak eklersin.")
         ttk.Label(frm, text=tip, wraplength=720, foreground=MUTED).pack(anchor="w", pady=(0, 6))
         self.log = tk.Text(frm, height=9, bg=CARD, fg=INK, font=("Consolas", 9), relief="flat")
         self.log.pack(fill="both", expand=True)
@@ -889,8 +890,11 @@ class ScanDialog(tk.Toplevel):
         e = simpledialog.askstring("Hesap", "E-posta adresi:", parent=self)
         if not e:
             return
-        h = simpledialog.askstring("Hesap", "IMAP sunucusu:", parent=self,
-                                   initialvalue="imap.gmail.com" if e.endswith("gmail.com") else "mail." + e.split("@")[-1])
+        google = e.lower().endswith(("@gmail.com", "@googlemail.com")) or messagebox.askyesno(
+            "Hesap", f"{e} bir Google Workspace (Gmail) hesabı mı?\n\nEvet: imap.gmail.com kullanılır ve tüm "
+                     f"Gmail klasörleri (Tüm Postalar) taranır.", parent=self)
+        h = "imap.gmail.com" if google else simpledialog.askstring(
+            "Hesap", "IMAP sunucusu:", parent=self, initialvalue="mail." + e.split("@")[-1])
         if not h:
             return
         self.acc_tree.insert("", "end", values=(e, h, 993, e))
