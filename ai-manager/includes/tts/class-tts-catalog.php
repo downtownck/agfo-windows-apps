@@ -55,6 +55,9 @@ if ( ! class_exists( 'AGFO_AIM_TTS_Catalog' ) ) {
             if ( 'minimax' === $provider ) {
                 return self::minimax_catalog( $force );
             }
+            if ( 'openrouter' === $provider && class_exists( 'AGFO_AIM_OpenRouter_TTS_Catalog' ) ) {
+                return AGFO_AIM_OpenRouter_TTS_Catalog::catalog( $force );   // NEW 17.15.0
+            }
             if ( 'ema' === $provider && class_exists( 'AGFO_AIM_Adapter_EMA' ) ) {
                 // $force (the Studio "test" button) also probes the local service.
                 return AGFO_AIM_Adapter_EMA::catalog( $force );

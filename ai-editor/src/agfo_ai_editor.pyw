@@ -2195,7 +2195,7 @@ class App(tk.Tk):
         self.sp_model_var = tk.StringVar()
         self.sp_model_cb = ttk.Combobox(r3, textvariable=self.sp_model_var, state='readonly', width=26)
         self.sp_model_cb.pack(side='left', padx=(6, 0), fill='x', expand=True)
-        self.sp_model_cb.bind('<<ComboboxSelected>>', lambda e: self._speech_voice_changed())
+        self.sp_model_cb.bind('<<ComboboxSelected>>', lambda e: self._speech_model_changed())
         self.sp_instr_row = r4 = tk.Frame(pv, bg=PANEL)
         self.lbl(r4, 'Okuma talimatı', muted=True).pack(side='left')
         self.sp_instr_var = tk.StringVar(value=str(self.settings.get('speech_instructions', '')))
@@ -2386,8 +2386,13 @@ class App(tk.Tk):
         info = getattr(self, '_sp_providers', {}).get(p, {})
         return {'provider': p, 'voice': (self.settings.get('speech_voice') or {}).get(p, ''),
                 'model': (self.settings.get('speech_model') or {}).get(p, ''),
-                'instructions': str(self.settings.get('speech_instructions') or '') if p == 'openai' else '',
+                'instructions': str(self.settings.get('speech_instructions') or '') if self._instr_ok(p) else '',
                 'job_max_chars': int(info.get('job_max_chars') or 0) if p != 'ema' else 0}
+
+    def _instr_ok(self, pid):
+        """Saglayici okuma talimati aliyor mu (AI Manager 17.15+ bildirir; oncesinde yalniz OpenAI)."""
+        info = getattr(self, '_sp_providers', {}).get(pid, {})
+        return bool(info['instructions']) if 'instructions' in info else pid == 'openai'
 
     def _voice_sig(self):
         """Onbellek anahtari icin: hangi saglayici / ses / model ile uretildi."""
@@ -2452,7 +2457,7 @@ class App(tk.Tk):
         ema = pid == 'ema'
         for cb in (self.sp_voice_cb, self.sp_model_cb):
             cb.configure(state='disabled' if ema else 'readonly')
-        if pid == 'openai':
+        if self._instr_ok(pid):
             if not self.sp_instr_row.winfo_manager():
                 self.sp_instr_row.pack(fill='x', pady=(0, 3), before=self.sp_voice_note)
         else:
@@ -2494,24 +2499,48 @@ class App(tk.Tk):
         return True
 
     def _apply_voice_catalog(self, pid, cat):
-        voices = [v for v in (cat.get('voices') or []) if isinstance(v, dict) and v.get('id')]
         models = [m for m in (cat.get('models') or []) if isinstance(m, dict) and m.get('id')]
-        self._sp_voice_items = [('%s%s' % (v.get('name') or v['id'], (' — ' + v['description']) if v.get('description') else ''),
-                                 str(v['id'])) for v in voices]
+        self._sp_catalog = cat
         self._sp_model_items = [('%s%s' % (m.get('name') or m['id'], '  (önerilen)' if m.get('recommended') else ''), str(m['id']))
                                 for m in models]
-        self.sp_voice_cb.configure(values=[x[0] for x in self._sp_voice_items])
         self.sp_model_cb.configure(values=[x[0] for x in self._sp_model_items])
         info = self._sp_providers.get(pid, {})
-        want_v = (self.settings.get('speech_voice') or {}).get(pid) or info.get('default_voice') or \
-            (self._sp_voice_items[0][1] if self._sp_voice_items else '')
         want_m = (self.settings.get('speech_model') or {}).get(pid) or info.get('default_model') or \
             next((i for _l, i in self._sp_model_items), '')
-        self.sp_voice_var.set(next((l for l, i in self._sp_voice_items if i == want_v), want_v))
         self.sp_model_var.set(next((l for l, i in self._sp_model_items if i == want_m), want_m))
+        self._fill_voices_for_model(pid, want_m)
         self._speech_voice_changed()
         if not self._sp_voice_items:
             self.sp_voice_note.configure(text='Bu hesapta kullanılabilir ses bulunamadı (sağlayıcının panelinden ses ekleyin).')
+
+    def _fill_voices_for_model(self, pid, model_id):
+        """2.15: ses listesi; saglayici modele gore ses veriyorsa (OpenRouter) yalniz o modelin sesleri."""
+        cat = getattr(self, '_sp_catalog', None) or {}
+        info = self._sp_providers.get(pid, {})
+        voices = [v for v in (cat.get('voices') or []) if isinstance(v, dict) and v.get('id')]
+        model = next((m for m in (cat.get('models') or []) if isinstance(m, dict) and str(m.get('id')) == model_id), None)
+        allowed = [str(x) for x in (model or {}).get('voice_ids') or []]
+        if info.get('voices_by_model') and allowed:
+            order = {vid: n for n, vid in enumerate(allowed)}
+            voices = sorted((v for v in voices if str(v['id']) in order), key=lambda v: order[str(v['id'])])
+        self._sp_voice_items = [('%s%s' % (v.get('name') or v['id'], (' — ' + v['description']) if v.get('description') else ''),
+                                 str(v['id'])) for v in voices]
+        self.sp_voice_cb.configure(values=[x[0] for x in self._sp_voice_items])
+        ids = [i for _l, i in self._sp_voice_items]
+        want_v = (self.settings.get('speech_voice') or {}).get(pid) or info.get('default_voice') or ''
+        if ids and want_v not in ids:
+            want_v = str((model or {}).get('default_voice') or '') if str((model or {}).get('default_voice') or '') in ids else ids[0]
+        self.sp_voice_var.set(next((l for l, i in self._sp_voice_items if i == want_v), want_v))
+        desc = str((model or {}).get('description') or '')
+        if desc and info.get('voices_by_model'):
+            self.sp_voice_note.configure(text=desc)
+
+    def _speech_model_changed(self):
+        pid = self._speech_provider()
+        m = next((i for l, i in self._sp_model_items if l == self.sp_model_var.get()), '')
+        if m:
+            self._fill_voices_for_model(pid, m)
+        self._speech_voice_changed()
 
     def _speech_voice_changed(self):
         pid = self._speech_provider()

@@ -381,8 +381,9 @@ function agfo_api_registry(): array {
             'auth'     => ['Authorization' => 'Bearer {key}'],
             'type'     => 'llm',
             // CHANGED 16.16.0: 'image_generate' eklendi (gorsel uretebilen chat modelleri).
-            'capabilities' => ['chat', 'music_generate', 'image_generate'],
-            'default_models' => [ 'image_generate' => 'openai/gpt-5.4-image-2' ],
+            // CHANGED 17.15.0: 'speech_synthesize' eklendi (/api/v1/audio/speech: Gemini, Grok, Kokoro, OpenAI...).
+            'capabilities' => ['chat', 'music_generate', 'image_generate', 'speech_synthesize'],
+            'default_models' => [ 'image_generate' => 'openai/gpt-5.4-image-2', 'speech_synthesize' => 'google/gemini-3.8-flash-tts' ],
         ],
         'groq'           => [
             'label'    => 'Groq',

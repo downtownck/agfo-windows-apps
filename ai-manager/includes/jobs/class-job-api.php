@@ -225,6 +225,15 @@ if ( ! class_exists( 'AGFO_AIM_Job_API' ) ) {
             $routing  = function_exists( 'agfo_get_capability_routing' ) ? agfo_get_capability_routing() : [];
             $saved    = is_array( $routing[ $capability ] ?? null ) ? $routing[ $capability ] : [];
             $explicit = sanitize_key( (string) ( $args['provider'] ?? '' ) );
+            // NEW 17.15.0: OpenRouter seslendirmesi yalniz acikca secildiginde (istek ya da kayitli yonlendirme)
+            // kullanilir; sohbet icin OpenRouter anahtari olan sitelerde otomatik secim ve yedek rota degismez.
+            if ( 'speech_synthesize' === $capability && 'openrouter' !== $explicit
+                && 'openrouter' !== sanitize_key( (string) ( $saved['provider'] ?? '' ) ) ) {
+                unset( $available['openrouter'] );
+                if ( ! $available ) {
+                    return new WP_Error( 'agfo_capability_no_provider', 'Bu yetenek için API anahtarı tanımlı sağlayıcı yok.' );
+                }
+            }
             if ( '' !== $explicit && ! isset( $available[ $explicit ] ) ) {
                 return new WP_Error( 'agfo_capability_provider_unavailable', 'Seçilen sağlayıcı için geçerli API anahtarı veya yetenek desteği bulunamadı: ' . $explicit );
             }

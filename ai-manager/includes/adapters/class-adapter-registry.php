@@ -31,6 +31,9 @@ if ( ! class_exists( 'AGFO_AIM_Adapter_Registry' ) ) {
             if ( class_exists( 'AGFO_AIM_Adapter_Gemini' ) ) {
                 self::register( new AGFO_AIM_Adapter_Gemini() );
             }
+            if ( class_exists( 'AGFO_AIM_Adapter_OpenRouter' ) ) {
+                self::register( new AGFO_AIM_Adapter_OpenRouter() );   // NEW 17.15.0
+            }
             if ( class_exists( 'AGFO_AIM_Adapter_EMA' ) ) {
                 self::register( new AGFO_AIM_Adapter_EMA() );
             }
