@@ -10,6 +10,7 @@ Turkce AGFO TTS Service (EMA Lightning) ile ayni API'yi sunar; AGFO AI Editor on
 Her istekte X-AGFO-Token basligi zorunludur. Ayarlar .env dosyasindan okunur (run_ar.py):
   AGFO_TTS_ENGINE   silma | habibi | qwen
   AGFO_TTS_QWEN_SIZE  1.7B (varsayilan) | 0.6B
+  AGFO_TTS_QWEN_DIR   indirilmis Qwen modellerinin klasoru (yoksa Hugging Face onbellegi)
   AGFO_TTS_NFE      cizim adimi (varsayilan 32; 16 daha hizli)
 Sesler (referans kayitlar) iki yerden gelir: motorun hazir sesleri ve DATA_DIR/voices klasoru. Kendi sesinizi
 eklemek icin oraya 5-15 saniyelik bir kayit (ad.wav ya da ad.mp3) ve kayittaki cumlenin yazisini (ad.txt) koyun.
@@ -265,7 +266,9 @@ class QwenEngine:
                 torch.cuda.empty_cache()
         self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         dtype = torch.bfloat16 if self.device.startswith('cuda') else torch.float32
-        repo = 'Qwen/Qwen3-TTS-12Hz-%s-%s' % (self.SIZE, 'CustomVoice' if kind == 'custom' else 'Base')
+        name = 'Qwen3-TTS-12Hz-%s-%s' % (self.SIZE, 'CustomVoice' if kind == 'custom' else 'Base')
+        local = os.path.join(os.environ.get('AGFO_TTS_QWEN_DIR', ''), name)
+        repo = local if os.environ.get('AGFO_TTS_QWEN_DIR') and os.path.isdir(local) else 'Qwen/' + name
         self.model = Qwen3TTSModel.from_pretrained(repo, device_map=self.device, dtype=dtype, attn_implementation='sdpa')
         self.kind = kind
         return self.model
