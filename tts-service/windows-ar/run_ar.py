@@ -1,4 +1,4 @@
-"""AGFO Arapca Ses Servisi - Windows baslaticisi (SILMA ya da Habibi).
+"""AGFO Yerel Ses Servisi - Windows baslaticisi (SILMA, Habibi ya da Qwen3).
 
 .env dosyasini okur, ciktiyi service.log'a yazar ve servisi yalniz bu bilgisayardan erisilebilen
 127.0.0.1 adresinde calistirir. Ayni anda tek kopya calisir. Konsolda gormek icin:  python run_ar.py --console
@@ -50,7 +50,7 @@ def main():
     sys.path.insert(0, HERE)
     import uvicorn
     import ar_server as server
-    print('AGFO Arapca Ses Servisi %s (%s) - 127.0.0.1:%d' % (server.app.version, server.ENGINE, port), flush=True)
+    print('AGFO Yerel Ses Servisi %s (%s) - 127.0.0.1:%d' % (server.app.version, server.ENGINE, port), flush=True)
     uvicorn.run(server.app, host='127.0.0.1', port=port, log_level='info', access_log=False)
     return 0
 

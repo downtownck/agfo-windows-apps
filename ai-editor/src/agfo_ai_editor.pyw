@@ -2338,6 +2338,7 @@ class App(tk.Tk):
             core.save_settings(self.settings)
         except OSError:
             pass
+        self._update_local_note()
         self._sync_speech_tab(reload_voices=False)
 
     def _fill_local_voices(self, found):
@@ -2363,11 +2364,15 @@ class App(tk.Tk):
             self.sp_local_var.set(pick[0])
             if pick[2] != vid:
                 self.settings.setdefault('local_voice', {})[sid] = pick[2]
-        arabic = [c for c, _r in found if c.get('lang') == 'ar']
+        self._update_local_note()
+
+    def _update_local_note(self):
+        cfg = self._local_tts_config() or {}
         note = ''
-        if arabic:
-            folder = os.path.join(arabic[0].get('dir', ''), 'data', 'voices')
-            note = ('Arapça seste okuma metni ve telaffuz sözlüğü kullanılmaz. Kendi sesinizi eklemek için 5–15 sn kayıt (ad.wav) '
+        if cfg.get('lang', 'tr') != 'tr':
+            folder = os.path.join(cfg.get('dir', ''), 'data', 'voices')
+            lead = ('Metnin dili (İngilizce / İspanyolca) paragraf paragraf kendiliğinden seçilir. ' if cfg.get('engine') == 'qwen' else '')
+            note = (lead + 'Bu seste AI okuma metni ve telaffuz sözlüğü kullanılmaz. Kendi sesinizi eklemek için 5–15 sn kayıt (ad.wav) '
                     've yazısını (ad.txt) şu klasöre koyun: %s — sesi kullanılan kişinin izni gerekir.' % folder)
         self.sp_local_note.configure(text=note)
 

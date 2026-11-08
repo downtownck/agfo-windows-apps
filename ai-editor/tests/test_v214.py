@@ -99,6 +99,12 @@ class ServiceDiscoveryTests(unittest.TestCase):
         write_env('TTS-HABIBI', ['AGFO_TTS_TOKEN=c', 'AGFO_TTS_PORT=8780', 'AGFO_TTS_LABEL=Habibi Mısır'])
         self.assertEqual(lt.local_services()[2]['label'], 'Habibi Mısır')
         self.assertEqual(lt.local_services()[2]['engine'], 'habibi')
+        write_env('TTS-QWEN', ['AGFO_TTS_TOKEN=d', 'AGFO_TTS_PORT=8790', 'AGFO_TTS_ENGINE=qwen', 'AGFO_TTS_LANG=en'])
+        q = lt.local_services()[3]
+        self.assertEqual((q['id'], q['lang'], q['label']), ('qwen', 'en', 'Qwen3-TTS (İngilizce, İspanyolca)'))
+        b = lt.LocalSpeechBackend(q['endpoint'], 'd', lang=q['lang'], label=q['label'])
+        self.assertFalse(b.has_lexicon)
+        self.assertIn('Hola', lt.SAMPLES['en'])
 
 
 class ArabicBackendTests(unittest.TestCase):
@@ -201,6 +207,11 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(str(app.sp_sync_btn['state']), 'disabled')
         self.assertTrue(app._voice_sig().startswith('yerel-silma-'))
         self.assertIn('TTS-AR', app.sp_local_note.cget('text'))
+        app.sp_local_var.set('EMA Lightning (Türkçe)')
+        app._local_voice_changed()
+        self.assertEqual(app.sp_local_note.cget('text'), '')
+        app.sp_local_var.set('SILMA (Arapça) · Mısırlı')
+        app._local_voice_changed()
         b = app._speech_backend('x')
         self.assertEqual((b.lang, b.voice, b.endpoint), ('ar', 'misirli', self.ar.endpoint))
         # ornek ses Arapca metinle

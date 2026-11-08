@@ -10,9 +10,9 @@ AI okuma metni yerelde uretilmez: istenirse metin sitedeki AI Manager'a (/editor
 donen okuma metni burada sozluk yeniden uygulanmadan seslendirilir. Site yoksa ya da hata verirse metin yerel
 sozlukle okunur.
 
-2.14: ayni bilgisayarda birden cok ses servisi olabilir: Turkce EMA (%LOCALAPPDATA%\\AGFO\\TTS) ve Arapca SILMA
-(TTS-AR) ya da Habibi (TTS-HABIBI). Hepsi ayni API'yi sunar; Arapca servisler ayrica /voices ile referans seslerini
-listeler. Arapcada okuma metni ve telaffuz sozlugu yoktur.
+2.14: ayni bilgisayarda birden cok ses servisi olabilir: Turkce EMA (%LOCALAPPDATA%\\AGFO\\TTS), Arapca SILMA
+(TTS-AR) ya da Habibi (TTS-HABIBI), Ingilizce/Ispanyolca Qwen3-TTS (TTS-QWEN). Hepsi ayni API'yi sunar; Turkce
+disindakiler ayrica /voices ile seslerini listeler. Turkce disinda okuma metni ve telaffuz sozlugu yoktur.
 """
 from __future__ import annotations
 
@@ -32,9 +32,11 @@ SERVICES = (
     ('ema', 'TTS', 'ema', 'tr', 'EMA Lightning (Türkçe)'),
     ('silma', 'TTS-AR', 'silma', 'ar', 'SILMA (Arapça)'),
     ('habibi', 'TTS-HABIBI', 'habibi', 'ar', 'Habibi (Arapça)'),
+    ('qwen', 'TTS-QWEN', 'qwen', 'en', 'Qwen3-TTS (İngilizce, İspanyolca)'),
 )
 SAMPLES = {
     'tr': 'Merhaba. Bu ses, AGFO AI Editör için seçtiğiniz sestir; denetim raporlarını ve belgeleri böyle okuyacak.',
+    'en': 'Hello. This is the voice you selected for the AGFO editor.\n\nHola. Esta es también la voz en español.',
     'ar': 'مرحبا. هذا هو الصوت الذي اخترته لمحرر AGFO، وبه ستتم قراءة تقارير التدقيق والمستندات.',
 }
 
