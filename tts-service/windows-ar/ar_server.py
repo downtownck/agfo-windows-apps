@@ -25,6 +25,7 @@ import os
 import re
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 import numpy as np
@@ -33,7 +34,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 ENGINE = os.environ.get('AGFO_TTS_ENGINE', 'silma').strip().lower()
 TOKEN = os.environ.get('AGFO_TTS_TOKEN', '')
 CACHE_DIR = Path(os.environ.get('AGFO_TTS_CACHE_DIR', './cache'))
@@ -250,6 +251,7 @@ class QwenEngine:
         self.model = None
         self.prompts = {}
         self.device = 'cpu'
+        self.fast = False
 
     def builtin(self) -> list[dict]:
         return [{'id': vid, 'name': name, 'file': '', 'text': '', 'speaker': spk} for vid, spk, name in self.SPEAKERS]
@@ -258,7 +260,6 @@ class QwenEngine:
         if self.kind == kind and self.model is not None:
             return self.model
         import torch
-        from qwen_tts import Qwen3TTSModel
         if self.model is not None:
             self.model = None
             self.prompts = {}
@@ -269,7 +270,22 @@ class QwenEngine:
         name = 'Qwen3-TTS-12Hz-%s-%s' % (self.SIZE, 'CustomVoice' if kind == 'custom' else 'Base')
         local = os.path.join(os.environ.get('AGFO_TTS_QWEN_DIR', ''), name)
         repo = local if os.environ.get('AGFO_TTS_QWEN_DIR') and os.path.isdir(local) else 'Qwen/' + name
-        self.model = Qwen3TTSModel.from_pretrained(repo, device_map=self.device, dtype=dtype, attn_implementation='sdpa')
+        self.fast = False
+        t0 = time.time()
+        if self.device.startswith('cuda') and os.environ.get('AGFO_TTS_QWEN_FAST', '1') != '0':
+            # faster-qwen3-tts (MIT): ayni agirliklar, CUDA graph ile 5-10 kat hizli; yoksa ya da hata verirse standart yol
+            try:
+                from faster_qwen3_tts import FasterQwen3TTS
+                self.model = FasterQwen3TTS.from_pretrained(repo, device='cuda', dtype=dtype, attn_implementation='sdpa')
+                self.fast = True
+            except Exception as e:                                    # noqa: BLE001
+                print('faster-qwen3-tts kullanılamadı, standart yol: %r' % e, flush=True)
+                self.model = None
+        if self.model is None:
+            from qwen_tts import Qwen3TTSModel
+            self.model = Qwen3TTSModel.from_pretrained(repo, device_map=self.device, dtype=dtype, attn_implementation='sdpa')
+        print('Qwen3 %s yüklendi (%s, %s) %.1f sn' % (name, self.device, 'hızlı' if self.fast else 'standart', time.time() - t0),
+              flush=True)
         self.kind = kind
         return self.model
 
@@ -283,18 +299,25 @@ class QwenEngine:
             torch.manual_seed(seed)
         pieces, sr = [], 24000
         for chunk in split_sentences(text):
+            # sinir: model durmayi kacirirsa 2048 adim (yaklasik 3 dakika ses) uretmesin
+            limit = min(2048, int(len(chunk) * 1.6) + 96)
+            t0 = time.time()
             if voice.get('speaker'):
                 m = self._load('custom')
-                wavs, sr = m.generate_custom_voice(text=chunk, language=lang, speaker=voice['speaker'])
+                wavs, sr = m.generate_custom_voice(text=chunk, language=lang, speaker=voice['speaker'], max_new_tokens=limit)
             else:
                 m = self._load('base')
                 key = voice['file']
                 if key not in self.prompts:
                     rt = voice.get('text') or ''
-                    self.prompts[key] = m.create_voice_clone_prompt(ref_audio=voice['file'], ref_text=rt or None,
-                                                                    x_vector_only_mode=not rt)
-                wavs, sr = m.generate_voice_clone(text=chunk, language=lang, voice_clone_prompt=self.prompts[key])
-            pieces.append(np.asarray(wavs[0], dtype=np.float32))
+                    base = m.model if self.fast else m
+                    self.prompts[key] = base.create_voice_clone_prompt(ref_audio=voice['file'], ref_text=rt or None,
+                                                                       x_vector_only_mode=not rt)
+                wavs, sr = m.generate_voice_clone(text=chunk, language=lang, voice_clone_prompt=self.prompts[key],
+                                                  max_new_tokens=limit)
+            w = np.asarray(wavs[0], dtype=np.float32)
+            print('  %s %d harf -> %.1f sn ses, %.1f sn sürdü' % (lang, len(chunk), len(w) / sr, time.time() - t0), flush=True)
+            pieces.append(w)
             pieces.append(np.zeros(int(sr * 0.12), dtype=np.float32))
         return np.concatenate(pieces[:-1] or pieces), int(sr)
 
@@ -350,7 +373,7 @@ def health(x_agfo_token: str | None = Header(default=None)):
     return {'ok': True, 'version': VERSION, 'model': ENGINE, 'engine': engine.label,
             'language': os.environ.get('AGFO_TTS_LANG') or ('en' if ENGINE == 'qwen' else 'ar'), 'device': dev,
             'gpu': gpu, 'voices': len(voices()), 'lexicon_entries': 0,
-            'loaded': bool(getattr(engine, 'tts', None) or getattr(engine, 'models', None) or getattr(engine, 'model', None))}
+            'fast': getattr(engine, 'fast', None), 'loaded': bool(getattr(engine, 'tts', None) or getattr(engine, 'models', None) or getattr(engine, 'model', None))}
 
 
 @app.get('/voices')

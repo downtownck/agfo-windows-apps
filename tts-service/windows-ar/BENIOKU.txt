@@ -68,6 +68,7 @@ Editöre bağlama (AGFO AI Editor 2.14.0 ve üstü)
   Serena, Vivian ve diğerleri. İspanyolcayı anadil gibi okuyan bir ses için izinli bir İspanyolca kaydı
   (ad.wav + ad.txt) %LOCALAPPDATA%\AGFO\TTS-QWEN\data\voices klasörüne koyun.
   Türkçe ve Arapça bu modelde yok; Türkçe için EMA Lightning, Arapça için SILMA/Habibi kullanılır.
+  Üretim faster-qwen3-tts (MIT) ile ekran kartında CUDA graph kullanır; ilk seste kısa bir ısınma olur.
   Daha hızlı ama biraz daha düşük kaliteli model:  AGFO-Ses-Qwen-Kur.cmd -Boyut 0.6B
   Kaldırma: AGFO-Ses-Qwen-Kur.cmd -Kaldir
   Sorun olursa masaüstündeki agfo-ses-qwen-sonuc.txt dosyasını gönderin.
