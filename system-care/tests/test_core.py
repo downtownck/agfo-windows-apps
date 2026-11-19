@@ -900,8 +900,8 @@ def organizer_bundle_and_nav_contract():
         assert name in c.build_manifest(ROOT)['files']
     inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
     assert "'care_theme.py'" in inst and "'organizer_core.py'" in inst and 'ttkbootstrap==' + th.TB_VERSION in inst and '--target $uiLib' in inst
-    order = ['Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Sürücüler', 'Aygıt temizliği', 'Bakım ve sağlık',
-             'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Kol / Gamepad']
+    order = ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Bakım ve sağlık', 'Programlar',
+             'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Aygıt temizliği', 'Kol / Gamepad']
     nav = app.split('def nav_pages(self):')[1].split('def _remember_page')[0]
     pos = [nav.index("('%s'," % t) for t in order]
     assert pos == sorted(pos), 'sol menu sirasi'

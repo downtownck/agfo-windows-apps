@@ -104,8 +104,8 @@ ACTIONS = {
  ],
 }
 # Sekme ici dugmelerin kullandigi diger care_tasks.ps1 eylemleri
-INTERNAL_PS_ACTIONS = ['vpn-status','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
-ADMIN_ACTIONS = {'controller-reset','bt-restart','phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
+INTERNAL_PS_ACTIONS = ['hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','vpn-status','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
+ADMIN_ACTIONS = {'pnp-action','controller-reset','bt-restart','phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
 DANGER_TEXT = {
  'temp-clean':'7 günden eski Temp dosyaları kalıcı olarak silinir. Önizleme yapmanız önerilir.',
  'component-clean':'Windows bileşen deposu temizlenecek. Bu işlem zaman alabilir.',

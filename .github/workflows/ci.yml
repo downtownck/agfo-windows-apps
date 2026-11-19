@@ -103,3 +103,9 @@ jobs:
           $o = powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File backupsync/payload/AGFO-BackupSync-GUI.ps1 | Out-String
           Write-Host $o
           if ($o -notmatch 'AGFO GUI SMOKE OK: AgfoUi\.DarkTabControl') { throw 'GUI duman testi basarisiz' }
+      - name: System Care gercek Windows testi (PowerShell eylemleri + uctan uca arayuz)
+        shell: pwsh
+        run: |
+          python --version
+          python -I system-care/tests/test_core.py system-care
+          python -I system-care/tests/test_windows.py system-care

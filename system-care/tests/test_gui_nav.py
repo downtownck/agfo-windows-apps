@@ -92,9 +92,9 @@ pump(1.0)
 idle()
 check('mode', (m.TB is not None) == (MODE == 'modern'), m.TB_STATE)
 titles = [p['title'] for p in app.tabs.pages]
-check('nav.pages', titles == ['Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Sürücüler', 'Aygıt temizliği', 'Bakım ve sağlık',
-                              'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım',
-                              'SSH oturumları', 'Kol / Gamepad'], titles)
+check('nav.pages', titles == ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Bakım ve sağlık', 'Programlar',
+                              'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları',
+                              'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Aygıt temizliği', 'Kol / Gamepad'], titles)
 check('nav.last_page', app.tabs.tab(app.tabs.current, 'text') == 'İnce ayarlar', app.tabs.current)
 seen = []
 app.tabs.bind('<<NotebookTabChanged>>', lambda _e: seen.append(app.tabs.current), add='+')
@@ -103,9 +103,9 @@ for i in range(len(titles)):
     pump(0.05)
     check('nav.select.%d' % i, app.tabs.pages[i]['frame'].winfo_ismapped() and sum(p['frame'].winfo_ismapped() for p in app.tabs.pages) == 1)
 check('nav.events', len(seen) >= len(titles) - 1, seen)
-check('nav.compat', app.tabs.nametowidget(app.tabs.select()) is app.tabs.pages[app.tabs.current]['frame'] and app.tabs.tab(3, 'text') == 'Dosya düzeni')
+check('nav.compat', app.tabs.nametowidget(app.tabs.select()) is app.tabs.pages[app.tabs.current]['frame'] and app.tabs.tab(app.tabs.index('Dosya düzeni'), 'text') == 'Dosya düzeni')
 idle()
-app.tabs.select(4)
+app.tabs.select('İnce ayarlar')
 shot('ince-ayarlar-agfo-gece')
 
 for key in theme.theme_keys()[1:] + [theme.DEFAULT]:
@@ -130,7 +130,7 @@ for d in (desk, docs):
 (desk / 'tatil.jpg').write_bytes(b'\xff\xd8\xff')
 (docs / 'BRCGS denetim raporu.docx').write_bytes(b'PK')
 app.org_roots = {'Masaüstü': desk, 'Belgeler': docs}
-app.tabs.select(3)
+app.tabs.select('Dosya düzeni')
 app.org_scan()
 check('org.scan_idle', idle())
 names = sorted(it.path.name for it in app.org_items)
@@ -146,7 +146,7 @@ check('org.moved', len(moved) == 1 and not (desk / 'tatil.jpg').exists() and mov
 app.org_undo()
 check('org.undo', idle() and (desk / 'tatil.jpg').exists() and app.org_items == [])
 # Uygulama kur: buyuk simge gorunumu, logolar, secim esitlemesi
-app.tabs.select(10)
+app.tabs.select('Uygulama kur')
 pump(0.5)
 check('inst.default_grid', app.inst_view.get() == 'grid' and app.inst_gridf.winfo_ismapped())
 t0 = time.time()
@@ -201,7 +201,7 @@ exit 9
 """)
     fw.chmod(0o755)
     app.engines = {'winget': {'path': str(fw)}}
-    app.tabs.select(9)
+    app.tabs.select('Uygulama güncellemeleri')
     app.apps_scan(); idle()
     at = app.app_tree
     ids = [at.payload[i]['id'] for i in at.labels]
@@ -237,7 +237,7 @@ if os.name != 'nt':
         confs.append(str(pth))
     app.vpn_wg = str(fwg); app.admin = True
     m.filedialog.askopenfilenames = lambda **k: confs
-    app.tabs.select(11); pump(0.3)
+    app.tabs.select('VPN'); pump(0.3)
     app.vpn_import(); pump(0.2)
     names = sorted(t['name'] for t in app.vpn_tunnels)
     check('vpn.import', names == ['DE-fra-1', 'US-NY-5', 'de-ber-2'] and (wgd / 'Data' / 'Configurations' / 'DE-fra-1.conf').exists(), names)
@@ -374,6 +374,49 @@ net._pending_cmd.clear(); opened.clear()
 app.ts_copy_script(); pump(0.2)
 check('net.vpn_hetzner_via_ssh', opened == [picked] and 'advertise-exit-node' in net._pending_cmd.get(picked.id, ''), net._pending_cmd)
 net._pending_cmd.clear()
+
+# ---- 4.0 Genel bakis ve Donanim (sahte PowerShell kayitlari)
+OV = [{'type': 'ov', 'key': 'disks', 'state': 'ok', 'value': '2 disk saglikli'}, {'type': 'ov', 'key': 'devices', 'state': 'warn', 'value': '1 sorunlu aygit'},
+      {'type': 'ov', 'key': 'volume:C', 'state': 'bad', 'value': '%5 bos', 'detail': 'C 12 GB bos / 240 GB'},
+      {'type': 'ov', 'key': 'defender', 'state': 'ok', 'value': 'Gercek zamanli koruma acik', 'detail': 'Imza yasi: 0 gun'}]
+app.tabs.select('Genel bakış'); pump(0.2)
+app._ov_render(OV); pump(0.2)
+titles_ov = [c['title'] for c in app.ov_cards]
+check('ov.cards', titles_ov[:3] == ['Disk sağlığı', 'Aygıtlar', 'Disk C:'] and 'Microsoft Defender' in titles_ov, titles_ov)
+check('ov.score', app.ov_score.get() == 'Sağlık puanı: 67 / 100' and 'Gerçek zamanlı koruma açık' in [c['value'] for c in app.ov_cards], app.ov_score.get())
+shot('overview')
+HW = [{'type': 'hw', 'kind': 'cpu', 'name': 'Ornek CPU 8 Cekirdek', 'cores': 8, 'threads': 16, 'mhz': 3600},
+      {'type': 'hw', 'kind': 'ram', 'name': 'DIMM A1', 'size': 17179869184, 'mhz': 3200, 'smbtype': 26, 'maker': 'Ornek'},
+      {'type': 'hw', 'kind': 'ram', 'name': 'DIMM B1', 'size': 17179869184, 'mhz': 3200, 'smbtype': 26, 'maker': 'Ornek'},
+      {'type': 'hw', 'kind': 'disk', 'name': 'Ornek NVMe 1TB', 'size': 1000204886016, 'media': 4, 'bus': 17, 'health': 0}]
+app.tabs.select('Sistem özeti'); pump(0.2)
+app._hw_render(HW)
+secs = [app.hw_tree.item(i, 'text') for i in app.hw_tree.get_children()]
+mem = [app.hw_tree.item(i, 'values')[0] for i in app.hw_tree.get_children('s1')]
+check('hw.sections', secs == ['İşlemci', 'Bellek', 'Diskler'] and mem[0].startswith('32.0 GB (2 modül, DDR4)'), (secs, mem))
+PNP = [{'type': 'pnp', 'name': 'Ornek Ag Karti', 'cls': 'Net', 'id': 'PCI\\VEN_1', 'code': 0, 'present': True, 'ver': '1.0'},
+       {'type': 'pnp', 'name': 'Bilinmeyen aygit', 'cls': '', 'id': 'ACPI\\X1', 'code': 28, 'present': True},
+       {'type': 'pnp', 'name': 'Eski USB bellek', 'cls': 'DiskDrive', 'id': 'USBSTOR\\Y', 'code': 0, 'present': False}]
+app.tabs.select('Aygıt yöneticisi'); pump(0.2)
+app._dm_set(PNP)
+groups = [app.dm_tree.item(i, 'text') for i in app.dm_tree.get_children()]
+check('dm.groups', groups == ['Diğer aygıtlar (1)', 'Ağ bağdaştırıcıları (1)'] and app.dm_count.get() == '2 aygıt · 1 sorunlu', (groups, app.dm_count.get()))
+check('dm.problem_text', app.dm_tree.set('g0_0', 'state') == 'Sürücü yüklü değil')
+app.dm_hidden.set(True); app._dm_render()
+check('dm.hidden', len(app.dm_tree.get_children()) == 3)
+captured = []
+real_start, real_admin = app.start, app.admin
+app.start = lambda jobs, quiet=False: captured.extend(jobs) or True
+app.admin = True
+app.dm_tree.selection_set('g0_0'); app.dm_action('disable')
+check('dm.action_cmd', captured and '-PnpOp' in captured[0].cmd and 'disable' in captured[0].cmd and 'ACPI\\X1' in captured[0].cmd, captured and captured[0].cmd)
+app.start, app.admin = real_start, real_admin
+app.tabs.select('Disk sağlığı'); pump(0.2)
+app._dh_set([{'type': 'disk', 'name': 'Ornek SSD', 'media': 'SSD', 'bus': 'NVMe', 'size': 512110190592, 'health': 'Healthy', 'temp': 64, 'wear': 3, 'hours': 1200, 'admin': True}])
+check('dh.verdict', app.dh_tree.item('d0', 'tags') == ('warn',) and app.dh_tree.set('d0', 'verdict').startswith('Dikkat'), app.dh_tree.set('d0', 'verdict'))
+rep_html = __import__('care_hw').report_html(*app._hw_report_parts())
+check('hw.report', 'Ornek CPU' in rep_html and 'Sorunlu aygıtlar' in rep_html and 'Ornek SSD' in rep_html and 'text-decoration:none' in rep_html)
+shot('devmgr')
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

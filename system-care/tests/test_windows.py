@@ -1,0 +1,131 @@
+"""Gercek Windows testi (GitHub Actions windows-latest): care_tasks.ps1 salt okunur eylemleri ve uctan uca arayuz.
+Hicbir eylem sistemi degistirmez (yalnizca okuma). Kullanim: python -I tests/test_windows.py <system-care klasoru>"""
+import json, os, pathlib, subprocess, sys, tempfile, time
+
+ROOT = pathlib.Path(sys.argv[1]).resolve()
+TMP = pathlib.Path(tempfile.mkdtemp())
+os.environ['LOCALAPPDATA'] = str(TMP / 'lad')
+os.environ['APPDATA'] = str(TMP / 'ad')
+sys.path.insert(0, str(ROOT))
+import care_hw as hw  # noqa: E402
+
+RESULTS = []
+
+
+def check(name, cond, detail=''):
+    RESULTS.append((name, bool(cond)))
+    print(('PASS ' if cond else 'FAIL ') + name + ('' if cond else ' - ' + str(detail)[:600]), flush=True)
+
+
+def ps(action, **kw):
+    cmd = ['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'care_tasks.ps1'), '-Action', action]
+    for k, v in kw.items():
+        cmd += ['-' + k, v]
+    t0 = time.time()
+    p = subprocess.run(cmd, capture_output=True, timeout=600)
+    out = p.stdout.decode('utf-8', 'replace').lstrip('﻿')
+    lines = out.splitlines()
+    bad = []
+    for ln in lines:
+        if ln.startswith('@@'):
+            try:
+                json.loads(ln[2:])
+            except ValueError:
+                bad.append(ln[:200])
+    print('  %s: kod %s, %d satir, %.1f sn' % (action, p.returncode, len(lines), time.time() - t0), flush=True)
+    if p.returncode not in (0, 3):
+        print(out[-1500:], p.stderr.decode('utf-8', 'replace')[-1500:], flush=True)
+    return p.returncode, lines, bad
+
+
+# ---- PowerShell gorev motoru: salt okunur eylemler gercek Windows'ta
+for act, ok_codes in (('system-info', (0,)), ('devices', (0,)), ('drivers-list', (0,)), ('dns-list', (0,)), ('vpn-status', (0,)),
+                      ('phantom-list', (0,)), ('controller-list', (0,)), ('appx-list', (0,)), ('temp-preview', (0,)), ('sensors', (3,))):
+    code, lines, bad = ps(act)
+    check('ps.%s' % act, code in ok_codes and not bad, (code, bad, lines[-5:]))
+
+code, lines, bad = ps('hw-inventory')
+recs = hw.parse_records(lines, 'hw')
+kinds = {r['kind'] for r in recs}
+check('ps.hw-inventory', code == 0 and not bad and {'os', 'computer', 'cpu', 'volume'} <= kinds, (code, bad, sorted(kinds)))
+secs = hw.inventory_sections(recs)
+check('hw.sections', any(t == 'İşletim sistemi' for t, _ in secs) and any(t.startswith('İşlemci') for t, _ in secs), [t for t, _ in secs])
+print('  bolumler:', [t for t, _ in secs], flush=True)
+
+code, lines, bad = ps('disk-health')
+disks = hw.parse_records(lines, 'disk')
+check('ps.disk-health', code == 0 and not bad and len(disks) >= 1 and all(hw.disk_verdict(d)[1] for d in disks), (code, bad, disks[:2]))
+for d in disks:
+    print('  disk:', d.get('name'), '->', hw.disk_verdict(d), flush=True)
+
+code, lines, bad = ps('pnp-list')
+pnp = hw.parse_records(lines, 'pnp')
+check('ps.pnp-list', code == 0 and not bad and len(pnp) >= 10 and all(r.get('id') for r in pnp), (code, bad, len(pnp)))
+groups = hw.pnp_groups(pnp)
+check('hw.pnp_groups', len(groups) >= 3, [g[0] for g in groups])
+
+code, lines, bad = ps('overview')
+ov = hw.parse_records(lines, 'ov')
+keys = {r['key'] for r in ov}
+check('ps.overview', code == 0 and not bad and {'uptime', 'memory', 'reboot', 'devices'} <= keys and any(k.startswith('volume:') for k in keys), (code, bad, sorted(keys)))
+cards = hw.overview_cards(ov)
+check('hw.overview_cards', cards and all(c['title'] and c['state'] in hw.STATE_RANK for c in cards), cards[:3])
+for c in cards:
+    print('  kart: %-22s %-5s %s | %s' % (c['title'], c['state'], c['value'], c['detail']), flush=True)
+
+code, lines, bad = ps('pnp-action')                        # parametresiz: kurala uygun reddetmeli (yonetici varsa 2, yoksa 740)
+check('ps.pnp-action_guard', code in (2, 740), code)
+
+# ---- Uctan uca arayuz: gercek PowerShell ile Genel bakis, Sistem ozeti, Aygit yoneticisi, Disk sagligi
+setdir = TMP / 'lad' / 'AGFO' / 'SystemCare'
+setdir.mkdir(parents=True)
+(setdir / 'settings.json').write_text(json.dumps({'auto_update_check': False, 'modern_ui': False, 'last_page': 'Motorlar'}), encoding='utf-8')
+import importlib.machinery, importlib.util  # noqa: E402
+loader = importlib.machinery.SourceFileLoader('care_app', str(ROOT / 'app.pyw'))
+spec = importlib.util.spec_from_loader('care_app', loader)
+m = importlib.util.module_from_spec(spec)
+loader.exec_module(m)
+m.messagebox.showinfo = lambda *a, **k: None
+m.messagebox.showerror = lambda *a, **k: print('showerror', a, flush=True)
+m.messagebox.askyesno = lambda *a, **k: False
+app = m.App()
+
+
+def pump(sec=0.3):
+    t0 = time.time()
+    while time.time() - t0 < sec:
+        app.update()
+        time.sleep(0.02)
+
+
+def idle(timeout=300):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        pump(0.2)
+        if not app.busy:
+            return True
+    return False
+
+
+pump(1.0); idle()
+for i in range(len(app.tabs.pages)):
+    app.tabs.select(i); pump(0.05)
+check('gui.all_pages', len(app.tabs.pages) == 21, len(app.tabs.pages))
+idle()
+app.tabs.select('Genel bakış'); pump(0.3)
+if not app.ov_loaded:
+    idle(); app.ov_refresh()
+check('gui.overview', idle() and app.ov_loaded and len(app.ov_cards) >= 5 and app.ov_score.get().startswith('Sağlık puanı'), (app.ov_score.get(), len(app.ov_cards)))
+app.tabs.select('Sistem özeti'); app.hw_scan()
+check('gui.hwinfo', idle() and len(app.hw_tree.get_children()) >= 4, len(app.hw_tree.get_children()))
+app.tabs.select('Aygıt yöneticisi'); app.dm_scan()
+check('gui.devmgr', idle() and len(app.dm_records) >= 10 and len(app.dm_tree.get_children()) >= 3, len(app.dm_records))
+app.tabs.select('Disk sağlığı'); app.dh_scan()
+check('gui.diskhealth', idle() and len(app.dh_tree.get_children()) >= 1, len(app.dh_records))
+rep = hw.report_html(*app._hw_report_parts())
+check('gui.report', 'İşletim sistemi' in rep and len(rep) > 2000, len(rep))
+check('gui.not_busy', not app.busy)
+app.destroy()
+fails = [n for n, ok in RESULTS if not ok]
+print('%s windows: %d/%d' % ('PASS' if not fails else 'FAIL', len(RESULTS) - len(fails), len(RESULTS)))
+sys.exit(1 if fails else 0)

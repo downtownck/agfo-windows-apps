@@ -23,10 +23,11 @@ from sc_install import InstallPage  # noqa: E402
 from sc_vpn import VpnPage  # noqa: E402
 from sc_maint import MaintPage  # noqa: E402
 from sc_pad import PadPage  # noqa: E402
+from sc_hardware import HardwarePage  # noqa: E402
 from sc_common import CommonMixin  # noqa: E402
 
 
-class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, CommonMixin, tk.Tk):
+class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, HardwarePage, CommonMixin, tk.Tk):
     def __init__(self):
         super().__init__()
         self.admin = core.is_admin()
@@ -188,6 +189,7 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
         self.tabs.bind('<<NotebookTabChanged>>', self._remember_page, add='+')
         self.tabs.bind('<<NotebookTabChanged>>', self._inst_on_tab, add='+')
         self.tabs.bind('<<NotebookTabChanged>>', lambda _e: self.net.on_tab(), add='+')
+        self.tabs.bind('<<NotebookTabChanged>>', self._hw_on_tab, add='+')
         self.theme_hooks.append(self.net.retheme)
         self._open_last_page()
 
@@ -207,14 +209,14 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
 
     # ------------------------------------------------------------------ gezinme ve gorunum
     def nav_pages(self):
-        return [('Genel', [('Motorlar', self._tab_engines)]),
+        return [('Genel', [('Genel bakış', self._tab_overview), ('Motorlar', self._tab_engines)]),
                 ('Temizlik', [('Temizlik', self._tab_clean), ('Bloatware', self._tab_bloat), ('Dosya düzeni', self._tab_organizer)]),
-                ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Sürücüler', self._tab_drivers), ('Aygıt temizliği', self._tab_phantom),
-                            ('Bakım ve sağlık', self._tab_maint)]),
+                ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Bakım ve sağlık', self._tab_maint)]),
                 ('Uygulamalar', [('Programlar', self._tab_programs), ('Uygulama güncellemeleri', self._tab_apps), ('Uygulama kur', self._tab_install)]),
                 ('Ağ', [('VPN', self._tab_vpn), ('Ağ tarayıcı', lambda f: self.net.build_scan(f)), ('Ağ testleri', lambda f: self.net.build_diag(f)),
                         ('SSH sunucularım', lambda f: self.net.build_ssh(f)), ('SSH oturumları', lambda f: self.net.build_sessions(f))]),
-                ('Donanım', [('Kol / Gamepad', self._tab_pad)])]
+                ('Donanım', [('Sistem özeti', self._tab_hwinfo), ('Aygıt yöneticisi', self._tab_devmgr), ('Disk sağlığı', self._tab_diskhealth),
+                             ('Sürücüler', self._tab_drivers), ('Aygıt temizliği', self._tab_phantom), ('Kol / Gamepad', self._tab_pad)])]
 
     def _remember_page(self, _e=None):
         try:

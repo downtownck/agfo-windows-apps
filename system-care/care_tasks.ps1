@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -8,9 +8,10 @@ param(
  [ValidateSet('yes','no')][string]$Provisioned = 'no',
  [string]$InstanceIds = '',
  [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no',
- [string]$PlanFile = ''
+ [string]$PlanFile = '',
+ [ValidateSet('','enable','disable','restart','remove')][string]$PnpOp = ''
 )
-# AGFO System Care 3.11.0 gorev motoru.
+# AGFO System Care 4.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -303,6 +304,14 @@ function OpNeedsAdmin($op) {
  if(@('svc','task','dns') -contains [string]$op.t) { return $true }
  return ([string]$op.t -eq 'reg' -and @('HKLM','HKU') -contains [string]$op.hive)
 }
+
+# ---- 4.0 donanim / genel bakis yardimcilari (yalnizca okuma; surucu kurmaz, yonetici gerekmez — disk sayaclari haric)
+function Cim([string]$cls,[string]$ns='root\cimv2',[string]$filter='') {
+ try { if($filter) { return @(Get-CimInstance -Namespace $ns -ClassName $cls -Filter $filter -ErrorAction Stop) } else { return @(Get-CimInstance -Namespace $ns -ClassName $cls -ErrorAction Stop) } } catch { return @() }
+}
+function Txt($v) { if($null -eq $v) { return '' } ; return ([string]$v).Trim() }
+function U16([object]$arr) { if(-not $arr) { return '' } ; return (-join ($arr | Where-Object { $_ -gt 0 } | ForEach-Object { [char]$_ })).Trim() }
+function HwRec([string]$kind,[string]$name,$props) { $r=[ordered]@{type='hw';kind=$kind;name=$name}; foreach($k in $props.Keys) { $r[$k]=$props[$k] }; EmitD $r }
 
 switch($Action) {
  'driver-scan' {
@@ -737,5 +746,130 @@ switch($Action) {
    Write-Output ('Tunel: {0} ({1})' -f $name,$svc.Status)
   }
   if($n -eq 0) { Write-Output 'Kurulu WireGuard tuneli yok.' }
+ }
+ 'hw-inventory' {
+  # Everest/AIDA64 tarzi ozet: tum bilgi Windows'un kendi WMI/CIM verisinden (ek surucu yok).
+  foreach($o in (Cim Win32_OperatingSystem)) { HwRec 'os' (Txt $o.Caption) ([ordered]@{version=(Txt $o.Version);build=(Txt $o.BuildNumber);arch=(Txt $o.OSArchitecture);installed=(SafeDate $o.InstallDate);boot=(SafeDateTime $o.LastBootUpTime);ram_total=[int64]$o.TotalVisibleMemorySize*1KB;ram_free=[int64]$o.FreePhysicalMemory*1KB}) }
+  foreach($c in (Cim Win32_ComputerSystem)) { HwRec 'computer' (Txt $c.Name) ([ordered]@{maker=(Txt $c.Manufacturer);model=(Txt $c.Model);domain=(Txt $c.Domain);ram=[int64]$c.TotalPhysicalMemory;type=[int]$c.PCSystemType}) }
+  foreach($b in (Cim Win32_BaseBoard)) { HwRec 'board' (Txt $b.Product) ([ordered]@{maker=(Txt $b.Manufacturer);version=(Txt $b.Version)}) }
+  foreach($b in (Cim Win32_BIOS)) { HwRec 'bios' (Txt $b.SMBIOSBIOSVersion) ([ordered]@{maker=(Txt $b.Manufacturer);date=(SafeDate $b.ReleaseDate)}) }
+  foreach($p in (Cim Win32_Processor)) { HwRec 'cpu' (Txt $p.Name) ([ordered]@{maker=(Txt $p.Manufacturer);cores=[int]$p.NumberOfCores;threads=[int]$p.NumberOfLogicalProcessors;mhz=[int]$p.MaxClockSpeed;socket=(Txt $p.SocketDesignation);l2=[int]$p.L2CacheSize;l3=[int]$p.L3CacheSize;load=[int]$p.LoadPercentage;virt=[bool]$p.VirtualizationFirmwareEnabled}) }
+  foreach($m in (Cim Win32_PhysicalMemory)) { HwRec 'ram' (Txt $m.DeviceLocator) ([ordered]@{size=[int64]$m.Capacity;mhz=[int]$m.ConfiguredClockSpeed;speed=[int]$m.Speed;maker=(Txt $m.Manufacturer);part=(Txt $m.PartNumber);bank=(Txt $m.BankLabel);smbtype=[int]$m.SMBIOSMemoryType}) }
+  foreach($g in (Cim Win32_VideoController)) { HwRec 'gpu' (Txt $g.Name) ([ordered]@{driver=(Txt $g.DriverVersion);date=(SafeDate $g.DriverDate);vram=[int64]$g.AdapterRAM;res=('{0}x{1}' -f $g.CurrentHorizontalResolution,$g.CurrentVerticalResolution);hz=[int]$g.CurrentRefreshRate}) }
+  $pd=Cim MSFT_PhysicalDisk 'root\Microsoft\Windows\Storage'
+  if($pd.Count) { foreach($d in $pd) { HwRec 'disk' (Txt $d.FriendlyName) ([ordered]@{size=[int64]$d.Size;media=[int]$d.MediaType;bus=[int]$d.BusType;health=[int]$d.HealthStatus;serial=''}) } }
+  else { foreach($d in (Cim Win32_DiskDrive)) { HwRec 'disk' (Txt $d.Model) ([ordered]@{size=[int64]$d.Size;media=0;bus=0;health=0;serial=''}) } }
+  foreach($v in (Cim Win32_LogicalDisk '' 'DriveType=3')) { HwRec 'volume' (Txt $v.DeviceID) ([ordered]@{label=(Txt $v.VolumeName);fs=(Txt $v.FileSystem);size=[int64]$v.Size;free=[int64]$v.FreeSpace}) }
+  foreach($n in (Cim Win32_NetworkAdapter '' 'PhysicalAdapter=True')) { HwRec 'net' (Txt $n.Name) ([ordered]@{maker=(Txt $n.Manufacturer);speed=[int64]$n.Speed;connected=([int]$n.NetConnectionStatus -eq 2);conn=(Txt $n.NetConnectionID)}) }
+  foreach($a in (Cim Win32_SoundDevice)) { HwRec 'audio' (Txt $a.Name) ([ordered]@{maker=(Txt $a.Manufacturer);status=(Txt $a.Status)}) }
+  foreach($m in (Cim WmiMonitorID 'root\wmi')) { HwRec 'monitor' (U16 $m.UserFriendlyName) ([ordered]@{maker=(U16 $m.ManufacturerName);year=[int]$m.YearOfManufacture}) }
+  foreach($b in (Cim Win32_Battery)) {
+   $full=0; $design=0
+   foreach($f in (Cim BatteryFullChargedCapacity 'root\wmi')) { $full=[int64]$f.FullChargedCapacity }
+   foreach($f in (Cim BatteryStaticData 'root\wmi')) { $design=[int64]$f.DesignedCapacity }
+   HwRec 'battery' (Txt $b.Name) ([ordered]@{charge=[int]$b.EstimatedChargeRemaining;status=[int]$b.BatteryStatus;full=$full;design=$design})
+  }
+  Write-Output 'Donanim bilgisi okundu.'
+ }
+ 'disk-health' {
+  # SMART benzeri saglik: Windows depolama sayaclari (sicaklik, asinma, calisma saati, hata). Sayaclarin bir kismi yonetici ister.
+  $admin=IsAdmin
+  foreach($d in @(Get-PhysicalDisk -ErrorAction SilentlyContinue)) {
+   $rec=[ordered]@{type='disk';name=(Txt $d.FriendlyName);serial=(Txt $d.SerialNumber);media=(Txt $d.MediaType);bus=(Txt $d.BusType);size=[int64]$d.Size;health=(Txt $d.HealthStatus);op=((@($d.OperationalStatus) | ForEach-Object { [string]$_ }) -join ', ');temp=$null;tempmax=$null;wear=$null;hours=$null;rerr=$null;werr=$null;admin=[bool]$admin}
+   try {
+    $c=$d | Get-StorageReliabilityCounter -ErrorAction Stop
+    if($c) { $rec.temp=$c.Temperature; $rec.tempmax=$c.TemperatureMax; $rec.wear=$c.Wear; $rec.hours=$c.PowerOnHours; $rec.rerr=$c.ReadErrorsUncorrected; $rec.werr=$c.WriteErrorsUncorrected }
+   } catch {}
+   EmitD $rec
+   Write-Output ('Disk: {0} — {1}' -f $rec.name,$rec.health)
+  }
+ }
+ 'pnp-list' {
+  # Aygit yoneticisi: takili tum aygitlar (sorun kodu, sinif, surucu bilgisi).
+  $drv=@{}
+  foreach($d in (Cim Win32_PnPSignedDriver)) { if($d.DeviceID) { $drv[[string]$d.DeviceID]=$d } }
+  $n=0
+  foreach($e in (Cim Win32_PnPEntity)) {
+   $id=[string]$e.PNPDeviceID; $s=$drv[$id]
+   EmitD ([ordered]@{type='pnp';name=(Txt $e.Name);cls=(Txt $e.PNPClass);id=$id;code=[int]$e.ConfigManagerErrorCode;status=(Txt $e.Status);maker=(Txt $e.Manufacturer);present=[bool]$e.Present;ver=$(if($s){Txt $s.DriverVersion}else{''});date=$(if($s){SafeDate $s.DriverDate}else{''});inf=$(if($s){Txt $s.InfName}else{''});provider=$(if($s){Txt $s.DriverProviderName}else{''})})
+   $n++
+  }
+  Write-Output ('Aygit sayisi: '+$n)
+ }
+ 'pnp-action' {
+  RequireAdmin
+  $ids=@($InstanceIds -split '\|' | Where-Object { $_ })
+  if(-not $ids.Count -or -not $PnpOp) { Write-Output 'Aygit ya da islem belirtilmedi.'; exit 2 }
+  $fail=0
+  foreach($id in $ids) {
+   try {
+    switch($PnpOp) {
+     'enable'  { Enable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop }
+     'disable' { Disable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop }
+     'restart' { Disable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop; Start-Sleep -Milliseconds 800; Enable-PnpDevice -InstanceId $id -Confirm:$false -ErrorAction Stop }
+     'remove'  { $o=& pnputil.exe /remove-device $id 2>&1; if($LASTEXITCODE -ne 0) { throw ($o -join ' ') } }
+    }
+    Write-Output ('Tamam: {0} ({1})' -f $id,$PnpOp)
+    Emit ([ordered]@{type='pnpres';id=$id;op=$PnpOp;ok=$true})
+   } catch { $fail++; Write-Output ('HATA: {0} — {1}' -f $id,$_.Exception.Message); Emit ([ordered]@{type='pnpres';id=$id;op=$PnpOp;ok=$false;err=[string]$_.Exception.Message}) }
+  }
+  if($fail) { exit 1 }
+ }
+ 'overview' {
+  # Genel bakis kartlari: her kayit {type='ov';key;state=ok|warn|bad|info;value;detail}
+  function Ov([string]$key,[string]$state,[string]$value,[string]$detail='') { Emit ([ordered]@{type='ov';key=$key;state=$state;value=$value;detail=$detail}) }
+  $os=@(Cim Win32_OperatingSystem)[0]
+  if($os) {
+   $up=(Get-Date)-$os.LastBootUpTime
+   Ov 'uptime' $(if($up.TotalDays -gt 14){'warn'}else{'ok'}) ('{0:N0} gun {1} saat' -f [math]::Floor($up.TotalDays),$up.Hours) (SafeDateTime $os.LastBootUpTime)
+   $pct=[math]::Round(100*(1-$os.FreePhysicalMemory/[double]$os.TotalVisibleMemorySize))
+   Ov 'memory' $(if($pct -ge 90){'bad'}elseif($pct -ge 80){'warn'}else{'ok'}) ('%{0} dolu' -f $pct) ('{0:N1} / {1:N1} GB' -f (($os.TotalVisibleMemorySize-$os.FreePhysicalMemory)/1MB),($os.TotalVisibleMemorySize/1MB))
+  }
+  foreach($v in (Cim Win32_LogicalDisk '' 'DriveType=3')) {
+   if(-not $v.Size) { continue }
+   $free=100*$v.FreeSpace/$v.Size
+   Ov ('volume:'+$v.DeviceID) $(if($free -lt 7){'bad'}elseif($free -lt 15){'warn'}else{'ok'}) ('%{0:N0} bos' -f $free) ('{0} {1:N0} GB bos / {2:N0} GB' -f $v.DeviceID,($v.FreeSpace/1GB),($v.Size/1GB))
+  }
+  Ov 'reboot' $(if(PendingReboot){'warn'}else{'ok'}) $(if(PendingReboot){'Yeniden baslatma bekliyor'}else{'Gerekmiyor'})
+  try {
+   $mp=Get-MpComputerStatus -ErrorAction Stop
+   $sig=[int]$mp.AntivirusSignatureAge
+   $st= if(-not $mp.RealTimeProtectionEnabled) {'bad'} elseif($sig -gt 7) {'warn'} else {'ok'}
+   Ov 'defender' $st $(if($mp.RealTimeProtectionEnabled){'Gercek zamanli koruma acik'}else{'Gercek zamanli koruma KAPALI'}) ('Imza yasi: {0} gun' -f $sig)
+  } catch { Ov 'defender' 'info' 'Okunamadi' 'Baska bir antivirus kullaniliyor olabilir' }
+  try {
+   $off=@(Get-NetFirewallProfile -ErrorAction Stop | Where-Object { -not $_.Enabled } | ForEach-Object { [string]$_.Name })
+   Ov 'firewall' $(if($off.Count){'bad'}else{'ok'}) $(if($off.Count){'Kapali profil: '+($off -join ', ')}else{'Tum profiller acik'})
+  } catch { Ov 'firewall' 'info' 'Okunamadi' }
+  try {
+   $bl=@(Get-BitLockerVolume -MountPoint $env:SystemDrive -ErrorAction Stop)[0]
+   Ov 'bitlocker' $(if([string]$bl.ProtectionStatus -eq 'On'){'ok'}else{'info'}) $(if([string]$bl.ProtectionStatus -eq 'On'){'Sistem diski sifreli'}else{'Sistem diski sifreli degil'})
+  } catch { Ov 'bitlocker' 'info' $(if(IsAdmin){'Okunamadi'}else{'Yonetici gerekir'}) }
+  try {
+   $hf=@(Get-HotFix -ErrorAction Stop | Where-Object { $_.InstalledOn } | Sort-Object InstalledOn -Descending)[0]
+   if($hf) { $age=((Get-Date)-[datetime]$hf.InstalledOn).Days; Ov 'winupdate' $(if($age -gt 45){'warn'}else{'ok'}) ('Son guncelleme {0} gun once' -f $age) ('{0} ({1})' -f $hf.HotFixID,(SafeDate $hf.InstalledOn)) }
+  } catch { Ov 'winupdate' 'info' 'Okunamadi' }
+  $bad=@(Cim Win32_PnPEntity '' 'ConfigManagerErrorCode <> 0')
+  Ov 'devices' $(if($bad.Count){'warn'}else{'ok'}) $(if($bad.Count){'{0} sorunlu aygit' -f $bad.Count}else{'Sorunlu aygit yok'})
+  try {
+   $dd=@(Get-PhysicalDisk -ErrorAction Stop)
+   $nh=@($dd | Where-Object { [string]$_.HealthStatus -ne 'Healthy' })
+   Ov 'disks' $(if($nh.Count){'bad'}else{'ok'}) $(if($nh.Count){'{0} disk saglikli degil' -f $nh.Count}else{'{0} disk saglikli' -f $dd.Count})
+  } catch { Ov 'disks' 'info' 'Okunamadi' }
+  Write-Output 'Genel bakis okundu.'
+ }
+ 'sensors' {
+  # Istege bagli: LibreHardwareMonitor calisiyorsa WMI saglayicisindan (root\LibreHardwareMonitor) sicaklik / fan / voltaj okunur.
+  $hw=@{}
+  foreach($h in (Cim Hardware 'root\LibreHardwareMonitor')) { $hw[[string]$h.Identifier]=[string]$h.Name }
+  $n=0
+  foreach($x in (Cim Sensor 'root\LibreHardwareMonitor')) {
+   if(@('Temperature','Fan','Voltage','Load','Power','Clock') -notcontains [string]$x.SensorType) { continue }
+   $hname=$hw[[string]$x.Parent]; if(-not $hname) { $hname=[string]$x.Parent }
+   Emit ([ordered]@{type='sensor';hardware=$hname;name=(Txt $x.Name);stype=[string]$x.SensorType;value=[double]$x.Value})
+   $n++
+  }
+  if(-not $n) { Write-Output 'Sensor verisi yok: LibreHardwareMonitor calismiyor ya da WMI saglayicisi kapali.'; exit 3 }
+  Write-Output ('Sensor sayisi: '+$n)
  }
 }
