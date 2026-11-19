@@ -307,6 +307,7 @@ function OpNeedsAdmin($op) {
 
 # ---- 4.0 donanim / genel bakis yardimcilari (yalnizca okuma; surucu kurmaz, yonetici gerekmez — disk sayaclari haric)
 function Cim([string]$cls,[string]$ns='root\cimv2',[string]$filter='') {
+ if(-not $ns) { $ns='root\cimv2' }
  try { if($filter) { return @(Get-CimInstance -Namespace $ns -ClassName $cls -Filter $filter -ErrorAction Stop) } else { return @(Get-CimInstance -Namespace $ns -ClassName $cls -ErrorAction Stop) } } catch { return @() }
 }
 function Txt($v) { if($null -eq $v) { return '' } ; return ([string]$v).Trim() }
@@ -750,7 +751,7 @@ switch($Action) {
  'hw-inventory' {
   # Everest/AIDA64 tarzi ozet: tum bilgi Windows'un kendi WMI/CIM verisinden (ek surucu yok).
   foreach($o in (Cim Win32_OperatingSystem)) { HwRec 'os' (Txt $o.Caption) ([ordered]@{version=(Txt $o.Version);build=(Txt $o.BuildNumber);arch=(Txt $o.OSArchitecture);installed=(SafeDate $o.InstallDate);boot=(SafeDateTime $o.LastBootUpTime);ram_total=[int64]$o.TotalVisibleMemorySize*1KB;ram_free=[int64]$o.FreePhysicalMemory*1KB}) }
-  foreach($c in (Cim Win32_ComputerSystem)) { HwRec 'computer' (Txt $c.Name) ([ordered]@{maker=(Txt $c.Manufacturer);model=(Txt $c.Model);domain=(Txt $c.Domain);ram=[int64]$c.TotalPhysicalMemory;type=[int]$c.PCSystemType}) }
+  foreach($c in (Cim Win32_ComputerSystem)) { HwRec 'computer' (Txt $c.Name) ([ordered]@{maker=(Txt $c.Manufacturer);model=(Txt $c.Model);domain=(Txt $c.Domain);ram=[int64]$c.TotalPhysicalMemory;pctype=[int]$c.PCSystemType}) }
   foreach($b in (Cim Win32_BaseBoard)) { HwRec 'board' (Txt $b.Product) ([ordered]@{maker=(Txt $b.Manufacturer);version=(Txt $b.Version)}) }
   foreach($b in (Cim Win32_BIOS)) { HwRec 'bios' (Txt $b.SMBIOSBIOSVersion) ([ordered]@{maker=(Txt $b.Manufacturer);date=(SafeDate $b.ReleaseDate)}) }
   foreach($p in (Cim Win32_Processor)) { HwRec 'cpu' (Txt $p.Name) ([ordered]@{maker=(Txt $p.Manufacturer);cores=[int]$p.NumberOfCores;threads=[int]$p.NumberOfLogicalProcessors;mhz=[int]$p.MaxClockSpeed;socket=(Txt $p.SocketDesignation);l2=[int]$p.L2CacheSize;l3=[int]$p.L3CacheSize;load=[int]$p.LoadPercentage;virt=[bool]$p.VirtualizationFirmwareEnabled}) }

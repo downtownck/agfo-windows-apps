@@ -1,6 +1,8 @@
 """Gercek Windows testi (GitHub Actions windows-latest): care_tasks.ps1 salt okunur eylemleri ve uctan uca arayuz.
 Hicbir eylem sistemi degistirmez (yalnizca okuma). Kullanim: python -I tests/test_windows.py <system-care klasoru>"""
 import json, os, pathlib, subprocess, sys, tempfile, time
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 ROOT = pathlib.Path(sys.argv[1]).resolve()
 TMP = pathlib.Path(tempfile.mkdtemp())

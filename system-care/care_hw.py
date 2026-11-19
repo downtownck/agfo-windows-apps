@@ -131,7 +131,7 @@ def inventory_sections(recs):
             S.append((title, rows))
     for c in by.get('computer', []):
         add('Bilgisayar', [('Ad', c['name']), ('Üretici', _v(c, 'maker')), ('Model', _v(c, 'model')),
-                           ('Tür', PC_TYPE.get(c.get('type'), '')), ('Etki alanı / çalışma grubu', _v(c, 'domain'))])
+                           ('Tür', PC_TYPE.get(c.get('pctype'), '')), ('Etki alanı / çalışma grubu', _v(c, 'domain'))])
     for o in by.get('os', []):
         add('İşletim sistemi', [('Sürüm', o['name']), ('Derleme', '%s (%s)' % (_v(o, 'version'), _v(o, 'build'))), ('Mimari', _v(o, 'arch')),
                                 ('Kurulum tarihi', _v(o, 'installed')), ('Son açılış', _v(o, 'boot'))])
