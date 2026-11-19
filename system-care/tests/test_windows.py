@@ -24,7 +24,8 @@ def ps(action, **kw):
     for k, v in kw.items():
         cmd += ['-' + k, v]
     t0 = time.time()
-    p = subprocess.run(cmd, capture_output=True, timeout=600)
+    env = dict(os.environ); env.pop('PSModulePath', None)       # uygulama da boyle calistirir (sc_base.child_env)
+    p = subprocess.run(cmd, capture_output=True, timeout=600, env=env)
     out = p.stdout.decode('utf-8', 'replace').lstrip('﻿')
     lines = out.splitlines()
     bad = []
@@ -84,8 +85,9 @@ import base64, queue as _q  # noqa: E402
 probe = [sys.executable, '-c', 'import sys, json; print("ARGS=" + json.dumps(sys.argv[1:]))', 'a b', 'q"x', 'c:\\yol bosluk\\', '', 'çğış']
 outf = TMP / 'elev.out'
 b64 = base64.b64encode(json.dumps(probe).encode('utf-8')).decode('ascii')
+_env = dict(os.environ); _env.pop('PSModulePath', None)
 pr = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'care_elevated.ps1'), '-ArgsB64', b64,
-                     '-OutFile', str(outf), '-Cwd', str(TMP)], capture_output=True, timeout=120)
+                     '-OutFile', str(outf), '-Cwd', str(TMP)], capture_output=True, timeout=120, env=_env)
 got = outf.read_text(encoding='utf-8-sig').strip() if outf.exists() else ''
 check('elev.args_roundtrip', pr.returncode == 0 and got == 'ARGS=' + json.dumps(probe[3:]), (pr.returncode, got, pr.stderr[-400:]))
 import sc_base  # noqa: E402
@@ -119,7 +121,7 @@ try:
 except Exception as e:                                              # noqa: BLE001
     res = {'error': str(e)}
 print('  NVIDIA servis:', res, flush=True)
-check('nv.lookup_online', res and res.get('version') and oem.version_tuple(res['version']) >= (500,) and core.host_allowed(res['url'], oem.NV_HOSTS), res)
+check('nv.lookup_online', res and 'studio' not in res.get('name', '').lower() and res.get('version') and oem.version_tuple(res['version']) >= (500,) and core.host_allowed(res['url'], oem.NV_HOSTS), res)
 code, lines, bad = ps('sig-check', Paths=os.path.join(os.environ['SystemRoot'], 'explorer.exe'))
 sg = hw.parse_records(lines, 'sig')
 check('ps.sig-check', code == 0 and sg and sg[0]['status'] == 'Valid' and 'Microsoft' in sg[0]['subject'], sg)

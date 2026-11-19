@@ -320,7 +320,7 @@ class VpnPage:
 
     def _vpn_status_bg(self):
         def fn():
-            r = subprocess.run(ps_cmd('vpn-status'), capture_output=True, text=True, encoding='utf-8', errors='replace',
+            r = subprocess.run(ps_cmd('vpn-status'), env=child_env(['powershell.exe']), capture_output=True, text=True, encoding='utf-8', errors='replace',
                                timeout=20, creationflags=CREATIONFLAGS)
             return [json.loads(l[2:]) for l in r.stdout.splitlines() if l.startswith('@@')]
         self._vpn_bg('status', fn)

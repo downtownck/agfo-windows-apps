@@ -142,7 +142,7 @@ def tool_install_cmd(winget, source, pkg_id):
 
 
 # --------------------------------------------------------------------------- NVIDIA
-NV_LOOKUP = 'https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid={pfid}&osID={os}&dch={dch}'
+NV_LOOKUP = 'https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid={pfid}&osID={os}&dch={dch}&upCRD=0&isWHQL=1'   # upCRD=0: Game Ready (Studio degil)
 NV_DATA_URL = 'https://raw.githubusercontent.com/ZenitH-AT/nvidia-data/main/gpu-data.json'
 NV_HOSTS = ('geforce.com', 'nvidia.com', 'githubusercontent.com')
 NV_DRIVER_PAGE = 'https://www.nvidia.com/tr-tr/drivers/'
@@ -200,7 +200,8 @@ def nv_parse_lookup(payload):
     d = json.loads(payload) if isinstance(payload, (str, bytes)) else payload
     if not isinstance(d, dict) or str(d.get('Success')) != '1' or not d.get('IDS'):
         return None
-    info = (d['IDS'][0] or {}).get('downloadInfo') or {}
+    infos = [(x or {}).get('downloadInfo') or {} for x in d['IDS']]
+    info = next((i for i in infos if 'studio' not in str(i.get('Name', '')).lower()), infos[0])   # Game Ready onceligi
     url = info.get('DownloadURL') or ''
     if not url.startswith('https://') or not re.search(r'\.exe$', url, re.I):
         return None

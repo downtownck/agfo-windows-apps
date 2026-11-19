@@ -140,6 +140,19 @@ def prune_old_logs():
         pass
 
 
+def child_env(cmd):
+    """Windows PowerShell 5.1 alt sureci: PowerShell 7'den miras kalan PSModulePath 5.1 modullerini bozar (Get-AuthenticodeSignature vb.)."""
+    try:
+        exe = os.path.basename(str(cmd[0])).lower()
+    except (IndexError, TypeError):
+        return None
+    if exe not in ('powershell.exe', 'powershell'):
+        return None
+    env = os.environ.copy()
+    env.pop('PSModulePath', None)
+    return env
+
+
 def ps_cmd(action, **kw):
     cmd = ['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
            '-File', str(BASE / 'care_tasks.ps1'), '-Action', action]
@@ -267,7 +280,7 @@ class Runner:
         with open(job.logfile, 'w', encoding='utf-8', buffering=1) as f:
             f.write('# ' + ' '.join(map(str, job.cmd)) + '\n')
             proc = subprocess.Popen(job.cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    creationflags=CREATIONFLAGS, cwd=job.cwd or str(BASE))
+                                    creationflags=CREATIONFLAGS, cwd=job.cwd or str(BASE), env=child_env(job.cmd))
             self.proc = proc
             if job.tail_dir:
                 threading.Thread(target=self._tail, args=(job, started - 2, tail_done), daemon=True).start()
