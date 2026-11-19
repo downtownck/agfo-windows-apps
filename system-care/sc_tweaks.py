@@ -230,7 +230,7 @@ class TweaksPage:
             if not sel:
                 messagebox.showinfo('İnce ayarlar', 'Hizmetler geçmişten geri alınır ("Geçmiş…").'); return
         skipped = []
-        if not self.admin:
+        if not self.admin and not IS_WIN:
             skipped = [p for p in sel if tweaks.needs_admin_item(p)]
             if skipped:
                 rest = [p for p in sel if p not in skipped]
@@ -265,7 +265,7 @@ class TweaksPage:
         path = self._plan_file(plan, 'write')
         jobs = []
         if rp:
-            if self.admin:
+            if self.admin or IS_WIN:            # 4.0: yonetici degilse UAC ile
                 jobs.append(Job('Geri yükleme noktası', cmd=ps_cmd('restore-point'), cancel_ok=False))
             else:
                 self.write('Geri yükleme noktası yönetici ister; atlandı.\n')
@@ -287,7 +287,7 @@ class TweaksPage:
                                        '(Açık Gezgin pencereleri kapanır.)'):
                     self.start([Job('Gezgini yeniden başlat', cmd=ps_cmd('explorer-restart'), cancel_ok=False)])
             self.tw_read()
-        jobs.append(Job(title, cmd=ps_cmd('tweak-write', PlanFile=path), on_done=done, cancel_ok=False))
+        jobs.append(Job(title, cmd=ps_cmd('tweak-write', PlanFile=path), on_done=done, cancel_ok=False, admin=tweaks.needs_admin_ops(plan)))
         self.start(jobs)
 
     def _tw_undo_session(self, sess):
@@ -297,7 +297,7 @@ class TweaksPage:
         errs = tweaks.validate_ops(ops)
         if errs:
             messagebox.showerror('Geri alma planı', '\n'.join(errs[:6])); return
-        if tweaks.needs_admin_ops(ops) and not self.admin:
+        if tweaks.needs_admin_ops(ops) and not self.admin and not IS_WIN:
             if messagebox.askyesno('Yönetici gerekli', 'Bu değişikliği geri almak yönetici yetkisi ister. Uygulama yönetici olarak yeniden açılsın mı?'):
                 self.elevate()
             return
@@ -385,7 +385,7 @@ class TweaksPage:
             servers = tweaks.valid_ipv4_list(self.dns_custom.get())
             if not servers:
                 messagebox.showerror('DNS', 'Özel adresleri yan kutuya IPv4 olarak yazın (ör. 1.1.1.1, 8.8.8.8; en fazla 4).'); return
-        if not self.admin:
+        if not self.admin and not IS_WIN:
             if messagebox.askyesno('Yönetici gerekli', 'DNS değiştirmek yönetici ister. Uygulama yönetici olarak yeniden açılsın mı?'):
                 self.elevate()
             return

@@ -270,6 +270,8 @@ class CommonMixin:
 
     # ------------------------------------------------------------------ ortak
     def need_admin(self, action):
+        if action in ADMIN_ACTIONS and not self.admin and IS_WIN:
+            return True                     # 4.0: uygulama yeniden acilmaz; is calisirken Windows UAC onayi ister
         if action in ADMIN_ACTIONS and not self.admin:
             if messagebox.askyesno('Yönetici gerekli', 'Bu işlem yönetici yetkisi ister. Uygulama yönetici olarak yeniden açılsın mı?'):
                 self.elevate()

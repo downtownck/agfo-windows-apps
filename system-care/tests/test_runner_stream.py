@@ -42,4 +42,19 @@ def stopper(rr, jj):
 j0 = app.Job('stop', func=stopper)
 r2._run_all([j0, j1])
 assert j0.code == 0 and j1.code is None, (j0.code, j1.code)
+# 4.0 yetki modeli: hangi is tek basina UAC ile yukseltilir
+import sc_base  # noqa: E402
+_old = sc_base.IS_WIN
+sc_base.IS_WIN = True
+r3 = app.Runner(lambda e: None)
+assert not r3.needs_elevation(app.Job('x', cmd=app.ps_cmd('pnp-action')))           # varsayilan is_admin=True: yukseltme yok
+r3.is_admin = False
+assert r3.needs_elevation(app.Job('x', cmd=app.ps_cmd('pnp-action', PnpOp='disable')))
+assert r3.needs_elevation(app.Job('x', cmd=app.ps_cmd('restore-point')))
+assert not r3.needs_elevation(app.Job('x', cmd=app.ps_cmd('pnp-list')))
+assert not r3.needs_elevation(app.Job('x', cmd=app.ps_cmd('tweak-write', PlanFile='p.json')))
+assert r3.needs_elevation(app.Job('x', cmd=app.ps_cmd('tweak-write', PlanFile='p.json'), admin=True))
+assert r3.needs_elevation(app.Job('x', cmd=['sdio.exe', '-script:a'], admin=True)) and not r3.needs_elevation(app.Job('x', func=lambda r, j: 0, admin=True))
+sc_base.IS_WIN = _old
+assert not r3.needs_elevation(app.Job('x', cmd=app.ps_cmd('pnp-action')))            # Windows disinda hicbir zaman
 print('PASS runner-stream: %d satir, %d ilerleme, veri=%d, cikis=%d; zincir durdurma OK' % (len(job.lines), len(prog), len(job.data), job.code))

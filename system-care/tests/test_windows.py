@@ -78,6 +78,28 @@ for c in cards:
 code, lines, bad = ps('pnp-action')                        # parametresiz: kurala uygun reddetmeli (yonetici varsa 2, yoksa 740)
 check('ps.pnp-action_guard', code in (2, 740), code)
 
+
+# ---- 4.0 yetki modeli: care_elevated.ps1 arguman aktarimi ve Runner'in UAC yolu (CI zaten yonetici; runas onaysiz gecer)
+import base64, queue as _q  # noqa: E402
+probe = [sys.executable, '-c', 'import sys, json; print("ARGS=" + json.dumps(sys.argv[1:]))', 'a b', 'q"x', 'c:\\yol bosluk\\', '', 'çğış']
+outf = TMP / 'elev.out'
+b64 = base64.b64encode(json.dumps(probe).encode('utf-8')).decode('ascii')
+pr = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'care_elevated.ps1'), '-ArgsB64', b64,
+                     '-OutFile', str(outf), '-Cwd', str(TMP)], capture_output=True, timeout=120)
+got = outf.read_text(encoding='utf-8-sig').strip() if outf.exists() else ''
+check('elev.args_roundtrip', pr.returncode == 0 and got == 'ARGS=' + json.dumps(probe[3:]), (pr.returncode, got, pr.stderr[-400:]))
+import sc_base  # noqa: E402
+rq = _q.Queue()
+rn = sc_base.Runner(rq.put); rn.is_admin = False
+sc_base.LOG_DIR = TMP / 'logs'
+jb = sc_base.Job('Yonetici testi', cmd=sc_base.ps_cmd('pnp-action'))               # parametresiz -> betik 2 ile reddeder (yonetici olarak)
+check('elev.needs', rn.needs_elevation(jb))
+rn._run_all([jb])
+check('elev.runner_code', jb.code == 2 and any('belirtilmedi' in l for l in jb.lines), (jb.code, jb.lines[-3:]))
+jb2 = sc_base.Job('Veri testi', cmd=sc_base.ps_cmd('system-info'), admin=True)
+rn._run_all([jb2])
+check('elev.runner_lines', jb2.code == 0 and any('Windows' in l for l in jb2.lines), (jb2.code, jb2.lines[:3]))
+
 # ---- Uctan uca arayuz: gercek PowerShell ile Genel bakis, Sistem ozeti, Aygit yoneticisi, Disk sagligi
 setdir = TMP / 'lad' / 'AGFO' / 'SystemCare'
 setdir.mkdir(parents=True)

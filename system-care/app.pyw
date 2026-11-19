@@ -43,6 +43,7 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
         self._set_icon()
         self.messages = queue.Queue()
         self.runner = Runner(self.messages.put)
+        self.runner.is_admin = self.admin           # 4.0: yonetici degilse yonetici isteyen her is tek basina UAC ister
         self.busy = False
         self.in_callback = False
         self.pending = []

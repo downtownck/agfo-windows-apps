@@ -154,7 +154,8 @@ class Job:
     """Tek bir arka plan isi. kind: 'proc' (cikti yakalanir), 'shell' (ShellExecuteEx, GUI kaldiricilar), 'func'."""
 
     def __init__(self, title, cmd=None, shell=None, func=None, on_done=None, cancel_ok=True, tail_dir=None,
-                 after=None, cwd=None, show_output=True):
+                 after=None, cwd=None, show_output=True, admin=False):
+        self.admin = admin                      # 4.0: uygulama yonetici degilse bu is tek basina UAC ile yonetici olarak calisir
         self.title, self.cmd, self.shell, self.func = title, cmd, shell, func
         self.on_done, self.cancel_ok, self.tail_dir, self.after = on_done, cancel_ok, tail_dir, after
         self.cwd, self.show_output = cwd, show_output
@@ -166,6 +167,19 @@ class Runner:
         self.post = post
         self.proc = None
         self.stop = threading.Event()
+        self.is_admin = True                    # App kurulunca gercek deger atanir; True iken hicbir is ayrica yukseltilmez
+
+    def needs_elevation(self, job):
+        """4.0 yetki modeli: uygulama normal kullaniciyla calisir; yonetici isteyen is (ADMIN_ACTIONS ya da admin=True) tek basina UAC ister."""
+        if self.is_admin or not job.cmd or not IS_WIN:
+            return False
+        if job.admin:
+            return True
+        cmd = [str(x) for x in job.cmd]
+        if any(x.lower().endswith('care_tasks.ps1') for x in cmd) and '-Action' in cmd:
+            i = cmd.index('-Action')
+            return i + 1 < len(cmd) and cmd[i + 1] in ADMIN_ACTIONS
+        return False
 
     def run(self, jobs):
         self.stop.clear()
@@ -179,7 +193,9 @@ class Runner:
             self.post(('cancel_ok', job.cancel_ok))
             self.post(('line', '\n[%s] %s başlatıldı\n' % (datetime.datetime.now().strftime('%H:%M:%S'), job.title)))
             try:
-                if job.cmd:
+                if job.cmd and self.needs_elevation(job):
+                    job.code = self._proc_elevated(job)
+                elif job.cmd:
                     job.code = self._proc(job)
                 elif job.shell:
                     exe, params = job.shell
@@ -287,6 +303,70 @@ class Runner:
                 tail_done.set()
                 self.proc = None
         return code
+
+    def _proc_elevated(self, job):
+        """Isi care_elevated.ps1 ile UAC onayli yonetici olarak calistirir; cikti dosyasini canli izler (ayni @@ veri ayrisimi)."""
+        import base64
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        safe = ''.join(c if c.isalnum() or c in '-_' else '-' for c in job.title)[:40]
+        stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        job.logfile = str(LOG_DIR / (stamp + '-' + safe + '.log'))
+        out = LOG_DIR / ('.elevated-%s-%d.out' % (stamp, os.getpid()))
+        b64 = base64.b64encode(json.dumps([str(x) for x in job.cmd]).encode('utf-8')).decode('ascii')
+        cwd = job.cwd or str(BASE)
+        params = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "%s" -ArgsB64 %s -OutFile "%s" -Cwd "%s"' % (
+            BASE / 'care_elevated.ps1', b64, out, cwd)
+        self.post(('line', 'Yönetici onayı (UAC) isteniyor: %s\n' % job.title))
+        started = time.time()
+        tail_done = threading.Event()
+        with open(job.logfile, 'w', encoding='utf-8', buffering=1) as f:
+            f.write('# [yonetici] ' + ' '.join(map(str, job.cmd)) + '\n')
+            try:
+                h = core.shell_execute('powershell.exe', params, verb='runas', cwd=cwd, show=0)
+            except OSError as e:
+                self.post(('line', 'Yönetici olarak başlatılamadı: %s\n' % e))
+                return 1223 if 'iptal' in str(e) else -2
+            if job.tail_dir:
+                threading.Thread(target=self._tail, args=(job, started - 2, tail_done), daemon=True).start()
+            k32 = ctypes.windll.kernel32
+            pos, buf, first = 0, b'', True
+
+            def pump():
+                nonlocal pos, buf, first
+                try:
+                    with open(out, 'rb') as fh:
+                        fh.seek(pos)
+                        chunk = fh.read()
+                        pos = fh.tell()
+                except OSError:
+                    return
+                if first and chunk:
+                    first = False
+                    if chunk.startswith(b'\xef\xbb\xbf'):
+                        chunk = chunk[3:]
+                buf += chunk
+                while b'\n' in buf:
+                    raw, buf = buf.split(b'\n', 1)
+                    self._emit_line(job, f, raw.rstrip(b'\r'))
+            try:
+                while k32.WaitForSingleObject(h, 300) == 0x102:      # WAIT_TIMEOUT
+                    pump()
+                    if self.stop.is_set():
+                        self.post(('line', 'Durdurma istendi; yönetici işlemi arka planda tamamlanabilir.\n'))
+                        return -1
+                pump()
+                if buf.strip():
+                    self._emit_line(job, f, buf)
+                code = ctypes.c_ulong()
+                k32.GetExitCodeProcess(h, ctypes.byref(code))
+                return int(code.value)
+            finally:
+                k32.CloseHandle(h)
+                tail_done.set()
+                try:
+                    out.unlink()
+                except OSError:
+                    pass
 
     def _emit_line(self, job, f, raw):
         line = raw.decode('utf-8', 'replace').replace('\x00', '')
