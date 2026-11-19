@@ -2621,7 +2621,7 @@ class App(tk.Tk):
         if iid and self.app_tree.tree.exists(iid):
             self.app_tree.tree.set(iid, 'state', state)
             self.app_tree.tree.set(iid, 'why', why)
-            self.app_tree.tree.item(iid, tags=(('st_new',) if state in ('Güncellendi', 'Güncel') else ('st_warn',) if state != 'Başarısız' else ('orphan',)))
+            self.app_tree.tree.item(iid, tags=(('st_new',) if state in ('Güncellendi', 'Zaten güncel olabilir') else ('st_warn',) if state != 'Başarısız' else ('orphan',)))
 
     def apps_update(self):
         wg = self.engines.get('winget', {}).get('path') or core.find_winget()
@@ -2645,7 +2645,7 @@ class App(tk.Tk):
 
             def done(job, r=r):
                 step, why = job.data[0] if job.data else ('fail', hint(job.code))
-                state = {'ok': 'Güncellendi', 'uptodate': 'Güncel', 'running': 'Uygulama açık', 'reinstall': 'Yeniden kurulmalı'}.get(step, 'Başarısız')
+                state = {'ok': 'Güncellendi', 'uptodate': 'Zaten güncel olabilir', 'running': 'Uygulama açık', 'reinstall': 'Yeniden kurulmalı'}.get(step, 'Başarısız')
                 self._app_set(r['id'], state, '' if step == 'ok' else why)
                 if step == 'reinstall':
                     self.app_reinstall[r['id']] = r

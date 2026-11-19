@@ -185,8 +185,10 @@ case "$*" in
     echo '---------------------------------------------------------'
     echo 'Opera Stable  Opera.Opera        140.0    140.1     winget'
     echo 'WordCraft     ArtCraft.WordCraft 0.10.0   0.18.1    winget'
-    echo '2 upgrades available.'; exit 0;;
+    echo 'skywork       Skywork.Desktop    1.1.0    2.4.0     winget'
+    echo '3 upgrades available.'; exit 0;;
   *"upgrade"*"--interactive"*) echo 'Successfully installed'; exit 0;;
+  *"upgrade"*"Skywork.Desktop"*) echo 'No applicable upgrade found.'; echo 'A newer package version is available in a configured source, but it does not apply to your system or requirements.'; exit 43;;
   *"upgrade"*"Opera.Opera"*) echo 'Installer failed with exit code: 1603'; exit 67;;
   *"upgrade"*"ArtCraft.WordCraft"*) echo 'A newer version was found, but the install technology is different from the current version installed. Please uninstall the package and install the newer version.'; exit 1;;
   *"uninstall"*|*"install"*) echo ok; exit 0;;
@@ -199,15 +201,16 @@ exit 9
     app.apps_scan(); idle()
     at = app.app_tree
     ids = [at.payload[i]['id'] for i in at.labels]
-    check('upd.rows', ids == ['Opera.Opera', 'ArtCraft.WordCraft'], ids)
+    check('upd.rows', ids == ['Opera.Opera', 'ArtCraft.WordCraft', 'Skywork.Desktop'], ids)
     app.apps_update(); check('upd.idle', idle(60))
     st = {at.payload[i]['id']: (at.tree.set(i, 'state'), at.tree.set(i, 'why')) for i in at.labels}
     check('upd.opera_interactive', st['Opera.Opera'][0] == 'Güncellendi' and '--interactive' in app.log.get('1.0', 'end'), st)
     check('upd.wordcraft_reinstall', st['ArtCraft.WordCraft'][0] == 'Yeniden kurulmalı' and 'kaldırıp yeniden' in st['ArtCraft.WordCraft'][1]
           and 'ArtCraft.WordCraft' in app.app_reinstall, st)
+    check('upd.skywork_reinstall', st['Skywork.Desktop'][0] == 'Yeniden kurulmalı' and 'Skywork.Desktop' in app.app_reinstall, st)
     app.apps_reinstall(); check('upd.reinstall_idle', idle(60))
     st = {at.payload[i]['id']: at.tree.set(i, 'state') for i in at.labels}
-    check('upd.reinstalled', st['ArtCraft.WordCraft'] == 'Güncellendi' and not app.app_reinstall, st)
+    check('upd.reinstalled', st['ArtCraft.WordCraft'] == 'Güncellendi' and st['Skywork.Desktop'] == 'Güncellendi' and not app.app_reinstall, st)
     shot('guncellemeler')
 check('busy_free', not app.busy)
 app.destroy()

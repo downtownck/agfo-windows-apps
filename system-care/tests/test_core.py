@@ -982,6 +982,9 @@ def winget_upgrade_recovery():
     msg = ['A newer version was found, but the install technology is different from the current version installed. Please uninstall the package and install the newer version.']
     assert ns(-1978335188, msg, False) == 'reinstall'
     assert 'kaldırıp yeniden kurmak' in c.winget_failure_reason(-1978335188, msg)
+    na = ['No applicable upgrade found.', 'A newer package version is available in a configured source, but it does not apply to your system or requirements.']
+    assert ns(-1978335189, na, False) == 'reinstall' and 'eşleşmiyor' in c.winget_failure_reason(-1978335189, na)   # Skywork vakasi
+    assert ns(-1978335189, ['No applicable upgrade found.'], False) == 'uptodate'
     r = c.winget_failure_reason(1603, ['   ██████▒▒▒  10.0 MB / 20.0 MB', 'Installer failed with exit code: 1603', '> komut'])
     assert '1603' in r and 'Installer failed' in r and '██' not in r and '> komut' not in r, r
     cmd = c.winget_upgrade_cmd('wg', 'Opera.Opera')

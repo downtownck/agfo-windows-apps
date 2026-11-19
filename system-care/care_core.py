@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '3.10.0'
+VERSION = '3.10.1'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -266,6 +266,7 @@ WINGET_RUNNING = (0x8A150101, 0x8A150103, 0x8A150111)
 WINGET_STOP = (0x8A150011, 0x8A150014, 0x8A150104, 0x8A150105, 0x8A150106, 0x8A150107, 0x8A15010C, 0x8A15010F, 0x8A150113,
                0x8A15010A)
 _TECH_MISMATCH = re.compile(r'install technology|installer technology|kurulum teknolojisi|yükleme teknolojisi|uninstall the package and install', re.I)
+_NOT_APPLICABLE = re.compile(r'does not apply to your system|not applicable to your system|sisteminiz(e|in)? (veya|ya da) gereksinim\w* (için )?(geçerli|uygun) değil|sisteminiz için geçerli değil', re.I)
 _NOISE = re.compile(r'^[\s\-\\|/█▒░▓]*$|^\s*\d+(\.\d+)?\s*(KB|MB|GB)\s*/|^\s*[█▒░▓]', re.I)
 
 
@@ -276,6 +277,8 @@ def winget_failure_reason(code, lines):
         'kurulum programı %s koduyla bitti' % code if code not in (None, 0) else '')
     if _TECH_MISMATCH.search(' '.join(lines or [])):
         base = 'yeni sürüm farklı bir kurulum türüyle geliyor; kaldırıp yeniden kurmak gerekiyor'
+    elif _NOT_APPLICABLE.search(' '.join(lines or [])):
+        base = 'yeni sürüm bu kurulumla eşleşmiyor (kurulum kapsamı / türü farklı); kaldırıp yeniden kurmak gerekiyor'
     return (base + (' | ' + ' / '.join(tail)[:160] if tail else '')).strip(' |')
 
 
@@ -284,6 +287,8 @@ def upgrade_next_step(code, lines, tried_interactive):
     u = (code & 0xFFFFFFFF) if isinstance(code, int) else None
     if code in (0, 3010, 1641) or u in (0x8A150109, 0x8A15010B):      # basarili (gerekirse yeniden baslatma)
         return 'ok'
+    if _NOT_APPLICABLE.search(' '.join(lines or [])):
+        return 'reinstall'                                   # daha yeni surum var ama mevcut kurulumun turu/kapsamiyla eslesmiyor
     if u == 0x8A15002B or u == 0x8A15010E:
         return 'uptodate'
     if u in WINGET_RUNNING:

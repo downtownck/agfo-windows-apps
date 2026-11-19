@@ -1,7 +1,10 @@
-# AGFO System Care 3.10.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.10.1 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.10.1 düzeltmesi
+- WinGet "daha yeni sürüm var ama sisteminize/gereksinimlerinize uymuyor" dediğinde (ör. Skywork) uygulama yanlışlıkla "Güncel" görünüyordu. Artık "Yeniden kurulmalı" olarak işaretlenir ve **Kaldırıp yeniden kur** ile güncellenir. Yalnızca "uygulanabilir güncelleme yok" dönenler "Zaten güncel olabilir" diye gösterilir (uygulama kendini tarama ile güncelleme arasında güncellemiş olabilir).
 
 ## 3.10.0'da ne değişti — GitHub'ın popüler uygulamaları ve daha sağlam güncelleme
 - **Uygulama kur** kataloğu 159'dan **258** uygulamaya çıktı: GitHub'da çok sevilen 99 açık kaynak uygulama eklendi (Flow Launcher, EarTrumpet, QuickLook, Files, LocalSend, ScreenToGif, Espanso, Ditto, WinMerge, Twinkle Tray, Windhawk, System Informer, UniGetUI, VeraCrypt, Cryptomator, Ollama, Jan, GPT4All, Upscayl, Zed, VSCodium, WezTerm, Bruno, Godot, FreeCAD, KiCad, OrcaSlicer, Kodi, Moonlight/Sunshine, RetroArch ve diğerleri). Yeni **Yapay zekâ** kategorisi. Tüm WinGet kimlikleri Microsoft'un resmî winget-pkgs deposunda doğrulandı.
