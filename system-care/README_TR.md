@@ -3,6 +3,10 @@
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
 
+## 3.13.2'de ne değişti — UGREEN'de mevcut Tailscale
+
+- NAS Tailscale'de zaten görünüyorsa "UGREEN ayarını kopyala" tek satırlık bir SSH komutu veriyor. Komut sadece çıkış noktalığını açıyor; Docker kurulumu gerekmiyor.
+
 ## 3.13.1'de ne değişti — Hetzner komutu düzeltmesi
 
 - Tailscale sunucuda zaten kuruluysa "Hetzner komutunu kopyala" komutu artık hata vermiyor. Makinenin adı ve DNS ayarı değişmiyor; komut yalnızca çıkış noktalığını açıyor.

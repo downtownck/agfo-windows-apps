@@ -3563,7 +3563,7 @@ class App(tk.Tk):
             if want != 'Tümü' and not want.endswith('(%s)' % n['cc']):
                 continue
             loc = ', '.join(x for x in (n['city'], n['country']) if x) or (
-                'Türkiye — UGREEN NAS (Türk IP)' if 'ugreen' in n['name'].lower() else
+                'Türkiye — UGREEN NAS (Türk IP)' if any(k in n['name'].lower() for k in ('ugreen', 'nas', 'dxp', 'dh2', 'dh4')) else
                 'Yurt dışı — Hetzner (yabancı IP)' if 'hetzner' in n['name'].lower() else
                 'kendi sunucunuz / NAS' if n['os'] == 'linux' else 'kendi cihazınız')
             p = self.ts_ping.get(n['ip'])
@@ -3663,6 +3663,20 @@ class App(tk.Tk):
                             'Komut:\n%s' % vpn.LINUX_EXIT_NODE_SCRIPT)
 
     def ts_copy_ugreen(self):
+        if messagebox.askyesno('UGREEN NAS — Türk IP çıkışı', 'UGREEN NAS Tailscale yönetim panelinde zaten görünüyor mu?\n\n'
+                               'Evet: mevcut kuruluma çıkış noktalığını açan tek satırlık SSH komutu kopyalanır.\n'
+                               'Hayır: sıfırdan kurulum için Docker Compose ayarı kopyalanır.'):
+            self.clipboard_clear()
+            self.clipboard_append(vpn.NAS_EXIT_NODE_CMD)
+            self.write('UGREEN NAS için SSH komutu panoya kopyalandı.\n')
+            messagebox.showinfo('UGREEN NAS — mevcut Tailscale',
+                                '1) UGOS > Denetim Masası > Terminal > SSH\'yi açın.\n'
+                                '2) Windows\'ta PowerShell: ssh <NAS kullanıcı adınız>@<NAS yerel IP\'si> ve parolanızla girin.\n'
+                                '3) Panodaki komutu yapıştırın (sağ tık), Enter; sudo parola sorarsa aynı parolayı girin.\n'
+                                '   "TAMAM" yazmalı. "TAILSCALE BULUNAMADI" yazarsa çıktıyı bize gönderin.\n'
+                                '4) "Yönetim panelini aç" > NAS makinesi > Edit route settings > "Use as exit node" > Save.\n\n'
+                                'Makinenin adı ve ayarları değişmez; NAS listede "çıkış noktası" olarak görünür.')
+            return
         self.clipboard_clear()
         self.clipboard_append(vpn.UGREEN_COMPOSE)
         self.write('UGREEN NAS için Docker Compose ayarı panoya kopyalandı.\n')

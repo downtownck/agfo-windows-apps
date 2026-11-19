@@ -323,7 +323,7 @@ if os.name != 'nt':
     check('ts.status', app.vpn_status.get().startswith('BAĞLI (Tailscale çıkışı): ugreen-turkiye'), app.vpn_status.get())
     shot('vpn-tailscale')
     app.ts_copy_ugreen()
-    check('ts.clipboard', 'ugreen-turkiye' in app.clipboard_get())
+    check('ts.clipboard', 'set --advertise-exit-node' in app.clipboard_get() and 'docker exec' in app.clipboard_get())
     app.vpn_disconnect(); idle()
     check('ts.clear', 'ts set --exit-node=' in (TMP / 'ts.log').read_text().splitlines()[-1] or 'ts set --exit-node=\n' in (TMP / 'ts.log').read_text())
 check('busy_free', not app.busy)

@@ -274,6 +274,18 @@ LINUX_EXIT_NODE_SCRIPT = (
     "else sudo tailscale up --advertise-exit-node --hostname=hetzner-cikis --accept-dns=false; fi")
 
 
+# Tailscale NAS'ta zaten kuruluysa (UGOS uygulama merkezi ya da Docker): SSH ile tek satir. IP yonlendirmeyi acar, tailscale'i
+# PATH'te, bilinen uygulama klasorlerinde ya da calisan bir Docker kapsayicisinda bulur ve yalnizca cikis noktaligini acar (ad/DNS degismez).
+NAS_EXIT_NODE_CMD = (
+    "sudo sh -c 'printf \"net.ipv4.ip_forward = 1\\nnet.ipv6.conf.all.forwarding = 1\\n\" > /etc/sysctl.d/99-tailscale.conf; "
+    "sysctl -p /etc/sysctl.d/99-tailscale.conf >/dev/null; "
+    "T=$(command -v tailscale || find /usr /opt /var/apps /ugreen /volume1/@appstore -maxdepth 6 -name tailscale -type f 2>/dev/null | head -n1); "
+    "if [ -n \"$T\" ]; then \"$T\" set --advertise-exit-node && echo TAMAM: $T; "
+    "else C=$(docker ps --format \"{{.Names}} {{.Image}}\" 2>/dev/null | grep -i tailscale | head -n1 | cut -d\" \" -f1); "
+    "if [ -n \"$C\" ]; then docker exec \"$C\" tailscale set --advertise-exit-node && echo TAMAM: docker $C; "
+    "else echo TAILSCALE BULUNAMADI; fi; fi'")
+
+
 # UGREEN NAS (UGOS Pro, Docker uygulamasi > Proje > Olustur) icin: Turkiye'deki NAS, yurt disindayken Turk IP'si veren cikis noktasi olur.
 UGREEN_COMPOSE = """services:
   tailscale:
