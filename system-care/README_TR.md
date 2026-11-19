@@ -1,7 +1,10 @@
-# AGFO System Care 3.10.1 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.10.2 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.10.2 düzeltmesi
+- **Kaldırıp yeniden kur** artık kaldırıcı sessiz kipte hata verirse (ör. Skywork, kod 1603) kaldırıcının kendi penceresiyle bir kez daha dener; yine kaldırılamazsa en yeni sürümü eskisinin üzerine kurar (`winget install --force`) ve bunu Ayrıntı sütununda belirtir. İkisi de olmazsa yönetici olarak açıp yeniden denemeniz önerilir.
 
 ## 3.10.1 düzeltmesi
 - WinGet "daha yeni sürüm var ama sisteminize/gereksinimlerinize uymuyor" dediğinde (ör. Skywork) uygulama yanlışlıkla "Güncel" görünüyordu. Artık "Yeniden kurulmalı" olarak işaretlenir ve **Kaldırıp yeniden kur** ile güncellenir. Yalnızca "uygulanabilir güncelleme yok" dönenler "Zaten güncel olabilir" diye gösterilir (uygulama kendini tarama ile güncelleme arasında güncellemiş olabilir).

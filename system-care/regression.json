@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.10.1",
+  "version": "3.10.2",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -553,6 +553,13 @@
     {
       "id": "SC-103",
       "purpose": "0x8A15002B + \"does not apply to your system or requirements\" (Skywork) -> Yeniden kurulmali; yalin 0x8A15002B -> Zaten guncel olabilir",
+      "type": "unit+gui",
+      "script": "tests/test_core.py, tests/test_gui_nav.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-104",
+      "purpose": "Kaldirip yeniden kur: sessiz kaldirma 1603 -> pencereli kaldirma -> o da olmazsa winget install --force ile uzerine kurulum; aciklama satira yazilir",
       "type": "unit+gui",
       "script": "tests/test_core.py, tests/test_gui_nav.py",
       "required_for_package": true

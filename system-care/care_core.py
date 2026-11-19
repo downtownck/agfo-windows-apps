@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '3.10.1'
+VERSION = '3.10.2'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -236,9 +236,17 @@ def winget_install_cmd(winget, pkg_id, upgrade=False):
             '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity']
 
 
-def winget_uninstall_cmd(winget, pkg_id):
-    return [winget, 'uninstall', '--id', pkg_id, '--exact', '--source', 'winget', '--silent',
-            '--accept-source-agreements', '--disable-interactivity']
+def winget_uninstall_cmd(winget, pkg_id, interactive=False):
+    cmd = [winget, 'uninstall', '--id', pkg_id, '--exact', '--source', 'winget', '--silent',
+           '--accept-source-agreements', '--disable-interactivity']
+    if interactive:                                          # kaldiricinin kendi penceresi (sessiz kipte 1603 verenler icin)
+        cmd = [c for c in cmd if c != '--silent'] + ['--interactive']
+    return cmd
+
+
+def winget_force_install_cmd(winget, pkg_id):
+    """Eski surum kaldirilamadiginda en yeni surumu uzerine kurar."""
+    return winget_install_cmd(winget, pkg_id) + ['--force']
 
 
 def winget_code_text(code):

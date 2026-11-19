@@ -191,6 +191,9 @@ case "$*" in
   *"upgrade"*"Skywork.Desktop"*) echo 'No applicable upgrade found.'; echo 'A newer package version is available in a configured source, but it does not apply to your system or requirements.'; exit 43;;
   *"upgrade"*"Opera.Opera"*) echo 'Installer failed with exit code: 1603'; exit 67;;
   *"upgrade"*"ArtCraft.WordCraft"*) echo 'A newer version was found, but the install technology is different from the current version installed. Please uninstall the package and install the newer version.'; exit 1;;
+  *"uninstall"*"Skywork.Desktop"*) echo 'Uninstall failed with exit code: 1603'; exit 67;;
+  *"install"*"Skywork.Desktop"*"--force"*) echo 'Successfully installed'; exit 0;;
+  *"install"*"Skywork.Desktop"*) exit 5;;
   *"uninstall"*|*"install"*) echo ok; exit 0;;
 esac
 exit 9
@@ -211,6 +214,10 @@ exit 9
     app.apps_reinstall(); check('upd.reinstall_idle', idle(60))
     st = {at.payload[i]['id']: at.tree.set(i, 'state') for i in at.labels}
     check('upd.reinstalled', st['ArtCraft.WordCraft'] == 'Güncellendi' and st['Skywork.Desktop'] == 'Güncellendi' and not app.app_reinstall, st)
+    lt = app.log.get('1.0', 'end')
+    why = {at.payload[i]['id']: at.tree.set(i, 'why') for i in at.labels}
+    check('upd.skywork_fallbacks', 'uninstall --id Skywork.Desktop' in lt and '--interactive' in lt.split('uninstall --id Skywork.Desktop', 2)[-1]
+          and '--force' in lt and 'üzerine kuruldu' in why['Skywork.Desktop'], why['Skywork.Desktop'])
     shot('guncellemeler')
 check('busy_free', not app.busy)
 app.destroy()

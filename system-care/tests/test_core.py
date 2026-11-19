@@ -989,6 +989,9 @@ def winget_upgrade_recovery():
     assert '1603' in r and 'Installer failed' in r and '██' not in r and '> komut' not in r, r
     cmd = c.winget_upgrade_cmd('wg', 'Opera.Opera')
     assert cmd[1] == 'upgrade' and '--silent' in cmd and '--interactive' not in cmd
+    u = c.winget_uninstall_cmd('wg', 'Skywork.SkyworkDesktop', interactive=True)
+    assert u[1] == 'uninstall' and '--silent' not in u and u[-1] == '--interactive'
+    assert '--silent' in c.winget_uninstall_cmd('wg', 'X') and c.winget_force_install_cmd('wg', 'X')[-1] == '--force'
     cmd = c.winget_upgrade_cmd('wg', 'Opera.Opera', interactive=True)
     assert '--silent' not in cmd and cmd[-1] == '--interactive' and '--exact' in cmd
     for h in (0x8A150109, 0x8A15002B, 0x8A150101, 0x8A150108, 0x8A150011, 0x8A150114):

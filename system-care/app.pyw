@@ -2671,13 +2671,23 @@ class App(tk.Tk):
         jobs = []
         for r in sel:
             def work(runner, job, r=r):
-                code, lines = runner.run_cmd('Kaldır: ' + r['name'], core.winget_uninstall_cmd(wg, r['id']))
-                if code != 0:
-                    job.data = [('fail', 'kaldırılamadı: ' + core.winget_failure_reason(code, lines))]
-                    return code or 1
-                code, lines = runner.run_cmd('Kur: ' + r['name'], core.winget_install_cmd(wg, r['id']))
-                job.data = [('ok' if code == 0 else 'fail', '' if code == 0 else 'kurulamadı: ' + core.winget_failure_reason(code, lines))]
-                return code
+                code, lines = runner.run_cmd('Kaldır (sessiz): ' + r['name'], core.winget_uninstall_cmd(wg, r['id']))
+                if code != 0 and not runner.stop.is_set():
+                    runner.say('[%s] Sessiz kaldırma olmadı (%s); kaldırıcının kendi penceresiyle deneniyor...' % (r['name'], core.winget_failure_reason(code, lines)))
+                    code, lines = runner.run_cmd('Kaldır (pencereli): ' + r['name'], core.winget_uninstall_cmd(wg, r['id'], interactive=True))
+                if code == 0:
+                    code, lines = runner.run_cmd('Kur: ' + r['name'], core.winget_install_cmd(wg, r['id']))
+                    job.data = [('ok' if code == 0 else 'fail', '' if code == 0 else 'kurulamadı: ' + core.winget_failure_reason(code, lines))]
+                    return code
+                why_un = core.winget_failure_reason(code, lines)
+                runner.say('[%s] Eski sürüm kaldırılamadı (%s); en yeni sürüm üzerine kurulmaya çalışılıyor...' % (r['name'], why_un))
+                code, lines = runner.run_cmd('Üzerine kur: ' + r['name'], core.winget_force_install_cmd(wg, r['id']))
+                if code == 0:
+                    job.data = [('ok', 'eski sürüm kaldırılamadı, yeni sürüm üzerine kuruldu; Programlar\'da iki kayıt görünürse eskisini oradan kaldırın')]
+                    return 0
+                adm = '' if self.admin else ' — uygulamayı "Yönetici olarak yeniden aç" ile açıp tekrar deneyin'
+                job.data = [('fail', 'kaldırılamadı (%s), üzerine de kurulamadı (%s)%s' % (why_un, core.winget_failure_reason(code, lines), adm))]
+                return code or 1
 
             def done(job, r=r):
                 step, why = job.data[0] if job.data else ('fail', hint(job.code))
