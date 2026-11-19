@@ -411,8 +411,8 @@ check('install.catalog_rows', len([p for p in app.inst_tree.payload.values() if 
 shot(10, '5b-uygulama-kur')
 
 # 6b Kol / Gamepad (3.6.0)
-check('pad.tab_present', app.tabs.tab(11, 'text').strip() == 'Kol / Gamepad', app.tabs.tab(11, 'text'))
-app.tabs.select(11)
+check('pad.tab_present', app.tabs.tab(12, 'text').strip() == 'Kol / Gamepad', app.tabs.tab(12, 'text'))
+app.tabs.select(12)
 for _ in range(30):
     app.update(); time.sleep(0.02)
 check('pad.live_test_no_xinput_msg', 'yalnızca Windows' in app.pad_canvas.itemcget(app.pad_canvas.it['msg'], 'text') and app.pad_info['conn'].get() == 'XInput yok',
@@ -456,7 +456,7 @@ app.pad_fc_reset(); wait_idle(10)
 check('pad.fc_reset_nothing_left', len([a for a in ASKED if isinstance(a, tuple) and a[0] == 'info']) == n_info + 1)
 app.pad_open('joy.cpl', 'Oyun kumandaları')
 check('pad.open_non_windows_safe', 'yalnızca Windows' in logtext().strip().splitlines()[-1], logtext()[-200:])
-shot(11, '7-kol-gamepad')
+shot(12, '7-kol-gamepad')
 
 # 7 Guncelleme (paket yukleme) - gercek paketten turetilmis 3.3.1 paketi bir kurulum kopyasina uygulanir
 import shutil, zipfile  # noqa: E402

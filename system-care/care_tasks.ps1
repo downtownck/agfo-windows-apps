@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -10,7 +10,7 @@ param(
  [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no',
  [string]$PlanFile = ''
 )
-# AGFO System Care 3.8.0 gorev motoru.
+# AGFO System Care 3.11.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -721,5 +721,21 @@ switch($Action) {
   Start-Sleep -Seconds 2
   if(-not (Get-Process -Name explorer -ErrorAction SilentlyContinue)) { Start-Process -FilePath (Join-Path $env:SystemRoot 'explorer.exe') }
   Write-Output 'Gezgin yeniden baslatildi.'
+ }
+ 'vpn-status' {
+  # WireGuard tunel hizmetleri (WireGuardTunnel$<ad>) ve calisanlarin el sikisma / aktarim bilgisi (wg.exe yonetici ister).
+  $wgDir=Join-Path $env:ProgramFiles 'WireGuard'
+  $wgExe=Join-Path $wgDir 'wg.exe'
+  $n=0
+  foreach($svc in @(Get-Service -Name 'WireGuardTunnel$*' -ErrorAction SilentlyContinue)) {
+   $name=$svc.Name.Substring('WireGuardTunnel$'.Length)
+   $rec=[ordered]@{type='vpn';name=$name;status=[string]$svc.Status;dump=''}
+   if($svc.Status -eq 'Running' -and (IsAdmin) -and (Test-Path -LiteralPath $wgExe)) {
+    try { $ErrorActionPreference='Continue'; $rec.dump=((& $wgExe show $name dump 2>$null) -join "`n") } catch {} finally { $ErrorActionPreference='Stop' }
+   }
+   EmitD $rec; $n++
+   Write-Output ('Tunel: {0} ({1})' -f $name,$svc.Status)
+  }
+  if($n -eq 0) { Write-Output 'Kurulu WireGuard tuneli yok.' }
  }
 }

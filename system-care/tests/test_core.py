@@ -894,7 +894,7 @@ def organizer_bundle_and_nav_contract():
     inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
     assert "'care_theme.py'" in inst and "'organizer_core.py'" in inst and 'ttkbootstrap==' + th.TB_VERSION in inst and '--target $uiLib' in inst
     order = ['Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Sürücüler', 'Aygıt temizliği', 'Bakım ve sağlık',
-             'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'Kol / Gamepad']
+             'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Kol / Gamepad']
     nav = app.split('def nav_pages(self):')[1].split('def _remember_page')[0]
     pos = [nav.index("('%s'," % t) for t in order]
     assert pos == sorted(pos), 'sol menu sirasi'
@@ -1008,6 +1008,75 @@ def install_catalog_github_additions():
     cats = {a['cat'] for a in cc.INSTALL_APPS}
     assert 'Yapay zekâ' in cats and all(a['desc'] and a['name'] for a in cc.INSTALL_APPS)
     assert not [a for a in cc.INSTALL_APPS if a['id'] in ('Logitech.GHUB', 'valinet.ExplorerPatcher', '2dust.v2rayN')]
+
+
+# --------------------------------------------------------------------------- 3.11.0 VPN (WireGuard)
+import care_vpn as vp  # noqa: E402
+
+CONF = """[Interface]
+# Bouncing = 0
+PrivateKey = aGVsbG8gd29ybGQgaGVsbG8gd29ybGQgaGVsbG8gd28=
+Address = 10.2.0.2/32
+DNS = 10.2.0.1
+
+[Peer]
+# NL-FREE#12
+PublicKey = c2VydmVyIGtleSBzZXJ2ZXIga2V5IHNlcnZlciBrZXk=
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = 185.107.56.1:51820
+"""
+
+
+@test
+def vpn_conf_and_names():
+    i = vp.parse_conf(CONF)
+    assert i['host'] == '185.107.56.1' and i['port'] == 51820 and i['full_tunnel'] and i['dns'] == '10.2.0.1' and 'privatekey' not in i
+    assert vp.parse_conf(CONF.replace('0.0.0.0/0, ::/0', '10.0.0.0/8'))['full_tunnel'] is False
+    assert vp.parse_conf(CONF.replace('185.107.56.1:51820', '[2a02::1]:51820'))['host'] == '2a02::1'
+    for bad in (CONF.replace('PrivateKey', 'X'), CONF.replace('Endpoint = 185.107.56.1:51820', ''), 'rastgele metin', CONF.replace(':51820', '')):
+        try:
+            vp.parse_conf(bad)
+            raise AssertionError('kabul edilmemeli: %r' % bad[:30])
+        except ValueError:
+            pass
+    assert vp.country_from_name('NL-FREE#12.conf') == 'NL' and vp.country_from_name('mullvad-de-fra-wg-001.conf') == 'DE'
+    assert vp.country_from_name('wg-US-NY-5.conf') == 'US' and vp.country_from_name('ProtonVPN_JP-3.conf') == 'JP'
+    assert vp.country_from_name('uk-lon-wg-101.conf') == 'GB' and vp.country_from_name('evim.conf') == '' and vp.country_from_name('wg-is-12.conf') == ''
+    assert vp.country_name('TR') == 'Türkiye' and vp.country_name('xx') == ''
+    assert vp.tunnel_name('NL-FREE#12.conf') == 'NL-FREE-12'
+    assert vp.tunnel_name('NL-FREE#12.conf', ['nl-free-12']) == 'NL-FREE-12-2'
+    long = vp.tunnel_name('a' * 50 + '.conf', ['a' * 32])
+    assert len(long) <= 32 and vp.NAME_RX.match(long) and long.endswith('-2')
+    assert vp.NAME_RX.match(vp.tunnel_name('çok garip ad!!.conf'))
+
+
+@test
+def vpn_tools_and_parsers():
+    assert vp.parse_ping_ms(['Minimum = 20ms, Maximum = 31ms, Average = 25ms']) == 25
+    assert vp.parse_ping_ms(['En az = 20ms, En çok = 31ms, Ortalama = 24ms']) == 24
+    assert vp.parse_ping_ms(['64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=12.4 ms']) == 12
+    assert vp.parse_ping_ms(['Request timed out.', 'İstek zaman aşımına uğradı.']) is None
+    dump = 'priv\tpub\t51820\toff\npeerkey\t(none)\t1.2.3.4:51820\t0.0.0.0/0\t1795110000\t2048\t1024\toff\n'
+    assert vp.parse_wg_dump(dump) == {'handshake': 1795110000, 'rx': 2048, 'tx': 1024} and vp.parse_wg_dump('') == {'handshake': 0, 'rx': 0, 'tx': 0}
+    assert vp.human_bytes(512) == '512 B' and vp.human_bytes(3 * 1048576) == '3.0 MB'
+    assert vp.parse_ipinfo('{"ip": "185.107.56.9", "country": "Netherlands", "country_iso": "NL"}') == ('185.107.56.9', 'NL', 'Hollanda')
+    assert vp.install_cmd('wg.exe', 'C:/x/a.conf.dpapi') == ['wg.exe', '/installtunnelservice', 'C:/x/a.conf.dpapi']
+    assert vp.uninstall_cmd('wg.exe', 'a') == ['wg.exe', '/uninstalltunnelservice', 'a']
+    assert vp.ping_cmd('h')[:3] == ['ping', '-n', '2'] and vp.ping_cmd('h', False)[:3] == ['ping', '-c', '2']
+    env = {'ProgramFiles': r'C:\PF'}
+    assert vp.find_wireguard(env, exists=lambda p: p.endswith('wireguard.exe')).replace('\\', '/').endswith('PF/WireGuard/wireguard.exe')
+    assert vp.find_wireguard(env, exists=lambda p: False) is None
+    with tempfile.TemporaryDirectory() as d:
+        assert vp.stored_config(d, 'a') is None
+        (pathlib.Path(d) / 'a.conf').write_text('x')
+        assert vp.stored_config(d, 'a').name == 'a.conf'
+        (pathlib.Path(d) / 'a.conf.dpapi').write_bytes(b'x')
+        assert vp.stored_config(d, 'a').name == 'a.conf.dpapi'                 # WireGuard sifreledikten sonra
+    assert str(vp.config_dir(r'C:/PF/WireGuard/wireguard.exe')).replace('\\', '/').endswith('WireGuard/Data/Configurations')
+    ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
+    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    assert "'vpn-status'" in ps.split('[string]$Action')[0] and " 'vpn-status' {" in ps and "'vpn-status'" in app.split('INTERNAL_PS_ACTIONS = ')[1].split('\n')[0]
+    assert c._is_runtime_file('care_vpn.py') and "'care_vpn.py'" in (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
 
 
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

@@ -1,7 +1,13 @@
-# AGFO System Care 3.10.2 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.11.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.11.0'da ne değişti — VPN (WireGuard, ülke seçmeli)
+- Sol menüde yeni **Ağ > VPN** sayfası. Açık kaynak **WireGuard** (bilinen en hızlı VPN protokolü, resmî Windows istemcisi) ile farklı ülkelerin IP'leri üzerinden bağlanırsınız. WireGuard kurulu değilse sayfadan tek tıkla kurulur.
+- **Yapılandırma ekle…**: VPN sağlayıcınızdan (Proton VPN: hesap > İndirmeler > WireGuard yapılandırması; Mullvad: hesap > WireGuard yapılandırması) ya da kendi sunucunuzdan aldığınız `.conf` dosyalarını toplu ekleyin. Ülke dosya adından tanınır (ör. `NL-FREE#12`, `mullvad-de-fra-wg-001`). Yapılandırmalar WireGuard'ın kendi şifreli klasörüne kopyalanır; özel anahtar System Care'in dosyalarında tutulmaz.
+- **Ülke** süzgeci, **Gecikmeyi ölç**, **En hızlıya bağlan** (seçili ülkedeki en düşük gecikmeli sunucu), **Bağlan / Bağlantıyı kes** (aynı anda tek tünel; başka ülkeye geçerken eskisi kapatılır), **Görünen IP'yi denetle** (bağlandıktan sonra IP'nin hangi ülkede göründüğünü gösterir). Bağlı tünelin son el sıkışma zamanı ve aktarım miktarı görünür.
+- Bağlantı, siz kesene kadar Windows yeniden başlasa da sürer. Yönetici yetkisi gerekir.
 
 ## 3.10.2 düzeltmesi
 - **Kaldırıp yeniden kur** artık kaldırıcı sessiz kipte hata verirse (ör. Skywork, kod 1603) kaldırıcının kendi penceresiyle bir kez daha dener; yine kaldırılamazsa en yeni sürümü eskisinin üzerine kurar (`winget install --force`) ve bunu Ayrıntı sütununda belirtir. İkisi de olmazsa yönetici olarak açıp yeniden denemeniz önerilir.

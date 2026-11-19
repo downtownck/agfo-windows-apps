@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.10.2",
+  "version": "3.11.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -15,6 +15,7 @@
       "Programlar",
       "Uygulama güncellemeleri",
       "Uygulama kur",
+      "VPN",
       "Kol / Gamepad"
     ],
     "powershell_actions": [
@@ -46,7 +47,8 @@
       "tweak-write",
       "dns-list",
       "dns-flush",
-      "explorer-restart"
+      "explorer-restart",
+      "vpn-status"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -99,7 +101,8 @@
     "organizer": "organizer_core.py = smart-organizer/organizer_core.py (birebir); gunluk %LOCALAPPDATA%\\AGFO\\SmartOrganizer\\moves.sqlite3 (bagimsiz Smart Organizer ile ortak)",
     "app_icons": "care_icons.py: logolar pakette yok; kullanicinin PC'sinde INSTALL_APPS.site adresinden (https, apple-touch-icon > png simge > favicon.ico) indirilir -> %LOCALAPPDATA%\\AGFO\\SystemCare\\app-icons (48/20 px PNG, index.json; basarisiz 30 gun denenmez); yalnizca Uygulama kur sayfasi buyuk simge gorunumunde acilinca",
     "install_view": "settings.install_view = grid | list; secim iki gorunum arasinda esitlenir",
-    "app_update_recovery": "Uygulama guncellemeleri: sessiz (--silent) -> basarisizsa bir kez pencereli (--interactive); uygulama acik -> \"Uygulama acik\"; farkli kurulum turu / 0x8A150114 -> \"Yeniden kurulmali\" + Kaldirip yeniden kur (winget uninstall + install); Ayrinti sutunu WinGet nedenini gosterir"
+    "app_update_recovery": "Uygulama guncellemeleri: sessiz (--silent) -> basarisizsa bir kez pencereli (--interactive); uygulama acik -> \"Uygulama acik\"; farkli kurulum turu / 0x8A150114 -> \"Yeniden kurulmali\" + Kaldirip yeniden kur (winget uninstall + install); Ayrinti sutunu WinGet nedenini gosterir",
+    "vpn": "WireGuard for Windows (WireGuard.WireGuard): wireguard.exe /installtunnelservice <Data\\Configurations\\ad.conf[.dpapi]> ve /uninstalltunnelservice <ad>; tek etkin tunel; meta %LOCALAPPDATA%\\AGFO\\SystemCare\\vpn-tunnels.json (anahtar yok); gecikme ping; gorunen IP https://ifconfig.co/json; vpn-status: WireGuardTunnel$* hizmetleri + wg show dump"
   },
   "removed_surfaces": [
     {
@@ -563,6 +566,26 @@
       "type": "unit+gui",
       "script": "tests/test_core.py, tests/test_gui_nav.py",
       "required_for_package": true
+    },
+    {
+      "id": "SC-110",
+      "purpose": "WireGuard .conf ayristirma (IPv4/IPv6 endpoint, tam tunel, eksik anahtar/endpoint reddi), dosya adindan ulke (Proton/Mullvad bicimleri), tunel adi (32 karakter, cakisma), ping (EN/TR/Unix), wg dump, ifconfig.co, .conf.dpapi onceligi",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-111",
+      "purpose": "GUI: sahte WireGuard + sahte ping ile ice aktarma (bozuk dosya reddi), ulke suzgeci, en hizliya baglanma, tunel degistirmede eskisini kaldirma, silme, meta dosyasinda ozel anahtar yok",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W110",
+      "purpose": "Windows: gercek WireGuard ile Proton/Mullvad .conf ice aktarma, baglanma, gorunen IP ulkesi, kesme; WireGuard yoneticisi .conf.dpapi donusumu sonrasi baglanma",
+      "type": "manual_windows",
+      "required_for_package": false
     }
   ]
 }

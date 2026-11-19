@@ -2,7 +2,7 @@ $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $root=Split-Path -Parent $PSScriptRoot
 $dest=Join-Path $env:LOCALAPPDATA 'Programs\AGFO System Care'
-$files=@('app.pyw','care_core.py','care_tweaks.py','care_catalog.py','care_theme.py','care_icons.py','organizer_core.py','agfo_github_update.py','care_tasks.ps1','assets\agfo.ico','README_TR.md','THIRD_PARTY_LICENSES.txt')
+$files=@('app.pyw','care_core.py','care_tweaks.py','care_catalog.py','care_theme.py','care_icons.py','care_vpn.py','organizer_core.py','agfo_github_update.py','care_tasks.ps1','assets\agfo.ico','README_TR.md','THIRD_PARTY_LICENSES.txt')
 # Surum care_core.py'den okunur (elle yazilan surum eskiyordu).
 $version=([regex]::Match((Get-Content -LiteralPath (Join-Path $root 'care_core.py') -Raw -Encoding UTF8),"(?m)^VERSION = '([0-9.]+)'")).Groups[1].Value
 foreach($file in $files) { if(-not (Test-Path -LiteralPath (Join-Path $root $file) -PathType Leaf)){throw "Dosya bulunamadi: $file"} }

@@ -42,6 +42,7 @@ import care_core as core  # noqa: E402
 import care_tweaks as tweaks  # noqa: E402
 import care_theme as theme  # noqa: E402
 import care_icons as icons  # noqa: E402
+import care_vpn as vpn  # noqa: E402
 import agfo_github_update as ghu  # noqa: E402
 
 VERSION = core.VERSION
@@ -85,7 +86,7 @@ ACTIONS = {
  ],
 }
 # Sekme ici dugmelerin kullandigi diger care_tasks.ps1 eylemleri
-INTERNAL_PS_ACTIONS = ['tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
+INTERNAL_PS_ACTIONS = ['vpn-status','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
 ADMIN_ACTIONS = {'controller-reset','bt-restart','phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
 DANGER_TEXT = {
  'temp-clean':'7 günden eski Temp dosyaları kalıcı olarak silinir. Önizleme yapmanız önerilir.',
@@ -471,7 +472,7 @@ class NavBook(tk.Frame):
         self.navlist.pack(fill='x', pady=(6, 0))
 
     def add_group(self, title):
-        tk.Label(self.navlist, text=title.upper(), bg=NAV_BG, fg=NAV_MUTED, font=('Segoe UI', 8, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(12, 2))
+        tk.Label(self.navlist, text=title.upper(), bg=NAV_BG, fg=NAV_MUTED, font=('Segoe UI', 8, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(8, 1))
 
     def add(self, frame, text='', **_kw):
         idx = len(self.pages)
@@ -479,7 +480,7 @@ class NavBook(tk.Frame):
         row.pack(fill='x', padx=6, pady=1)
         bar = tk.Frame(row, bg=NAV_BG, width=4)
         bar.pack(side='left', fill='y')
-        lab = tk.Label(row, text=text.strip(), bg=NAV_BG, fg=NAV_FG, font=('Segoe UI', 10), anchor='w', padx=12, pady=6, cursor='hand2')
+        lab = tk.Label(row, text=text.strip(), bg=NAV_BG, fg=NAV_FG, font=('Segoe UI', 10), anchor='w', padx=12, pady=4, cursor='hand2')
         lab.pack(side='left', fill='x', expand=True)
         for w in (row, bar, lab):
             w.bind('<Button-1>', lambda _e, i=idx: self.select(i))
@@ -775,6 +776,7 @@ class App(tk.Tk):
                 ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Sürücüler', self._tab_drivers), ('Aygıt temizliği', self._tab_phantom),
                             ('Bakım ve sağlık', self._tab_maint)]),
                 ('Uygulamalar', [('Programlar', self._tab_programs), ('Uygulama güncellemeleri', self._tab_apps), ('Uygulama kur', self._tab_install)]),
+                ('Ağ', [('VPN', self._tab_vpn)]),
                 ('Donanım', [('Kol / Gamepad', self._tab_pad)])]
 
     def _remember_page(self, _e=None):
@@ -3065,6 +3067,334 @@ class App(tk.Tk):
             cmd = core.winget_install_cmd(wg, a['id']) if op == 'install' else core.winget_uninstall_cmd(wg, a['id'])
             jobs.append(Job(('Kur: ' if op == 'install' else 'Kaldır: ') + a['name'], cmd=cmd, on_done=done, cancel_ok=True))
         self.start(jobs)
+
+    # ------------------------------------------------------------------ VPN (WireGuard; 3.11.0)
+    def _tab_vpn(self, f):
+        head = tk.Frame(f, bg=PANEL); head.pack(fill='x', padx=16, pady=(12, 2))
+        tk.Label(head, text='VPN — farklı ülke IP\'leri', fg=FG, bg=PANEL, font=('Segoe UI', 12, 'bold')).pack(side='left')
+        self.vpn_wg_state = tk.StringVar(value='')
+        tk.Label(head, textvariable=self.vpn_wg_state, fg=MUTED, bg=PANEL, font=('Segoe UI', 9)).pack(side='left', padx=(12, 0))
+        self.label(f, 'Açık kaynak WireGuard ile bağlanır (bilinen en hızlı VPN protokolü). Ülke başına bir WireGuard yapılandırma dosyası (.conf) ekleyin: '
+                      'Proton VPN (hesap > İndirmeler > WireGuard yapılandırması; ücretsiz katmanda birkaç ülke, ücretli katmanda 100+ ülke), '
+                      'Mullvad (hesap > WireGuard yapılandırması) ya da kendi sunucunuz. Yapılandırmalar WireGuard\'ın kendi şifreli klasöründe saklanır. '
+                      'Hız için size yakın ve gecikmesi düşük sunucuyu seçin; "En hızlıya bağlan" seçili ülkedeki en düşük gecikmeli sunucuyu bulur. '
+                      'Bağlantı, siz kesene kadar Windows yeniden başlasa da sürer.', wraplength=int(1100 * self.scale)).pack(fill='x', padx=16, pady=(2, 6))
+        bar = tk.Frame(f, bg=PANEL); bar.pack(fill='x', padx=16)
+        self.btn(bar, 'Yapılandırma ekle…', self.vpn_import, 'ghost')
+        self.btn(bar, 'Bağlan', self.vpn_connect, 'go')
+        self.btn(bar, 'Bağlantıyı kes', self.vpn_disconnect, 'danger')
+        self.btn(bar, 'Gecikmeyi ölç', self.vpn_ping_all, 'ghost', action=False)
+        self.btn(bar, 'En hızlıya bağlan', self.vpn_fastest, 'normal')
+        self.btn(bar, 'Seçileni sil', self.vpn_remove, 'ghost')
+        self.vpn_install_btn = self.btn(bar, 'WireGuard\'ı kur', self.vpn_install_wg, 'normal')
+        flt = tk.Frame(f, bg=PANEL); flt.pack(fill='x', padx=16, pady=(6, 0))
+        tk.Label(flt, text='Ülke:', fg=FG, bg=PANEL).pack(side='left')
+        self.vpn_country = ttk.Combobox(flt, state='readonly', width=24, values=['Tümü'])
+        self.vpn_country.set('Tümü'); self.vpn_country.pack(side='left', padx=6)
+        self.vpn_country.bind('<<ComboboxSelected>>', lambda _e: self._vpn_render())
+        self.btn(flt, 'Görünen IP\'yi denetle', self.vpn_check_ip, 'ghost', action=False)
+        tf = ttk.Frame(f, style='Card.TFrame'); tf.pack(fill='both', expand=True, padx=16, pady=(8, 4))
+        self.vpn_tree = ttk.Treeview(tf, columns=('country', 'server', 'ping', 'state'), show='tree headings', selectmode='browse', height=8)
+        self.vpn_tree.heading('#0', text='Tünel'); self.vpn_tree.column('#0', width=260, stretch=True)
+        for key, title, w in (('country', 'Ülke', 170), ('server', 'Sunucu', 300), ('ping', 'Gecikme', 90), ('state', 'Durum', 130)):
+            self.vpn_tree.heading(key, text=title); self.vpn_tree.column(key, width=w, anchor='w')
+        ys = ttk.Scrollbar(tf, orient='vertical', command=self.vpn_tree.yview)
+        self.vpn_tree.configure(yscrollcommand=ys.set)
+        self.vpn_tree.pack(side='left', fill='both', expand=True); ys.pack(side='right', fill='y')
+        self.vpn_tree.bind('<Double-1>', lambda _e: self.vpn_connect())
+        self._vpn_tags(); self.theme_hooks.append(self._vpn_tags)
+        self.vpn_status = tk.StringVar(value='Durum okunmadı.')
+        tk.Label(f, textvariable=self.vpn_status, fg=ACCENT, bg=PANEL, font=('Segoe UI', 10, 'bold'), anchor='w', justify='left',
+                 wraplength=int(1100 * self.scale)).pack(fill='x', padx=16, pady=(4, 2))
+        self.vpn_ip = tk.StringVar(value='Görünen IP: denetlenmedi')
+        tk.Label(f, textvariable=self.vpn_ip, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w').pack(fill='x', padx=16, pady=(0, 10))
+        self.vpn_meta_file = core.APP_DATA_DIR / 'vpn-tunnels.json'
+        self.vpn_tunnels = self._vpn_load()
+        self.vpn_running, self.vpn_ping, self.vpn_dump = {}, {}, {}
+        self.vpn_wg = vpn.find_wireguard()
+        self.vpn_q = queue.Queue()
+        self._vpn_tab = f
+        self._vpn_wg_label()
+        self._vpn_render()
+        self.after(500, self._vpn_poll)
+
+    def _vpn_tags(self):
+        self.vpn_tree.tag_configure('on', foreground=OK_C)
+        self.vpn_tree.tag_configure('off', foreground=FG)
+
+    def _vpn_load(self):
+        try:
+            data = json.loads(self.vpn_meta_file.read_text(encoding='utf-8'))
+            return [t for t in data if isinstance(t, dict) and vpn.NAME_RX.match(t.get('name', ''))]
+        except Exception:
+            return []
+
+    def _vpn_save(self):
+        try:
+            self.vpn_meta_file.parent.mkdir(parents=True, exist_ok=True)
+            self.vpn_meta_file.write_text(json.dumps(self.vpn_tunnels, ensure_ascii=False, indent=1), encoding='utf-8')
+        except OSError:
+            pass
+
+    def _vpn_wg_label(self):
+        self.vpn_wg = vpn.find_wireguard()
+        self.vpn_wg_state.set('WireGuard: ' + ('kurulu' if self.vpn_wg else 'kurulu değil — "WireGuard\'ı kur" ile resmî istemciyi kurun'))
+        try:
+            if self.vpn_wg:
+                self.vpn_install_btn.pack_forget()
+        except tk.TclError:
+            pass
+
+    def _vpn_active(self):
+        return next((n for n, st in self.vpn_running.items() if st == 'Running'), None)
+
+    def _vpn_render(self):
+        t = self.vpn_tree
+        keep = t.selection()
+        t.delete(*t.get_children())
+        codes = sorted({x.get('country', '') for x in self.vpn_tunnels if x.get('country')}, key=lambda c: vpn.country_name(c))
+        labels = ['Tümü'] + ['%s (%s)' % (vpn.country_name(c), c) for c in codes]
+        self.vpn_country.configure(values=labels)
+        if self.vpn_country.get() not in labels:
+            self.vpn_country.set('Tümü')
+        want = self.vpn_country.get()
+        active = self._vpn_active()
+        for x in sorted(self.vpn_tunnels, key=lambda x: (vpn.country_name(x.get('country', '')) or 'zz', self.vpn_ping.get(x['name'], 9999), x['name'])):
+            c = x.get('country', '')
+            if want != 'Tümü' and not want.endswith('(%s)' % c):
+                continue
+            p = self.vpn_ping.get(x['name'])
+            on = x['name'] == active
+            t.insert('', 'end', iid=x['name'], text=x['name'], tags=('on' if on else 'off',),
+                     values=('%s %s' % (c, vpn.country_name(c)) if c else '—', x.get('endpoint', ''), ('%d ms' % p) if isinstance(p, int) else ('yanıt yok' if p == -1 else ''),
+                             'Bağlı' if on else ('Kurulu (durdu)' if x['name'] in self.vpn_running else '')))
+        sel = [i for i in keep if t.exists(i)]
+        if sel:
+            t.selection_set(sel)
+        if active:
+            meta = next((x for x in self.vpn_tunnels if x['name'] == active), {})
+            d = self.vpn_dump.get(active) or {}
+            extra = ''
+            if d.get('handshake'):
+                ago = max(0, int(time.time()) - d['handshake'])
+                extra = ' · son el sıkışma %d sn önce · ↓ %s ↑ %s' % (ago, vpn.human_bytes(d['rx']), vpn.human_bytes(d['tx']))
+            self.vpn_status.set('BAĞLI: %s%s%s' % (active, (' — ' + vpn.country_name(meta.get('country', ''))) if meta.get('country') else '', extra))
+        else:
+            self.vpn_status.set('Bağlı değil' + (' — eklenmiş tünel yok; "Yapılandırma ekle…" ile .conf dosyası ekleyin.' if not self.vpn_tunnels else '.'))
+
+    def _vpn_selected(self):
+        sel = self.vpn_tree.selection()
+        return next((x for x in self.vpn_tunnels if sel and x['name'] == sel[0]), None)
+
+    def _vpn_need(self, admin=True):
+        if not self.vpn_wg:
+            if messagebox.askyesno('WireGuard gerekli', 'Bu işlem resmî WireGuard istemcisini ister. Şimdi kurulsun mu?'):
+                self.vpn_install_wg()
+            return False
+        if admin and not self.admin:
+            if messagebox.askyesno('Yönetici gerekli', 'VPN tünelini kurmak/kaldırmak yönetici yetkisi ister. Uygulama yönetici olarak yeniden açılsın mı?'):
+                self.elevate()
+            return False
+        return True
+
+    def vpn_install_wg(self):
+        wg = self.engines.get('winget', {}).get('path') or core.find_winget()
+        if not wg:
+            messagebox.showerror('WinGet yok', 'WinGet bulunamadı.'); return
+        self.start([Job('Kur: WireGuard', cmd=core.winget_install_cmd(wg, vpn.WG_PKG), on_done=lambda j: self._vpn_wg_label(), cancel_ok=False)])
+
+    def vpn_import(self):
+        if not self._vpn_need():
+            return
+        paths = filedialog.askopenfilenames(title='WireGuard yapılandırmaları (.conf)', filetypes=[('WireGuard', '*.conf'), ('Tüm dosyalar', '*.*')])
+        if not paths:
+            return
+        cdir = vpn.config_dir(self.vpn_wg)
+        added, errors = [], []
+        for p in paths:
+            try:
+                text = pathlib.Path(p).read_text(encoding='utf-8-sig')
+                info = vpn.parse_conf(text)
+                name = vpn.tunnel_name(p, [x['name'] for x in self.vpn_tunnels])
+                cdir.mkdir(parents=True, exist_ok=True)
+                (cdir / (name + '.conf')).write_text(text, encoding='utf-8')
+                self.vpn_tunnels.append({'name': name, 'country': vpn.country_from_name(p), 'endpoint': info['endpoint'], 'host': info['host'],
+                                         'full': info['full_tunnel'], 'added': time.strftime('%Y-%m-%d')})
+                added.append(name)
+            except Exception as e:
+                errors.append('%s: %s' % (pathlib.Path(p).name, e))
+        self._vpn_save()
+        self._vpn_render()
+        self.write('VPN: %d yapılandırma eklendi%s.\n' % (len(added), (' ; hatalı: ' + ' | '.join(errors)) if errors else ''))
+        nocountry = [x['name'] for x in self.vpn_tunnels if x['name'] in added and not x.get('country')]
+        if nocountry:
+            self.write('Ülkesi dosya adından anlaşılamayanlar: %s (dosya adına ülke kodu ekleyip yeniden ekleyebilirsiniz, ör. DE-sunucu.conf).\n' % ', '.join(nocountry))
+        if added and any(not x.get('full', True) for x in self.vpn_tunnels if x['name'] in added):
+            self.write('Not: bazı yapılandırmalar tüm trafiği değil yalnızca belirli adresleri tünelden geçiriyor (AllowedIPs); ülke değişimi için 0.0.0.0/0 olmalı.\n')
+
+    def _vpn_switch_jobs(self, target):
+        jobs = []
+        active = self._vpn_active()
+        for name, _st in list(self.vpn_running.items()):
+            if name != target:
+                jobs.append(Job('VPN kes: ' + name, cmd=vpn.uninstall_cmd(self.vpn_wg, name), cancel_ok=False))
+        if target and target != active:
+            path = vpn.stored_config(vpn.config_dir(self.vpn_wg), target)
+            if not path:
+                messagebox.showerror('VPN', 'Tünelin yapılandırması WireGuard klasöründe bulunamadı. Yeniden ekleyin.'); return None
+            jobs.append(Job('VPN bağlan: ' + target, cmd=vpn.install_cmd(self.vpn_wg, path), cancel_ok=False))
+        jobs.append(Job('VPN durumu', cmd=ps_cmd('vpn-status'), on_done=self._vpn_status_done, cancel_ok=False, show_output=False))
+        return jobs
+
+    def vpn_connect(self, target=None):
+        x = target or self._vpn_selected()
+        if not x:
+            messagebox.showinfo('VPN', 'Listeden bir tünel seçin.'); return
+        if not self._vpn_need():
+            return
+        jobs = self._vpn_switch_jobs(x['name'])
+        if jobs:
+            jobs[-1].on_done = lambda j: (self._vpn_status_done(j), self.after(2500, self.vpn_check_ip))
+            self.start(jobs)
+
+    def vpn_disconnect(self):
+        if not self.vpn_running:
+            self.write('VPN: kurulu tünel yok.\n'); return
+        if not self._vpn_need():
+            return
+        jobs = self._vpn_switch_jobs(None)
+        if jobs:
+            jobs[-1].on_done = lambda j: (self._vpn_status_done(j), self.after(1500, self.vpn_check_ip))
+            self.start(jobs)
+
+    def vpn_remove(self):
+        x = self._vpn_selected()
+        if not x:
+            messagebox.showinfo('VPN', 'Silinecek tüneli seçin.'); return
+        if not messagebox.askyesno('Tüneli sil', '"%s" tüneli ve WireGuard\'daki yapılandırması silinsin mi?' % x['name']):
+            return
+        if not self._vpn_need():
+            return
+
+        def work(runner, job):
+            if x['name'] in self.vpn_running:
+                runner.run_cmd('VPN kes: ' + x['name'], vpn.uninstall_cmd(self.vpn_wg, x['name']))
+            cdir = vpn.config_dir(self.vpn_wg)
+            for ext in ('.conf', '.conf.dpapi'):
+                try:
+                    (cdir / (x['name'] + ext)).unlink()
+                except OSError:
+                    pass
+            return 0
+
+        def done(job):
+            self.vpn_tunnels = [t for t in self.vpn_tunnels if t['name'] != x['name']]
+            self._vpn_save()
+            self.vpn_running.pop(x['name'], None)
+            self._vpn_render()
+        self.start([Job('VPN sil: ' + x['name'], func=work, on_done=done, cancel_ok=False)])
+
+    def _vpn_status_done(self, job):
+        self.vpn_running = {d['name']: d.get('status', '') for d in job.data if d.get('type') == 'vpn'}
+        self.vpn_dump = {d['name']: vpn.parse_wg_dump(d.get('dump', '')) for d in job.data if d.get('type') == 'vpn'}
+        self._vpn_render()
+
+    # arka plan: durum (sayfa acikken 6 sn'de bir), gecikme ve IP denetimi kendi is parcaciginda; Runner'i mesgul etmez
+    def _vpn_bg(self, kind, fn):
+        def run():
+            try:
+                self.vpn_q.put((kind, fn()))
+            except Exception as e:
+                self.vpn_q.put((kind + '-err', str(e)))
+        threading.Thread(target=run, daemon=True).start()
+
+    def _vpn_status_bg(self):
+        def fn():
+            r = subprocess.run(ps_cmd('vpn-status'), capture_output=True, text=True, encoding='utf-8', errors='replace',
+                               timeout=20, creationflags=CREATIONFLAGS)
+            return [json.loads(l[2:]) for l in r.stdout.splitlines() if l.startswith('@@')]
+        self._vpn_bg('status', fn)
+
+    def _vpn_poll(self):
+        try:
+            while True:
+                kind, val = self.vpn_q.get_nowait()
+                if kind == 'status':
+                    self.vpn_running = {d['name']: d.get('status', '') for d in val if d.get('type') == 'vpn'}
+                    self.vpn_dump = {d['name']: vpn.parse_wg_dump(d.get('dump', '')) for d in val if d.get('type') == 'vpn'}
+                    self._vpn_render()
+                elif kind == 'ping':
+                    self.vpn_ping.update(val)
+                    self._vpn_render()
+                    cb = getattr(self, '_vpn_after_ping', None)
+                    self._vpn_after_ping = None
+                    if cb:
+                        cb()
+                elif kind == 'ip':
+                    ip, code, cname = val
+                    self.vpn_ip.set('Görünen IP: %s — %s' % (ip, cname or code or 'ülke bilinmiyor'))
+                elif kind == 'ip-err':
+                    self.vpn_ip.set('Görünen IP denetlenemedi: %s' % val[:120])
+        except queue.Empty:
+            pass
+        try:
+            visible = self.tabs.nametowidget(self.tabs.select()) is self._vpn_tab
+        except Exception:
+            visible = False
+        now = time.time()
+        if visible and IS_WIN and now - getattr(self, '_vpn_last_status', 0) > 6:
+            self._vpn_last_status = now
+            self._vpn_status_bg()
+        self.after(700, self._vpn_poll)
+
+    def vpn_ping_all(self, names=None, then=None):
+        items = [x for x in self.vpn_tunnels if names is None or x['name'] in names]
+        if not items:
+            messagebox.showinfo('VPN', 'Önce yapılandırma ekleyin.'); return
+        self.vpn_status.set('Gecikme ölçülüyor (%d sunucu)...' % len(items))
+        self._vpn_after_ping = then
+
+        def fn():
+            import concurrent.futures
+
+            def one(x):
+                try:
+                    r = subprocess.run(vpn.ping_cmd(x['host'], IS_WIN), capture_output=True, text=True, errors='replace', timeout=10,
+                                       creationflags=CREATIONFLAGS)
+                    ms = vpn.parse_ping_ms(r.stdout.splitlines())
+                except Exception:
+                    ms = None
+                return x['name'], (ms if ms is not None else -1)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+                return dict(ex.map(one, items))
+        self._vpn_bg('ping', fn)
+
+    def vpn_fastest(self):
+        want = self.vpn_country.get()
+        names = [x['name'] for x in self.vpn_tunnels if want == 'Tümü' or want.endswith('(%s)' % x.get('country', ''))]
+        if not names:
+            messagebox.showinfo('VPN', 'Bu ülke için yapılandırma yok.'); return
+        if not self._vpn_need():
+            return
+
+        def pick():
+            ok = [(self.vpn_ping[n], n) for n in names if isinstance(self.vpn_ping.get(n), int) and self.vpn_ping[n] >= 0]
+            if not ok:
+                messagebox.showwarning('VPN', 'Sunucuların hiçbiri ping yanıtı vermedi; listeden elle seçip bağlanın.'); return
+            best = min(ok)[1]
+            self.write('VPN: en düşük gecikme %s (%d ms); bağlanılıyor.\n' % (best, min(ok)[0]))
+            self.vpn_connect(next(x for x in self.vpn_tunnels if x['name'] == best))
+        self.vpn_ping_all(names, then=pick)
+
+    def vpn_check_ip(self):
+        self.vpn_ip.set('Görünen IP denetleniyor...')
+
+        def fn():
+            import urllib.request
+            req = urllib.request.Request(vpn.IP_CHECK_URL, headers={'User-Agent': 'AGFO-System-Care', 'Accept': 'application/json'})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                return vpn.parse_ipinfo(r.read(64 * 1024).decode('utf-8', 'replace'))
+        self._vpn_bg('ip', fn)
 
     # ------------------------------------------------------------------ BAKIM ve SAGLIK
     def _tab_maint(self, f):

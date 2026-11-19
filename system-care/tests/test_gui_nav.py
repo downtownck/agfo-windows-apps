@@ -93,7 +93,7 @@ idle()
 check('mode', (m.TB is not None) == (MODE == 'modern'), m.TB_STATE)
 titles = [p['title'] for p in app.tabs.pages]
 check('nav.pages', titles == ['Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Sürücüler', 'Aygıt temizliği', 'Bakım ve sağlık',
-                              'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'Kol / Gamepad'], titles)
+                              'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Kol / Gamepad'], titles)
 check('nav.last_page', app.tabs.tab(app.tabs.current, 'text') == 'İnce ayarlar', app.tabs.current)
 seen = []
 app.tabs.bind('<<NotebookTabChanged>>', lambda _e: seen.append(app.tabs.current), add='+')
@@ -219,6 +219,49 @@ exit 9
     check('upd.skywork_fallbacks', 'uninstall --id Skywork.Desktop' in lt and '--interactive' in lt.split('uninstall --id Skywork.Desktop', 2)[-1]
           and '--force' in lt and 'üzerine kuruldu' in why['Skywork.Desktop'], why['Skywork.Desktop'])
     shot('guncellemeler')
+# VPN: sahte WireGuard ile ice aktarma, ulke, gecikme, en hizliya baglanma, silme
+if os.name != 'nt':
+    wgd = TMP / 'WireGuard'; wgd.mkdir()
+    fwg = wgd / 'wireguard.exe'
+    fwg.write_text('#!/bin/sh\necho "wireguard $*" >> "%s"\nexit 0\n' % (TMP / 'wg.log'))
+    fwg.chmod(0o755)
+    fping = TMP / 'fakeping'
+    fping.write_text('#!/bin/sh\ncase "$1" in 10.0.0.1) echo "Average = 40ms";; 10.0.0.2) echo "Average = 12ms";; *) echo "Request timed out.";; esac\n')
+    fping.chmod(0o755)
+    m.vpn.ping_cmd = lambda host, windows=True: [str(fping), host]
+    confs = []
+    for fname, ip in (('DE-fra-1.conf', '10.0.0.1'), ('de-ber-2.conf', '10.0.0.2'), ('US-NY#5.conf', '10.0.0.3'), ('bozuk.conf', None)):
+        pth = TMP / fname
+        pth.write_text(('[Interface]\nPrivateKey = a2V5\nAddress = 10.9.0.2/32\n[Peer]\nPublicKey = cHVi\nAllowedIPs = 0.0.0.0/0\nEndpoint = %s:51820\n' % ip) if ip else 'yok')
+        confs.append(str(pth))
+    app.vpn_wg = str(fwg); app.admin = True
+    m.filedialog.askopenfilenames = lambda **k: confs
+    app.tabs.select(11); pump(0.3)
+    app.vpn_import(); pump(0.2)
+    names = sorted(t['name'] for t in app.vpn_tunnels)
+    check('vpn.import', names == ['DE-fra-1', 'US-NY-5', 'de-ber-2'] and (wgd / 'Data' / 'Configurations' / 'DE-fra-1.conf').exists(), names)
+    check('vpn.countries', {t['name']: t['country'] for t in app.vpn_tunnels} == {'DE-fra-1': 'DE', 'de-ber-2': 'DE', 'US-NY-5': 'US'})
+    check('vpn.country_filter', 'Almanya (DE)' in app.vpn_country.cget('values') and 'ABD (US)' in app.vpn_country.cget('values'))
+    app.vpn_country.set('Almanya (DE)'); app._vpn_render()
+    check('vpn.filter_rows', sorted(app.vpn_tree.get_children()) == ['DE-fra-1', 'de-ber-2'])
+    app.vpn_fastest()
+    t0 = time.time()
+    while time.time() - t0 < 15 and 'wireguard /installtunnelservice' not in ((TMP / 'wg.log').read_text() if (TMP / 'wg.log').exists() else ''):
+        pump(0.2)
+    idle()
+    wl = (TMP / 'wg.log').read_text() if (TMP / 'wg.log').exists() else ''
+    check('vpn.fastest', app.vpn_ping.get('de-ber-2') == 12 and app.vpn_ping.get('DE-fra-1') == 40 and 'de-ber-2.conf' in wl and 'DE-fra-1.conf' not in wl, (app.vpn_ping, wl))
+    app.vpn_running = {'de-ber-2': 'Running'}; app._vpn_render()
+    check('vpn.status_line', app.vpn_status.get().startswith('BAĞLI: de-ber-2') and 'Almanya' in app.vpn_status.get(), app.vpn_status.get())
+    shot('vpn')
+    app.vpn_connect(next(t for t in app.vpn_tunnels if t['name'] == 'US-NY-5')); idle()
+    wl = (TMP / 'wg.log').read_text()
+    check('vpn.switch', 'uninstalltunnelservice de-ber-2' in wl and wl.rfind('US-NY-5.conf') > wl.rfind('uninstalltunnelservice de-ber-2'), wl)
+    app.vpn_country.set('Tümü'); app._vpn_render()
+    app.vpn_tree.selection_set('DE-fra-1'); app.vpn_remove(); idle()
+    check('vpn.remove', 'DE-fra-1' not in [t['name'] for t in app.vpn_tunnels] and not (wgd / 'Data' / 'Configurations' / 'DE-fra-1.conf').exists())
+    saved = json.loads((setdir / 'vpn-tunnels.json').read_text(encoding='utf-8'))
+    check('vpn.saved', sorted(t['name'] for t in saved) == ['US-NY-5', 'de-ber-2'] and not any('PrivateKey' in json.dumps(t) or 'a2V5' in json.dumps(t) for t in saved))
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]
