@@ -23,11 +23,14 @@ $w = [IO.StreamWriter]::new($OutFile, $false, $enc)
 $w.AutoFlush = $true
 $code = 1
 try {
- $argv = @(ConvertFrom-Json ($enc.GetString([Convert]::FromBase64String($ArgsB64))))
+ $parsed = ConvertFrom-Json ($enc.GetString([Convert]::FromBase64String($ArgsB64)))
+ $argv = @()
+ foreach ($x in $parsed) { $argv += [string]$x }               # PS 5.1 diziyi tek nesne olarak dondurur; foreach elemanlara acar
  if ($argv.Count -lt 1) { throw 'komut yok' }
  if ($Cwd -and (Test-Path -LiteralPath $Cwd -PathType Container)) { Set-Location -LiteralPath $Cwd }
  $psi = [Diagnostics.ProcessStartInfo]::new([string]$argv[0])
- $psi.Arguments = (@($argv | Select-Object -Skip 1) | ForEach-Object { QuoteArg ([string]$_) }) -join ' '
+ $rest = @(); if ($argv.Count -gt 1) { $rest = $argv[1..($argv.Count - 1)] }
+ $psi.Arguments = (@($rest | ForEach-Object { QuoteArg ([string]$_) })) -join ' '
  $psi.UseShellExecute = $false
  $psi.CreateNoWindow = $true
  $psi.RedirectStandardOutput = $true
