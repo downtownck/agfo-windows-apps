@@ -385,7 +385,7 @@ def load_ttkbootstrap(lib_dir, enabled=True):
     if not python_ok():
         return None, 'Python %d.%d+ gerekir (bu Python %d.%d)' % (TB_MIN_PYTHON + tuple(sys.version_info[:2]))
     lib = str(lib_dir)
-    if os.path.isdir(lib) and lib not in sys.path:
+    if not getattr(sys, 'frozen', False) and os.path.isdir(lib) and lib not in sys.path:   # hazir calisma ortaminda gomulu surum kullanilir
         sys.path.insert(0, lib)
     try:
         import ttkbootstrap  # noqa: F401

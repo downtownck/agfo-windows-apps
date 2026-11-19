@@ -109,3 +109,26 @@ jobs:
           python --version
           python -I system-care/tests/test_core.py system-care
           python -I system-care/tests/test_windows.py system-care
+
+  system-care-runtime:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Hazir calisma ortamini derle (Python'suz kurulum)
+        run: |
+          python -m pip install --quiet --disable-pip-version-check pyinstaller ttkbootstrap==2.2.7 pillow paramiko pypdf
+          python system-care/packaging/build_runtime.py system-care dist-rt
+      - name: Exe oz-denetimi (21 sayfa, modern gorunum, gomulu kutuphaneler)
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'selftest.txt'
+          $env:AGFO_SELFTEST = $out
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'lad'
+          $p = Start-Process -FilePath 'dist-rt\AGFO System Care\AGFO System Care.exe' -PassThru
+          if (-not $p.WaitForExit(240000)) { $p.Kill(); throw 'zaman asimi' }
+          if (-not (Test-Path $out)) { throw 'oz-denetim dosyasi yok' }
+          $t = Get-Content $out -Raw; Write-Host $t
+          if ($t -notmatch '^OK \S+ pages=21 ui=modern frozen=True mods=ttkbootstrap PIL paramiko') { throw 'oz-denetim basarisiz' }
+          Get-ChildItem 'dist-rt\AGFO System Care' | Select-Object Name, Length | Format-Table | Out-String | Write-Host

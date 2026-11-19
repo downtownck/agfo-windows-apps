@@ -6,6 +6,28 @@ $files=@('app.pyw','sc_apps.py','sc_hardware.py','care_hw.py','sc_base.py','sc_b
 # Surum care_core.py'den okunur (elle yazilan surum eskiyordu).
 $version=([regex]::Match((Get-Content -LiteralPath (Join-Path $root 'care_core.py') -Raw -Encoding UTF8),"(?m)^VERSION = '([0-9.]+)'")).Groups[1].Value
 foreach($file in $files) { if(-not (Test-Path -LiteralPath (Join-Path $root $file) -PathType Leaf)){throw "Dosya bulunamadi: $file"} }
+# 4.0: hazir calisma ortami (Python gerekmez). Paketin icinde 'AGFO System Care.exe' + _internal varsa onlar kurulur.
+$exeName='AGFO System Care.exe'
+$runtime=Test-Path -LiteralPath (Join-Path $root $exeName) -PathType Leaf
+Get-Process -Name 'AGFO System Care' -ErrorAction SilentlyContinue | Where-Object { $_.Path -like (Join-Path $dest '*') } | Stop-Process -Force -ErrorAction SilentlyContinue
+if($runtime) {
+ Get-CimInstance Win32_Process -Filter "Name='pythonw.exe' OR Name='python.exe'" -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -and $_.CommandLine -like '*AGFO System Care\app.pyw*' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+ New-Item -ItemType Directory -Path $dest -Force | Out-Null
+ if(Test-Path -LiteralPath (Join-Path $dest '_internal')) { Remove-Item -LiteralPath (Join-Path $dest '_internal') -Recurse -Force }
+ Copy-Item -Path (Join-Path $root '*') -Destination $dest -Recurse -Force
+ Get-ChildItem -LiteralPath $dest -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
+ Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value $version -Encoding ASCII
+ $exe=Join-Path $dest $exeName
+ $menu=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\AGFO'
+ New-Item -ItemType Directory -Path $menu -Force | Out-Null
+ $sc=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $menu 'AGFO System Care.lnk'))
+ $sc.TargetPath=$exe;$sc.Arguments='';$sc.WorkingDirectory=$dest;$sc.IconLocation=$exe+',0';$sc.Description=('AGFO System Care '+$version);$sc.Save()
+ Write-Host ('Kurulum tamamlandi (Python gerekmez): '+$dest)
+ Start-Process -FilePath $exe -WorkingDirectory $dest
+ exit 0
+}
 function FindPython {
  foreach($name in @('py','python')) {
   $c=Get-Command $name -ErrorAction SilentlyContinue

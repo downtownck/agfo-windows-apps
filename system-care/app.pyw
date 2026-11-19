@@ -326,5 +326,23 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
 register_palette_module(globals())
 
 
+def _selftest(app, out):
+    """AGFO_SELFTEST=<dosya>: pencere kurulur, tum sayfalar acilir, ozet dosyaya yazilir ve uygulama kapanir (CI / hazir calisma ortami denetimi)."""
+    try:
+        for i in range(len(app.tabs.pages)):
+            app.tabs.select(i)
+            app.update()
+        mods = ' '.join(m for m in ('ttkbootstrap', 'PIL', 'paramiko') if __import__('importlib.util').util.find_spec(m))
+        pathlib.Path(out).write_text('OK %s pages=%d ui=%s frozen=%s mods=%s\n' % (VERSION, len(app.tabs.pages), 'modern' if TB else 'classic',
+                                     bool(getattr(sys, 'frozen', False)), mods), encoding='utf-8')
+    except Exception as e:                                          # noqa: BLE001
+        pathlib.Path(out).write_text('FAIL %r\n' % e, encoding='utf-8')
+    app.no_restart = True
+    app.destroy()
+
+
 if __name__ == '__main__':
-    App().mainloop()
+    _app = App()
+    if os.environ.get('AGFO_SELFTEST'):
+        _app.after(4000, lambda: _selftest(_app, os.environ['AGFO_SELFTEST']))
+    _app.mainloop()

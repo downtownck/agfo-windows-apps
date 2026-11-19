@@ -260,7 +260,7 @@ def overview_cards(recs, extra=None):
             continue
         c = {'key': r['key'], 'state': r.get('state', 'info'), 'value': tr_text(r.get('value')), 'detail': tr_text(r.get('detail'))}
         if r['key'].startswith('volume:'):
-            c['title'] = 'Disk ' + r['key'].split(':', 1)[1] + ':'
+            c['title'] = 'Disk ' + r['key'].split(':', 1)[1].rstrip(':') + ':'
             vols.append(c)
         else:
             c['title'] = OV_TITLES.get(r['key'], r['key'])

@@ -96,6 +96,38 @@ jobs:
           NOTES=".github/release-notes/${TAG}.md"; [ -f "$NOTES" ] || { echo "AGFO System Care ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
           gh release create "$TAG" out/* --title "AGFO System Care ${VERSION}" --notes-file "$NOTES" --target "$GITHUB_SHA"
 
+  system-care-windows:
+    needs: [detect, system-care]
+    if: needs.detect.outputs.sc != ''
+    runs-on: windows-latest
+    env: { TAG: '${{ needs.detect.outputs.sc }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Hazir calisma ortamini derle
+        run: |
+          python -m pip install --quiet --disable-pip-version-check pyinstaller ttkbootstrap==2.2.7 pillow paramiko pypdf
+          python system-care/packaging/build_runtime.py system-care dist-rt
+      - name: Oz-denetim, paketle, yayina ekle
+        shell: pwsh
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          $v = $env:TAG -replace '^system-care-v',''
+          $out = Join-Path $env:RUNNER_TEMP 'selftest.txt'
+          $env:AGFO_SELFTEST = $out
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'lad'
+          $p = Start-Process -FilePath 'dist-rt\AGFO System Care\AGFO System Care.exe' -PassThru
+          if (-not $p.WaitForExit(240000)) { $p.Kill(); throw 'zaman asimi' }
+          $t = Get-Content $out -Raw; Write-Host $t
+          if ($t -notmatch "^OK $([regex]::Escape($v)) pages=\d+ ui=modern frozen=True mods=ttkbootstrap PIL paramiko") { throw 'oz-denetim basarisiz' }
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue 'dist-rt\AGFO System Care\__pycache__'
+          $zip = "AGFO-System-Care-v$v-Windows.zip"
+          Compress-Archive -Path 'dist-rt\AGFO System Care' -DestinationPath $zip -CompressionLevel Optimal
+          $h = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$h  $zip" | Set-Content -Encoding ascii "$zip.sha256"
+          gh release upload $env:TAG $zip "$zip.sha256" --clobber
+
   supertools:
     needs: detect
     if: needs.detect.outputs.st != ''
