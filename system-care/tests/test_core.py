@@ -827,7 +827,80 @@ def tweak_contract_and_packaging():
     assert 'care_tweaks.py' in man['files'] and 'care_catalog.py' in man['files'] and man['version'] == c.VERSION
     inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
     assert "'care_tweaks.py'" in inst and "'care_catalog.py'" in inst and c.VERSION not in inst.split('$files=')[0]
-    assert "'  İnce ayarlar  '" in app and "'  Uygulama kur  '" in app
+    assert "('İnce ayarlar', self._tab_tweaks)" in app and "('Uygulama kur', self._tab_install)" in app
+
+
+# --------------------------------------------------------------------------- 3.8.0 temalar, sol menu, dosya duzeni
+import care_theme as th  # noqa: E402
+
+
+@test
+def theme_palettes_and_contrast():
+    keys = th.theme_keys()
+    assert len(keys) == len(set(keys)) >= 10 and th.DEFAULT in keys and keys[0] == th.DEFAULT
+    labels = [t['label'] for t in th.THEMES]
+    assert len(labels) == len(set(labels))
+    for t in th.THEMES:
+        assert set(t['colors']) == set(th.COLOR_KEYS) and t['type'] in ('dark', 'light'), t['key']
+        tok = th.tokens(t['key'])
+        assert th.contrast(tok['FG'], tok['PANEL']) >= 4.5, t['key']
+        assert th.contrast(tok['MUTED'], tok['PANEL']) >= 4.4, (t['key'], tok['MUTED'])
+        assert th.contrast(tok['NAV_FG'], tok['NAV_BG']) >= 4.4, t['key']
+        for k in ('WARN', 'OK_C', 'BAD_C', 'ACCENT'):
+            assert th.contrast(tok[k], tok['PANEL']) >= 2.9, (t['key'], k)
+        for k in ('BTN', 'BTN_GO', 'BTN_DANGER'):
+            assert th.contrast(tok[k + '_FG'], tok[k]) >= 2.5, (t['key'], k)
+        colors = [v for v in tok.values() if isinstance(v, str) and v.startswith('#')]
+        assert len(colors) == len(set(colors)), t['key']                 # tema degisiminde jeton geri bulunabilsin
+        assert tok['DARK'] == (t['type'] == 'dark')
+    assert th.label_to_key('Nord Koyu') == 'nord-dark' and th.label_to_key('yok') == th.DEFAULT
+    assert th.theme_by_key('yok')['key'] == th.DEFAULT
+    assert th.tb_name('agfo-gece') == 'agfo-gece' and th.tb_name('nord-dark') == 'agfo-nord-dark'
+    assert th.ensure_contrast('#777777', '#ffffff', 4.5) != '#777777' and th.contrast(th.ensure_contrast('#777777', '#ffffff', 4.5), '#ffffff') >= 4.5
+    assert th.mix('#000000', '#ffffff', 0.5) in ('#808080', '#7f7f7f')
+
+
+@test
+def theme_loader_and_pip():
+    import types
+    assert th.python_ok((3, 10)) and not th.python_ok((3, 9))
+    mod, state = th.load_ttkbootstrap('/yok', enabled=False)
+    assert mod is None and 'kapalı' in state
+    with tempfile.TemporaryDirectory() as d:
+        mod, state = th.load_ttkbootstrap(d)                              # bu ortamda kurulu olmayabilir: hata vermez
+        assert (mod is None) == (not state.startswith('etkin')), state
+    cmd = th.pip_install_cmd('python.exe', 'C:/x/ui-lib')
+    assert cmd[1:4] == ['-m', 'pip', 'install'] and '--target' in cmd and cmd[-1] == 'ttkbootstrap==' + th.TB_VERSION
+    with tempfile.TemporaryDirectory() as d:
+        w = pathlib.Path(d) / 'pythonw.exe'; w.write_text('')
+        assert th.console_python(str(w)) == str(w)
+        (pathlib.Path(d) / 'python.exe').write_text('')
+        assert th.console_python(str(w)).endswith('python.exe')
+    assert str(th.ui_lib_dir('/a')).replace('\\', '/').endswith('/a/ui-lib')
+
+
+@test
+def organizer_bundle_and_nav_contract():
+    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    src = ROOT.parent / 'smart-organizer' / 'organizer_core.py'
+    if src.is_file():                                                   # depoda: Smart Organizer cekirdegiyle birebir ayni
+        assert src.read_bytes() == (ROOT / 'organizer_core.py').read_bytes()
+    import organizer_core as oc
+    assert oc.APP_FOLDER and callable(oc.scan) and callable(oc.execute_approved)
+    for name in ('care_theme.py', 'organizer_core.py'):
+        assert c._is_runtime_file(name)
+        assert name in c.build_manifest(ROOT)['files']
+    inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
+    assert "'care_theme.py'" in inst and "'organizer_core.py'" in inst and 'ttkbootstrap==' + th.TB_VERSION in inst and '--target $uiLib' in inst
+    order = ['Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Sürücüler', 'Aygıt temizliği', 'Bakım ve sağlık',
+             'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'Kol / Gamepad']
+    nav = app.split('def nav_pages(self):')[1].split('def _remember_page')[0]
+    pos = [nav.index("('%s'," % t) for t in order]
+    assert pos == sorted(pos), 'sol menu sirasi'
+    assert 'ttk.Notebook(' not in app and 'class NavBook(tk.Frame)' in app
+    import re
+    raw = [l for l in app.splitlines() if re.search(r'(?<![\w.])tk\.Button\(', l)]
+    assert len(raw) == 1 and 'return tk.Button(' in raw[0], raw                                 # tum dugmeler mkbtn uzerinden
 
 
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

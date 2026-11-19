@@ -2,7 +2,7 @@ $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $root=Split-Path -Parent $PSScriptRoot
 $dest=Join-Path $env:LOCALAPPDATA 'Programs\AGFO System Care'
-$files=@('app.pyw','care_core.py','care_tweaks.py','care_catalog.py','agfo_github_update.py','care_tasks.ps1','assets\agfo.ico','README_TR.md','THIRD_PARTY_LICENSES.txt')
+$files=@('app.pyw','care_core.py','care_tweaks.py','care_catalog.py','care_theme.py','organizer_core.py','agfo_github_update.py','care_tasks.ps1','assets\agfo.ico','README_TR.md','THIRD_PARTY_LICENSES.txt')
 # Surum care_core.py'den okunur (elle yazilan surum eskiyordu).
 $version=([regex]::Match((Get-Content -LiteralPath (Join-Path $root 'care_core.py') -Raw -Encoding UTF8),"(?m)^VERSION = '([0-9.]+)'")).Groups[1].Value
 foreach($file in $files) { if(-not (Test-Path -LiteralPath (Join-Path $root $file) -PathType Leaf)){throw "Dosya bulunamadi: $file"} }
@@ -29,6 +29,19 @@ foreach($file in $files){
  Unblock-File -LiteralPath $target -ErrorAction SilentlyContinue   # Internet'ten indirilen ZIP'in Zone.Identifier isaretini kaldir
 }
 Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value $version -Encoding ASCII
+# Modern gorunum (istege bagli): ttkbootstrap yalnizca System Care'in kendi klasorune kurulur (Python kurulumuna dokunulmaz).
+# Olmazsa klasik gorunum kullanilir; uygulama icinden (sol alt: Gorunum) sonradan kurulabilir.
+$uiLib=Join-Path $env:LOCALAPPDATA 'AGFO\SystemCare\ui-lib'
+try {
+ $ErrorActionPreference='Continue'
+ $pyOk=@(& $python -c "import sys; print(1 if sys.version_info >= (3, 10) else 0)" 2>$null)[-1]
+ if($pyOk -eq '1' -and -not (Test-Path -LiteralPath (Join-Path $uiLib 'ttkbootstrap'))) {
+  Write-Host 'Modern gorunum bileseni (ttkbootstrap 2.2.7) kuruluyor...'
+  & $python -m pip install --disable-pip-version-check --no-input --upgrade --target $uiLib 'ttkbootstrap==2.2.7' *> $null
+  if($LASTEXITCODE -ne 0) { Write-Host 'Modern gorunum kurulamadi; klasik gorunum kullanilacak.' }
+ }
+} catch { Write-Host ('Modern gorunum atlandi: '+$_.Exception.Message) }
+finally { $ErrorActionPreference='Stop' }
 $pythonW=Join-Path (Split-Path $python -Parent) 'pythonw.exe'
 if(-not (Test-Path $pythonW)) { $pythonW=$python }
 $menu=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\AGFO'

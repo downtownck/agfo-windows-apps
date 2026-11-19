@@ -10,7 +10,7 @@ param(
  [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no',
  [string]$PlanFile = ''
 )
-# AGFO System Care 3.7.0 gorev motoru.
+# AGFO System Care 3.8.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'

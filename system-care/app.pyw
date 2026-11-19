@@ -1,4 +1,4 @@
-"""AGFO System Care 3.7.0 - acik kaynak motorlari kendi arayuzu icinde calistiran Windows bakim uygulamasi.
+"""AGFO System Care 3.8.0 - acik kaynak motorlari kendi arayuzu icinde calistiran Windows bakim uygulamasi.
 
 Motorlar: BleachBit (temizlik), Bulk Crap Uninstaller (program envanteri/artik), Snappy Driver Installer Origin
 (surucu), WinGet (uygulama guncelleme), Windows Update / DISM / SFC / PnPUtil (yerlesik).
@@ -40,6 +40,7 @@ BASE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 import care_core as core  # noqa: E402
 import care_tweaks as tweaks  # noqa: E402
+import care_theme as theme  # noqa: E402
 import agfo_github_update as ghu  # noqa: E402
 
 VERSION = core.VERSION
@@ -48,8 +49,22 @@ LOG_RETENTION_DAYS = 30
 LOG_WIDGET_MAX_LINES = 6000
 LOG_WIDGET_TRIM_LINES = 1500
 POLL_MS = 80
-BG, PANEL, PANEL2, FG, MUTED, ACCENT = '#0a1425', '#12243b', '#192e48', '#ecf3ff', '#a5b6ce', '#49b3ef'
-WARN, OK_C, BAD_C = '#e2b356', '#6fd39b', '#ff8a80'
+# Renk jetonlari (BG, PANEL, PANEL2, FG, MUTED, ACCENT, WARN, OK_C, BAD_C, SEL, TREE_BG, LOG_BG, BTN, NAV_BG ...) secili temadan
+# gelir; tema degisince set_palette ile guncellenir. Modern gorunum (ttkbootstrap) kuruluysa ttk bilesenleri onunla cizilir.
+_SETTINGS0 = core.load_settings()
+TB, TB_STATE = theme.load_ttkbootstrap(theme.ui_lib_dir(core.APP_DATA_DIR), _SETTINGS0.get('modern_ui', True))
+if TB is not None:
+    ttk = TB  # noqa: F811  (ayni ttk arayuzu: Treeview, Checkbutton, Combobox, Entry, Scrollbar, Frame, Style, Button)
+THEME_KEY = theme.DEFAULT
+
+
+def set_palette(key):
+    globals().update(theme.tokens(key if key in theme.theme_keys() else theme.DEFAULT))
+
+
+set_palette(_SETTINGS0.get('theme', theme.DEFAULT))
+COLOR_OPTS = ('background', 'foreground', 'activebackground', 'activeforeground', 'selectbackground', 'selectforeground',
+              'insertbackground', 'disabledforeground', 'highlightbackground', 'highlightcolor', 'troughcolor')
 CREATIONFLAGS = core.CREATIONFLAGS
 CHK_ON, CHK_OFF, CHK_MIX = '☑', '☐', '▣'
 
@@ -313,12 +328,21 @@ class CheckTree(ttk.Frame):
         self._sort_rev = {}
         self.tree.bind('<Button-1>', self._click, add=True)
         self.tree.bind('<space>', self._space)
-        self.tree.tag_configure('risky', foreground=WARN)
-        self.tree.tag_configure('orphan', foreground=BAD_C)
-        self.tree.tag_configure('group', font=('Segoe UI', 10, 'bold'))
-        self.tree.tag_configure('muted', foreground=MUTED)
-        for tg, col in (('st_new', OK_C), ('st_missing', BAD_C), ('st_problem', WARN), ('st_warn', WARN), ('st_old', MUTED), ('st_ok', FG)):
-            self.tree.tag_configure(tg, foreground=col)
+        self.retheme()
+        CheckTree.INSTANCES.append(self)
+
+    INSTANCES = []
+
+    def retheme(self):
+        try:
+            self.tree.tag_configure('risky', foreground=WARN)
+            self.tree.tag_configure('orphan', foreground=BAD_C)
+            self.tree.tag_configure('group', font=('Segoe UI', 10, 'bold'))
+            self.tree.tag_configure('muted', foreground=MUTED)
+            for tg, col in (('st_new', OK_C), ('st_missing', BAD_C), ('st_problem', WARN), ('st_warn', WARN), ('st_old', MUTED), ('st_ok', FG)):
+                self.tree.tag_configure(tg, foreground=col)
+        except tk.TclError:
+            pass
 
     def clear(self):
         self.tree.delete(*self.tree.get_children())
@@ -433,6 +457,85 @@ class CheckTree(ttk.Frame):
 
 
 # =========================================================================== ana pencere
+class NavBook(tk.Frame):
+    """Sol menulu sayfa kabi. ttk.Notebook'un uygulamada kullanilan arayuzunu (add / select / tab / index /
+    <<NotebookTabChanged>>) taklit eder; menu satirlari gruplar halinde nav cercevesine dizilir."""
+
+    def __init__(self, master, nav):
+        super().__init__(master, bg=PANEL)
+        self.nav = nav
+        self.pages = []
+        self.current = None
+        self.navlist = tk.Frame(nav, bg=NAV_BG)
+        self.navlist.pack(fill='x', pady=(6, 0))
+
+    def add_group(self, title):
+        tk.Label(self.navlist, text=title.upper(), bg=NAV_BG, fg=NAV_MUTED, font=('Segoe UI', 8, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(12, 2))
+
+    def add(self, frame, text='', **_kw):
+        idx = len(self.pages)
+        row = tk.Frame(self.navlist, bg=NAV_BG, cursor='hand2')
+        row.pack(fill='x', padx=6, pady=1)
+        bar = tk.Frame(row, bg=NAV_BG, width=4)
+        bar.pack(side='left', fill='y')
+        lab = tk.Label(row, text=text.strip(), bg=NAV_BG, fg=NAV_FG, font=('Segoe UI', 10), anchor='w', padx=12, pady=6, cursor='hand2')
+        lab.pack(side='left', fill='x', expand=True)
+        for w in (row, bar, lab):
+            w.bind('<Button-1>', lambda _e, i=idx: self.select(i))
+            w.bind('<Enter>', lambda _e, i=idx: self._hover(i, True))
+            w.bind('<Leave>', lambda _e, i=idx: self._hover(i, False))
+        self.pages.append({'frame': frame, 'title': text.strip(), 'row': row, 'bar': bar, 'lab': lab})
+
+    def _index(self, which):
+        if isinstance(which, int):
+            return which
+        if which == 'current':
+            return self.current
+        name = str(which)
+        for i, p in enumerate(self.pages):
+            if str(p['frame']) == name or p['title'] == name:
+                return i
+        raise tk.TclError('sayfa yok: %s' % which)
+
+    def index(self, which):
+        return self._index(which)
+
+    def tab(self, which, option=None):
+        p = self.pages[self._index(which)]
+        return p['title'] if option == 'text' else {'text': p['title']}
+
+    def select(self, which=None):
+        if which is None:
+            return str(self.pages[self.current]['frame']) if self.current is not None else ''
+        i = self._index(which)
+        if not 0 <= i < len(self.pages) or i == self.current:
+            return
+        if self.current is not None:
+            self.pages[self.current]['frame'].pack_forget()
+        self.current = i
+        self.pages[i]['frame'].pack(fill='both', expand=True)
+        self.refresh_nav()
+        self.event_generate('<<NotebookTabChanged>>')
+
+    def _paint(self, i, bg, fg, bar, bold):
+        p = self.pages[i]
+        for w in (p['row'], p['lab']):
+            w.configure(bg=bg)
+        p['lab'].configure(fg=fg, font=('Segoe UI', 10, 'bold' if bold else 'normal'))
+        p['bar'].configure(bg=bar)
+
+    def _hover(self, i, on):
+        if i != self.current:
+            self._paint(i, PANEL2 if on else NAV_BG, NAV_FG, NAV_BG if not on else PANEL2, False)
+
+    def refresh_nav(self):
+        for i in range(len(self.pages)):
+            if i == self.current:
+                self._paint(i, NAV_SEL, NAV_SEL_FG, ACCENT, True)
+            else:
+                self._paint(i, NAV_BG, NAV_FG, NAV_BG, False)
+
+
 # =========================================================================== canli kol gorseli
 class GamepadCanvas(tk.Canvas):
     """XInput durumunu cizen kol gorseli (taban olcu 500x280, DPI olcegiyle buyur)."""
@@ -505,6 +608,9 @@ class App(tk.Tk):
         super().__init__()
         self.admin = core.is_admin()
         self.settings = core.load_settings()
+        global THEME_KEY
+        THEME_KEY = self.settings.get('theme') if self.settings.get('theme') in theme.theme_keys() else theme.DEFAULT
+        set_palette(THEME_KEY)
         self.title('AGFO System Care ' + VERSION + (' — Yönetici' if self.admin else ''))
         self.scale = max(1.0, self.winfo_fpixels('1i') / 96.0)
         self.geometry('%dx%d' % (int(1220 * self.scale), int(860 * self.scale)))
@@ -525,6 +631,7 @@ class App(tk.Tk):
         self.backup_root = core.APP_DATA_DIR / 'update-backups'
         self.no_restart = False
         self.xi = core.XInputReader()
+        self.theme_hooks = []
         self._style()
         self._build()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
@@ -545,33 +652,52 @@ class App(tk.Tk):
                 pass
 
     def _style(self):
-        s = ttk.Style(self)
-        s.theme_use('clam')
-        s.configure('.', background=PANEL, foreground=FG, fieldbackground=PANEL2, font=('Segoe UI', 10))
-        s.configure('TNotebook', background=BG, borderwidth=0)
-        s.configure('TNotebook.Tab', background=PANEL2, foreground=FG, padding=(16, 9), font=('Segoe UI', 10))
-        s.map('TNotebook.Tab', background=[('selected', '#285475')], foreground=[('selected', '#ffffff')])
+        if TB is not None:
+            s = ttk.Style()
+            theme.register_themes(s)
+            s.theme_use(theme.tb_name(THEME_KEY))
+            s.configure('.', font=('Segoe UI', 10))
+        else:
+            s = ttk.Style(self)
+            s.theme_use('clam')
+            s.configure('.', background=PANEL, foreground=FG, fieldbackground=PANEL2, font=('Segoe UI', 10),
+                        bordercolor=BORDER, lightcolor=PANEL2, darkcolor=PANEL2, troughcolor=PANEL)
+            s.configure('Treeview', background=TREE_BG, fieldbackground=TREE_BG, foreground=FG, borderwidth=0)
+            s.configure('Treeview.Heading', background=PANEL2, foreground=FG, relief='flat')
+            s.map('Treeview.Heading', background=[('active', SEL)], foreground=[('active', SEL_FG)])
+            s.configure('TCheckbutton', background=PANEL, foreground=FG, indicatorbackground=TREE_BG, indicatorforeground=FG)
+            s.map('TCheckbutton', background=[('active', PANEL)], indicatorbackground=[('selected', SEL)])
+            s.configure('TCombobox', fieldbackground=PANEL2, background=PANEL2, foreground=FG, arrowcolor=FG, selectbackground=PANEL2, selectforeground=FG)
+            s.map('TCombobox', fieldbackground=[('readonly', PANEL2)], foreground=[('readonly', FG)], selectbackground=[('readonly', PANEL2)], selectforeground=[('readonly', FG)])
+            s.configure('TEntry', fieldbackground=PANEL2, foreground=FG, insertcolor=FG)
+            s.configure('Vertical.TScrollbar', background=PANEL2, troughcolor=PANEL, arrowcolor=FG)
+            s.configure('TButton', background=BTN_GHOST, foreground=FG, padding=(12, 6), relief='flat')
+        s.map('Treeview', background=[('selected', SEL)], foreground=[('selected', SEL_FG)])
+        s.configure('Treeview', rowheight=int(24 * self.scale))
+        s.configure('Treeview.Heading', font=('Segoe UI', 9, 'bold'))
         s.configure('Card.TFrame', background=PANEL)
-        s.configure('Treeview', background='#0e1b2e', fieldbackground='#0e1b2e', foreground=FG, rowheight=int(24 * self.scale), borderwidth=0)
-        s.configure('Treeview.Heading', background=PANEL2, foreground=FG, font=('Segoe UI', 9, 'bold'), relief='flat')
-        s.map('Treeview', background=[('selected', '#285475')], foreground=[('selected', '#ffffff')])
-        s.map('Treeview.Heading', background=[('active', '#285475')])
-        s.configure('TCheckbutton', background=PANEL, foreground=FG, indicatorbackground='#0e1b2e', indicatorforeground=FG)
-        s.map('TCheckbutton', background=[('active', PANEL)], indicatorbackground=[('selected', '#285475')])
-        s.configure('Alt.TCheckbutton', background=PANEL2, foreground=FG, indicatorbackground='#0e1b2e', indicatorforeground=FG)
-        s.map('Alt.TCheckbutton', background=[('active', PANEL2)], indicatorbackground=[('selected', '#285475')])
-        s.configure('TCombobox', fieldbackground=PANEL2, background=PANEL2, foreground=FG, arrowcolor=FG, selectbackground=PANEL2, selectforeground=FG)
-        s.map('TCombobox', fieldbackground=[('readonly', PANEL2)], foreground=[('readonly', FG)], selectbackground=[('readonly', PANEL2)], selectforeground=[('readonly', FG)])
+        s.configure('Alt.TCheckbutton', background=PANEL2, foreground=FG)
+        s.map('Alt.TCheckbutton', background=[('active', PANEL2)])
         self.option_add('*TCombobox*Listbox.background', PANEL2)
         self.option_add('*TCombobox*Listbox.foreground', FG)
-        self.option_add('*TCombobox*Listbox.selectBackground', '#285475')
-        s.configure('TEntry', fieldbackground=PANEL2, foreground=FG, insertcolor=FG)
-        s.configure('Vertical.TScrollbar', background=PANEL2, troughcolor=PANEL, arrowcolor=FG)
+        self.option_add('*TCombobox*Listbox.selectBackground', SEL)
+        self.option_add('*TCombobox*Listbox.selectForeground', SEL_FG)
+
+    # dugme turu -> (ttkbootstrap bootstyle, klasik gorunum jetonu)
+    KIND = {'normal': ('primary', 'BTN'), 'go': ('success', 'BTN_GO'), 'danger': ('danger', 'BTN_DANGER'),
+            'ghost': ('secondary-outline', 'BTN_GHOST'), 'stop': ('danger-outline', 'STOP_BG')}
+
+    def mkbtn(self, parent, text, cmd, kind='normal', small=False, **kw):
+        if TB is not None:
+            return ttk.Button(parent, text=text, command=cmd, bootstyle=self.KIND[kind][0], cursor='hand2', **kw)
+        tok = self.KIND[kind][1]
+        g = globals()
+        return tk.Button(parent, text=text, command=cmd, bg=g[tok], fg=g[tok + '_FG'], activebackground=ACCENT, activeforeground=g[tok + '_FG'],
+                         relief='flat', cursor='hand2', padx=10 if small else 12, pady=3 if small else 6, font=('Segoe UI', 9, 'bold'),
+                         disabledforeground=DISABLED_FG, bd=0, highlightthickness=0, **kw)
 
     def btn(self, parent, text, cmd, kind='normal', action=True, side='left', **kw):
-        colors = {'normal': '#285475', 'danger': '#685229', 'ghost': PANEL2, 'go': '#1f6a4a'}
-        b = tk.Button(parent, text=text, command=cmd, bg=colors[kind], fg='#ffffff', activebackground=ACCENT, relief='flat',
-                      cursor='hand2', padx=12, pady=6, font=('Segoe UI', 9, 'bold'), disabledforeground='#7f8ea3', **kw)
+        b = self.mkbtn(parent, text, cmd, kind, **kw)
         b.pack(side=side, padx=(0, 6), pady=2)
         if action:
             self.action_buttons.append(b)
@@ -585,52 +711,171 @@ class App(tk.Tk):
         top = tk.Frame(self, bg=BG); top.pack(fill='x', padx=22, pady=(16, 6))
         tk.Label(top, text='AGFO  /  SUPERTOOLS', fg=ACCENT, bg=BG, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
         tk.Label(top, text='System Care ' + '.'.join(VERSION.split('.')[:2]), fg=FG, bg=BG, font=('Segoe UI', 22, 'bold')).pack(anchor='w')
-        tk.Label(top, text='BleachBit · Bulk Crap Uninstaller · Snappy Driver Installer Origin · WinGet · Windows Update — tek arayüzde',
+        tk.Label(top, text='Temizlik · programlar · sürücüler · ince ayarlar · dosya düzeni — BleachBit, BCU, SDIO, WinGet ve Windows araçları tek arayüzde',
                  fg=MUTED, bg=BG, font=('Segoe UI', 10)).pack(anchor='w', pady=(2, 0))
         st = tk.Frame(self, bg=PANEL, padx=12, pady=8); st.pack(fill='x', padx=22, pady=8)
         self.status = tk.StringVar(value=('Hazır (yönetici)' if self.admin else 'Hazır (standart kullanıcı)') + ' — işlemler siz başlatmadıkça uygulanmaz.')
         tk.Label(st, textvariable=self.status, fg=FG, bg=PANEL, font=('Segoe UI', 10)).pack(side='left')
-        self.cancel_btn = tk.Button(st, text='Durdur', command=self.cancel, relief='flat', bg='#6b2a2a', fg=FG, padx=12, pady=4, state='disabled')
+        self.cancel_btn = self.mkbtn(st, 'Durdur', self.cancel, 'stop', small=True, state='disabled')
         self.cancel_btn.pack(side='right')
-        tk.Button(st, text='Güncelleme…', command=self.open_updater, relief='flat', bg='#1f6a4a', fg='#ffffff', padx=12, pady=4,
-                  activebackground=ACCENT, cursor='hand2').pack(side='right', padx=(0, 8))
+        self.mkbtn(st, 'Güncelleme…', self.open_updater, 'go', small=True).pack(side='right', padx=(0, 8))
         if not self.admin:
-            tk.Button(st, text='Yönetici olarak yeniden aç', command=self.elevate, relief='flat', bg=PANEL2, fg=FG, padx=12, pady=4).pack(side='right', padx=(0, 8))
+            self.mkbtn(st, 'Yönetici olarak yeniden aç', self.elevate, 'ghost', small=True).pack(side='right', padx=(0, 8))
 
-        self.gh_banner = tk.Frame(self, bg='#1d4d3a', padx=12, pady=7)   # yeni surum varsa gosterilir
+        self.gh_banner = tk.Frame(self, bg=BANNER_BG, padx=12, pady=7)   # yeni surum varsa gosterilir
         self.gh_banner_text = tk.StringVar(value='')
-        tk.Label(self.gh_banner, textvariable=self.gh_banner_text, fg='#ffffff', bg='#1d4d3a', font=('Segoe UI', 10, 'bold')).pack(side='left')
-        for txt, cmd, bg in (('Bu sürümü atla', self.gh_skip, '#2a5f4a'), ('Notlar', self.gh_show_notes, '#2a5f4a'), ('Şimdi güncelle', self.gh_update, '#2f8f5f')):
-            tk.Button(self.gh_banner, text=txt, command=cmd, bg=bg, fg='#ffffff', relief='flat', padx=12, pady=3, cursor='hand2',
-                      activebackground=ACCENT).pack(side='right', padx=(6, 0))
+        tk.Label(self.gh_banner, textvariable=self.gh_banner_text, fg=BANNER_BG_FG, bg=BANNER_BG, font=('Segoe UI', 10, 'bold')).pack(side='left')
+        for txt, cmd, kind in (('Bu sürümü atla', self.gh_skip, 'ghost'), ('Notlar', self.gh_show_notes, 'ghost'), ('Şimdi güncelle', self.gh_update, 'go')):
+            self.mkbtn(self.gh_banner, txt, cmd, kind, small=True).pack(side='right', padx=(6, 0))
         self.gh_result = None
-        paned = tk.PanedWindow(self, orient='vertical', bg=BG, sashwidth=6, bd=0)
+        main = tk.Frame(self, bg=BG)
+        self.main = main
+        main.pack(fill='both', expand=True, padx=22, pady=(0, 16))
+        nav = tk.Frame(main, bg=NAV_BG, width=int(220 * self.scale))
+        nav.pack(side='left', fill='y', padx=(0, 10))
+        nav.pack_propagate(False)
+        paned = tk.PanedWindow(main, orient='vertical', bg=BG, sashwidth=6, bd=0)
         self.paned = paned
-        paned.pack(fill='both', expand=True, padx=22, pady=(0, 16))
-        self.tabs = ttk.Notebook(paned)
+        paned.pack(side='left', fill='both', expand=True)
+        self.tabs = NavBook(paned, nav)
         paned.add(self.tabs, stretch='always', minsize=int(360 * self.scale))
-        for title, builder in [('  Motorlar  ', self._tab_engines), ('  Temizlik  ', self._tab_clean), ('  Programlar  ', self._tab_programs), ('  Bloatware  ', self._tab_bloat),
-                               ('  İnce ayarlar  ', self._tab_tweaks), ('  Sürücüler  ', self._tab_drivers), ('  Aygıt temizliği  ', self._tab_phantom),
-                               ('  Uygulama güncellemeleri  ', self._tab_apps), ('  Uygulama kur  ', self._tab_install), ('  Bakım ve sağlık  ', self._tab_maint),
-                               ('  Kol / Gamepad  ', self._tab_pad)]:
-            f = tk.Frame(self.tabs, bg=PANEL)
-            self.tabs.add(f, text=title)
-            builder(f)
+        for group, pages in self.nav_pages():
+            self.tabs.add_group(group)
+            for title, builder in pages:
+                f = tk.Frame(self.tabs, bg=PANEL)
+                self.tabs.add(f, text=title)
+                builder(f)
+        self._build_appearance(nav)
         self.tabs.bind('<<NotebookTabChanged>>', self._tw_on_tab, add='+')
+        self.tabs.bind('<<NotebookTabChanged>>', self._remember_page, add='+')
+        self._open_last_page()
 
         bottom = tk.Frame(paned, bg=BG)
         paned.add(bottom, stretch='never', minsize=int(140 * self.scale))
         bar = tk.Frame(bottom, bg=BG); bar.pack(fill='x', pady=(8, 0))
         tk.Label(bar, text='İŞLEM GÜNLÜĞÜ', bg=BG, fg=ACCENT, font=('Segoe UI', 10, 'bold')).pack(side='left')
-        tk.Button(bar, text='Günlük klasörünü aç', command=self.open_logs, bg=PANEL2, fg=FG, relief='flat').pack(side='right')
-        tk.Button(bar, text='Temizle', command=self.clear_log, bg=PANEL2, fg=FG, relief='flat').pack(side='right', padx=(0, 8))
-        self.log = tk.Text(bottom, height=7, bg='#09111e', fg='#dce8fa', insertbackground=FG, relief='flat', font=('Consolas', 9),
+        self.mkbtn(bar, 'Günlük klasörünü aç', self.open_logs, 'ghost', small=True).pack(side='right')
+        self.mkbtn(bar, 'Temizle', self.clear_log, 'ghost', small=True).pack(side='right', padx=(0, 8))
+        self.log = tk.Text(bottom, height=7, bg=LOG_BG, fg=LOG_FG, insertbackground=FG, relief='flat', font=('Consolas', 9),
                            padx=10, pady=8, wrap='word', undo=False)
         self.log.pack(fill='both', expand=True, pady=(6, 0))
         self.log.configure(state='disabled')
         self.write('AGFO System Care %s — motorlar bu pencerede çalışır; hiçbir işlem web sayfasına yönlendirmez.\n' % VERSION)
         if not self.admin:
             self.write('Not: sürücü kurulumu, SDIO, DISM/SFC ve geri yükleme noktası yönetici ister.\n')
+
+    # ------------------------------------------------------------------ gezinme ve gorunum
+    def nav_pages(self):
+        return [('Genel', [('Motorlar', self._tab_engines)]),
+                ('Temizlik', [('Temizlik', self._tab_clean), ('Bloatware', self._tab_bloat), ('Dosya düzeni', self._tab_organizer)]),
+                ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Sürücüler', self._tab_drivers), ('Aygıt temizliği', self._tab_phantom),
+                            ('Bakım ve sağlık', self._tab_maint)]),
+                ('Uygulamalar', [('Programlar', self._tab_programs), ('Uygulama güncellemeleri', self._tab_apps), ('Uygulama kur', self._tab_install)]),
+                ('Donanım', [('Kol / Gamepad', self._tab_pad)])]
+
+    def _remember_page(self, _e=None):
+        try:
+            title = self.tabs.tab(self.tabs.current, 'text')
+        except Exception:
+            return
+        if self.settings.get('last_page') != title:
+            self.settings['last_page'] = title
+            core.save_settings(self.settings)
+
+    def _open_last_page(self):
+        title = self.settings.get('last_page')
+        try:
+            self.tabs.select(title if title else 0)
+        except tk.TclError:
+            self.tabs.select(0)
+
+    def _build_appearance(self, nav):
+        box = tk.Frame(nav, bg=NAV_BG)
+        box.pack(side='bottom', fill='x', padx=14, pady=12)
+        tk.Label(box, text='GÖRÜNÜM', bg=NAV_BG, fg=NAV_MUTED, font=('Segoe UI', 8, 'bold'), anchor='w').pack(fill='x')
+        tk.Label(box, text='Renk teması', bg=NAV_BG, fg=NAV_FG, font=('Segoe UI', 9), anchor='w').pack(fill='x', pady=(4, 2))
+        self.theme_box = ttk.Combobox(box, state='readonly', values=[t['label'] for t in theme.THEMES], width=18)
+        self.theme_box.set(theme.theme_by_key(THEME_KEY)['label'])
+        self.theme_box.pack(fill='x')
+        self.theme_box.bind('<<ComboboxSelected>>', lambda _e: self.apply_theme(theme.label_to_key(self.theme_box.get())))
+        self.ui_state = tk.StringVar(value='Modern görünüm: ' + TB_STATE)
+        tk.Label(box, textvariable=self.ui_state, bg=NAV_BG, fg=NAV_MUTED, font=('Segoe UI', 8), anchor='w', justify='left',
+                 wraplength=int(185 * self.scale)).pack(fill='x', pady=(6, 2))
+        if TB is None and theme.python_ok() and self.settings.get('modern_ui', True):
+            self.ui_btn = self.btn(box, 'Modern görünümü kur', self.install_modern_ui, 'normal', side='top')
+        elif TB is None and not self.settings.get('modern_ui', True):
+            self.btn(box, 'Modern görünümü aç', lambda: self.set_modern_ui(True), 'ghost', side='top', action=False)
+        elif TB is not None:
+            self.btn(box, 'Klasik görünüme dön', lambda: self.set_modern_ui(False), 'ghost', side='top', action=False)
+
+    def set_modern_ui(self, on):
+        self.settings['modern_ui'] = bool(on)
+        core.save_settings(self.settings)
+        if self.busy:
+            messagebox.showinfo('Görünüm', 'Değişiklik uygulama yeniden açıldığında geçerli olur.')
+            return
+        if messagebox.askyesno('Görünüm', 'Görünüm değişikliği için uygulama yeniden açılsın mı?'):
+            self.restart_app()
+
+    def apply_theme(self, key):
+        global THEME_KEY
+        if key == THEME_KEY or key not in theme.theme_keys():
+            return
+        rev = {}
+        for name, val in theme.tokens(THEME_KEY).items():
+            if isinstance(val, str) and val.startswith('#'):
+                rev.setdefault(val.lower(), name)
+        snap = []
+
+        def walk(w):
+            for opt in COLOR_OPTS:
+                try:
+                    v = str(w.cget(opt)).lower()
+                except (tk.TclError, ValueError):
+                    continue
+                if v in rev:
+                    snap.append((w, opt, rev[v]))
+            for c in w.winfo_children():
+                walk(c)
+        walk(self)
+        THEME_KEY = key
+        set_palette(key)
+        self._style()                                      # ttkbootstrap: theme_use tum ttk bilesenlerini yeniden cizer
+        g = globals()
+        for w, opt, tok in snap:                           # tk bilesenleri: eski jetonun yeni rengi
+            try:
+                w.configure(**{opt: g[tok]})
+            except tk.TclError:
+                pass
+        for ct in CheckTree.INSTANCES:
+            ct.retheme()
+        for hook in self.theme_hooks:
+            try:
+                hook()
+            except tk.TclError:
+                pass
+        self.tabs.refresh_nav()
+        self.configure(bg=BG)
+        self.settings['theme'] = key
+        core.save_settings(self.settings)
+        self.write('Renk teması: %s\n' % theme.theme_by_key(key)['label'])
+
+    def install_modern_ui(self):
+        if not theme.python_ok():
+            messagebox.showinfo('Modern görünüm', 'Modern görünüm Python 3.10 veya üstünü ister.'); return
+        lib = theme.ui_lib_dir(core.APP_DATA_DIR)
+        if not messagebox.askyesno('Modern görünüm', 'ttkbootstrap %s (ve gerektirdiği Pillow) PyPI\'den indirilip yalnızca System Care\'in kendi klasörüne kurulacak:\n%s\n\n'
+                                   'Python kurulumunuza dokunulmaz; internet gerekir. Devam edilsin mi?' % (theme.TB_VERSION, lib)):
+            return
+
+        def done(job):
+            if job.code == 0:
+                self.ui_state.set('Modern görünüm: kuruldu — yeniden açınca etkin')
+                if messagebox.askyesno('Modern görünüm', 'Kurulum tamamlandı. Uygulama yeniden açılsın mı?'):
+                    self.restart_app()
+            else:
+                self.write('Modern görünüm bileşeni kurulamadı (%s). Klasik görünüm kullanılmaya devam ediyor.\n' % hint(job.code))
+        self.start([Job('Modern görünüm bileşeni (ttkbootstrap)', cmd=theme.pip_install_cmd(theme.console_python(), lib), on_done=done, cancel_ok=True)])
 
     # ------------------------------------------------------------------ MOTORLAR
     def _tab_engines(self, f):
@@ -1058,8 +1303,8 @@ class App(tk.Tk):
             win.destroy()
             if paths:
                 self.start([Job('Artıkları Geri Dönüşüm Kutusu\'na taşı', cmd=ps_cmd('recycle-paths', Paths='|'.join(paths)), cancel_ok=False)])
-        tk.Button(bar, text='Taşı', command=go, bg='#685229', fg='#fff', relief='flat', padx=14, pady=6).pack(side='right')
-        tk.Button(bar, text='Vazgeç', command=win.destroy, bg=PANEL2, fg=FG, relief='flat', padx=14, pady=6).pack(side='right', padx=8)
+        self.mkbtn(bar, 'Taşı', go, 'danger').pack(side='right')
+        self.mkbtn(bar, 'Vazgeç', win.destroy, 'ghost').pack(side='right', padx=8)
 
     def prog_remove_orphans(self):
         sel = [p for p in self.prog_tree.checked_payloads() if p and p.get('orphan')]
@@ -1209,6 +1454,324 @@ class App(tk.Tk):
         jobs[-1].on_done = lambda j: self.bloat_scan()
         self.start(jobs)
 
+    # ------------------------------------------------------------------ DOSYA DUZENI (Smart Organizer cekirdegi, organizer_core.py)
+    ORG_FILTERS = ('Tümü', 'Bekliyor', 'Kabul', 'Red', 'Taşındı', 'Hata')
+
+    def _tab_organizer(self, f):
+        head = tk.Frame(f, bg=PANEL); head.pack(fill='x', padx=16, pady=(12, 2))
+        tk.Label(head, text='Dosya düzeni', fg=FG, bg=PANEL, font=('Segoe UI', 12, 'bold')).pack(side='left')
+        tk.Label(head, text='Planla → düzenle → onayla → taşı', fg=MUTED, bg=PANEL, font=('Segoe UI', 9)).pack(side='left', padx=(12, 0))
+        try:
+            import organizer_core as org
+        except Exception as e:                         # Python 3.8/3.9 vb.
+            self.org = None
+            self.label(f, 'Dosya düzeni bu Python sürümünde açılamadı: %s' % e).pack(fill='x', padx=16, pady=8)
+            return
+        self.org = org
+        self.label(f, 'Masaüstü ve Belgeler klasörünün doğrudan altındaki dosya, klasör ve kısayolları sınıflandırır, "%s" altında kategori klasörlerine '
+                      'taşımayı önerir. Siz onaylamadan hiçbir şey taşınmaz, üzerine yazma ve silme yapılmaz; "Son taşımayı geri al" her şeyi eski yerine döndürür. '
+                      'Yerel AI (Ollama + Gemma) isteğe bağlıdır; dosya içeriği bilgisayardan çıkmaz.' % org.APP_FOLDER,
+                   wraplength=int(1100 * self.scale)).pack(fill='x', padx=16, pady=(2, 4))
+        self.org_roots = org.standard_roots()
+        self.org_items, self.org_by_id = [], {}
+        self.org_state = org.app_state_dir()
+        self.org_journal = org.MoveJournal(self.org_state / 'moves.sqlite3')
+        try:
+            oset = json.loads((self.org_state / 'settings.json').read_text(encoding='utf-8'))
+        except Exception:
+            oset = {}
+        bar = tk.Frame(f, bg=PANEL); bar.pack(fill='x', padx=16)
+        self.org_desktop, self.org_docs = tk.BooleanVar(value=True), tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar, text='Masaüstü', variable=self.org_desktop).pack(side='left', padx=(0, 8))
+        ttk.Checkbutton(bar, text='Belgeler', variable=self.org_docs).pack(side='left', padx=(0, 10))
+        self.btn(bar, '1  Analiz et', self.org_scan, 'go')
+        self.btn(bar, '2  Yerel AI ile iyileştir', self.org_ai, 'normal')
+        tk.Label(bar, text='Model:', fg=FG, bg=PANEL).pack(side='left', padx=(8, 2))
+        self.org_model = ttk.Combobox(bar, width=16, values=[oset.get('ollama_model', 'gemma3:1b')])
+        self.org_model.set(oset.get('ollama_model', 'gemma3:1b'))
+        self.org_model.pack(side='left')
+        self.btn(bar, 'Modelleri bul', self.org_models, 'ghost')
+        tk.Label(bar, text='En çok:', fg=FG, bg=PANEL).pack(side='left', padx=(6, 2))
+        self.org_limit = tk.StringVar(value=str(oset.get('ai_limit', '30')))
+        ttk.Entry(bar, width=5, textvariable=self.org_limit).pack(side='left')
+        flt = tk.Frame(f, bg=PANEL); flt.pack(fill='x', padx=16, pady=(6, 0))
+        tk.Label(flt, text='Ara:', fg=FG, bg=PANEL).pack(side='left')
+        self.org_q = tk.StringVar()
+        ttk.Entry(flt, textvariable=self.org_q, width=30).pack(side='left', padx=6)
+        self.org_q.trace_add('write', lambda *_: self._org_render())
+        tk.Label(flt, text='Durum:', fg=FG, bg=PANEL).pack(side='left', padx=(10, 0))
+        self.org_filter = ttk.Combobox(flt, state='readonly', width=12, values=self.ORG_FILTERS); self.org_filter.current(0)
+        self.org_filter.pack(side='left', padx=6)
+        self.org_filter.bind('<<ComboboxSelected>>', lambda _e: self._org_render())
+        self.btn(flt, 'Hedefi değiştir', self.org_edit, 'ghost', action=False, side='right')
+        self.btn(flt, 'Klasörü göster', self.org_open, 'ghost', action=False, side='right')
+        tf = ttk.Frame(f, style='Card.TFrame'); tf.pack(fill='both', expand=True, padx=16, pady=(8, 4))
+        cols = ('source', 'kind', 'folder', 'dest', 'conf', 'decision')
+        self.org_tree = ttk.Treeview(tf, columns=cols, show='tree headings', selectmode='extended', height=8)
+        self.org_tree.heading('#0', text='Dosya / kısayol'); self.org_tree.column('#0', width=280, stretch=True)
+        for key, title, w, anc in (('source', 'Konum', 90, 'center'), ('kind', 'Tür', 70, 'w'), ('folder', 'Kategori', 120, 'w'),
+                                   ('dest', 'Önerilen hedef', 360, 'w'), ('conf', 'Güven', 60, 'center'), ('decision', 'Karar', 80, 'center')):
+            self.org_tree.heading(key, text=title); self.org_tree.column(key, width=w, anchor=anc, stretch=(key == 'dest'))
+        ys = ttk.Scrollbar(tf, orient='vertical', command=self.org_tree.yview)
+        self.org_tree.configure(yscrollcommand=ys.set)
+        self.org_tree.pack(side='left', fill='both', expand=True); ys.pack(side='right', fill='y')
+        self.org_tree.bind('<<TreeviewSelect>>', lambda _e: self._org_preview())
+        self.org_tree.bind('<Double-1>', lambda _e: self.org_edit())
+        self._org_tags()
+        self.theme_hooks.append(self._org_tags)
+        cmd = tk.Frame(f, bg=PANEL); cmd.pack(fill='x', padx=16, pady=(4, 0))
+        self.btn(cmd, 'Seçilenleri kabul et', lambda: self.org_decide('Kabul', False), 'ghost', action=False)
+        self.btn(cmd, 'Seçilenleri reddet', lambda: self.org_decide('Red', False), 'ghost', action=False)
+        self.btn(cmd, 'Tümünü kabul et', lambda: self.org_decide('Kabul', True), 'ghost', action=False)
+        self.btn(cmd, 'Tümünü reddet', lambda: self.org_decide('Red', True), 'ghost', action=False)
+        self.btn(cmd, '3  Onaylananları taşı', self.org_move, 'danger', side='right')
+        self.btn(cmd, 'Son taşımayı geri al', self.org_undo, 'normal', side='right')
+        self.org_summary = tk.StringVar(value='Tarama yapılmadı.')
+        tk.Label(f, textvariable=self.org_summary, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(4, 0))
+        self.org_info = tk.StringVar(value='Bir satır seçin: kaynak, öneri nedeni ve içerik örneği burada görünür. Hedefi çift tıklayarak değiştirebilirsiniz.')
+        tk.Label(f, textvariable=self.org_info, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(1100 * self.scale)).pack(fill='x', padx=16, pady=(2, 10))
+
+    def _org_tags(self):
+        for tg, col in (('Kabul', OK_C), ('Red', BAD_C), ('Taşındı', MUTED), ('Hata', WARN)):
+            self.org_tree.tag_configure(tg, foreground=col)
+
+    def _org_save_settings(self):
+        try:
+            self.org_state.mkdir(parents=True, exist_ok=True)
+            (self.org_state / 'settings.json').write_text(json.dumps({'ollama_model': self.org_model.get().strip(), 'ai_limit': self.org_limit.get().strip()},
+                                                                     ensure_ascii=False, indent=2), encoding='utf-8')
+        except OSError:
+            pass
+
+    def _org_selected(self):
+        return [self.org_by_id[i] for i in self.org_tree.selection() if i in self.org_by_id]
+
+    def _org_render(self):
+        if not getattr(self, 'org', None):
+            return
+        t = self.org_tree
+        keep = set(t.selection())
+        t.delete(*t.get_children())
+        need, q = self.org_filter.get(), self.org_q.get().strip().casefold()
+        for it in self.org_items:
+            if need != 'Tümü' and it.decision != need:
+                continue
+            if q and q not in (it.path.name + ' ' + it.folder + ' ' + str(it.path)).casefold():
+                continue
+            src = 'Masaüstü' if it.path.parent == self.org_roots.get('Masaüstü') else 'Belgeler'
+            t.insert('', 'end', iid=it.item_id, text=it.path.name,
+                     values=(src, 'Klasör' if it.is_dir else (it.path.suffix.lower() or 'Dosya'), it.category,
+                             '%s / %s / %s' % (it.root, self.org.APP_FOLDER, it.folder), '%d%%' % int(it.confidence * 100), it.decision),
+                     tags=(it.decision,))
+        sel = tuple(i for i in keep if t.exists(i))
+        if sel:
+            t.selection_set(sel)
+        c = {k: sum(1 for x in self.org_items if x.decision == k) for k in self.ORG_FILTERS[1:]}
+        self.org_summary.set('Toplam %d  ·  Bekliyor %d  ·  Kabul %d  ·  Red %d  ·  Taşındı %d  ·  Hata %d' %
+                             (len(self.org_items), c['Bekliyor'], c['Kabul'], c['Red'], c['Taşındı'], c['Hata']) if self.org_items else 'Tarama yapılmadı.')
+
+    def _org_preview(self):
+        sel = self._org_selected()
+        if not sel:
+            return
+        it = sel[0]
+        txt = 'Kaynak: %s  ·  Öneri nedeni: %s  ·  Hedef: %s' % (it.path, it.reason, it.target(self.org_roots))
+        if it.snippet:
+            txt += '\nİçerik örneği: ' + it.snippet[:500].replace('\n', ' ')
+        if len(sel) > 1:
+            txt += '\nToplam %d öğe seçili.' % len(sel)
+        self.org_info.set(txt)
+
+    def org_scan(self):
+        labels = [n for n, v in (('Masaüstü', self.org_desktop), ('Belgeler', self.org_docs)) if v.get()]
+        if not labels:
+            messagebox.showwarning('Dosya düzeni', 'En az bir kaynak (Masaüstü / Belgeler) seçin.'); return
+        if any(it.decision == 'Kabul' for it in self.org_items) and not messagebox.askyesno('Planı yenile', 'Uygulanmamış onaylar kaybolacak. Yeniden taransın mı?'):
+            return
+        org = self.org
+
+        def work(runner, job):
+            last = [0]
+
+            def prog(n):
+                if n - last[0] >= 100:
+                    last[0] = n
+                    runner.say('%d öğe incelendi...' % n)
+            items, warnings = org.scan(self.org_roots, labels, progress=prog)
+            job.data = [(items, warnings)]
+            runner.say('Tarama tamamlandı: %d öğe.' % len(items))
+            return 0
+
+        def done(job):
+            if not job.data:
+                return
+            self.org_items, warnings = job.data[0]
+            self.org_by_id = {it.item_id: it for it in self.org_items}
+            self._org_render()
+            if warnings:
+                messagebox.showwarning('Tarama notları', '\n'.join(warnings[:12]))
+        self.start([Job('Dosya düzeni: analiz', func=work, on_done=done, cancel_ok=False)])
+
+    def org_models(self):
+        org = self.org
+
+        def work(runner, job):
+            try:
+                job.data = [org.list_ollama_models()]
+                runner.say('Ollama modelleri: %s' % (', '.join(job.data[0][:6]) or 'yok (KUR-GEMMA.cmd ile kurulabilir)'))
+                return 0
+            except RuntimeError as e:
+                runner.say('Ollama: %s' % e)
+                return 1
+
+        def done(job):
+            if job.data:
+                models = job.data[0]
+                self.org_model.configure(values=models)
+                chosen = org.pick_ollama_model(self.org_model.get().strip(), models) if models else None
+                if chosen and chosen != self.org_model.get().strip():
+                    self.org_model.set(chosen)
+                    self._org_save_settings()
+        self.start([Job('Ollama modelleri', func=work, on_done=done, cancel_ok=False)])
+
+    def org_ai(self):
+        org = self.org
+        cand = [i for i in self.org_items if i.decision == 'Bekliyor' and i.confidence < 0.90 and not i.is_dir]
+        if not cand:
+            messagebox.showinfo('Yerel AI', 'AI ile incelenecek bekleyen / belirsiz öğe yok. Önce analiz edin.'); return
+        try:
+            limit = int(self.org_limit.get())
+            assert 1 <= limit <= 200
+        except (ValueError, AssertionError):
+            messagebox.showerror('Yerel AI', 'Öğe sınırı 1-200 arasında olmalı.'); return
+        model = self.org_model.get().strip()
+        if not model:
+            messagebox.showerror('Yerel AI', 'Ollama model adını girin.'); return
+        cand = cand[:limit]
+        self._org_save_settings()
+
+        def work(runner, job):
+            try:
+                models = org.list_ollama_models()
+            except RuntimeError as e:
+                runner.say('Ollama: %s' % e); return 1
+            if not models:
+                runner.say('Ollama çalışıyor ama model yok. Smart Organizer klasöründeki KUR-GEMMA.cmd ile Gemma kurulabilir.'); return 1
+            sel = org.pick_ollama_model(model, models)
+            changed, results = 0, []
+            for n, it in enumerate(cand, 1):
+                if runner.stop.is_set():
+                    break
+                runner.say('Yerel AI %d/%d: %s' % (n, len(cand), it.path.name[:40]))
+                try:
+                    results.append((it, org.ollama_refine(it, model=sel)))
+                    changed += 1
+                except Exception as e:
+                    runner.say('  %s: %s' % (it.path.name, e))
+                    if changed == 0 and n == 1:
+                        break
+            job.data = [results]
+            return 0
+
+        def done(job):
+            for it, (cat, conf, reason) in (job.data[0] if job.data else []):
+                it.category, it.folder, it.confidence, it.reason = cat, cat, conf, reason
+            self._org_render()
+            self.write('Yerel AI: %d öneri güncellendi.\n' % len(job.data[0] if job.data else []))
+        self.start([Job('Dosya düzeni: yerel AI', func=work, on_done=done, cancel_ok=True)])
+
+    def org_decide(self, decision, all_items):
+        items = self.org_items if all_items else self._org_selected()
+        if not items and not all_items:
+            messagebox.showinfo('Seçim', 'Önce bir veya daha fazla öğe seçin.'); return
+        n = 0
+        for it in items:
+            if it.decision in ('Bekliyor', 'Kabul', 'Red', 'Hata'):
+                it.decision = decision; n += 1
+        self._org_render()
+        self.write('Dosya düzeni: %d karar güncellendi.\n' % n)
+
+    def org_edit(self):
+        sel = [it for it in self._org_selected() if it.decision != 'Taşındı']
+        if not sel:
+            messagebox.showinfo('Hedef', 'Önce düzenlenecek öğeyi seçin.'); return
+        org = self.org
+        w = tk.Toplevel(self); w.title('Hedef klasörü düzenle'); w.configure(bg=PANEL); w.transient(self); w.resizable(False, False)
+        rv, fv = tk.StringVar(value=sel[0].root), tk.StringVar(value=sel[0].folder)
+        body = tk.Frame(w, bg=PANEL, padx=20, pady=16); body.pack(fill='both', expand=True)
+        tk.Label(body, text='Hedef ana konum', fg=FG, bg=PANEL).pack(anchor='w')
+        ttk.Combobox(body, textvariable=rv, values=list(self.org_roots), state='readonly').pack(fill='x', pady=(4, 12))
+        tk.Label(body, text='Alt klasör (ör. Denetimler/BRCGS/2026)', fg=FG, bg=PANEL).pack(anchor='w')
+        ttk.Entry(body, textvariable=fv, width=48).pack(fill='x', pady=(4, 4))
+        tk.Label(body, text='Öğeler “%s” altında düzenlenir.' % org.APP_FOLDER, fg=MUTED, bg=PANEL).pack(anchor='w')
+
+        def save():
+            try:
+                folder = org.valid_subfolder(fv.get())
+                if rv.get() not in self.org_roots:
+                    raise ValueError('Geçersiz ana konum')
+            except ValueError as e:
+                messagebox.showerror('Hedef geçersiz', str(e), parent=w); return
+            for it in sel:
+                it.root, it.folder = rv.get(), folder
+                it.category = folder.split('/')[0]
+                it.reason += ' | Hedef kullanıcı tarafından düzenlendi'
+            w.destroy()
+            self._org_render()
+        bar = tk.Frame(body, bg=PANEL); bar.pack(fill='x', pady=(14, 0))
+        self.btn(bar, 'Uygula', save, 'normal', action=False, side='right')
+        self.btn(bar, 'İptal', w.destroy, 'ghost', action=False, side='right')
+        w.bind('<Return>', lambda _e: save()); w.bind('<Escape>', lambda _e: w.destroy())
+
+    def org_open(self):
+        sel = self._org_selected()
+        if not sel:
+            messagebox.showinfo('Klasör', 'Önce bir öğe seçin.'); return
+        if IS_WIN:
+            subprocess.Popen(['explorer', '/select,%s' % sel[0].path])
+        else:
+            messagebox.showinfo('Klasör', str(sel[0].path.parent))
+
+    def org_move(self):
+        approved = [it for it in self.org_items if it.decision == 'Kabul']
+        if not approved:
+            messagebox.showinfo('Taşı', 'Taşınacak kabul edilmiş öğe yok.'); return
+        roots = sorted({it.root for it in approved})
+        if not messagebox.askyesno('Toplu taşıma onayı', '%d dosya/klasör taşınacak.\n\nHedef: %s / %s\n\nKısayolların taşınması masaüstü simgelerini kaldırır; hedefleri değişmez. '
+                                   'OneDrive kullanıyorsanız eşitleme de olabilir.\n\nÜzerine yazma ve silme yapılmaz; geri alma kaydı tutulur. Devam?'
+                                   % (len(approved), ', '.join(roots), self.org.APP_FOLDER), icon='warning'):
+            return
+        org = self.org
+
+        def work(runner, job):
+            count, errors, batch = org.execute_approved(approved, self.org_roots, self.org_journal,
+                                                        progress=lambda n: runner.say('%d/%d taşındı...' % (n, len(approved))) if n % 25 == 0 else None)
+            for e in errors[:20]:
+                runner.say('  HATA: %s' % e)
+            runner.say('Taşınan: %d, hata: %d (işlem %s)' % (count, len(errors), batch[:8]))
+            return 0 if not errors else 2
+        self.start([Job('Dosya düzeni: taşı', func=work, on_done=lambda j: self._org_render(), cancel_ok=False)])
+
+    def org_undo(self):
+        batch = self.org_journal.latest_batch()
+        if not batch:
+            messagebox.showinfo('Geri al', 'Geri alınabilecek taşıma kaydı yok.'); return
+        if not messagebox.askyesno('Son taşımayı geri al', 'Son taşımadaki tüm öğeler eski konumlarına döndürülecek. Özgün konumda aynı adlı öğe varsa atlanır. Devam?'):
+            return
+
+        def work(runner, job):
+            count, errors = self.org_journal.undo(batch)
+            for e in errors[:20]:
+                runner.say('  HATA: %s' % e)
+            runner.say('Geri alınan: %d, hata: %d' % (count, len(errors)))
+            return 0 if not errors else 2
+
+        def done(job):
+            self.org_items, self.org_by_id = [], {}
+            self._org_render()
+        self.start([Job('Dosya düzeni: geri al', func=work, on_done=done, cancel_ok=False)])
+
     # ------------------------------------------------------------------ INCE AYARLAR (3.7.0; katalog WinCleaner'dan, MIT)
     TW_FILTERS = ['Tümü', 'Uygulanmamış', 'Uygulanmış', 'Seçili olanlar']
 
@@ -1268,8 +1831,7 @@ class App(tk.Tk):
         self.dns_custom = tk.StringVar()
         ttk.Entry(dns, textvariable=self.dns_custom, width=24).pack(side='left', padx=(0, 6))
         for txt, cmd in (('Bağdaştırıcıları göster', self.dns_list), ('DNS\'i uygula (yönetici)', self.dns_apply), ('DNS önbelleğini temizle', self.dns_flush)):
-            b = tk.Button(dns, text=txt, command=cmd, bg='#285475', fg='#ffffff', activebackground=ACCENT, relief='flat', cursor='hand2', padx=10, pady=3,
-                          font=('Segoe UI', 9, 'bold'), disabledforeground='#7f8ea3')
+            b = self.mkbtn(dns, txt, cmd, 'normal', small=True)
             b.pack(side='left', padx=(0, 6)); self.action_buttons.append(b)
         self.dns_state = tk.StringVar(value='')
         tk.Label(dns, textvariable=self.dns_state, fg=FG, bg=PANEL2, font=('Segoe UI', 9), anchor='w').pack(side='left', fill='x', expand=True)
@@ -1522,7 +2084,7 @@ class App(tk.Tk):
         w = tk.Toplevel(self); w.title('İnce ayar geçmişi'); w.configure(bg=PANEL)
         w.geometry('%dx%d' % (int(900 * self.scale), int(420 * self.scale)))
         tk.Label(w, text='Değişiklik oturumları (en yeni üstte). Seçip geri alabilirsiniz; geri alma da kayda geçer.', fg=MUTED, bg=PANEL).pack(fill='x', padx=12, pady=(10, 4))
-        lb = tk.Listbox(w, bg='#0e1b2e', fg=FG, selectbackground='#285475', relief='flat', font=('Segoe UI', 9), activestyle='none')
+        lb = tk.Listbox(w, bg=TREE_BG, fg=FG, selectbackground=SEL, selectforeground=SEL_FG, relief='flat', font=('Segoe UI', 9), activestyle='none')
         lb.pack(fill='both', expand=True, padx=12)
         for s in sessions:
             lb.insert('end', tweaks.session_summary(s))
@@ -1775,8 +2337,7 @@ class App(tk.Tk):
         self.btn(top, 'SDIO ile analiz et', lambda: self.sdio_run('scan'), side='left').pack_configure(padx=(12, 6))
         self.btn(top, 'SDIO ile kur', lambda: self.sdio_run('install'), 'danger', side='left')
         self.btn(top, 'Aygıt listesi', self.sdio_show_devices, 'ghost', action=False, side='left')
-        self.sdio_toggle = tk.Button(top, text='Seçenekler ▸', command=self._sdio_toggle, bg=PANEL2, fg=ACCENT, relief='flat', cursor='hand2',
-                                     activebackground=PANEL2, activeforeground=FG, font=('Segoe UI', 9, 'bold'))
+        self.sdio_toggle = self.mkbtn(top, 'Seçenekler ▸', self._sdio_toggle, 'ghost', small=True)
         self.sdio_toggle.pack(side='left', padx=6)
         tk.Label(top, textvariable=self.sdio_state, fg=MUTED, bg=PANEL2, font=('Segoe UI', 9), anchor='e').pack(side='right', fill='x', expand=True)
         self.sdio_opts = sd = tk.Frame(sd, bg=PANEL2)
@@ -2001,7 +2562,7 @@ class App(tk.Tk):
             messagebox.showerror('SDIO', str(e)); return
         win = tk.Toplevel(self); win.title('SDIO aygıt listesi'); win.configure(bg=PANEL)
         win.geometry('%dx%d' % (int(900 * self.scale), int(560 * self.scale)))
-        tx = tk.Text(win, bg='#09111e', fg='#dce8fa', font=('Consolas', 9), wrap='none')
+        tx = tk.Text(win, bg=LOG_BG, fg=LOG_FG, font=('Consolas', 9), wrap='none')
         tx.pack(fill='both', expand=True)
         tx.insert('1.0', text[:2000000]); tx.configure(state='disabled')
 
@@ -2211,7 +2772,7 @@ class App(tk.Tk):
         self.pad_tree = CheckTree(left, cols, first=('Aygıt', 280), height=4)
         self.pad_tree.pack(fill='both', expand=True)
         tk.Label(left, text='TANI', fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold')).pack(anchor='w', pady=(6, 2))
-        self.pad_diag = tk.Text(left, height=6, bg='#0e1b2e', fg=FG, relief='flat', font=('Segoe UI', 9), wrap='word', padx=8, pady=6)
+        self.pad_diag = tk.Text(left, height=6, bg=TREE_BG, fg=FG, relief='flat', font=('Segoe UI', 9), wrap='word', padx=8, pady=6)
         self.pad_diag.pack(fill='both', expand=True)
         for tag, col in (('bad', BAD_C), ('warn', WARN), ('ok', OK_C), ('info', MUTED)):
             self.pad_diag.tag_configure(tag, foreground=col)
@@ -2244,7 +2805,7 @@ class App(tk.Tk):
     def _pad_selected(self):
         try:
             if self.pad_tab is None:
-                self.pad_tab = len(self.tabs.tabs()) - 1
+                self.pad_tab = self.tabs.index('Kol / Gamepad')
             return self.tabs.index('current') == self.pad_tab
         except tk.TclError:
             return False
@@ -2421,7 +2982,7 @@ class App(tk.Tk):
             self.settings['auto_update_check'] = bool(self.upd_auto.get())
             core.save_settings(self.settings)
         ttk.Checkbutton(ghf, text='Açılışta güncellemeleri denetle', variable=self.upd_auto, command=_auto).pack(side='right')
-        self.upd_check = tk.Text(win, height=11, bg='#09111e', fg='#dce8fa', relief='flat', font=('Consolas', 9), padx=10, pady=8, wrap='word')
+        self.upd_check = tk.Text(win, height=11, bg=LOG_BG, fg=LOG_FG, relief='flat', font=('Consolas', 9), padx=10, pady=8, wrap='word')
         self.upd_check.pack(fill='both', expand=True, padx=16)
         for tg, col in (('ok', OK_C), ('fail', BAD_C), ('warn', WARN), ('h', ACCENT)):
             self.upd_check.tag_configure(tg, foreground=col)
@@ -2565,7 +3126,7 @@ class App(tk.Tk):
             self.gh_banner_text.set('Yeni sürüm hazır: AGFO System Care %s  (kurulu: %s%s)' % (res['version'], VERSION,
                                     (', yayın: ' + rel['published']) if rel.get('published') else ''))
             if not self.gh_banner.winfo_ismapped():
-                self.gh_banner.pack(fill='x', padx=22, pady=(0, 8), before=self.paned)
+                self.gh_banner.pack(fill='x', padx=22, pady=(0, 8), before=self.main)
             self.write('GitHub: yeni sürüm %s mevcut — üstteki "Şimdi güncelle" ile tek tıkla kurabilirsiniz.\n' % res['version'])
         elif force:
             msg = {'current': 'Güncelsiniz (son sürüm %s).' % res.get('version', VERSION), 'none': 'GitHub\'da henüz System Care sürümü yok.',

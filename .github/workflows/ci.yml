@@ -27,6 +27,9 @@ jobs:
           python -I shared/tests/test_agfo_github_update.py shared
           python -I system-care/tests/test_core.py system-care
           python -I system-care/tests/test_runner_stream.py system-care
+          xvfb-run -a python -I system-care/tests/test_gui_nav.py system-care classic
+          python -m pip install --quiet 'ttkbootstrap==2.2.7'
+          xvfb-run -a python -I system-care/tests/test_gui_nav.py system-care modern
           python -I phantom-shot/tests/test_core.py phantom-shot
           python -I phantom-shot/tests/test_update.py phantom-shot
           python -I phantom-shot/tests/test_triggers.py phantom-shot

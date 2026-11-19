@@ -1,7 +1,13 @@
-# AGFO System Care 3.7.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.8.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.8.0'da ne değişti — Yeni arayüz, renk temaları, Dosya düzeni
+- **Sol menü**: üstteki sekme şeridi yerine gruplu sol menü — Genel, Temizlik (Temizlik, Bloatware, Dosya düzeni), Sistem (İnce ayarlar, Sürücüler, Aygıt temizliği, Bakım ve sağlık), Uygulamalar (Programlar, Uygulama güncellemeleri, Uygulama kur), Donanım (Kol / Gamepad). Uygulama en son açtığınız sayfayla açılır.
+- **Renk temaları** (sol alt, "Görünüm"): AGFO Gece, AGFO Açık, Tokyo Gecesi, Nord Koyu, Dracula, Orman, Gruvbox, One Koyu, Pastel Açık, Nord Açık, Solarized Açık, Yüksek karşıtlık. Tema anında uygulanır, yeniden başlatma gerekmez; seçim hatırlanır. Tüm temalarda yazı/zemin karşıtlığı en az 4,5:1.
+- **Modern görünüm (ttkbootstrap)**: düğmeler, onay kutuları, listeler ve açılır kutular daha düzgün çizilir. `Kur-ve-Baslat.cmd` bileşeni yalnızca System Care'in kendi klasörüne (`%LOCALAPPDATA%\AGFO\SystemCare\ui-lib`) kurar; Python kurulumunuza dokunmaz. Uygulama içi güncellemeyle 3.8.0'a geçenlerde sol altta **Modern görünümü kur** düğmesi çıkar (internet ve Python 3.10+ gerekir). Bileşen yoksa ya da "Klasik görünüme dön" seçilirse aynı renk temaları klasik çizimle kullanılır.
+- **Dosya düzeni** (AGFO Smart Organizer artık System Care'in içinde): Masaüstü ve Belgeler'in doğrudan altındaki dosya, klasör ve kısayolları sınıflandırır (Faturalar, Denetimler, Raporlar, Görseller …), "AGFO Düzenlenenler" altına taşımayı önerir. Siz onaylamadan hiçbir şey taşınmaz, üzerine yazma ve silme yapılmaz; **Son taşımayı geri al** her şeyi eski yerine döndürür. Yerel AI (Ollama + Gemma) isteğe bağlıdır, içerik bilgisayardan çıkmaz. Taşıma kaydı bağımsız Smart Organizer ile ortaktır.
 
 ## 3.7.0'da ne değişti — İnce ayarlar ve Uygulama kur
 WinCleaner (emirttac, MIT) projesinin katalogundan uygun bölümler System Care'e alındı. Yalnızca kayıt defteri, zamanlanmış görev, hizmet ve güç planı türündeki ayarlar alındı; serbest komut çalıştıran ayarlar (bcdedit, netsh, PowerShell betikleri) bilerek dışarıda bırakıldı.
