@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -96,7 +96,9 @@
     "navigation": "Sol menu (NavBook): Genel / Temizlik / Sistem / Uygulamalar / Donanim gruplari; ttk.Notebook arayuzu (add/select/tab/index/<<NotebookTabChanged>>) korunur; son acilan sayfa settings.last_page",
     "themes": "care_theme.THEMES (12 palet); settings.theme; canli degisim (tk bilesenleri jetonla yeniden boyanir, ttk bilesenleri ttkbootstrap/clam ile)",
     "modern_ui": "ttkbootstrap 2.2.7 -> %LOCALAPPDATA%\\AGFO\\SystemCare\\ui-lib (pip --target; Python 3.10+); yoksa klasik clam; settings.modern_ui",
-    "organizer": "organizer_core.py = smart-organizer/organizer_core.py (birebir); gunluk %LOCALAPPDATA%\\AGFO\\SmartOrganizer\\moves.sqlite3 (bagimsiz Smart Organizer ile ortak)"
+    "organizer": "organizer_core.py = smart-organizer/organizer_core.py (birebir); gunluk %LOCALAPPDATA%\\AGFO\\SmartOrganizer\\moves.sqlite3 (bagimsiz Smart Organizer ile ortak)",
+    "app_icons": "care_icons.py: logolar pakette yok; kullanicinin PC'sinde INSTALL_APPS.site adresinden (https, apple-touch-icon > png simge > favicon.ico) indirilir -> %LOCALAPPDATA%\\AGFO\\SystemCare\\app-icons (48/20 px PNG, index.json; basarisiz 30 gun denenmez); yalnizca Uygulama kur sayfasi buyuk simge gorunumunde acilinca",
+    "install_view": "settings.install_view = grid | list; secim iki gorunum arasinda esitlenir"
   },
   "removed_surfaces": [
     {
@@ -503,6 +505,26 @@
     {
       "id": "SC-W80",
       "purpose": "Windows: Kur-ve-Baslat.cmd ttkbootstrap'i ui-lib klasorune kurar; modern gorunum acilir; internet yokken klasik gorunumle acilir",
+      "type": "manual_windows",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-090",
+      "purpose": "Logo: sayfadaki simge baglantilarinin siralamasi (apple-touch, boyut, ico sonda, svg/http yok, base href), HTML donen aday atlanir, kucuk gorsel reddedilir, basarisizlik 30 gun yeniden denenmez, site adresi bicimi, https disi reddedilir",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-091",
+      "purpose": "GUI: Uygulama kur varsayilan buyuk simge, 159 kutucuk, sahte logolar yuklenir, sitesi olmayan denenmez, kutucuk secimi, arama, liste<->kutucuk secim esitlemesi, listede kucuk logo, tema degisiminde kutucuk renkleri",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W90",
+      "purpose": "Windows: gercek sitelerden logo indirme orani; Cloudflare vb. engelleyen sitelerde harf simgesine dusme",
       "type": "manual_windows",
       "required_for_package": false
     }

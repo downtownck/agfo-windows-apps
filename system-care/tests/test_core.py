@@ -4,6 +4,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import time
 
 ROOT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(ROOT))
@@ -901,6 +902,70 @@ def organizer_bundle_and_nav_contract():
     import re
     raw = [l for l in app.splitlines() if re.search(r'(?<![\w.])tk\.Button\(', l)]
     assert len(raw) == 1 and 'return tk.Button(' in raw[0], raw                                 # tum dugmeler mkbtn uzerinden
+
+
+# --------------------------------------------------------------------------- 3.9.0 uygulama logolari
+import care_icons as ic  # noqa: E402
+
+
+@test
+def icons_parse_and_fetch():
+    page = """<html><head><base href="/sub/"><link rel="icon" href="fav-16.png" sizes="16x16">
+      <link rel="shortcut icon" href="/favicon.ico"><link rel="mask-icon" href="/m.svg">
+      <link rel="icon" type="image/svg+xml" href="/v.svg"><link rel="apple-touch-icon" href="https://cdn.x.com/a180.png">
+      <link rel="icon" href="/i192.png" sizes="192x192"><link rel="icon" href="http://insecure/i.png"></head></html>"""
+    c_ = ic.icon_candidates(page, 'https://ornek.com/')
+    assert c_[0] == 'https://cdn.x.com/a180.png' and c_[1] == 'https://ornek.com/i192.png', c_
+    assert 'https://ornek.com/sub/fav-16.png' in c_ and not [u for u in c_ if u.endswith('.svg') or u.startswith('http:')]
+    assert c_.index('https://ornek.com/favicon.ico') > c_.index('https://ornek.com/sub/fav-16.png')
+    assert ic.icon_candidates('', 'https://a.com/x/') == ['https://a.com/favicon.ico']
+    assert ic.initials('Google Chrome') == 'GC' and ic.initials('7-Zip') == '7Z' and ic.initials('VLC') == 'VL' and ic.initials('') == '?'
+    assert ic.avatar_color('a') == ic.avatar_color('a') and ic.avatar_color('a') in ic.AVATAR_COLORS
+    assert ic.site_url({'site': 'www.google.com/chrome'}) == 'https://www.google.com/chrome/' and ic.site_url({'site': None}) is None
+    import struct, zlib
+    def png(n):
+        raw = b''.join(b'\x00' + b'\x10\x20\x30' * n for _ in range(n))
+        ch = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+        return b'\x89PNG\r\n\x1a\n' + ch(b'IHDR', struct.pack('>IIBBBBB', n, n, 8, 2, 0, 0, 0)) + ch(b'IDAT', zlib.compress(raw)) + ch(b'IEND', b'')
+    assert ic.png_size(png(32)) == (32, 32) and ic.png_size(b'GIF89a') is None
+    calls = []
+
+    def get(url, limit, accept):
+        calls.append(url)
+        if url == 'https://ornek.com/':
+            return page.encode(), 'text/html', url
+        if url == 'https://cdn.x.com/a180.png':
+            return b'<html>engelli</html>', 'text/html', url              # HTML donen aday atlanir
+        if url == 'https://ornek.com/i192.png':
+            return png(48), 'image/png', url
+        raise OSError('yok')
+    with tempfile.TemporaryDirectory() as d:
+        app = {'id': 'Ornek.App', 'name': 'Ornek', 'site': 'ornek.com'}
+        idx = ic.load_index(d)
+        assert ic.needs_fetch(app, d, idx) and not ic.needs_fetch({'id': 'X', 'site': None}, d, idx)
+        ok, src = ic.fetch_icon(app, d, get=get)
+        assert ok and src == 'https://ornek.com/i192.png' and calls[:3] == ['https://ornek.com/', 'https://cdn.x.com/a180.png', 'https://ornek.com/i192.png']
+        large, small = ic.paths(d, 'Ornek.App')
+        assert large.exists() and small.exists() and not ic.needs_fetch(app, d, idx)
+        app2 = {'id': 'Bos.App', 'name': 'Bos', 'site': 'bos.com'}
+        ok, why = ic.fetch_icon(app2, d, get=lambda *a: (_ for _ in ()).throw(OSError('ag yok')))
+        assert not ok and 'ag yok' in why
+        idx['Bos.App'] = {'ok': False, 't': time.time()}
+        ic.save_index(d, idx)
+        assert not ic.needs_fetch(app2, d, ic.load_index(d))                    # 30 gun yeniden denenmez
+        assert ic.needs_fetch(app2, d, {'Bos.App': {'ok': False, 't': time.time() - 31 * 86400}})
+        assert not ic.save_icon(png(8), pathlib.Path(d) / 'k.png', pathlib.Path(d) / 'k2.png')   # cok kucuk
+    for bad in ('http://a.com/x.png', 'ftp://a'):
+        try:
+            ic._get(bad, 10, '*/*')
+            raise AssertionError('kabul edilmemeli')
+        except ValueError:
+            pass
+    sites = [a.get('site') for a in cc.INSTALL_APPS]
+    assert all('site' in a for a in cc.INSTALL_APPS) and sum(1 for s_ in sites if s_) > 140
+    assert not [s_ for s_ in sites if s_ and (s_.startswith('http') or ' ' in s_ or s_.startswith('github.com'))]
+    assert c._is_runtime_file('care_icons.py') and 'care_icons.py' in c.build_manifest(ROOT)['files']
+    assert "'care_icons.py'" in (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
 
 
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

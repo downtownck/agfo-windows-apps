@@ -33,6 +33,29 @@ def check(name, cond, detail=''):
     print(('PASS ' if cond else 'FAIL ') + name + ('' if cond else ' - %s' % (detail,)), flush=True)
 
 
+import care_icons as icons  # noqa: E402
+import struct, zlib  # noqa: E402
+
+
+def make_png(n=64, rgb=(200, 40, 40)):
+    raw = b''.join(b'\x00' + bytes(rgb) * n for _ in range(n))
+    def chunk(t, d):
+        return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', n, n, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+
+
+FAKE_OK = {'Google.Chrome', 'Mozilla.Firefox', '7zip.7zip', 'VideoLAN.VLC'}
+
+
+def fake_fetch(app, cdir, get=None):
+    if app['id'] in FAKE_OK:
+        large, small = icons.paths(cdir, app['id'])
+        return icons.save_icon(make_png(), large, small), 'sahte'
+    return False, 'sahte: yok'
+
+
+icons.fetch_icon = fake_fetch
+m.icons.fetch_icon = fake_fetch
 m.messagebox.askyesno = lambda *a, **k: True
 m.messagebox.showinfo = lambda *a, **k: None
 m.messagebox.showwarning = lambda *a, **k: None
@@ -121,6 +144,37 @@ moved = [it for it in app.org_items if it.decision == 'Taşındı']
 check('org.moved', len(moved) == 1 and not (desk / 'tatil.jpg').exists() and moved[0].target(app.org_roots).exists(), [it.decision for it in app.org_items])
 app.org_undo()
 check('org.undo', idle() and (desk / 'tatil.jpg').exists() and app.org_items == [])
+# Uygulama kur: buyuk simge gorunumu, logolar, secim esitlemesi
+app.tabs.select(10)
+pump(0.5)
+check('inst.default_grid', app.inst_view.get() == 'grid' and app.inst_gridf.winfo_ismapped())
+t0 = time.time()
+while app.inst_icon_busy and time.time() - t0 < 30:
+    pump(0.2)
+pump(0.6)
+import care_catalog as cc  # noqa: E402
+check('inst.tiles', len(app.inst_tiles) == len(cc.INSTALL_APPS), len(app.inst_tiles))
+check('inst.icons', set(app.inst_img_l) == FAKE_OK, sorted(app.inst_img_l))
+idx = icons.load_index(app.inst_icon_dir)
+check('inst.index', idx.get('Google.Chrome', {}).get('ok') is True and idx.get('Brave.Brave', {}).get('ok') is False
+      and 'Microsoft.WindowsTerminal' not in idx)                                # sitesi olmayan denenmez
+app._inst_toggle('Google.Chrome'); app._inst_toggle('Brave.Brave'); app._inst_toggle('Brave.Brave')
+check('inst.toggle', app.inst_sel == {'Google.Chrome'} and app.inst_count.get() == '1 seçili', (app.inst_sel, app.inst_count.get()))
+shot('uygulama-kur-grid')
+app.inst_q.set('chrome'); pump(0.3)
+check('inst.search_grid', set(app.inst_tiles) == {'Google.Chrome'}, sorted(app.inst_tiles))
+app.inst_q.set(''); pump(0.2)
+app.inst_view.set('list'); app._inst_switch_view(); pump(0.3)
+check('inst.list_sync', [p['id'] for p in app.inst_tree.checked_payloads() if p] == ['Google.Chrome'])
+check('inst.list_icon', str(app.inst_tree.tree.item('i:Google.Chrome', 'image')) not in ('', '()'))
+app.inst_tree.set_checked('i:Mozilla.Firefox', True)
+app.inst_view.set('grid'); app._inst_switch_view(); pump(0.3)
+check('inst.grid_sync', app.inst_sel == {'Google.Chrome', 'Mozilla.Firefox'}, app.inst_sel)
+app.theme_box.set('AGFO Açık'); app.theme_box.event_generate('<<ComboboxSelected>>'); pump(0.3)
+tok = theme.tokens('agfo-acik')
+check('inst.theme_tiles', app.inst_tiles['Google.Chrome']['tile'].cget('bg').lower() == tok['NAV_SEL']
+      and app.inst_tiles['Brave.Brave']['tile'].cget('bg').lower() == tok['PANEL2'])
+shot('uygulama-kur-grid-acik')
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

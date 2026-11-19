@@ -1,7 +1,12 @@
-# AGFO System Care 3.8.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.9.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.9.0'da ne değişti — Uygulama kur: logolar ve büyük simge görünümü
+- **Büyük simgeler** görünümü (varsayılan): her uygulama logosu, adı ve durumuyla bir kutucuk; tıklayınca seçilir (vurgulanır, köşede ✔). **Liste** görünümü de duruyor ve listede de küçük logolar var. Seçim iki görünüm arasında korunur; görünüm tercihi hatırlanır.
+- **Logolar** pakette dağıtılmaz: sayfa büyük simge görünümünde ilk açıldığında her uygulamanın kendi sitesinden (tarayıcının sekme simgesini bulması gibi) bir kez indirilir ve `%LOCALAPPDATA%\AGFO\SystemCare\app-icons` altında saklanır; sonraki açılışlarda internet gerekmez. Yalnızca HTTPS kullanılır. Logo bulunamayan uygulamalar (ör. sitesi GitHub sayfası olanlar) renkli harf simgesiyle gösterilir; başarısız olanlar 30 gün yeniden denenmez.
+- Modern görünüm kuruluysa (Pillow) ICO/JPG/WEBP logolar da okunur ve keskin biçimde küçültülür; değilse yalnızca PNG logolar kullanılır.
 
 ## 3.8.0'da ne değişti — Yeni arayüz, renk temaları, Dosya düzeni
 - **Sol menü**: üstteki sekme şeridi yerine gruplu sol menü — Genel, Temizlik (Temizlik, Bloatware, Dosya düzeni), Sistem (İnce ayarlar, Sürücüler, Aygıt temizliği, Bakım ve sağlık), Uygulamalar (Programlar, Uygulama güncellemeleri, Uygulama kur), Donanım (Kol / Gamepad). Uygulama en son açtığınız sayfayla açılır.
