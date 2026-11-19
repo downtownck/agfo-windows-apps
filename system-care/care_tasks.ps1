@@ -16,6 +16,14 @@ param(
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+# Windows PowerShell 5.1: PowerShell 7 modul yollari (PSModulePath'te ya da sistem ortaminda) 5.1'in Security / PackageManagement
+# modullerini golgeleyip yuklenemez hale getirir. Yalnizca 5.1 yollari birakilir.
+if ($PSVersionTable.PSEdition -ne 'Core') {
+ $keep = @(($env:PSModulePath -split ';') | Where-Object { $_ -and $_ -notmatch '(?<!Windows)PowerShell\\(7|Modules)' -and $_ -notmatch '\\Documents\\PowerShell\\' })
+ $sys = Join-Path $PSHOME 'Modules'
+ if ($keep -notcontains $sys) { $keep += $sys }
+ $env:PSModulePath = ($keep | Select-Object -Unique) -join ';'
+}
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
