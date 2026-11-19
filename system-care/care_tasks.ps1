@@ -22,6 +22,8 @@ if ($PSVersionTable.PSEdition -ne 'Core') {
  $keep = @(($env:PSModulePath -split ';') | Where-Object { $_ -and $_ -notmatch '(?<!Windows)PowerShell\\(7|Modules)' -and $_ -notmatch '\\Documents\\PowerShell\\' })
  $sys = Join-Path $PSHOME 'Modules'
  if ($keep -notcontains $sys) { $keep += $sys }
+ $usr = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'WindowsPowerShell\Modules'   # Install-Module -Scope CurrentUser buraya kurar
+ if ($keep -notcontains $usr) { $keep = @($usr) + $keep }
  $env:PSModulePath = ($keep | Select-Object -Unique) -join ';'
 }
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
