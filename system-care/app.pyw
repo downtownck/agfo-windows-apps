@@ -343,7 +343,17 @@ def _selftest(app, out):
 
 
 if __name__ == '__main__':
+    _st = os.environ.get('AGFO_SELFTEST')
+    if _st:                                                        # oz-denetim: modal pencere acilmaz (kaydedilir), Tk hatalari dosyaya
+        import traceback as _tb
+
+        def _log(suffix, text):
+            with open(_st + suffix, 'a', encoding='utf-8') as fh:
+                fh.write(text)
+        for _n in ('showinfo', 'showwarning', 'showerror', 'askyesno', 'askokcancel', 'askyesnocancel'):
+            setattr(messagebox, _n, (lambda n: lambda *a, **k: _log('.dialogs.log', '%s %r\n' % (n, a[:2])) and False)(_n))
     _app = App()
-    if os.environ.get('AGFO_SELFTEST'):
-        _app.after(4000, lambda: _selftest(_app, os.environ['AGFO_SELFTEST']))
+    if _st:
+        _app.report_callback_exception = lambda *a: _log('.tk.log', ''.join(_tb.format_exception(*a)))
+        _app.after(4000, lambda: _selftest(_app, _st))
     _app.mainloop()

@@ -127,7 +127,10 @@ jobs:
           $env:AGFO_SELFTEST = $out
           $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'lad'
           $p = Start-Process -FilePath 'dist-rt\AGFO System Care\AGFO System Care.exe' -PassThru
-          if (-not $p.WaitForExit(240000)) { $p.Kill(); throw 'zaman asimi' }
+          $fin = $p.WaitForExit(200000)
+          foreach ($f in @("$out.dialogs.log", "$out.tk.log", (Join-Path $env:LOCALAPPDATA 'AGFO\SystemCare\launcher-error.log'), (Join-Path $env:LOCALAPPDATA 'AGFO\SystemCare\launcher-hang.log'))) {
+            if (Test-Path $f) { Write-Host "== $f"; Get-Content $f -Raw | Write-Host } }
+          if (-not $fin) { $p.Kill(); throw 'zaman asimi' }
           if (-not (Test-Path $out)) { throw 'oz-denetim dosyasi yok' }
           $t = Get-Content $out -Raw; Write-Host $t
           if ($t -notmatch '^OK \S+ pages=21 ui=modern frozen=True mods=ttkbootstrap PIL paramiko') { throw 'oz-denetim basarisiz' }
