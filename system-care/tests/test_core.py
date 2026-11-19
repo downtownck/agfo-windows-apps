@@ -1012,6 +1012,7 @@ def install_catalog_github_additions():
 
 # --------------------------------------------------------------------------- 3.11.0 VPN (WireGuard)
 import care_vpn as vp  # noqa: E402
+c_vpn = vp
 
 CONF = """[Interface]
 # Bouncing = 0
@@ -1077,6 +1078,63 @@ def vpn_tools_and_parsers():
     app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
     assert "'vpn-status'" in ps.split('[string]$Action')[0] and " 'vpn-status' {" in ps and "'vpn-status'" in app.split('INTERNAL_PS_ACTIONS = ')[1].split('\n')[0]
     assert c._is_runtime_file('care_vpn.py') and "'care_vpn.py'" in (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
+
+
+
+@test
+def vpngate_parse_and_sanitize():
+    import base64
+    ovpn = """###############################
+# VPN Gate
+dev tun
+proto udp
+remote 219.100.37.10 1194
+client
+cipher AES-128-CBC
+auth-user-pass
+script-security 2
+up /tmp/evil.sh
+route-up "calc.exe"
+plugin evil.dll
+log C:/Windows/x.log
+<ca>
+-----BEGIN CERTIFICATE-----
+up this-line-is-inside-a-block
+-----END CERTIFICATE-----
+</ca>
+"""
+    b64 = base64.b64encode(ovpn.encode()).decode()
+    csvtext = ('*vpn_servers\n#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64\n'
+               'public-vpn-1,219.100.37.10,500000,9,120000000,Japan,JP,12,864000000,100,1,2weeks,Daiyuu Nobori,,%s\n'
+               'vpn2,1.2.3.4,900000,20,50000000,Korea Republic of,KR,3,172800000,5,1,2weeks,Gonullu,,%s\n'
+               'bos,5.6.7.8,1,1,1,X,XX,0,0,0,0,,,,\n*\n') % (b64, b64)
+    lst = c_vpn.parse_vpngate(csvtext)
+    assert [g['ip'] for g in lst] == ['1.2.3.4', '219.100.37.10'] and lst[1]['mbps'] == 120.0 and lst[1]['country'] == 'Japonya'
+    assert lst[1]['uptime_days'] == 10.0 and lst[0]['cc'] == 'KR' and lst[0]['country'] == 'Güney Kore'
+    try:
+        c_vpn.parse_vpngate('<html>engelli</html>')
+        raise AssertionError('kabul edilmemeli')
+    except ValueError:
+        pass
+    text, remote = c_vpn.vpngate_ovpn(b64)
+    assert remote == '219.100.37.10' and 'client' in text and 'remote 219.100.37.10 1194' in text
+    for bad in ('script-security', 'up /tmp', 'route-up', 'plugin', 'log C:'):
+        assert bad not in text, bad
+    assert 'up this-line-is-inside-a-block' in text                         # sertifika blogu bozulmaz
+    final = c_vpn.finalize_ovpn(text, r'C:\Users\a b\AppData\auth.txt')
+    assert 'auth-user-pass "C:/Users/a b/AppData/auth.txt"' in final and '{AUTH_FILE}' not in final
+    try:
+        c_vpn.vpngate_ovpn(base64.b64encode(b'dev tun\nproto udp\n').decode())
+        raise AssertionError('istemci olmayan kabul edilmemeli')
+    except ValueError:
+        pass
+    assert c_vpn.openvpn_state('x\nInitialization Sequence Completed\n') == 'connected'
+    assert c_vpn.openvpn_state('Initialization Sequence Completed\n...\nSIGTERM[soft,exit-with-notification]') == 'error'
+    assert c_vpn.openvpn_state('AUTH_FAILED') == 'error' and c_vpn.openvpn_state('TLS: Initial packet') == 'connecting'
+    cmd = c_vpn.openvpn_cmd('openvpn.exe', 'c.ovpn', 'o.log')
+    assert cmd[:3] == ['openvpn.exe', '--config', 'c.ovpn'] and '--log' in cmd and '--auth-nocache' in cmd
+    assert c_vpn.find_openvpn({'ProgramFiles': r'C:\PF'}, exists=lambda p: True).replace('\\', '/').endswith('PF/OpenVPN/bin/openvpn.exe')
+    assert c_vpn.VPNGATE_URL.startswith('https://') and c_vpn.OVPN_PKG == 'OpenVPNTechnologies.OpenVPN'
 
 
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

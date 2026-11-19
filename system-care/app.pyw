@@ -3078,7 +3078,8 @@ class App(tk.Tk):
                       'Proton VPN (hesap > İndirmeler > WireGuard yapılandırması; ücretsiz katmanda birkaç ülke, ücretli katmanda 100+ ülke), '
                       'Mullvad (hesap > WireGuard yapılandırması) ya da kendi sunucunuz. Yapılandırmalar WireGuard\'ın kendi şifreli klasöründe saklanır. '
                       'Hız için size yakın ve gecikmesi düşük sunucuyu seçin; "En hızlıya bağlan" seçili ülkedeki en düşük gecikmeli sunucuyu bulur. '
-                      'Bağlantı, siz kesene kadar Windows yeniden başlasa da sürer.', wraplength=int(1100 * self.scale)).pack(fill='x', padx=16, pady=(2, 6))
+                      'Hesap istemeyen seçenek: "Ücretsiz sunucular (VPN Gate)" — Tsukuba Üniversitesi\'nin gönüllü sunucuları (OpenVPN; hız değişkendir).',
+                   wraplength=int(1100 * self.scale)).pack(fill='x', padx=16, pady=(2, 6))
         bar = tk.Frame(f, bg=PANEL); bar.pack(fill='x', padx=16)
         self.btn(bar, 'Yapılandırma ekle…', self.vpn_import, 'ghost')
         self.btn(bar, 'Bağlan', self.vpn_connect, 'go')
@@ -3091,9 +3092,28 @@ class App(tk.Tk):
         tk.Label(flt, text='Ülke:', fg=FG, bg=PANEL).pack(side='left')
         self.vpn_country = ttk.Combobox(flt, state='readonly', width=24, values=['Tümü'])
         self.vpn_country.set('Tümü'); self.vpn_country.pack(side='left', padx=6)
-        self.vpn_country.bind('<<ComboboxSelected>>', lambda _e: self._vpn_render())
+        self.vpn_country.bind('<<ComboboxSelected>>', lambda _e: self._vpn_refresh())
         self.btn(flt, 'Görünen IP\'yi denetle', self.vpn_check_ip, 'ghost', action=False)
-        tf = ttk.Frame(f, style='Card.TFrame'); tf.pack(fill='both', expand=True, padx=16, pady=(8, 4))
+        self.vpn_gate_btn = self.btn(flt, 'Sunucu listesini yenile', lambda: self.vpn_gate_fetch(force=True), 'ghost', action=False)
+        self.vpn_src = tk.StringVar(value=self.settings.get('vpn_source', 'own'))
+        for val, txt in (('gate', 'Ücretsiz sunucular (VPN Gate)'), ('own', 'Kendi yapılandırmalarım')):
+            ttk.Radiobutton(flt, text=txt, value=val, variable=self.vpn_src, command=self._vpn_switch_src).pack(side='right', padx=(8, 0))
+        self.vpn_holder = tk.Frame(f, bg=PANEL); self.vpn_holder.pack(fill='both', expand=True, padx=16, pady=(8, 4))
+        gf = ttk.Frame(self.vpn_holder, style='Card.TFrame')
+        self.vpn_gate_frame = gf
+        self.gate_tree = ttk.Treeview(gf, columns=('country', 'speed', 'ping', 'sessions', 'uptime', 'operator'), show='headings', selectmode='browse', height=8)
+        for key, title, w in (('country', 'Ülke', 170), ('speed', 'Hız (Mbps)', 100), ('ping', 'Gecikme', 90), ('sessions', 'Oturum', 70),
+                              ('uptime', 'Açık (gün)', 90), ('operator', 'Gönüllü işletmeci', 300)):
+            self.gate_tree.heading(key, text=title); self.gate_tree.column(key, width=w, anchor='w')
+        gys = ttk.Scrollbar(gf, orient='vertical', command=self.gate_tree.yview)
+        self.gate_tree.configure(yscrollcommand=gys.set)
+        self.gate_tree.pack(side='left', fill='both', expand=True); gys.pack(side='right', fill='y')
+        self.gate_tree.bind('<Double-1>', lambda _e: self.vpn_connect())
+        self.gate_tree.tag_configure('on', foreground=OK_C)
+        self.vpn_gate, self.gate_ping, self.gate_proc, self.gate_active = [], {}, None, None
+        self.gate_dir = core.APP_DATA_DIR / 'vpngate'
+        tf = ttk.Frame(self.vpn_holder, style='Card.TFrame')
+        self.vpn_own_frame = tf
         self.vpn_tree = ttk.Treeview(tf, columns=('country', 'server', 'ping', 'state'), show='tree headings', selectmode='browse', height=8)
         self.vpn_tree.heading('#0', text='Tünel'); self.vpn_tree.column('#0', width=260, stretch=True)
         for key, title, w in (('country', 'Ülke', 170), ('server', 'Sunucu', 300), ('ping', 'Gecikme', 90), ('state', 'Durum', 130)):
@@ -3102,6 +3122,7 @@ class App(tk.Tk):
         self.vpn_tree.configure(yscrollcommand=ys.set)
         self.vpn_tree.pack(side='left', fill='both', expand=True); ys.pack(side='right', fill='y')
         self.vpn_tree.bind('<Double-1>', lambda _e: self.vpn_connect())
+        self.vpn_own_frame.pack(fill='both', expand=True)
         self._vpn_tags(); self.theme_hooks.append(self._vpn_tags)
         self.vpn_status = tk.StringVar(value='Durum okunmadı.')
         tk.Label(f, textvariable=self.vpn_status, fg=ACCENT, bg=PANEL, font=('Segoe UI', 10, 'bold'), anchor='w', justify='left',
@@ -3116,6 +3137,10 @@ class App(tk.Tk):
         self._vpn_tab = f
         self._vpn_wg_label()
         self._vpn_render()
+        if 'vpn_source' not in self.settings and not self.vpn_tunnels:
+            self.vpn_src.set('gate')                           # hic yapilandirma yoksa hazir ucretsiz sunucularla acilir
+        self._gate_restore()
+        self._vpn_switch_src(initial=True)
         self.after(500, self._vpn_poll)
 
     def _vpn_tags(self):
@@ -3154,10 +3179,12 @@ class App(tk.Tk):
         t.delete(*t.get_children())
         codes = sorted({x.get('country', '') for x in self.vpn_tunnels if x.get('country')}, key=lambda c: vpn.country_name(c))
         labels = ['Tümü'] + ['%s (%s)' % (vpn.country_name(c), c) for c in codes]
-        self.vpn_country.configure(values=labels)
-        if self.vpn_country.get() not in labels:
-            self.vpn_country.set('Tümü')
-        want = self.vpn_country.get()
+        own = self.vpn_src.get() == 'own'
+        if own:
+            self.vpn_country.configure(values=labels)
+            if self.vpn_country.get() not in labels:
+                self.vpn_country.set('Tümü')
+        want = self.vpn_country.get() if own else 'Tümü'
         active = self._vpn_active()
         for x in sorted(self.vpn_tunnels, key=lambda x: (vpn.country_name(x.get('country', '')) or 'zz', self.vpn_ping.get(x['name'], 9999), x['name'])):
             c = x.get('country', '')
@@ -3179,8 +3206,13 @@ class App(tk.Tk):
                 ago = max(0, int(time.time()) - d['handshake'])
                 extra = ' · son el sıkışma %d sn önce · ↓ %s ↑ %s' % (ago, vpn.human_bytes(d['rx']), vpn.human_bytes(d['tx']))
             self.vpn_status.set('BAĞLI: %s%s%s' % (active, (' — ' + vpn.country_name(meta.get('country', ''))) if meta.get('country') else '', extra))
+        elif self.gate_active:
+            self._gate_status_line()
+        elif not own:
+            self._gate_render()
         else:
-            self.vpn_status.set('Bağlı değil' + (' — eklenmiş tünel yok; "Yapılandırma ekle…" ile .conf dosyası ekleyin.' if not self.vpn_tunnels else '.'))
+            hint_ = ' — eklenmiş tünel yok; "Yapılandırma ekle…" ile .conf ekleyin ya da "Ücretsiz sunucular (VPN Gate)"u seçin.' if not self.vpn_tunnels else '.'
+            self.vpn_status.set('Bağlı değil' + hint_)
 
     def _vpn_selected(self):
         sel = self.vpn_tree.selection()
@@ -3224,6 +3256,9 @@ class App(tk.Tk):
             except Exception as e:
                 errors.append('%s: %s' % (pathlib.Path(p).name, e))
         self._vpn_save()
+        if added and self.vpn_src.get() != 'own':
+            self.vpn_src.set('own')                            # eklenen yapilandirmalar gorunsun
+            self._vpn_switch_src()
         self._vpn_render()
         self.write('VPN: %d yapılandırma eklendi%s.\n' % (len(added), (' ; hatalı: ' + ' | '.join(errors)) if errors else ''))
         nocountry = [x['name'] for x in self.vpn_tunnels if x['name'] in added and not x.get('country')]
@@ -3247,6 +3282,8 @@ class App(tk.Tk):
         return jobs
 
     def vpn_connect(self, target=None):
+        if self.vpn_src.get() == 'gate' and target is None:
+            return self.vpn_gate_connect()
         x = target or self._vpn_selected()
         if not x:
             messagebox.showinfo('VPN', 'Listeden bir tünel seçin.'); return
@@ -3258,6 +3295,10 @@ class App(tk.Tk):
             self.start(jobs)
 
     def vpn_disconnect(self):
+        if self.gate_running():
+            self.vpn_gate_stop()
+            if not self.vpn_running:
+                return
         if not self.vpn_running:
             self.write('VPN: kurulu tünel yok.\n'); return
         if not self._vpn_need():
@@ -3323,6 +3364,20 @@ class App(tk.Tk):
                     self.vpn_running = {d['name']: d.get('status', '') for d in val if d.get('type') == 'vpn'}
                     self.vpn_dump = {d['name']: vpn.parse_wg_dump(d.get('dump', '')) for d in val if d.get('type') == 'vpn'}
                     self._vpn_render()
+                elif kind == 'gate-list':
+                    self.vpn_gate = val
+                    self.write('VPN Gate: %d ücretsiz sunucu listelendi.\n' % len(val))
+                    self._vpn_refresh()
+                elif kind == 'gate-list-err':
+                    self.write('VPN Gate listesi alınamadı: %s\n' % val[:200])
+                    self.vpn_status.set('VPN Gate listesi alınamadı (site erişilemiyor olabilir). "Sunucu listesini yenile" ile tekrar deneyin.')
+                elif kind == 'gate-ping':
+                    self.gate_ping.update(val)
+                    self._gate_render()
+                    cb = getattr(self, '_gate_after_ping', None)
+                    self._gate_after_ping = None
+                    if cb:
+                        cb()
                 elif kind == 'ping':
                     self.vpn_ping.update(val)
                     self._vpn_render()
@@ -3342,12 +3397,17 @@ class App(tk.Tk):
         except Exception:
             visible = False
         now = time.time()
+        if self.gate_active and now - getattr(self, '_gate_last_log', 0) > 1.5:
+            self._gate_last_log = now
+            self._gate_check_log()
         if visible and IS_WIN and now - getattr(self, '_vpn_last_status', 0) > 6:
             self._vpn_last_status = now
             self._vpn_status_bg()
         self.after(700, self._vpn_poll)
 
     def vpn_ping_all(self, names=None, then=None):
+        if self.vpn_src.get() == 'gate' and names is None:
+            return self.vpn_gate_ping(self._gate_visible()[:40])
         items = [x for x in self.vpn_tunnels if names is None or x['name'] in names]
         if not items:
             messagebox.showinfo('VPN', 'Önce yapılandırma ekleyin.'); return
@@ -3370,6 +3430,8 @@ class App(tk.Tk):
         self._vpn_bg('ping', fn)
 
     def vpn_fastest(self):
+        if self.vpn_src.get() == 'gate':
+            return self.vpn_gate_fastest()
         want = self.vpn_country.get()
         names = [x['name'] for x in self.vpn_tunnels if want == 'Tümü' or want.endswith('(%s)' % x.get('country', ''))]
         if not names:
@@ -3385,6 +3447,235 @@ class App(tk.Tk):
             self.write('VPN: en düşük gecikme %s (%d ms); bağlanılıyor.\n' % (best, min(ok)[0]))
             self.vpn_connect(next(x for x in self.vpn_tunnels if x['name'] == best))
         self.vpn_ping_all(names, then=pick)
+
+    # --- VPN Gate (ucretsiz gonullu sunucular, OpenVPN)
+    def _vpn_refresh(self):
+        if self.vpn_src.get() == 'gate':
+            self._gate_render()
+        else:
+            self._vpn_render()
+
+    def _vpn_switch_src(self, initial=False):
+        gate = self.vpn_src.get() == 'gate'
+        if not initial:
+            self.settings['vpn_source'] = self.vpn_src.get()
+            core.save_settings(self.settings)
+        self.vpn_country.set('Tümü')
+        (self.vpn_own_frame.pack_forget if gate else self.vpn_gate_frame.pack_forget)()
+        (self.vpn_gate_frame if gate else self.vpn_own_frame).pack(fill='both', expand=True)
+        if gate and not self.vpn_gate:
+            self.vpn_gate_fetch(force=False)
+        self._vpn_refresh()
+
+    def gate_running(self):
+        return self.gate_proc is not None and self.gate_proc.poll() is None or (self.gate_active is not None and self.gate_proc is None)
+
+    def _gate_visible(self):
+        want = self.vpn_country.get()
+        return [g for g in self.vpn_gate if want == 'Tümü' or want.endswith('(%s)' % g['cc'])]
+
+    def _gate_render(self):
+        t = self.gate_tree
+        keep = t.selection()
+        t.delete(*t.get_children())
+        codes = sorted({g['cc'] for g in self.vpn_gate if g['cc']}, key=lambda c: vpn.country_name(c) or c)
+        labels = ['Tümü'] + ['%s (%s)' % (vpn.country_name(c) or c, c) for c in codes]
+        self.vpn_country.configure(values=labels)
+        if self.vpn_country.get() not in labels:
+            self.vpn_country.set('Tümü')
+        act = (self.gate_active or {}).get('ip')
+        for g in self._gate_visible():
+            p = self.gate_ping.get(g['ip'])
+            ptxt = ('%d ms' % p) if isinstance(p, int) and p >= 0 else ('yanıt yok' if p == -1 else '')
+            t.insert('', 'end', iid=g['ip'], tags=('on',) if g['ip'] == act else (),
+                     values=('%s %s' % (g['cc'], g['country']), '%.1f' % g['mbps'], ptxt, g['sessions'], g['uptime_days'], g['operator']))
+        sel = [i for i in keep if t.exists(i)]
+        if sel:
+            t.selection_set(sel)
+        if self.gate_active:
+            self._gate_status_line()
+        elif self.vpn_src.get() == 'gate' and not self._vpn_active():
+            self.vpn_status.set('Bağlı değil — %d ücretsiz sunucu. Ülke seçip "En hızlıya bağlan"a basın.' % len(self._gate_visible()) if self.vpn_gate
+                                else 'VPN Gate sunucu listesi alınıyor...')
+
+    def _gate_status_line(self):
+        a = self.gate_active or {}
+        st = {'connected': 'BAĞLI', 'connecting': 'BAĞLANIYOR…', 'error': 'BAĞLANAMADI'}.get(a.get('state'), '')
+        self.vpn_status.set('%s (VPN Gate): %s %s — %s · %.1f Mbps%s' % (st, a.get('cc', ''), a.get('country', ''), a.get('ip', ''), a.get('mbps', 0),
+                            ' — başka bir sunucu deneyin' if a.get('state') == 'error' else ''))
+
+    def vpn_gate_fetch(self, force=False):
+        cache = self.gate_dir / 'list.csv'
+        if not force and cache.exists() and time.time() - cache.stat().st_mtime < 3600:
+            try:
+                self.vpn_gate = vpn.parse_vpngate(cache.read_text(encoding='utf-8'))
+                self._vpn_refresh()
+                return
+            except Exception:
+                pass
+        self.vpn_status.set('VPN Gate sunucu listesi alınıyor...')
+        gdir = self.gate_dir
+
+        def fn():
+            import urllib.request
+            req = urllib.request.Request(vpn.VPNGATE_URL, headers={'User-Agent': 'AGFO-System-Care'})
+            with urllib.request.urlopen(req, timeout=25) as r:
+                data = r.read(12 * 1024 * 1024).decode('utf-8', 'replace')
+            servers = vpn.parse_vpngate(data)
+            gdir.mkdir(parents=True, exist_ok=True)
+            (gdir / 'list.csv').write_text(data, encoding='utf-8')
+            return servers
+        self._vpn_bg('gate-list', fn)
+
+    def vpn_gate_ping(self, items, then=None):
+        if not items:
+            messagebox.showinfo('VPN Gate', 'Listede sunucu yok; "Sunucu listesini yenile"yi deneyin.'); return
+        self.vpn_status.set('Gecikme ölçülüyor (%d sunucu)...' % len(items))
+        self._gate_after_ping = then
+
+        def fn():
+            import concurrent.futures
+
+            def one(g):
+                try:
+                    r = subprocess.run(vpn.ping_cmd(g['ip'], IS_WIN), capture_output=True, text=True, errors='replace', timeout=10, creationflags=CREATIONFLAGS)
+                    ms = vpn.parse_ping_ms(r.stdout.splitlines())
+                except Exception:
+                    ms = None
+                return g['ip'], (ms if ms is not None else -1)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+                return dict(ex.map(one, items))
+        self._vpn_bg('gate-ping', fn)
+
+    def vpn_gate_fastest(self):
+        cands = sorted(self._gate_visible(), key=lambda g: -g['mbps'])[:12]
+        if not cands:
+            messagebox.showinfo('VPN Gate', 'Bu ülke için ücretsiz sunucu yok.'); return
+
+        def pick():
+            ok = [g for g in cands if isinstance(self.gate_ping.get(g['ip']), int) and self.gate_ping[g['ip']] >= 0]
+            pool = ok or cands
+            best = max(pool, key=lambda g: g['mbps'] / (1 + (self.gate_ping.get(g['ip'], 300) if self.gate_ping.get(g['ip'], -1) >= 0 else 300) / 100.0))
+            self.write('VPN Gate: %s %s seçildi (%.1f Mbps, %s).\n' % (best['cc'], best['ip'], best['mbps'],
+                       ('%d ms' % self.gate_ping[best['ip']]) if best['ip'] in self.gate_ping and self.gate_ping[best['ip']] >= 0 else 'ping yanıtı yok'))
+            self.vpn_gate_connect(best)
+        self.vpn_gate_ping(cands, then=pick)
+
+    def _gate_need(self):
+        exe = vpn.find_openvpn()
+        if not exe:
+            if messagebox.askyesno('OpenVPN gerekli', 'Ücretsiz sunucular OpenVPN ile bağlanır. Resmî açık kaynak OpenVPN istemcisi kurulsun mu?'):
+                wg = self.engines.get('winget', {}).get('path') or core.find_winget()
+                if wg:
+                    self.start([Job('Kur: OpenVPN', cmd=core.winget_install_cmd(wg, vpn.OVPN_PKG), cancel_ok=False)])
+            return None
+        if not self.admin:
+            if messagebox.askyesno('Yönetici gerekli', 'VPN bağlantısı yönetici yetkisi ister. Uygulama yönetici olarak yeniden açılsın mı?'):
+                self.elevate()
+            return None
+        return exe
+
+    def vpn_gate_connect(self, g=None):
+        if g is None:
+            sel = self.gate_tree.selection()
+            g = next((x for x in self.vpn_gate if sel and x['ip'] == sel[0]), None)
+            if not g:
+                messagebox.showinfo('VPN Gate', 'Listeden bir sunucu seçin (ya da "En hızlıya bağlan").'); return
+        exe = self._gate_need()
+        if not exe:
+            return
+        try:
+            text, _remote = vpn.vpngate_ovpn(g['config'])
+        except ValueError as e:
+            messagebox.showerror('VPN Gate', 'Bu sunucunun yapılandırması kullanılamıyor: %s' % e); return
+        self.vpn_gate_stop(quiet=True)
+        if self.vpn_running and self.vpn_wg:                  # WireGuard tuneli aciksa once kapat (tek VPN)
+            for name in list(self.vpn_running):
+                subprocess.run(vpn.uninstall_cmd(self.vpn_wg, name), creationflags=CREATIONFLAGS, timeout=30)
+            self.vpn_running = {}
+        self.gate_dir.mkdir(parents=True, exist_ok=True)
+        auth = self.gate_dir / 'auth.txt'
+        auth.write_text('vpn\nvpn\n', encoding='ascii')       # VPN Gate'in herkese acik ortak kimligi
+        cfg = self.gate_dir / 'current.ovpn'
+        cfg.write_text(vpn.finalize_ovpn(text, auth), encoding='utf-8')
+        log = self.gate_dir / 'openvpn.log'
+        try:
+            log.unlink()
+        except OSError:
+            pass
+        try:
+            self.gate_proc = subprocess.Popen(vpn.openvpn_cmd(exe, cfg, log), creationflags=CREATIONFLAGS, cwd=str(self.gate_dir),
+                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            messagebox.showerror('VPN Gate', 'OpenVPN başlatılamadı: %s' % e); return
+        self.gate_active = dict({k: g[k] for k in ('ip', 'cc', 'country', 'mbps')}, state='connecting', pid=self.gate_proc.pid, t=time.time())
+        self.settings['vpngate_active'] = self.gate_active
+        core.save_settings(self.settings)
+        self.write('VPN Gate: %s %s sunucusuna bağlanılıyor (OpenVPN)...\n' % (g['cc'], g['ip']))
+        self._gate_render()
+
+    def _gate_check_log(self):
+        a = self.gate_active
+        if not a:
+            return
+        try:
+            text = (self.gate_dir / 'openvpn.log').read_text(encoding='utf-8', errors='replace')[-20000:]
+        except OSError:
+            text = ''
+        st = vpn.openvpn_state(text)
+        dead = self.gate_proc is not None and self.gate_proc.poll() is not None
+        if dead and st != 'error':
+            st = 'error'
+        if st == 'connecting' and time.time() - a.get('t', 0) > 45:
+            st = 'error'
+        if st != a.get('state'):
+            a['state'] = st
+            if st == 'connected':
+                self.write('VPN Gate: bağlandı (%s %s).\n' % (a['cc'], a['ip']))
+                self.after(1500, self.vpn_check_ip)
+            elif st == 'error':
+                tail = [l for l in text.splitlines() if l.strip()][-3:]
+                self.write('VPN Gate: bağlantı kurulamadı. %s\n' % (' | '.join(tail)[:300]))
+                self.vpn_gate_stop(quiet=True, keep_state=True)
+            self._vpn_refresh()
+
+    def vpn_gate_stop(self, quiet=False, keep_state=False):
+        pid = (self.gate_active or {}).get('pid')
+        if self.gate_proc is not None and self.gate_proc.poll() is None:
+            try:
+                self.gate_proc.terminate()
+                self.gate_proc.wait(timeout=8)
+            except Exception:
+                pass
+        elif pid and IS_WIN:
+            subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], creationflags=CREATIONFLAGS, capture_output=True, timeout=15)
+        self.gate_proc = None
+        if not keep_state:
+            self.gate_active = None
+        elif self.gate_active:
+            self.gate_active['pid'] = None
+        self.settings.pop('vpngate_active', None)
+        core.save_settings(self.settings)
+        if not quiet:
+            self.write('VPN Gate bağlantısı kesildi.\n')
+            self.after(1500, self.vpn_check_ip)
+        self._vpn_refresh()
+
+    def _gate_restore(self):
+        """Onceki oturumdan kalan OpenVPN sureci (uygulama kapatilip acildiysa) hala calisiyorsa izlemeye devam et."""
+        a = self.settings.get('vpngate_active')
+        if not (a and a.get('pid') and IS_WIN):
+            return
+        try:
+            out = subprocess.run(['tasklist', '/FI', 'PID eq %d' % int(a['pid']), '/NH'], capture_output=True, text=True, errors='replace',
+                                 creationflags=CREATIONFLAGS, timeout=10).stdout
+        except Exception:
+            out = ''
+        if 'openvpn' in out.lower():
+            self.gate_active = dict(a, state='connecting', t=time.time() - 60)
+        else:
+            self.settings.pop('vpngate_active', None)
+            core.save_settings(self.settings)
 
     def vpn_check_ip(self):
         self.vpn_ip.set('Görünen IP denetleniyor...')

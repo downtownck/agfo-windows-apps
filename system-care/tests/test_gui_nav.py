@@ -262,6 +262,37 @@ if os.name != 'nt':
     check('vpn.remove', 'DE-fra-1' not in [t['name'] for t in app.vpn_tunnels] and not (wgd / 'Data' / 'Configurations' / 'DE-fra-1.conf').exists())
     saved = json.loads((setdir / 'vpn-tunnels.json').read_text(encoding='utf-8'))
     check('vpn.saved', sorted(t['name'] for t in saved) == ['US-NY-5', 'de-ber-2'] and not any('PrivateKey' in json.dumps(t) or 'a2V5' in json.dumps(t) for t in saved))
+# VPN Gate: onbellekteki liste, ulke suzgeci, en hizliya baglan (sahte OpenVPN), kesme
+if os.name != 'nt':
+    import base64
+    ov = base64.b64encode(b'client\ndev tun\nproto udp\nremote 10.1.0.1 1194\nauth-user-pass\nup /tmp/x.sh\n').decode()
+    rows = ['%s,%s,%d,9,%d,Japan,%s,5,86400000,1,1,2weeks,Op%d,,%s' % ('h%d' % i, ip, 1000 - i, sp, cc, i, ov)
+            for i, (ip, sp, cc) in enumerate((('10.0.0.1', 90000000, 'JP'), ('10.0.0.2', 40000000, 'JP'), ('10.0.0.3', 70000000, 'KR')))]
+    gl = '*vpn_servers\n#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64\n' + '\n'.join(rows) + '\n*\n'
+    app.gate_dir.mkdir(parents=True, exist_ok=True)
+    (app.gate_dir / 'list.csv').write_text(gl, encoding='utf-8')
+    fov = TMP / 'openvpn'
+    fov.write_text('#!/bin/sh\nwhile [ $# -gt 0 ]; do [ "$1" = "--log" ] && L="$2"; [ "$1" = "--config" ] && C="$2"; shift; done\n'
+                   'cp "$C" "%s"; echo "Initialization Sequence Completed" > "$L"; sleep 30\n' % (TMP / 'used.ovpn'))
+    fov.chmod(0o755)
+    m.vpn.find_openvpn = lambda *a, **k: str(fov)
+    app.vpn_src.set('gate'); app._vpn_switch_src(); pump(0.3)
+    check('gate.list', sorted(app.gate_tree.get_children()) == ['10.0.0.1', '10.0.0.2', '10.0.0.3'], app.gate_tree.get_children())
+    check('gate.countries', 'Japonya (JP)' in app.vpn_country.cget('values') and 'Güney Kore (KR)' in app.vpn_country.cget('values'), app.vpn_country.cget('values'))
+    app.vpn_country.set('Japonya (JP)'); app._vpn_refresh()
+    check('gate.filter', sorted(app.gate_tree.get_children()) == ['10.0.0.1', '10.0.0.2'])
+    app.vpn_fastest()
+    t0 = time.time()
+    while time.time() - t0 < 15 and not (app.gate_active and app.gate_active.get('state') == 'connected'):
+        pump(0.2)
+    check('gate.connected', app.gate_active and app.gate_active['ip'] == '10.0.0.1' and app.gate_active['state'] == 'connected', app.gate_active)
+    used = (TMP / 'used.ovpn').read_text() if (TMP / 'used.ovpn').exists() else ''
+    check('gate.sanitized', 'up /tmp/x.sh' not in used and 'auth-user-pass "' in used and (app.gate_dir / 'auth.txt').read_text() == 'vpn\nvpn\n', used)
+    check('gate.status', app.vpn_status.get().startswith('BAĞLI (VPN Gate): JP'), app.vpn_status.get())
+    check('gate.saved', json.loads((setdir / 'settings.json').read_text(encoding='utf-8')).get('vpngate_active', {}).get('ip') == '10.0.0.1')
+    shot('vpn-gate')
+    app.vpn_disconnect(); pump(0.3)
+    check('gate.stopped', app.gate_proc is None and app.gate_active is None and 'vpngate_active' not in json.loads((setdir / 'settings.json').read_text(encoding='utf-8')))
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

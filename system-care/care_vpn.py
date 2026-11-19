@@ -163,3 +163,99 @@ def parse_ipinfo(data):
     d = json.loads(data) if isinstance(data, (str, bytes)) else data
     code = (d.get('country_iso') or d.get('country_code') or '').upper()
     return d.get('ip', ''), code, country_name(code) or d.get('country', '')
+
+
+# --------------------------------------------------------------------------- VPN Gate (Tsukuba Universitesi, ucretsiz gonullu sunucular; OpenVPN)
+VPNGATE_URL = 'https://www.vpngate.net/api/iphone/'
+OVPN_PKG = 'OpenVPNTechnologies.OpenVPN'
+# Internetten gelen yapilandirma yonetici yetkisiyle calisacagi icin komut/betik calistirabilen yonergeler atilir.
+_OVPN_DROP = re.compile(r'^\s*(script-security|up|down|route-up|route-pre-down|ipchange|tls-verify|auth-user-pass-verify|client-connect|'
+                        r'client-disconnect|learn-address|plugin|management\S*|log|log-append|status|writepid|cd|chroot|daemon|'
+                        r'iproute|up-restart|setenv-safe|setenv|config|dhcp-pre-release|win-sys)(\s|$)', re.I)
+
+
+def parse_vpngate(text):
+    """VPN Gate CSV listesi -> sunucular (puan sirasina gore)."""
+    import csv
+    import io
+    lines = [l for l in (text or '').splitlines() if l and not l.startswith('*')]
+    if not lines or not lines[0].startswith('#'):
+        raise ValueError('VPN Gate listesi tanınmadı')
+    lines[0] = lines[0][1:]
+    out = []
+    for r in csv.DictReader(io.StringIO('\n'.join(lines))):
+        try:
+            cfg = (r.get('OpenVPN_ConfigData_Base64') or '').strip()
+            if not cfg:
+                continue
+            cc = (r.get('CountryShort') or '').upper()
+            out.append({'host': r.get('HostName', ''), 'ip': r.get('IP', ''), 'score': int(r.get('Score') or 0), 'ping': int(r.get('Ping') or 0),
+                        'mbps': round(int(r.get('Speed') or 0) / 1e6, 1), 'cc': cc, 'country': country_name(cc) or r.get('CountryLong', ''),
+                        'sessions': int(r.get('NumVpnSessions') or 0), 'uptime_days': round(int(r.get('Uptime') or 0) / 86400000.0, 1),
+                        'operator': (r.get('Operator') or '').strip()[:60], 'config': cfg})
+        except (ValueError, TypeError):
+            continue
+    out.sort(key=lambda s: -s['score'])
+    return out
+
+
+def vpngate_ovpn(b64):
+    """Base64 yapilandirmayi cozer ve guvenli hale getirir. Donus: (metin, uzak sunucu). Gecersizse ValueError."""
+    import base64
+    try:
+        text = base64.b64decode(b64).decode('utf-8', 'replace')
+    except Exception:
+        raise ValueError('yapılandırma çözülemedi')
+    keep, remote, in_block = [], '', None
+    for line in text.splitlines():
+        s = line.strip()
+        m = re.match(r'^<(/?)([\w-]+)>$', s)
+        if m:
+            in_block = None if m.group(1) else m.group(2)
+            keep.append(s)
+            continue
+        if in_block:                                         # <ca>, <cert>, <key> ... icerigi
+            keep.append(line.rstrip())
+            continue
+        if not s or s.startswith(('#', ';')):
+            continue
+        if _OVPN_DROP.match(s):
+            continue
+        if s.lower().startswith('remote '):
+            remote = remote or s.split()[1]
+        if s.lower().split()[0] == 'auth-user-pass':
+            keep.append('auth-user-pass {AUTH_FILE}')           # VPN Gate ortak kimligi (vpn/vpn) dosyadan verilir; istem acilmaz
+            continue
+        keep.append(s)
+    if not remote or not any(l.strip().lower() == 'client' for l in keep):
+        raise ValueError('istemci yapılandırması değil')
+    return '\n'.join(keep) + '\n', remote
+
+
+def finalize_ovpn(text, auth_file):
+    """auth-user-pass yer tutucusunu gercek dosya yoluyla degistirir (OpenVPN yolunda ters bolu yerine / kullanilir)."""
+    return text.replace('{AUTH_FILE}', '"%s"' % str(auth_file).replace('\\', '/'))
+
+
+def find_openvpn(env=None, exists=os.path.isfile):
+    env = env or os.environ
+    for base in (env.get('ProgramFiles', r'C:\Program Files'), env.get('ProgramW6432', '')):
+        if base:
+            p = os.path.join(base, 'OpenVPN', 'bin', 'openvpn.exe')
+            if exists(p):
+                return p
+    return None
+
+
+def openvpn_cmd(exe, cfg, log):
+    return [exe, '--config', str(cfg), '--log', str(log), '--verb', '3', '--auth-nocache', '--connect-retry-max', '2',
+            '--data-ciphers', 'AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305:AES-128-CBC:AES-256-CBC']
+
+
+def openvpn_state(log_text):
+    t = log_text or ''
+    ok = t.rfind('Initialization Sequence Completed')
+    bad = max(t.rfind('AUTH_FAILED'), t.rfind('Exiting due to fatal error'), t.rfind('SIGTERM'))
+    if bad > ok:
+        return 'error'
+    return 'connected' if ok >= 0 else 'connecting'
