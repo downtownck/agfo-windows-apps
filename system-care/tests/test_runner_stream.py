@@ -10,6 +10,7 @@ sys.modules['tkinter'] = tk
 spec = importlib.util.spec_from_file_location('agfo_app', ROOT / 'app.pyw', loader=importlib.machinery.SourceFileLoader('agfo_app', str(ROOT / 'app.pyw')))
 app = importlib.util.module_from_spec(spec); spec.loader.exec_module(app)
 tmp = pathlib.Path(tempfile.mkdtemp()); app.LOG_DIR = tmp / 'logs'
+import sc_base; sc_base.LOG_DIR = app.LOG_DIR  # noqa: E702  (4.0: Runner sc_base'de)
 em = tmp / 'emit.py'
 em.write_text("import sys,time\nw=sys.stdout.buffer\nw.write(b'\\xef\\xbb\\xbfBaslik\\n')\n"
               "for i in range(0,101,25): w.write(('[== %3d%% ==]\\r'%i).encode()); w.flush(); time.sleep(0.03)\n"

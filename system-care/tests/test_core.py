@@ -13,6 +13,13 @@ import care_core as c  # noqa: E402
 PASSED = []
 
 
+
+def app_source():
+    """4.0: arayuz kodu app.pyw (iskelet) + sc_base.py + sayfa modulleri (sc_*.py); sozlesme testleri hepsini birlikte okur."""
+    parts = [ROOT / 'sc_base.py', ROOT / 'app.pyw'] + sorted(p for p in ROOT.glob('sc_*.py') if p.name != 'sc_base.py')
+    return '\n'.join(p.read_text(encoding='utf-8') for p in parts if p.is_file())
+
+
 def test(fn):
     fn()
     PASSED.append(fn.__name__)
@@ -618,7 +625,7 @@ def fc_settings_reset():
 def controller_contract():
     """PowerShell ValidateSet, uygulama eylem listeleri ve iki taraftaki Xbox olcutu (urun kimlikleri) uyumlu."""
     ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
-    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    app = app_source()
     for act in ('controller-list', 'controller-reset', 'bt-restart'):
         assert "'%s'" % act in ps.split('[string]$Action')[0] and (" '%s' {" % act) in ps, act
         assert "'%s'" % act in app.split('INTERNAL_PS_ACTIONS = ')[1].split('\n')[0], act
@@ -814,7 +821,7 @@ def tweak_profiles_and_install():
 @test
 def tweak_contract_and_packaging():
     ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
-    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    app = app_source()
     head = ps.split('[string]$Action')[0]
     for act in ('tweak-read', 'tweak-write', 'dns-list', 'dns-flush', 'explorer-restart'):
         assert "'%s'" % act in head and (" '%s' {" % act) in ps, act
@@ -882,7 +889,7 @@ def theme_loader_and_pip():
 
 @test
 def organizer_bundle_and_nav_contract():
-    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    app = app_source()
     src = ROOT.parent / 'smart-organizer' / 'organizer_core.py'
     if src.is_file():                                                   # depoda: Smart Organizer cekirdegiyle birebir ayni
         assert src.read_bytes() == (ROOT / 'organizer_core.py').read_bytes()
@@ -1075,7 +1082,7 @@ def vpn_tools_and_parsers():
         assert vp.stored_config(d, 'a').name == 'a.conf.dpapi'                 # WireGuard sifreledikten sonra
     assert str(vp.config_dir(r'C:/PF/WireGuard/wireguard.exe')).replace('\\', '/').endswith('WireGuard/Data/Configurations')
     ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
-    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    app = app_source()
     assert "'vpn-status'" in ps.split('[string]$Action')[0] and " 'vpn-status' {" in ps and "'vpn-status'" in app.split('INTERNAL_PS_ACTIONS = ')[1].split('\n')[0]
     assert c._is_runtime_file('care_vpn.py') and "'care_vpn.py'" in (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
 
@@ -1202,7 +1209,7 @@ def supertools_bundle_and_privacy():
             os.environ.pop('LOCALAPPDATA', None)
         else:
             os.environ['LOCALAPPDATA'] = old
-    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    app = app_source()
     for t in ('Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları'):
         assert "('%s'," % t in app
     gi = ROOT.parent / '.gitignore'
@@ -1220,6 +1227,17 @@ def supertools_bundle_and_privacy():
         (bad / 'not.md').write_text('ssh ornek@10.0.0.5 ve 192.168.1.' + '102', encoding='utf-8')
         (bad / 'ssh-profiles.json').write_text('[]', encoding='utf-8')
         assert len(pc.scan(bad)) == 2, pc.scan(bad)
+
+
+@test
+def installer_lists_all_runtime_modules():
+    """4.0: kurulum betigi kok klasordeki her .py/.pyw/.ps1 dosyasini kopyalamali (sayfa modulleri unutulmasin)."""
+    inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
+    for p in sorted(ROOT.iterdir()):
+        if p.suffix in ('.py', '.pyw', '.ps1') and p.is_file():
+            assert "'%s'" % p.name in inst, p.name
+    for p in sorted(ROOT.glob('sc_*.py')):
+        assert c._is_runtime_file(p.name) and p.name in c.build_manifest(ROOT)['files'], p.name
 
 
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))
