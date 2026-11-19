@@ -1,7 +1,24 @@
-# AGFO System Care 3.13.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 4.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
-ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+**Önerilen (Python gerekmez):** `AGFO-System-Care-v4.x.x-Windows.zip` dosyasını indirip açın, klasördeki `Kur-ve-Baslat.cmd`'yi çalıştırın. Python, tkinter ve gerekli kütüphaneler pakette hazır gelir. Uygulama `%LOCALAPPDATA%\Programs\AGFO System Care` klasörüne kurulur ve Başlat menüsüne kısayol eklenir.
+
+**Python ile:** `AGFO-System-Care-v4.x.x.zip` paketini açıp `agfo-care/Kur-ve-Baslat.cmd` ile de kurabilirsiniz. Bunun için Python 3.10+ ve tkinter gerekir. Bu paket aynı zamanda uygulama içi güncelleme paketidir.
+
+İlk açılışta **Motorlar** sekmesindeki "Eksik motorları kur" düğmesine basın.
+
+## 4.0'da ne değişti
+- **Genel bakış (ilk sayfa):** diskler, aygıtlar, Microsoft Defender, güvenlik duvarı, Windows Update, bekleyen yeniden başlatma, bellek, çalışma süresi, BitLocker ve VPN tek ekranda; 0–100 arası sağlık puanı. Her kartta ilgili sayfayı ya da Windows ayarını açan bir düğme var.
+- **Donanım bölümü:**
+  - **Sistem özeti** (Everest/AIDA64 tarzı): işlemci, anakart/BIOS, bellek modülleri, ekran kartı, diskler, bölümler, ağ, ses, monitör ve pil. Bilgiler Windows'un kendi verisinden okunur; sürücü kurulmaz.
+  - **Aygıt yöneticisi:** sorunlu aygıtlar en üstte. Etkinleştirme, devre dışı bırakma, yeniden başlatma ve kaldırma; kritik sistem aygıtları için ek uyarı.
+  - **Disk sağlığı:** Windows'un depolama sayaçları (SMART benzeri): genel durum, sıcaklık, SSD aşınması, çalışma saati, düzeltilemeyen hatalar.
+  - **Rapor:** tüm donanım dökümü HTML ya da metin olarak kaydedilir.
+  - **Sensörler (isteğe bağlı):** açık kaynak LibreHardwareMonitor kurulup açıkken sıcaklık, fan ve voltaj okunur. Kurmadan önce PawnIO sürücüsü ve hile önleme sistemleriyle ilgili uyarı gösterilir.
+  - Sürücüler, Aygıt temizliği ve Kol / Gamepad sayfaları da bu bölüme taşındı.
+- **İşlem bazında yönetici onayı:** Uygulama normal kullanıcıyla çalışır. Yönetici isteyen işlem (sürücü kurulumu, DISM/SFC, geri yükleme noktası, aygıt işlemleri, sistem çapında ince ayarlar, DNS) uygulamayı yeniden açtırmaz; o işlem için Windows UAC onayı istenir. VPN tünelleri şimdilik yine "Yönetici olarak yeniden aç" ister.
+- **Python'suz kurulum:** Windows paketi Python, tkinter, ttkbootstrap, Pillow ve Paramiko'yu içerir. Uygulama dosyaları exe'nin yanında durduğu için uygulama içi güncelleme aynen çalışır.
+- **Altyapı:** kod sayfa modüllerine bölündü; her sürüm GitHub'da gerçek bir Windows makinesinde de test ediliyor (PowerShell eylemleri, yönetici yardımcısı ve uçtan uca arayüz).
 
 ## 3.14.0'da ne değişti — SuperTools artık System Care içinde
 

@@ -54,3 +54,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+------------------------------------------------------------------------
+Windows paketi (AGFO-System-Care-vX-Windows.zip) hazir calisma ortami olarak asagidaki acik kaynak bilesenleri
+ayri dosyalar halinde (_internal klasoru) icerir. Lisans metinleri ilgili projelerde yer alir:
+
+- Python 3.12 (Python Software Foundation License)            https://www.python.org/
+- Tcl/Tk (BSD tarzi lisans)                                      https://www.tcl-lang.org/
+- ttkbootstrap 2.2.7 (MIT)                                        https://github.com/israel-dryer/ttkbootstrap
+- Pillow (MIT-CMU / HPND)                                         https://github.com/python-pillow/Pillow
+- Paramiko (LGPL-2.1; degistirilmeden, ayri modul olarak)         https://github.com/paramiko/paramiko
+- cryptography (Apache-2.0 / BSD)                                 https://github.com/pyca/cryptography
+- bcrypt, PyNaCl (Apache-2.0)                                     https://github.com/pyca
+- pypdf (BSD-3-Clause)                                            https://github.com/py-pdf/pypdf
+- PyInstaller onyukleyicisi (GPL-2.0, onyukleyici istisnasiyla)   https://pyinstaller.org/
+
+Istege bagli, pakete dahil olmayan ve kullanicinin onayiyla WinGet uzerinden kurulan:
+- LibreHardwareMonitor (MPL-2.0) — sensorler                      https://github.com/LibreHardwareMonitor/LibreHardwareMonitor

@@ -1,16 +1,15 @@
 {
   "project": "agfo-system-care",
-  "version": "3.14.0",
+  "version": "4.0.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
+      "Genel bakış",
       "Motorlar",
       "Temizlik",
       "Bloatware",
       "Dosya düzeni",
       "İnce ayarlar",
-      "Sürücüler",
-      "Aygıt temizliği",
       "Bakım ve sağlık",
       "Programlar",
       "Uygulama güncellemeleri",
@@ -20,6 +19,11 @@
       "Ağ testleri",
       "SSH sunucularım",
       "SSH oturumları",
+      "Sistem özeti",
+      "Aygıt yöneticisi",
+      "Disk sağlığı",
+      "Sürücüler",
+      "Aygıt temizliği",
       "Kol / Gamepad"
     ],
     "powershell_actions": [
@@ -52,7 +56,13 @@
       "dns-list",
       "dns-flush",
       "explorer-restart",
-      "vpn-status"
+      "vpn-status",
+      "hw-inventory",
+      "disk-health",
+      "pnp-list",
+      "pnp-action",
+      "overview",
+      "sensors"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -650,6 +660,47 @@
     {
       "id": "SC-W140",
       "purpose": "Windows: gercek ag taramasi, SMB acma, Paramiko ile dahili SSH (parola + DPAPI), SuperTools kayitlarinin System Care'de gorunmesi, NAS/Hetzner cikis komutunun SSH oturumundan calismasi",
+      "type": "manual_windows",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-150",
+      "purpose": "Kod bolunmesi: kurulum listesi her kok modulu icerir, manifest sc_*.py dosyalarini tasir, sozlesme testleri tum modulleri okur",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-151",
+      "purpose": "GUI: Genel bakis kartlari ve saglik puani, Sistem ozeti bolumleri, Aygit yoneticisi gruplari/sorun metni/islem komutu, Disk sagligi karari, HTML rapor",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-152",
+      "purpose": "Yetki modeli: hangi isin tek basina UAC ile yukseltilecegi (ADMIN_ACTIONS, admin=True, yalniz Windows)",
+      "type": "unit",
+      "script": "tests/test_runner_stream.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-153",
+      "purpose": "Gercek Windows (CI): hw-inventory, disk-health, pnp-list, overview, sensors ve eski salt-okunur eylemler; care_elevated.ps1 arguman aktarimi; Runner UAC yolu; uctan uca arayuz",
+      "type": "windows_ci",
+      "script": "tests/test_windows.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-154",
+      "purpose": "Hazir calisma ortami (PyInstaller): exe oz-denetimi 21 sayfa, modern gorunum, gomulu ttkbootstrap/PIL/paramiko",
+      "type": "windows_ci",
+      "script": ".github/workflows/ci.yml",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W150",
+      "purpose": "Windows 10/11 gercek makine: UAC onayiyla surucu/aygit/ince ayar islemleri, Windows paketinin kurulumu ve uygulama ici guncelleme, LibreHardwareMonitor sensorleri",
       "type": "manual_windows",
       "required_for_package": false
     }
