@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -7,9 +7,10 @@ param(
  [string]$Packages = '',
  [ValidateSet('yes','no')][string]$Provisioned = 'no',
  [string]$InstanceIds = '',
- [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no'
+ [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no',
+ [string]$PlanFile = ''
 )
-# AGFO System Care 3.6.0 gorev motoru.
+# AGFO System Care 3.7.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -105,6 +106,202 @@ function IsProtectedPath([string]$p) {
  foreach($r in $roots) { if($full -ieq ([IO.Path]::GetFullPath($r).TrimEnd('\'))) { return $true } }
  if($env:SystemRoot -and $full.StartsWith(([IO.Path]::GetFullPath($env:SystemRoot).TrimEnd('\')+'\'),[StringComparison]::OrdinalIgnoreCase)) { return $true }
  return $false
+}
+
+# ---------------------------------------------------------------- Ince ayarlar (3.7.0)
+# Plan dosyasi: {"ops":[...]} (care_tweaks.py uretir). Kayit defteri .NET API ile 64 bit gorunumde okunur/yazilir
+# (32 bit Python'dan acilan powershell'de HKLM\SOFTWARE yonlendirmesi olmasin diye).
+function EmitD($obj) { Write-Output ('@@'+($obj | ConvertTo-Json -Compress -Depth 8)) }
+function ReadPlan {
+ if(-not $PlanFile -or -not (Test-Path -LiteralPath $PlanFile -PathType Leaf)) { Write-Output 'Plan dosyasi bulunamadi.'; exit 2 }
+ $doc=ConvertFrom-Json ([IO.File]::ReadAllText($PlanFile,[Text.Encoding]::UTF8))
+ return @($doc.ops)
+}
+function BaseKey([string]$hive) {
+ $view=[Microsoft.Win32.RegistryView]::Default
+ if([Environment]::Is64BitOperatingSystem) { $view=[Microsoft.Win32.RegistryView]::Registry64 }
+ switch($hive) {
+  'HKCU' { $h=[Microsoft.Win32.RegistryHive]::CurrentUser }
+  'HKLM' { $h=[Microsoft.Win32.RegistryHive]::LocalMachine }
+  'HKU'  { $h=[Microsoft.Win32.RegistryHive]::Users }
+  default { throw ('gecersiz kayit kovani: '+$hive) }
+ }
+ return [Microsoft.Win32.RegistryKey]::OpenBaseKey($h,$view)
+}
+function CheckRegPath([string]$path) { if(-not $path -or $path.StartsWith('\') -or $path.Contains('..')) { throw ('gecersiz kayit yolu: '+$path) } }
+function RegState([string]$hive,[string]$path,[string]$name) {
+ CheckRegPath $path
+ $st=[ordered]@{path=$path;key_exists=$false;exists=$false;value=$null;kind=''}
+ $b=BaseKey $hive
+ try {
+  $k=$b.OpenSubKey($path,$false)
+  if($null -eq $k) { return $st }
+  try {
+   $st.key_exists=$true
+   if(@($k.GetValueNames()) -contains $name) {
+    $st.exists=$true
+    $raw=$k.GetValue($name,$null,[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    $st.kind=[string]$k.GetValueKind($name)
+    switch($st.kind) {
+     'DWord'       { $st.value=[string][BitConverter]::ToUInt32([BitConverter]::GetBytes([int32]$raw),0) }
+     'QWord'       { $st.value=[string][BitConverter]::ToUInt64([BitConverter]::GetBytes([int64]$raw),0) }
+     'Binary'      { $st.value=[Convert]::ToBase64String([byte[]]$raw) }
+     'MultiString' { $st.value=@([string[]]$raw) }
+     default       { $st.value=[string]$raw }
+    }
+   }
+  } finally { $k.Close() }
+ } finally { $b.Close() }
+ return $st
+}
+function RegSubPaths([string]$hive,[string]$path) {
+ CheckRegPath $path
+ $b=BaseKey $hive
+ try {
+  $k=$b.OpenSubKey($path,$false)
+  if($null -eq $k) { return @() }
+  try { return @($k.GetSubKeyNames() | ForEach-Object { $path+'\'+$_ }) } finally { $k.Close() }
+ } finally { $b.Close() }
+}
+function RegFirstMissing([string]$hive,[string]$path) {
+ # Yazma oncesi: olusturulacak en ust anahtar (geri almada bosalirsa buraya kadar temizlenir).
+ $b=BaseKey $hive
+ try {
+  $acc=''
+  foreach($p in $path.Split('\')) {
+   if($acc) { $acc=$acc+'\'+$p } else { $acc=$p }
+   $k=$b.OpenSubKey($acc,$false)
+   if($null -eq $k) { return $acc }
+   $k.Close()
+  }
+  return ''
+ } finally { $b.Close() }
+}
+function RegToValue([string]$kind,$value) {
+ switch($kind) {
+  'DWord'       { return [BitConverter]::ToInt32([BitConverter]::GetBytes([uint32]::Parse([string]$value)),0) }
+  'QWord'       { return [BitConverter]::ToInt64([BitConverter]::GetBytes([uint64]::Parse([string]$value)),0) }
+  'Binary'      { return [Convert]::FromBase64String([string]$value) }
+  'MultiString' { return [string[]]@($value) }
+  default       { return [string]$value }
+ }
+}
+function RegPrune($b,[string]$path,[string]$root) {
+ if(-not $path.StartsWith($root,[StringComparison]::OrdinalIgnoreCase)) { return }
+ $cur=$path
+ while($cur.Length -ge $root.Length) {
+  $k=$b.OpenSubKey($cur,$false)
+  if($null -ne $k) {
+   $empty=($k.ValueCount -eq 0 -and $k.SubKeyCount -eq 0); $k.Close()
+   if(-not $empty) { return }
+   $b.DeleteSubKey($cur,$false)
+  }
+  if($cur -ieq $root) { return }
+  $i=$cur.LastIndexOf('\'); if($i -lt 0) { return }
+  $cur=$cur.Substring(0,$i)
+ }
+}
+function RegApply([string]$hive,[string]$path,[string]$name,[string]$kind,$value,[string]$delkey,[string]$prune) {
+ CheckRegPath $path
+ $b=BaseKey $hive
+ try {
+  if($delkey) {
+   if(-not $delkey.StartsWith('Software\Classes\CLSID\{',[StringComparison]::OrdinalIgnoreCase)) { throw ('anahtar silmeye izin yok: '+$delkey) }
+   $p=$b.OpenSubKey($delkey,$false)
+   if($null -ne $p) { $p.Close(); $b.DeleteSubKeyTree($delkey,$false) }
+   return
+  }
+  if($null -eq $value) {
+   $k=$b.OpenSubKey($path,$true)
+   if($null -ne $k) { try { $k.DeleteValue($name,$false) } finally { $k.Close() } }
+   if($prune) { RegPrune $b $path $prune }
+   return
+  }
+  $k=$b.CreateSubKey($path)
+  if($null -eq $k) { throw ('anahtar olusturulamadi: '+$path) }
+  try { $k.SetValue($name,(RegToValue $kind $value),[Microsoft.Win32.RegistryValueKind]$kind) } finally { $k.Close() }
+ } finally { $b.Close() }
+}
+function SvcState([string]$name) {
+ $st=[ordered]@{exists=$false;start=''}
+ $b=BaseKey 'HKLM'
+ try {
+  $k=$b.OpenSubKey('SYSTEM\CurrentControlSet\Services\'+$name,$false)
+  if($null -ne $k) {
+   try {
+    $s=$k.GetValue('Start',$null)
+    if($null -ne $s) {
+     $st.exists=$true
+     $d=[int]$k.GetValue('DelayedAutostart',0)
+     switch([int]$s) { 0 { $st.start='Boot' } 1 { $st.start='System' } 2 { if($d -eq 1) { $st.start='AutomaticDelayed' } else { $st.start='Automatic' } } 3 { $st.start='Manual' } 4 { $st.start='Disabled' } default { $st.start=[string]$s } }
+    }
+   } finally { $k.Close() }
+  }
+ } finally { $b.Close() }
+ return $st
+}
+function SvcSet([string]$name,[string]$start) {
+ $map=@{Automatic='auto';AutomaticDelayed='delayed-auto';Manual='demand';Disabled='disabled'}
+ if(-not $map.ContainsKey($start)) { throw ('gecersiz baslangic turu: '+$start) }
+ if($name -notmatch '^[A-Za-z0-9_.\-]+$') { throw ('gecersiz hizmet adi: '+$name) }
+ $ErrorActionPreference='Continue'   # sc.exe stderr satiri istisnaya donmesin; sonuc LASTEXITCODE ile denetlenir
+ $out=& sc.exe config $name start= $map[$start] 2>&1
+ if($LASTEXITCODE -ne 0) { throw ('sc config kod '+$LASTEXITCODE+': '+(($out | Out-String).Trim())) }
+ if($start -eq 'Disabled') { try { Stop-Service -Name $name -Force -ErrorAction Stop -WarningAction SilentlyContinue } catch {} }
+}
+function TaskParts([string]$p) { $i=$p.LastIndexOf('\'); return @($p.Substring(0,$i+1),$p.Substring($i+1)) }
+function TaskState([string]$p) {
+ $st=[ordered]@{exists=$false;enabled=$null}
+ $tp,$tn=TaskParts $p
+ try { $t=Get-ScheduledTask -TaskPath $tp -TaskName $tn -ErrorAction Stop; $st.exists=$true; $st.enabled=([string]$t.State -ne 'Disabled') } catch {}
+ return $st
+}
+function TaskSet([string]$p,[bool]$enabled) {
+ if(-not $p.StartsWith('\Microsoft\Windows\')) { throw ('gorev yoluna izin yok: '+$p) }
+ $tp,$tn=TaskParts $p
+ if($enabled) { Enable-ScheduledTask -TaskPath $tp -TaskName $tn -ErrorAction Stop | Out-Null }
+ else { Disable-ScheduledTask -TaskPath $tp -TaskName $tn -ErrorAction Stop | Out-Null }
+}
+$GuidRx='[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}'
+function PowerActive {
+ $o=(& powercfg.exe /getactivescheme 2>$null | Out-String)
+ $m=[regex]::Match($o,$GuidRx)
+ if($m.Success) { return $m.Value.ToLower() }
+ return ''
+}
+function PowerSet([string]$guid) {
+ if($guid -notmatch ('^'+$GuidRx+'$')) { throw ('gecersiz guc plani: '+$guid) }
+ $list=(& powercfg.exe /list 2>$null | Out-String)
+ if($list -notmatch [regex]::Escape($guid)) {
+  # Ultimate Performance gizli sablondur: ayni GUID ile kopyalanir ki durum tespiti kesin olsun.
+  if($guid -ieq 'e9a42b02-d5df-448d-aa00-03f14749eb61') { & powercfg.exe /duplicatescheme $guid $guid | Out-Null; if($LASTEXITCODE -ne 0) { throw ('powercfg duplicatescheme kod '+$LASTEXITCODE) } }
+  else { throw ('guc plani bulunamadi: '+$guid) }
+ }
+ & powercfg.exe /setactive $guid | Out-Null
+ if($LASTEXITCODE -ne 0) { throw ('powercfg setactive kod '+$LASTEXITCODE) }
+}
+function DnsState($a) {
+ $guid=[string]$a.InterfaceGuid
+ $static=@()
+ $b=BaseKey 'HKLM'
+ try {
+  $k=$b.OpenSubKey('SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\'+$guid,$false)
+  if($null -ne $k) { try { $ns=[string]$k.GetValue('NameServer',''); if($ns) { $static=@($ns -split '[,\s]+' | Where-Object { $_ }) } } finally { $k.Close() } }
+ } finally { $b.Close() }
+ $cur=@()
+ try { $cur=@((Get-DnsClientServerAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -ErrorAction Stop).ServerAddresses) } catch {}
+ return [ordered]@{alias=[string]$a.Name;guid=$guid;desc=[string]$a.InterfaceDescription;servers=$static;current=$cur}
+}
+function DnsAdapterByAlias([string]$alias) { return (Get-NetAdapter -Name $alias -ErrorAction Stop | Select-Object -First 1) }
+function DnsSet([string]$alias,$servers) {
+ $list=@($servers | Where-Object { $_ })
+ foreach($s in $list) { if($s -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { throw ('gecersiz DNS adresi: '+$s) } }
+ if($list.Count -eq 0) { Set-DnsClientServerAddress -InterfaceAlias $alias -ResetServerAddresses -ErrorAction Stop }
+ else { Set-DnsClientServerAddress -InterfaceAlias $alias -ServerAddresses ([string[]]$list) -ErrorAction Stop }
+}
+function OpNeedsAdmin($op) {
+ if(@('svc','task','dns') -contains [string]$op.t) { return $true }
+ return ([string]$op.t -eq 'reg' -and @('HKLM','HKU') -contains [string]$op.hive)
 }
 
 switch($Action) {
@@ -435,5 +632,94 @@ switch($Action) {
   }
   Write-Output ('Tasinan: {0}, basarisiz/atlanan: {1}' -f $ok,$fail)
   if($fail -gt 0) { exit 2 }
+ }
+ 'tweak-read' {
+  $ops=ReadPlan
+  foreach($op in $ops) {
+   $rec=[ordered]@{type='read';ref=[string]$op.ref}
+   try {
+    switch([string]$op.t) {
+     'reg' {
+      if($op.sub) { $rec.subs=@(RegSubPaths $op.hive $op.path | ForEach-Object { RegState $op.hive $_ $op.name }) }
+      else { $st=RegState $op.hive $op.path $op.name; foreach($k in $st.Keys) { $rec[$k]=$st[$k] } }
+     }
+     'svc'   { $st=SvcState $op.name; foreach($k in $st.Keys) { $rec[$k]=$st[$k] } }
+     'task'  { $st=TaskState $op.path; foreach($k in $st.Keys) { $rec[$k]=$st[$k] } }
+     'power' { $rec.active=PowerActive }
+     default { throw ('bilinmeyen okuma: '+$op.t) }
+    }
+   } catch { $rec.error=$_.Exception.Message }
+   EmitD $rec
+  }
+  Write-Output ('Okunan ayar: '+$ops.Count)
+ }
+ 'tweak-write' {
+  $ops=ReadPlan
+  foreach($op in $ops) { if(OpNeedsAdmin $op) { RequireAdmin; break } }
+  $ok=0; $fail=0
+  foreach($op in $ops) {
+   $rec=[ordered]@{type='write';ref=$op.ref;ok=$false}
+   try {
+    switch([string]$op.t) {
+     'reg' {
+      $paths=@($op.path)
+      if($op.sub) { $paths=@(RegSubPaths $op.hive $op.path) }
+      $befores=@()
+      foreach($p in $paths) {
+       $bf=RegState $op.hive $p $op.name
+       if($null -ne $op.value -and -not $op.delkey -and -not $bf.key_exists) { $bf.created_root=RegFirstMissing $op.hive $p }
+       $befores+= ,$bf
+       RegApply $op.hive $p $op.name ([string]$op.kind) $op.value ([string]$op.delkey) ([string]$op.prune)
+      }
+      if($op.sub) { $rec.before=[ordered]@{subs=$befores} } else { $rec.before=$befores[0] }
+     }
+     'svc' {
+      $bf=SvcState $op.name
+      if(-not $bf.exists) { throw ('hizmet bu sistemde yok: '+$op.name) }
+      $rec.before=$bf; SvcSet $op.name $op.start
+     }
+     'task' {
+      $bf=TaskState $op.path
+      if(-not $bf.exists) { throw ('gorev bu sistemde yok: '+$op.path) }
+      $rec.before=$bf; TaskSet $op.path ([bool]$op.enabled)
+     }
+     'power' { $rec.before=[ordered]@{active=PowerActive}; PowerSet $op.guid }
+     'dns' {
+      $a=DnsAdapterByAlias $op.alias
+      $st=DnsState $a
+      $rec.before=[ordered]@{servers=$st.servers}
+      DnsSet $op.alias $op.servers
+     }
+     default { throw ('bilinmeyen islem: '+$op.t) }
+    }
+    $rec.ok=$true; $ok++
+    Write-Output ('Tamam: '+$op.label+' ('+$op.t+')')
+   } catch {
+    $rec.error=$_.Exception.Message; $fail++
+    Write-Output ('BASARISIZ: '+$op.label+' ('+$op.t+'): '+$_.Exception.Message)
+   }
+   EmitD $rec
+  }
+  Write-Output ('Uygulanan islem: {0}, basarisiz: {1}' -f $ok,$fail)
+  if($fail -gt 0) { exit 2 }
+ }
+ 'dns-list' {
+  $n=0
+  foreach($a in @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' })) {
+   $st=DnsState $a; $st.type='dns-adapter'; EmitD $st; $n++
+   $mode='DHCP'; if(@($st.servers).Count) { $mode='elle: '+(@($st.servers) -join ', ') }
+   Write-Output ('{0}: {1} (gecerli: {2})' -f $st.alias,$mode,(@($st.current) -join ', '))
+  }
+  if($n -eq 0) { Write-Output 'Bagli fiziksel ag bagdastiricisi bulunamadi.' }
+ }
+ 'dns-flush' {
+  & ipconfig.exe /flushdns
+  if($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+ }
+ 'explorer-restart' {
+  Get-Process -Name explorer -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 2
+  if(-not (Get-Process -Name explorer -ErrorAction SilentlyContinue)) { Start-Process -FilePath (Join-Path $env:SystemRoot 'explorer.exe') }
+  Write-Output 'Gezgin yeniden baslatildi.'
  }
 }

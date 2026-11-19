@@ -1,7 +1,27 @@
-# AGFO System Care 3.6.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.7.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.7.0'da ne değişti — İnce ayarlar ve Uygulama kur
+WinCleaner (emirttac, MIT) projesinin katalogundan uygun bölümler System Care'e alındı. Yalnızca kayıt defteri, zamanlanmış görev, hizmet ve güç planı türündeki ayarlar alındı; serbest komut çalıştıran ayarlar (bcdedit, netsh, PowerShell betikleri) bilerek dışarıda bırakıldı.
+
+**Yeni "İnce ayarlar" sekmesi**
+- 70 ayar ve 28 hizmet tek listede, gruplu: Gizlilik ve telemetri, Oyun ve performans, Görünüm ve Gezgin, Windows 11 arayüzü, Ağ, Sistem ve Windows Update, Hizmetler. Bu Windows sürümüne uymayanlar (ör. Windows 10'da Windows 11 ayarları) listelenmez.
+- **Durumu oku**: her ayarın şu anki durumu (Uygulanmış / Kısmen / Uygulanmamış / Bu sistemde yok); hizmetlerde şu anki ve hedef başlangıç türü. Sekme ilk açıldığında kendiliğinden okunur.
+- **Risk düzeyi**: Güvenli, Dikkat (turuncu), Tehlikeli, Engelli. Tehlikeli ayarlar (ör. Windows Update hizmetini kapatmak) yalnızca "Tehlikeli ayarlara izin ver" işaretliyken uygulanır. Engelli hizmetler (RPC, DCOM, Windows Defender) hiç değiştirilemez. Bazı rekabetçi oyunların hile korumasını etkileyebilecek ayarlar için ayrıca onay istenir.
+- **Ön ayarlar**: Gamer Modu, Dengeli Mod, Minimal / Sunucu Modu, Laptop / Pil Modu, Maksimum Gizlilik. Ön ayar yalnızca işaretler; uygulamak için "Seçilenleri uygula" gerekir.
+- **Birebir geri alma**: her değişiklikten önce mevcut değer `%LOCALAPPDATA%\AGFO\SystemCare\tweaks-journal.json` dosyasına kaydedilir. "Son değişikliği geri al" ve "Geçmiş…" penceresi ayarları Windows varsayılanına değil, değişiklikten önceki gerçek değerlerine döndürür (değer hiç yoksa siler, yeni oluşturulan anahtar boş kaldıysa temizler). "Seçilenleri varsayılana döndür" ise Windows'un varsayılan değerini yazar.
+- **Profil dışa / içe aktarma** (JSON). WinCleaner'ın özel profil dosyaları da okunur; tanınmayan ayarlar atlanır.
+- **DNS**: bağlı fiziksel bağdaştırıcılarda Otomatik (DHCP), Cloudflare, Google, Quad9, AdGuard veya özel IPv4 adresleri; önceki ayar kaydedilir ve Geçmiş'ten geri alınır. **DNS önbelleğini temizle** düğmesi.
+- Görev çubuğu / Gezgin ayarlarından sonra Gezgin'i yeniden başlatma önerilir; yeniden başlatma gerektiren ayarlar günlükte belirtilir.
+- Yönetici gerektirmeyen (yalnızca bu kullanıcıyı etkileyen) ayarlar standart kullanıcıyla da uygulanır; yönetici gerektirenler ayrıca bildirilir. "Önce geri yükleme noktası" seçeneği vardır.
+
+**Yeni "Uygulama kur" sekmesi**
+- 159 sık kullanılan uygulama (tarayıcılar, iletişim, geliştirici, oyun, medya, araçlar) WinGet resmî deposundan sessiz kurulur veya kaldırılır. "Kurulu olanları denetle" bu bilgisayardakileri işaretler; süzgeç ve arama vardır.
+
+**Düzeltme**
+- `packaging/install_windows.ps1` sürümü elle yazılmış eski değer (3.5.0) yerine `care_core.py`'den okuyor.
 
 ## 3.6.0'da ne değişti — Kol / Gamepad
 Yeni **Kol / Gamepad** sekmesi Xbox kollarının teşhis ve onarımını tek yerde toplar. EA SPORTS FC 27'de Bluetooth ile bağlı kolun rastgele giriş üretmesi gibi sorunlar için hazırlandı.
@@ -79,6 +99,8 @@ Ortak: tek işlem günlüğü (canlı ilerleme, `\r` kareleri tek satırda), Dur
 
 ## Lisanslar
 Bu paket BleachBit (GPL-3.0), BCU (Apache-2.0) ve SDIO (GPL-3.0) kodunu veya ikili dosyalarını içermez ve yeniden dağıtmaz; her motor kullanıcının makinesine kendi lisansıyla, resmî kaynağından kurulur. AGFO, motorları belgelenmiş komut satırı arayüzleri üzerinden çağırır (BleachBit `--list-cleaners/--preview/--clean`, BCU-console `export`, SDIO `-script:` betik komutları). Bu bir fork değildir.
+
+İnce ayarlar ve Uygulama kur kataloğu (`care_catalog.py`) WinCleaner v2.6.0 kataloglarından uyarlanmıştır — https://github.com/emirttac/WinCleaner, MIT Lisansı, Copyright (c) 2026 emirttac. Lisansın tam metni pakette `THIRD_PARTY_LICENSES.txt` dosyasındadır. WinCleaner'ın kodu (C#/WPF) alınmamıştır; System Care kendi PowerShell ve Python koduyla uygular.
 
 ## Sözleşme ve uyumluluk
 Kurulum yolu, Başlat menüsü kısayolu, günlük klasörü (`%LOCALAPPDATA%\AGFO\DriverCare\logs`) ve `care_tasks.ps1 -Action` adları 2.x ile uyumludur; 3.0.0 yeni eylemler ekler (`drivers-list`, `recycle-paths`) ve `-UpdateIds`, `-Paths` parametrelerini getirir. Ayarlar: `%LOCALAPPDATA%\AGFO\SystemCare\settings.json`.

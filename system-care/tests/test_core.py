@@ -629,4 +629,205 @@ def controller_contract():
     assert 'IsXboxDevice $dev' in ps.split(" 'controller-reset' {")[1].split(" 'bt-restart' {")[0]       # sifirlama Xbox olmayanı reddeder
 
 
+# --------------------------------------------------------------------------- 3.7.0 ince ayarlar
+import care_tweaks as tw  # noqa: E402
+import care_catalog as cc  # noqa: E402
+
+
+@test
+def tweak_catalog_integrity():
+    ids = [t['id'] for t in cc.TWEAKS] + [s['id'] for s in cc.SERVICES]
+    assert len(ids) == len(set(ids)), 'yinelenen kimlik'
+    cats = {k for k, _ in tw.CATEGORIES}
+    for t in cc.TWEAKS:
+        assert t['cat'] in cats and t['risk'] in tw.RISK_NAME and t['name'] and t['desc'], t['id']
+        kinds = [k for k in ('reg', 'task', 'svc', 'power') if k in t]
+        assert len(kinds) == 1, t['id']
+        for r in t.get('reg', ()):
+            assert r['hive'] in tw.VALID_HIVES and r['kind'] in tw.VALID_KINDS and not r['path'].startswith('\\'), (t['id'], r)
+            assert 'on' in r and 'off' in r, t['id']
+        for mode in ('apply', 'default'):
+            assert not tw.validate_ops(tw.build_write_plan([dict(t, kind='tweak')], mode)), (t['id'], mode)
+    for s in cc.SERVICES:
+        assert s['start'] in tw.VALID_STARTS and s['risk'] in tw.RISK_NAME, s
+    blocked = {s['svc'] for s in cc.SERVICES if s['risk'] == 'blocked'}
+    assert {'RpcSs', 'DcomLaunch', 'WinDefend'} <= blocked
+    known = set(ids)
+    for p in cc.PRESETS:
+        assert p['tweaks'] or p['services']
+        assert set(p['tweaks']) | set(p['services']) <= known, p['id']
+        assert not set(p['services']) & {s['id'] for s in cc.SERVICES if s['risk'] in ('blocked', 'danger')}, p['id']
+    assert len({a['id'].lower() for a in cc.INSTALL_APPS}) == len(cc.INSTALL_APPS) and len(cc.INSTALL_APPS) > 100
+    assert not any('bcdedit' in repr(t).lower() or 'netsh' in repr(t).lower() for t in cc.TWEAKS)   # serbest komutlar alinmadi
+
+
+@test
+def tweak_os_gate_and_admin():
+    by = tw.item_by_id()
+    cop = by['tweak-disable-copilot']
+    assert tw.os_compatible(cop, 22631) and not tw.os_compatible(cop, 19045) and tw.os_compatible(cop, 0)
+    assert tw.needs_admin_item(by['tweak-game-dvr']) and not tw.needs_admin_item(by['tweak-game-mode'])
+    assert tw.needs_admin_item(by['svc-diagtrack']) and tw.needs_admin_item(by['tweak-task-ceip'])
+    assert tw.preset_items('preset-gamer') and tw.preset_items('yok') == []
+
+
+@test
+def tweak_state_detection():
+    by = tw.item_by_id()
+    gm = by['tweak-game-mode']                                         # iki HKCU DWord, on=1
+    plan = tw.read_plan([gm, by['svc-diagtrack'], by['tweak-task-ceip'], by['tweak-ultimate-perf']])
+    refs = [p['ref'] for p in plan]
+    assert len(refs) == len(set(refs)) and {p['t'] for p in plan} == {'reg', 'svc', 'task', 'power'}
+    def rd(vals):
+        out = [{'type': 'read', 'ref': p['ref'], 'key_exists': True, 'exists': v is not None, 'value': v} for p, v in zip([p for p in plan if p['t'] == 'reg'], vals)]
+        return tw.reads_by_ref(out)
+    assert tw.item_state(gm, rd(['1', '1'])) == 'applied'
+    assert tw.item_state(gm, rd(['1', '0'])) == 'partial'
+    assert tw.item_state(gm, rd([None, '0'])) == 'not'
+    assert tw.item_state(gm, {}) == 'unknown'
+    svc = by['svc-diagtrack']
+    r = tw.reads_by_ref([{'type': 'read', 'ref': 'svc|diagtrack', 'exists': True, 'start': 'Disabled'}])
+    assert tw.item_state(svc, r) == 'applied' and tw.current_text(svc, r) == 'Devre dışı'
+    r = tw.reads_by_ref([{'type': 'read', 'ref': 'svc|diagtrack', 'exists': False, 'start': ''}])
+    assert tw.item_state(svc, r) == 'missing'
+    up = by['tweak-ultimate-perf']
+    assert tw.item_state(up, {'power': {'active': 'E9A42B02-D5DF-448D-AA00-03F14749EB61'}}) == 'applied'
+    assert tw.item_state(up, {'power': {'active': tw.BALANCED_PLAN}}) == 'not'
+    nag = by['tweak-nagle-ack']                                        # tum alt anahtarlar
+    key = [p for p in tw.read_plan([nag])][0]['ref']
+    assert tw.item_state(nag, {key: {'subs': [{'exists': True, 'value': '1'}, {'exists': True, 'value': '1'}]}}) == 'applied'
+    assert tw.item_state(nag, {key: {'subs': [{'exists': True, 'value': '1'}, {'exists': False}]}}) == 'not'
+    assert tw.item_state(nag, {key: {'subs': []}}) == 'not'
+    st = by['tweak-start-iris']                                        # optional + deleteValueOnEnable
+    plan2 = tw.read_plan([st])
+    reads = {}
+    for p, r in zip(plan2, st['reg']):
+        reads[p['ref']] = {'key_exists': True, 'exists': r['on'] is not None, 'value': r['on']}
+    assert tw.item_state(st, reads) == 'applied'
+    opt = [p['ref'] for p, r in zip(plan2, st['reg']) if r.get('optional')][0]
+    reads[opt] = {'key_exists': True, 'exists': True, 'value': '1'}
+    assert tw.item_state(st, reads) == 'applied'                        # istege bagli girdi durumu bozmaz
+
+
+@test
+def tweak_write_plan_and_undo():
+    by = tw.item_by_id()
+    items = [by['tweak-game-dvr'], by['tweak-classic-context-menu'], by['svc-diagtrack'], by['tweak-task-ceip'], by['tweak-ultimate-perf'], by['tweak-nagle-ack']]
+    plan = tw.build_write_plan(items, 'apply')
+    assert [o['ref'] for o in plan] == list(range(len(plan))) and not tw.validate_ops(plan)
+    assert tw.needs_admin_ops(plan) and not tw.needs_admin_ops(tw.build_write_plan([by['tweak-game-mode']], 'apply'))
+    dflt = tw.build_write_plan(items, 'default')
+    cm = [o for o in dflt if o['item'] == 'tweak-classic-context-menu'][0]
+    assert cm['delkey'].startswith('Software\\Classes\\CLSID\\{') and cm['value'] is None
+    assert not [o for o in dflt if o['t'] == 'svc']                     # hizmetlerin katalog varsayilani yok
+    assert [o['guid'] for o in dflt if o['t'] == 'power'] == [tw.BALANCED_PLAN]
+    assert [o['enabled'] for o in dflt if o['t'] == 'task'] == [True] and [o['enabled'] for o in plan if o['t'] == 'task'] == [False]
+    before = {}
+    for o in plan:
+        if o['t'] == 'reg' and o['item'] == 'tweak-game-dvr':
+            before[o['ref']] = {'key_exists': False, 'exists': False, 'created_root': 'SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR'}
+        elif o['t'] == 'reg' and o['item'] == 'tweak-classic-context-menu':
+            before[o['ref']] = {'key_exists': False, 'exists': False, 'created_root': 'Software\\Classes\\CLSID\\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}'}
+        elif o['t'] == 'reg':
+            before[o['ref']] = {'subs': [{'path': o['path'] + '\\{A}', 'key_exists': True, 'exists': True, 'value': '2', 'kind': 'DWord'},
+                                         {'path': o['path'] + '\\{B}', 'key_exists': True, 'exists': False}]}
+        elif o['t'] == 'svc':
+            before[o['ref']] = {'exists': True, 'start': 'AutomaticDelayed'}
+        elif o['t'] == 'task':
+            before[o['ref']] = {'exists': True, 'enabled': True}
+        elif o['t'] == 'power':
+            before[o['ref']] = {'active': tw.BALANCED_PLAN}
+    records = [{'type': 'write', 'ref': o['ref'], 'ok': True, 'before': before[o['ref']]} for o in plan]
+    records[-1]['ok'] = False                                           # basarisiz islem geri alinmaz
+    with tempfile.TemporaryDirectory() as d:
+        sess = tw.record_session(d, 'Uygula: test', plan, records + ['gurultu', {'type': 'read'}][1:])
+        assert sess and len(tw.load_journal(d)) == 1 and 'Uygula: test' in tw.session_summary(sess)
+        undo = tw.undo_ops(sess['entries'])
+        assert not tw.validate_ops(undo), tw.validate_ops(undo)
+        kinds = [o['t'] for o in undo]
+        assert kinds[0] == 'power' and kinds.count('reg') >= 2           # ters sira
+        dvr = [o for o in undo if o['t'] == 'reg' and 'GameDVR' in o['path']][0]
+        assert dvr['value'] is None and dvr['prune'] == 'SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR' and dvr['item'] == 'tweak-game-dvr'
+        assert [o['start'] for o in undo if o['t'] == 'svc'] == ['AutomaticDelayed']
+        assert [o['enabled'] for o in undo if o['t'] == 'task'] == [True]
+        assert not [o for o in undo if 'Interfaces' in o.get('path', '')]   # basarisiz alt-anahtar islemi atlandi
+        records[-1]['ok'] = True
+        sess2 = tw.record_session(d, 'ikinci', plan, records)
+        sub = [o for o in tw.undo_ops(sess2['entries']) if 'Interfaces' in o.get('path', '')]
+        assert {(o['path'][-3:], o['value']) for o in sub} == {('{A}', '2'), ('{B}', None)}, sub
+        assert sess2['id'] != sess['id'] and len(tw.load_journal(d)) == 2
+        tw.mark_undone(d, sess['id'])
+        assert tw.load_journal(d)[0]['undone'] is True
+        assert tw.record_session(d, 'hepsi hata', plan, [dict(r, ok=False) for r in records]) is None
+    # varsayilana donus (silme) oncesi deger yoksa geri alma bos; deger varsa yazilir
+    op = {'t': 'reg', 'hive': 'HKCU', 'path': 'Software\\X', 'name': 'V', 'kind': 'DWord', 'value': None}
+    assert tw.undo_ops([{'op': op, 'ok': True, 'before': {'key_exists': True, 'exists': False}}]) == []
+    assert tw.undo_ops([{'op': op, 'ok': True, 'before': {'key_exists': False, 'exists': False}}]) == []
+    u = tw.undo_ops([{'op': op, 'ok': True, 'before': {'key_exists': True, 'exists': True, 'value': 'abc', 'kind': 'String'}}])
+    assert u[0]['value'] == 'abc' and u[0]['kind'] == 'String'
+
+
+@test
+def tweak_validate_rejects():
+    bad = [{'t': 'reg', 'hive': 'HKCR', 'path': 'x', 'name': 'a', 'kind': 'DWord', 'value': '1'},
+           {'t': 'reg', 'hive': 'HKLM', 'path': '..\\x', 'name': 'a', 'kind': 'DWord', 'value': '1'},
+           {'t': 'reg', 'hive': 'HKLM', 'path': 'SOFTWARE\\X', 'name': 'a', 'kind': 'Weird', 'value': '1'},
+           {'t': 'reg', 'hive': 'HKCU', 'path': 'Software\\X', 'name': '', 'value': None, 'delkey': 'Software\\Microsoft'},
+           {'t': 'reg', 'hive': 'HKCU', 'path': 'Software\\X\\Y', 'name': 'a', 'value': None, 'prune': 'Software\\Z'},
+           {'t': 'svc', 'name': 'a b', 'start': 'Manual'}, {'t': 'svc', 'name': 'DiagTrack', 'start': 'Boot'},
+           {'t': 'task', 'path': '\\Other\\T', 'enabled': False}, {'t': 'power', 'guid': 'nope'},
+           {'t': 'dns', 'alias': 'Ethernet', 'servers': ['1.1.1.999']}, {'t': 'cmd', 'line': 'format c:'}]
+    for b in bad:
+        assert tw.validate_ops([b]), b
+    assert tw.valid_ipv4_list('1.1.1.1, 8.8.8.8') == ['1.1.1.1', '8.8.8.8']
+    assert tw.valid_ipv4_list('1.1.1.1;300.1.1.1') is None and tw.valid_ipv4_list('') is None and tw.valid_ipv4_list('1.1.1.1 ' * 5) is None
+    p = tw.dns_plan([{'alias': 'Ethernet', 'guid': '{G}'}, {'alias': 'Wi-Fi'}], ['1.1.1.1'])
+    assert [o['ref'] for o in p] == [0, 1] and not tw.validate_ops(p) and tw.needs_admin_ops(p)
+    u = tw.undo_ops([{'op': p[0], 'ok': True, 'before': {'servers': []}}])
+    assert u == [{'t': 'dns', 'alias': 'Ethernet', 'guid': '{G}', 'servers': [], 'item': 'dns', 'label': 'Geri al: DNS: Ethernet', 'ref': 0}], u
+
+
+@test
+def tweak_profiles_and_install():
+    prof = tw.export_profile(['tweak-game-mode', 'svc-diagtrack', 'yok'])
+    assert prof['items'] == ['tweak-game-mode', 'svc-diagtrack']
+    assert tw.import_profile(json.loads(json.dumps(prof))) == (['tweak-game-mode', 'svc-diagtrack'], [])
+    ids, unk = tw.import_profile({'tweakIds': ['tweak-game-mode', 'tweak-disable-hpet'], 'serviceIds': ['svc-sysmain']})   # WinCleaner profili
+    assert ids == ['tweak-game-mode', 'svc-sysmain'] and unk == ['tweak-disable-hpet']
+    for bad in ([], {'x': 1}):
+        try:
+            tw.import_profile(bad)
+            raise AssertionError('kabul edilmemeliydi')
+        except ValueError:
+            pass
+    rows = c.parse_winget_table(['Name               Id                         Version  Source',
+                                 '------------------------------------------------------------',
+                                 'Google Chrome      Google.Chrome              131.0    winget',
+                                 'Microsoft Visual…  Microsoft.VisualStudioCo…  1.95     winget'])
+    ids = tw.installed_ids(rows)
+    assert tw.is_installed('Google.Chrome', ids) and tw.is_installed('Microsoft.VisualStudioCode', ids) and not tw.is_installed('Mozilla.Firefox', ids)
+    g = tw.install_groups()
+    assert sum(len(v) for v in g.values()) == len(cc.INSTALL_APPS) and 'Tarayıcılar' in g
+
+
+@test
+def tweak_contract_and_packaging():
+    ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
+    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    head = ps.split('[string]$Action')[0]
+    for act in ('tweak-read', 'tweak-write', 'dns-list', 'dns-flush', 'explorer-restart'):
+        assert "'%s'" % act in head and (" '%s' {" % act) in ps, act
+        assert "'%s'" % act in app.split('INTERNAL_PS_ACTIONS = ')[1].split('\n')[0], act
+    assert '[string]$PlanFile' in ps and 'RequireAdmin' in ps.split(" 'tweak-write' {")[1].split(" 'dns-list' {")[0]
+    assert "StartsWith('Software\\Classes\\CLSID\\{'" in ps and "StartsWith('\\Microsoft\\Windows\\')" in ps    # PS tarafi da sinirlar
+    assert 'RegistryView]::Registry64' in ps
+    for name in ('care_tweaks.py', 'care_catalog.py'):
+        assert c._is_runtime_file(name), name
+    man = c.build_manifest(ROOT)
+    assert 'care_tweaks.py' in man['files'] and 'care_catalog.py' in man['files'] and man['version'] == c.VERSION
+    inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
+    assert "'care_tweaks.py'" in inst and "'care_catalog.py'" in inst and c.VERSION not in inst.split('$files=')[0]
+    assert "'  İnce ayarlar  '" in app and "'  Uygulama kur  '" in app
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

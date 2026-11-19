@@ -2,7 +2,9 @@ $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 $root=Split-Path -Parent $PSScriptRoot
 $dest=Join-Path $env:LOCALAPPDATA 'Programs\AGFO System Care'
-$files=@('app.pyw','care_core.py','agfo_github_update.py','care_tasks.ps1','assets\agfo.ico','README_TR.md')
+$files=@('app.pyw','care_core.py','care_tweaks.py','care_catalog.py','agfo_github_update.py','care_tasks.ps1','assets\agfo.ico','README_TR.md','THIRD_PARTY_LICENSES.txt')
+# Surum care_core.py'den okunur (elle yazilan surum eskiyordu).
+$version=([regex]::Match((Get-Content -LiteralPath (Join-Path $root 'care_core.py') -Raw -Encoding UTF8),"(?m)^VERSION = '([0-9.]+)'")).Groups[1].Value
 foreach($file in $files) { if(-not (Test-Path -LiteralPath (Join-Path $root $file) -PathType Leaf)){throw "Dosya bulunamadi: $file"} }
 function FindPython {
  foreach($name in @('py','python')) {
@@ -26,13 +28,13 @@ foreach($file in $files){
  Copy-Item -LiteralPath (Join-Path $root $file) -Destination $target -Force
  Unblock-File -LiteralPath $target -ErrorAction SilentlyContinue   # Internet'ten indirilen ZIP'in Zone.Identifier isaretini kaldir
 }
-Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value '3.5.0' -Encoding ASCII
+Set-Content -LiteralPath (Join-Path $dest 'VERSION') -Value $version -Encoding ASCII
 $pythonW=Join-Path (Split-Path $python -Parent) 'pythonw.exe'
 if(-not (Test-Path $pythonW)) { $pythonW=$python }
 $menu=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\AGFO'
 New-Item -ItemType Directory -Path $menu -Force | Out-Null
 $link=Join-Path $menu 'AGFO System Care.lnk'
 $sc=(New-Object -ComObject WScript.Shell).CreateShortcut($link)
-$sc.TargetPath=$pythonW;$sc.Arguments='"'+(Join-Path $dest 'app.pyw')+'"';$sc.WorkingDirectory=$dest;$sc.IconLocation=(Join-Path $dest 'assets\agfo.ico')+',0';$sc.Description='AGFO System Care 3.5.0';$sc.Save()
+$sc.TargetPath=$pythonW;$sc.Arguments='"'+(Join-Path $dest 'app.pyw')+'"';$sc.WorkingDirectory=$dest;$sc.IconLocation=(Join-Path $dest 'assets\agfo.ico')+',0';$sc.Description=('AGFO System Care '+$version);$sc.Save()
 Write-Host ('Kurulum tamamlandi: '+$dest)
 Start-Process -FilePath $pythonW -ArgumentList ('"'+(Join-Path $dest 'app.pyw')+'"') -WorkingDirectory $dest

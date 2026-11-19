@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.6.0",
+  "version": "3.7.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -8,9 +8,11 @@
       "Temizlik",
       "Programlar",
       "Bloatware",
+      "İnce ayarlar",
       "Sürücüler",
       "Aygıt temizliği",
       "Uygulama güncellemeleri",
+      "Uygulama kur",
       "Bakım ve sağlık",
       "Kol / Gamepad"
     ],
@@ -38,7 +40,12 @@
       "phantom-remove",
       "controller-list",
       "controller-reset",
-      "bt-restart"
+      "bt-restart",
+      "tweak-read",
+      "tweak-write",
+      "dns-list",
+      "dns-flush",
+      "explorer-restart"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -49,9 +56,10 @@
       "-Packages <pipe list of PackageFullName>",
       "-Provisioned yes|no",
       "-InstanceIds <pipe list>",
-      "-ForceRestorePoint yes|no"
+      "-ForceRestorePoint yes|no",
+      "-PlanFile <JSON {ops:[...]} yolu; care_tweaks.py uretir>"
     ],
-    "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle | controller | bt-radio | controller-reset | bt-service)",
+    "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle | controller | bt-radio | controller-reset | bt-service | read | write | dns-adapter)",
     "engines_winget": {
       "bleachbit": "BleachBit.BleachBit",
       "bcu": "Klocman.BulkCrapUninstaller",
@@ -78,9 +86,12 @@
       ]
     },
     "update_backups": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\update-backups (en son 3)",
-    "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})",
+    "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ care_tweaks.py, care_catalog.py 3.7.0+) (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})",
     "controller_scope": "Yalnizca Xbox kol/adaptor: Microsoft VID 045E + XBOX_PIDS/XBOX_ADAPTER_PIDS, adinda \"Xbox\", XboxComposite/XnaComposite sinifi veya XBOXGIP\\ (care_core.controller_is_xbox == care_tasks.ps1 IsXboxDevice)",
-    "fc_settings_reset": "%LOCALAPPDATA%\\EA SPORTS FC <en yeni>\\settings\\Settings* -> ayni klasorde settings_backup_<zaman>[-n]/ (kopya boyutu dogrulanmadan silinmez)"
+    "fc_settings_reset": "%LOCALAPPDATA%\\EA SPORTS FC <en yeni>\\settings\\Settings* -> ayni klasorde settings_backup_<zaman>[-n]/ (kopya boyutu dogrulanmadan silinmez)",
+    "tweaks_catalog": "care_catalog.py: WinCleaner v2.6.0 (MIT) katalogundan kayit/gorev/hizmet/guc plani ayarlari + 28 hizmet + 5 on ayar + 159 WinGet uygulamasi; serbest komut (bcdedit/netsh/betik) yok",
+    "tweaks_journal": "%LOCALAPPDATA%\\AGFO\\SystemCare\\tweaks-journal.json (son 60 oturum; her islemin ONCEKI durumu, geri alma birebir)",
+    "tweaks_plans": "%LOCALAPPDATA%\\AGFO\\SystemCare\\plans\\*.json (son 20)"
   },
   "removed_surfaces": [
     {
@@ -400,6 +411,60 @@
       "id": "SC-W10",
       "purpose": "Windows: gercek Xbox kolu USB ve Bluetooth ile controller-list dogru yolu ve durumu gosterir; canli testte tuslar/analoglar/tetikler/pil; controller-reset (yonetici) sonrasi kol yeniden taninir; bt-restart eslestirmeyi korur; Xbox Accessories ve Steam kumanda ayarlari acilir",
       "type": "windows_runtime",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-070",
+      "purpose": "Ince ayar katalogu: kimlik tekilligi, kategori/risk/tur, kayit kovani ve deger turu, her oge icin uygula/varsayilan plani dogrulanir, on ayarlar bilinen kimlikler, engelli hizmetler (RpcSs, DcomLaunch, WinDefend) on ayara girmez",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-071",
+      "purpose": "Durum tespiti: kayit (cok degerli, istege bagli, deger silme, tum alt anahtarlar), hizmet, gorev, guc plani; uygulanmis/kismen/uygulanmamis/bilinmiyor/yok",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-072",
+      "purpose": "Yazma plani + gunluk + geri alma: onceki deger birebir, yeni anahtar bosalirsa temizlenir, basarisiz islem geri alinmaz, ters sira, hizmet/gorev/guc/DNS geri alma",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-073",
+      "purpose": "Plan dogrulama gecersiz kovan/yol/tur/CLSID disi anahtar silme/gorev yolu/guc GUID/DNS/bilinmeyen islemi reddeder; PowerShell tarafi da CLSID ve \\Microsoft\\Windows\\ sinirini uygular",
+      "type": "unit+contract",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-074",
+      "purpose": "Profil disa/ice aktarma (kendi bicimi + WinCleaner tweakIds/serviceIds), WinGet kesik kimlik eslesmesi, kurulum katalogu gruplari",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-075",
+      "purpose": "Yeni dosyalar (care_tweaks.py, care_catalog.py) MANIFEST ve install_windows.ps1 listesinde; surum care_core.py'den okunur",
+      "type": "contract",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-W70",
+      "purpose": "Windows: Gamer Modu on ayarini uygula -> Durumu oku -> Son degisikligi geri al; kayit degerleri ve hizmet baslangic turleri onceki haline doner",
+      "type": "manual_windows",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W71",
+      "purpose": "Windows: DNS Cloudflare -> Gecmisten geri al (DHCP veya onceki elle girilmis adresler geri gelir)",
+      "type": "manual_windows",
       "required_for_package": false
     }
   ]
