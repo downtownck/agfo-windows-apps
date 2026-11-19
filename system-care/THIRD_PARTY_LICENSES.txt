@@ -72,3 +72,15 @@ ayri dosyalar halinde (_internal klasoru) icerir. Lisans metinleri ilgili projel
 
 Istege bagli, pakete dahil olmayan ve kullanicinin onayiyla WinGet uzerinden kurulan:
 - LibreHardwareMonitor (MPL-2.0) — sensorler                      https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+
+
+------------------------------------------------------------------------
+4.1 NVIDIA sayfasi:
+- assets/nvidia-data.json: ZenitH-AT/nvidia-data verisinin kopyasidir (Unlicense, kamu mali).
+  https://github.com/ZenitH-AT/nvidia-data
+- NVIDIA surucu arama servisinin kullanimi, yalin kurulum dosya listesi ve setup.cfg duzeltmesi nvidia-update betigindeki
+  yonteme dayanir (MIT; Copyright (c) 2020 lord-carlos, Copyright (c) 2021 ZenitH-AT).
+  https://github.com/ZenitH-AT/nvidia-update
+- Display Driver Uninstaller (MIT, Wagnardsoft) pakete dahil degildir; kullanicinin onayiyla WinGet uzerinden kurulur.
+  https://github.com/Wagnard/display-drivers-uninstaller
+- NVIDIA surucu paketleri NVIDIA Corporation'in kendi sunucusundan indirilir ve NVIDIA lisansina tabidir.

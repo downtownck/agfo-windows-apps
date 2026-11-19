@@ -1,4 +1,4 @@
-# AGFO System Care 4.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 4.1 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 **Önerilen (Python gerekmez):** `AGFO-System-Care-v4.x.x-Windows.zip` dosyasını indirip açın, klasördeki `Kur-ve-Baslat.cmd`'yi çalıştırın. Python, tkinter ve gerekli kütüphaneler pakette hazır gelir. Uygulama `%LOCALAPPDATA%\Programs\AGFO System Care` klasörüne kurulur ve Başlat menüsüne kısayol eklenir.
@@ -6,6 +6,14 @@
 **Python ile:** `AGFO-System-Care-v4.x.x.zip` paketini açıp `agfo-care/Kur-ve-Baslat.cmd` ile de kurabilirsiniz. Bunun için Python 3.10+ ve tkinter gerekir. Bu paket aynı zamanda uygulama içi güncelleme paketidir.
 
 İlk açılışta **Motorlar** sekmesindeki "Eksik motorları kur" düğmesine basın.
+
+## 4.1'de ne değişti — Üretici desteği ve NVIDIA
+- **Üretici desteği (Donanım > Üretici desteği):** Üretici, model ve seri numarası Windows'tan okunur. Dell ve ASUS'ta doğrudan ürününüzün sürücü sayfası açılır. HP, Lenovo, Acer, Sony/VAIO, MSI, Microsoft Surface, Samsung, Dynabook, Fujitsu, Huawei, Casper, Monster ve diğerlerinde resmî sürücü sayfası açılır; seri numarası ya da model panoya kopyalanır. "Üretici sitesinde ara" yalnızca üreticinin kendi sitesinde arar. Kendi topladığınız masaüstünde anakart üreticisi (ASUS, MSI, GIGABYTE, ASRock) kullanılır. Üreticinin kendi güncelleme aracı tek tıkla kurulur: Dell Command Update, HP Support Assistant / Image Assistant, Lenovo Vantage / System Update, MyASUS, MSI Center ve Intel Driver & Support Assistant.
+- **NVIDIA (Donanım > NVIDIA):**
+  - Kurulu sürüm ile NVIDIA'nın kendi sürücü servisindeki en yeni sürüm karşılaştırılır.
+  - "İndir ve kur": sürücü NVIDIA sunucusundan indirilir, dijital imzası doğrulanır (yalnızca NVIDIA Corporation imzalı dosya çalıştırılır) ve sessiz kurulur. İsteğe bağlı: temiz kurulum, yalnızca sürücü (NVIDIA App olmadan, 7-Zip ile).
+  - Kaldırma: NVIDIA'nın kendi sessiz kaldırıcısı, Windows sürücü deposundan paket silme (pnputil) ya da açık kaynak Display Driver Uninstaller (DDU) ile derin temizlik (geri yükleme noktası + yeniden başlatma).
+- Sol menü uzadığı için artık fare tekerleğiyle kaydırılıyor; seçili sayfa her zaman görünür.
 
 ## 4.0'da ne değişti
 - **Genel bakış (ilk sayfa):** diskler, aygıtlar, Microsoft Defender, güvenlik duvarı, Windows Update, bekleyen yeniden başlatma, bellek, çalışma süresi, BitLocker ve VPN tek ekranda; 0–100 arası sağlık puanı. Her kartta ilgili sayfayı ya da Windows ayarını açan bir düğme var.

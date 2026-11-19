@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -872,5 +872,73 @@ switch($Action) {
   }
   if(-not $n) { Write-Output 'Sensor verisi yok: LibreHardwareMonitor calismiyor ya da WMI saglayicisi kapali.'; exit 3 }
   Write-Output ('Sensor sayisi: '+$n)
+ }
+ 'oem-info' {
+  # Uretici destegi: model, seri numarasi, SKU, anakart (ozel toplama masaustu icin), dizustu mu.
+  $cs=@(Cim Win32_ComputerSystem)[0]; $bios=@(Cim Win32_BIOS)[0]; $bb=@(Cim Win32_BaseBoard)[0]; $csp=@(Cim Win32_ComputerSystemProduct)[0]
+  $ch=@(Cim Win32_SystemEnclosure)[0]
+  $nb=$false; if($ch -and $ch.ChassisTypes) { foreach($t in @($ch.ChassisTypes)) { if(@(8,9,10,11,12,14,18,21,30,31,32) -contains [int]$t) { $nb=$true } } }
+  EmitD ([ordered]@{type='oem';maker=(Txt $cs.Manufacturer);model=(Txt $cs.Model);family=(Txt $csp.Version);sku=(Txt $cs.SystemSKUNumber);serial=(Txt $bios.SerialNumber);board_maker=(Txt $bb.Manufacturer);board=(Txt $bb.Product);bios=(Txt $bios.SMBIOSBIOSVersion);notebook=$nb})
+  Write-Output ('Uretici: {0} | Model: {1}' -f (Txt $cs.Manufacturer),(Txt $cs.Model))
+ }
+ 'nvidia-info' {
+  # NVIDIA: GPU, surucu surumu, DCH, NVIDIA kaldiricisi, NVIDIA programlari ve surucu paketleri; 7-Zip ve DDU yollari.
+  $os=@(Cim Win32_OperatingSystem)[0]
+  $ch=@(Cim Win32_SystemEnclosure)[0]
+  $nb=$false; if($ch -and $ch.ChassisTypes) { foreach($t in @($ch.ChassisTypes)) { if(@(8,9,10,11,12,14,18,21,30,31,32) -contains [int]$t) { $nb=$true } } }
+  $dch=$false; try { $dch=[bool](Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\nvlddmkm' -Name 'DCHUVen' -ErrorAction Stop) } catch {}
+  $nvi2=Test-Path -LiteralPath (Join-Path $env:ProgramFiles 'NVIDIA Corporation\Installer2\InstallerCore\NVI2.DLL')
+  $sz=''; try { $sz=[string](Get-ItemProperty -Path 'HKLM:\SOFTWARE\7-Zip' -Name Path -ErrorAction Stop).Path; if($sz) { $sz=Join-Path $sz '7z.exe' } } catch {}
+  if(-not $sz -or -not (Test-Path -LiteralPath $sz)) { $c=Join-Path $env:ProgramFiles '7-Zip\7z.exe'; $sz=$(if(Test-Path -LiteralPath $c){$c}else{''}) }
+  $ddu=''
+  $roots=@('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall','HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall')
+  $apps=@()
+  foreach($r in $roots) {
+   foreach($k in @(Get-ChildItem -LiteralPath $r -ErrorAction SilentlyContinue)) {
+    try { $p=Get-ItemProperty -LiteralPath $k.PSPath -ErrorAction Stop } catch { continue }
+    $dn=[string]$p.DisplayName; if(-not $dn) { continue }
+    if($dn -eq 'Display Driver Uninstaller') { $loc=[string]$p.InstallLocation; if(-not $loc -and $p.DisplayIcon) { $loc=Split-Path ([string]$p.DisplayIcon).Trim('"') -Parent }; if($loc) { $e=Join-Path $loc 'Display Driver Uninstaller.exe'; if(Test-Path -LiteralPath $e) { $ddu=$e } } }
+    if([string]$p.Publisher -like 'NVIDIA*') { $apps+=[ordered]@{name=$dn;version=[string]$p.DisplayVersion} }
+   }
+  }
+  if(-not $ddu) { $e=Join-Path $env:ProgramFiles 'Display Driver Uninstaller\Display Driver Uninstaller.exe'; if(Test-Path -LiteralPath $e) { $ddu=$e } }
+  $gpus=@()
+  foreach($g in (Cim Win32_VideoController)) { $gpus+=[ordered]@{name=(Txt $g.Name);driver=(Txt $g.DriverVersion);date=(SafeDate $g.DriverDate);pnp=(Txt $g.PNPDeviceID);nvidia=([string]$g.PNPDeviceID -match 'VEN_10DE')} }
+  $pk=@()
+  foreach($d in (Cim Win32_PnPSignedDriver)) { if([string]$d.DriverProviderName -like 'NVIDIA*' -and $d.InfName) { $pk+=[ordered]@{inf=[string]$d.InfName;name=(Txt $d.DeviceName);cls=(Txt $d.DeviceClass);ver=(Txt $d.DriverVersion)} } }
+  EmitD ([ordered]@{type='nvinfo';gpus=$gpus;notebook=$nb;dch=$dch;build=[int]$os.BuildNumber;x64=[Environment]::Is64BitOperatingSystem;nvi2=$nvi2;sevenzip=$sz;ddu=$ddu;apps=$apps;packages=$pk})
+  Write-Output ('Ekran kartlari: {0}' -f (($gpus | ForEach-Object { $_.name }) -join ', '))
+ }
+ 'nvidia-uninstall' {
+  # NVIDIA'nin kendi kaldiricisi (belgelenmis sessiz parametreler): Display.Driver -silent -n
+  RequireAdmin
+  $dll=Join-Path $env:ProgramFiles 'NVIDIA Corporation\Installer2\InstallerCore\NVI2.DLL'
+  if(-not (Test-Path -LiteralPath $dll)) { Write-Output 'NVIDIA kaldiricisi (NVI2) bulunamadi; "Surucu paketlerini sil" ya da DDU kullanin.'; exit 2 }
+  $p=Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\rundll32.exe') -ArgumentList ('"'+$dll+'",UninstallPackage Display.Driver'),'-silent','-n' -Wait -PassThru
+  Write-Output ('NVIDIA kaldiricisi cikis kodu: '+$p.ExitCode+' (yeniden baslatma gerekebilir)')
+  exit $p.ExitCode
+ }
+ 'nvidia-remove-packages' {
+  # Windows surucu deposundaki NVIDIA ekran surucu paketlerini kaldirir (pnputil); aygit Microsoft Temel Goruntu Bagdastiricisina doner.
+  RequireAdmin
+  $infs=@(Cim Win32_PnPSignedDriver | Where-Object { [string]$_.DriverProviderName -like 'NVIDIA*' -and [string]$_.DeviceClass -eq 'DISPLAY' -and $_.InfName } | ForEach-Object { [string]$_.InfName } | Sort-Object -Unique)
+  if(-not $infs.Count) { Write-Output 'Kaldirilacak NVIDIA ekran surucu paketi yok.'; exit 0 }
+  $fail=0
+  foreach($inf in $infs) {
+   if($inf -notmatch '^oem\d+\.inf$') { Write-Output ('Atlandi (oem paketi degil): '+$inf); continue }
+   $o=& pnputil.exe /delete-driver $inf /uninstall /force 2>&1
+   Write-Output ($o -join "`n")
+   if($LASTEXITCODE -ne 0) { $fail++ }
+  }
+  Write-Output 'Yeniden baslatma onerilir.'
+  if($fail) { exit 1 }
+ }
+ 'sig-check' {
+  # Indirilen dosyanin Authenticode imzasi (yalnizca gecerli ve beklenen yayinciysa calistirilir).
+  foreach($f in @($Paths -split '\|' | Where-Object { $_ })) {
+   $s=Get-AuthenticodeSignature -LiteralPath $f
+   EmitD ([ordered]@{type='sig';path=$f;status=[string]$s.Status;subject=$(if($s.SignerCertificate){[string]$s.SignerCertificate.Subject}else{''})})
+   Write-Output ('Imza: {0} — {1}' -f [string]$s.Status,$(if($s.SignerCertificate){$s.SignerCertificate.Subject}else{'-'}))
+  }
  }
 }

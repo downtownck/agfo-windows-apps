@@ -104,8 +104,8 @@ ACTIONS = {
  ],
 }
 # Sekme ici dugmelerin kullandigi diger care_tasks.ps1 eylemleri
-INTERNAL_PS_ACTIONS = ['hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','vpn-status','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
-ADMIN_ACTIONS = {'pnp-action','controller-reset','bt-restart','phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
+INTERNAL_PS_ACTIONS = ['oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','vpn-status','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
+ADMIN_ACTIONS = {'nvidia-uninstall','nvidia-remove-packages','pnp-action','controller-reset','bt-restart','phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
 DANGER_TEXT = {
  'temp-clean':'7 günden eski Temp dosyaları kalıcı olarak silinir. Önizleme yapmanız önerilir.',
  'component-clean':'Windows bileşen deposu temizlenecek. Bu işlem zaman alabilir.',
@@ -566,8 +566,43 @@ class NavBook(tk.Frame):
         self.nav = nav
         self.pages = []
         self.current = None
-        self.navlist = tk.Frame(nav, bg=NAV_BG)
-        self.navlist.pack(fill='x', pady=(6, 0))
+        # 4.1: menu uzadi (23 sayfa) -> kaydirilabilir liste (fare tekerlegi); kucuk ekranlarda alttaki sayfalar kaybolmaz
+        self.navcanvas = tk.Canvas(nav, bg=NAV_BG, highlightthickness=0, bd=0, height=120)
+        self.navcanvas.pack(side='top', fill='both', expand=True, pady=(6, 0))
+        self.navlist = tk.Frame(self.navcanvas, bg=NAV_BG)
+        self._navwin = self.navcanvas.create_window(0, 0, window=self.navlist, anchor='nw')
+        self.navlist.bind('<Configure>', lambda _e: self.navcanvas.configure(scrollregion=self.navcanvas.bbox('all')))
+        self.navcanvas.bind('<Configure>', lambda e: self.navcanvas.itemconfigure(self._navwin, width=e.width))
+        self.navcanvas.bind('<Enter>', lambda _e: self._wheel(True))
+        self.navcanvas.bind('<Leave>', lambda _e: self._wheel(False))
+
+    def _wheel(self, on):
+        c = self.navcanvas
+        if not on:
+            for seq in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+                c.unbind_all(seq)
+            return
+
+        def scroll(e):
+            if c.winfo_height() >= self.navlist.winfo_reqheight():
+                return
+            step = -1 if (getattr(e, 'num', 0) == 4 or getattr(e, 'delta', 0) > 0) else 1
+            c.yview_scroll(step * 2, 'units')
+        for seq in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            c.bind_all(seq, scroll)
+
+    def ensure_visible(self, i):
+        """Secili menu satiri gorunur alanda degilse liste kaydirilir."""
+        try:
+            row = self.pages[i]['row']
+            self.navcanvas.update_idletasks()
+            total = max(1, self.navlist.winfo_reqheight())
+            top, h = row.winfo_y(), self.navcanvas.winfo_height()
+            y0 = self.navcanvas.canvasy(0)
+            if top < y0 or top + row.winfo_height() > y0 + h:
+                self.navcanvas.yview_moveto(max(0.0, (top - h / 3) / total))
+        except (tk.TclError, IndexError):
+            pass
 
     def add_group(self, title):
         tk.Label(self.navlist, text=title.upper(), bg=NAV_BG, fg=NAV_MUTED, font=('Segoe UI', 8, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(8, 1))
@@ -615,6 +650,7 @@ class NavBook(tk.Frame):
         self.current = i
         self.pages[i]['frame'].pack(fill='both', expand=True)
         self.refresh_nav()
+        self.ensure_visible(i)
         self.event_generate('<<NotebookTabChanged>>')
 
     def _paint(self, i, bg, fg, bar, bold):

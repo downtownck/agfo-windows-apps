@@ -1240,4 +1240,72 @@ def installer_lists_all_runtime_modules():
         assert c._is_runtime_file(p.name) and p.name in c.build_manifest(ROOT)['files'], p.name
 
 
+# --------------------------------------------------------------------------- 4.1 uretici destegi ve NVIDIA
+import care_oem as oem  # noqa: E402
+
+
+def core_host_ok(url):
+    return c.host_allowed(url, oem.NV_HOSTS)
+
+
+@test
+def oem_vendor_links():
+    dell = oem.identify({'maker': 'Dell Inc.', 'model': 'Latitude 5420', 'serial': 'ABC1234', 'sku': '0A12'})
+    L = oem.support_links(dell)
+    assert dell['vendor'] == 'dell' and L['direct'] == 'https://www.dell.com/support/home/tr-tr/product-support/servicetag/ABC1234/drivers', L
+    hp = oem.identify({'maker': 'HP', 'model': 'HP ProBook 450 G8 Notebook PC', 'serial': '5CD1234XYZ', 'sku': '2X7X3EA#AB8'})
+    Lh = oem.support_links(hp)
+    assert hp['vendor'] == 'hp' and Lh['direct'] is None and Lh['copy'] == '5CD1234XYZ' and Lh['copy_label'] == 'seri numarası'
+    assert 'site%3Ahp.com' in Lh['search'] and Lh['drivers'].startswith('https://support.hp.com/')
+    le = oem.identify({'maker': 'LENOVO', 'model': '21CF0032TX', 'family': 'ThinkPad T14 Gen 3', 'serial': 'PF3XYZ12'})
+    assert le['vendor'] == 'lenovo' and le['model'] == 'ThinkPad T14 Gen 3 (21CF0032TX)' and [t[0] for t in oem.vendor_tools(le)][:2] == ['Lenovo Vantage', 'Lenovo System Update']
+    asus = oem.identify({'maker': 'ASUSTeK COMPUTER INC.', 'model': 'VivoBook_ASUSLaptop X412FA_X412FA', 'serial': 'K9N0CV00123'})
+    assert oem.support_links(asus)['direct'] == 'https://www.asus.com/tr/supportonly/x412fa/helpdesk_download/'
+    custom = oem.identify({'maker': 'System manufacturer', 'model': 'System Product Name', 'serial': 'System Serial Number',
+                           'board_maker': 'ASUSTeK COMPUTER INC.', 'board': 'ROG STRIX B550-F GAMING'})
+    Lc = oem.support_links(custom)
+    assert custom['vendor'] == 'asus' and custom['generic'] and custom['serial'] == '' and Lc['direct'] is None and Lc['copy'] == 'ROG STRIX B550-F GAMING'
+    for maker, key in (('Acer', 'acer'), ('Sony Corporation', 'sony'), ('Micro-Star International Co., Ltd.', 'msi'), ('Casper Bilgisayar Sistemleri A.S.', 'casper'),
+                       ('MONSTER', 'monster'), ('Microsoft Corporation', 'microsoft'), ('TOSHIBA', 'toshiba')):
+        assert oem.vendor_key(maker) == key, maker
+    unk = oem.identify({'maker': 'Zxy Ltd', 'model': 'Q1'})
+    assert unk['vendor'] is None and oem.support_links(unk)['drivers'].startswith('https://www.google.com/search?q=')
+    for k, v in oem.VENDORS.items():
+        assert v[2].startswith('https://') and all(src in ('winget', 'msstore') for _n, src, _i, _d in v[5]), k
+    assert oem.tool_install_cmd('wg', 'msstore', '9N7R5S6B0ZZH')[1:5] == ['install', '--id', '9N7R5S6B0ZZH', '--source'] and 'msstore' in oem.tool_install_cmd('wg', 'msstore', 'x')
+
+
+@test
+def nvidia_helpers():
+    assert oem.nv_version('32.0.15.6094') == '560.94' and oem.nv_version('31.0.15.1694') == '516.94' and oem.nv_version('') == ''
+    assert oem.nv_clean_name('NVIDIA GeForce RTX 4070 SUPER') == 'GeForce RTX 4070 SUPER' and oem.nv_clean_name('NVIDIA GeForce GTX 1060 6GB') == 'GeForce GTX 1060'
+    assert oem.nv_clean_name('Intel(R) UHD Graphics') == ''
+    data = oem.load_nv_data(ROOT / 'assets' / 'nvidia-data.json')
+    pf, kind = oem.nv_pfid(data, 'NVIDIA GeForce RTX 4070', False)
+    assert pf and kind == 'desktop', (pf, kind)
+    pfn, kn = oem.nv_pfid(data, 'NVIDIA GeForce RTX 4060 Laptop GPU', True)
+    assert pfn and kn == 'notebook'
+    assert oem.nv_os_id(data, 26100) == '135' and oem.nv_os_id(data, 19045) == '57'
+    url = oem.nv_lookup_url(pf, '135')
+    assert url.startswith('https://gfwsl.geforce.com/') and 'pfid=%s' % pf in url and 'dch=1' in url and core_host_ok(url)
+    pay = {'Success': '1', 'IDS': [{'downloadInfo': {'Version': '581.57', 'DownloadURL': 'https://us.download.nvidia.com/Windows/581.57/581.57-desktop-win10-win11-64bit-international-dch-whql.exe',
+                                                    'Name': 'GeForce%20Game%20Ready%20Driver', 'ReleaseDateTime': 'Thu Oct 16, 2025', 'DetailsURL': 'https://www.nvidia.com/x'}}]}
+    r = oem.nv_parse_lookup(json.dumps(pay))
+    assert r['version'] == '581.57' and r['name'] == 'GeForce Game Ready Driver' and core_host_ok(r['url'])
+    assert oem.nv_parse_lookup({'Success': '0'}) is None and oem.nv_parse_lookup({'Success': '1', 'IDS': [{'downloadInfo': {'DownloadURL': 'http://x/y.exe'}}]}) is None
+    assert oem.version_tuple('581.57') > oem.version_tuple('560.94')
+    assert oem.nv_install_cmd('d.exe') == ['d.exe', '-s', '-noreboot'] and oem.nv_install_cmd('d.exe', True)[-1] == '-clean'
+    assert oem.nv_install_cmd('d.exe', minimal_setup='x/setup.exe')[:2] == ['x/setup.exe', '-passive']
+    assert oem.nv_extract_cmd('7z', 'd.exe', 'out')[-6:] == oem.MIN_FILES and '-oout' in oem.nv_extract_cmd('7z', 'd.exe', 'out')
+    cfg = '<a/>\n<file name="${{EulaHtmlFile}}"/>\n<file name="${{PrivacyPolicyFile}}"/>\n<b/>\n'
+    assert oem.strip_setup_cfg(cfg) == '<a/>\n<b/>\n'
+    dd = oem.ddu_cmd('ddu.exe')
+    assert dd[:3] == ['ddu.exe', '-silent', '-cleannvidia'] and '-restart' in dd and '-createsystemrestorepoint' in dd and '-restart' not in oem.ddu_cmd('d', restart=False)
+    assert 'assets/nvidia-data.json' in c.build_manifest(ROOT)['files']
+    ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
+    for act in ('oem-info', 'nvidia-info', 'nvidia-uninstall', 'nvidia-remove-packages', 'sig-check'):
+        assert "'%s'" % act in ps.split('[string]$Action')[0] and " '%s' {" % act in ps, act
+    assert 'UninstallPackage Display.Driver' in ps and "'-silent','-n'" in ps and '/delete-driver $inf /uninstall /force' in ps
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

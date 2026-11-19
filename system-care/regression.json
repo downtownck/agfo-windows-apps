@@ -23,6 +23,8 @@
       "Aygıt yöneticisi",
       "Disk sağlığı",
       "Sürücüler",
+      "Üretici desteği",
+      "NVIDIA",
       "Aygıt temizliği",
       "Kol / Gamepad"
     ],
@@ -62,7 +64,12 @@
       "pnp-list",
       "pnp-action",
       "overview",
-      "sensors"
+      "sensors",
+      "oem-info",
+      "nvidia-info",
+      "nvidia-uninstall",
+      "nvidia-remove-packages",
+      "sig-check"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -701,6 +708,40 @@
     {
       "id": "SC-W150",
       "purpose": "Windows 10/11 gercek makine: UAC onayiyla surucu/aygit/ince ayar islemleri, Windows paketinin kurulumu ve uygulama ici guncelleme, LibreHardwareMonitor sensorleri",
+      "type": "manual_windows",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-160",
+      "purpose": "Uretici tanima ve destek baglantilari (Dell servis etiketi, ASUS model sayfasi, HP/Lenovo panoya seri, ozel masaustu -> anakart ureticisi, bilinmeyen -> arama), uretici araclari",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-161",
+      "purpose": "NVIDIA: surum donusumu, GPU adi temizleme, urun ailesi kimligi (paketteki veri), isletim sistemi kimligi, surucu servisi yaniti ayristirma, kurulum/yalin kurulum/DDU komutlari, setup.cfg temizligi",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-162",
+      "purpose": "GUI: Uretici destegi sayfasi (dogrudan sayfa, panoya seri, araclar), NVIDIA sayfasi (guncelleme durumu, agac, kaldirma/7-Zip/indir-imza/DDU is zincirleri), kaydirilabilir menu",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-163",
+      "purpose": "Gercek Windows (CI): oem-info, nvidia-info, NVIDIA surucu servisinden cevrim ici son surum (RTX 4070), Authenticode imza denetimi",
+      "type": "windows_ci",
+      "script": "tests/test_windows.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W160",
+      "purpose": "Gercek NVIDIA kartli bilgisayar: indir-imza-kur (tam ve yalin), NVIDIA kaldiricisi, pnputil, DDU; farkli ureticilerde destek sayfalari",
       "type": "manual_windows",
       "required_for_package": false
     }

@@ -24,10 +24,11 @@ from sc_vpn import VpnPage  # noqa: E402
 from sc_maint import MaintPage  # noqa: E402
 from sc_pad import PadPage  # noqa: E402
 from sc_hardware import HardwarePage  # noqa: E402
+from sc_vendor import VendorPage  # noqa: E402
 from sc_common import CommonMixin  # noqa: E402
 
 
-class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, HardwarePage, CommonMixin, tk.Tk):
+class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, HardwarePage, VendorPage, CommonMixin, tk.Tk):
     def __init__(self):
         super().__init__()
         self.admin = core.is_admin()
@@ -191,6 +192,7 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
         self.tabs.bind('<<NotebookTabChanged>>', self._inst_on_tab, add='+')
         self.tabs.bind('<<NotebookTabChanged>>', lambda _e: self.net.on_tab(), add='+')
         self.tabs.bind('<<NotebookTabChanged>>', self._hw_on_tab, add='+')
+        self.tabs.bind('<<NotebookTabChanged>>', self._vendor_on_tab, add='+')
         self.theme_hooks.append(self.net.retheme)
         self._open_last_page()
 
@@ -217,7 +219,8 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
                 ('Ağ', [('VPN', self._tab_vpn), ('Ağ tarayıcı', lambda f: self.net.build_scan(f)), ('Ağ testleri', lambda f: self.net.build_diag(f)),
                         ('SSH sunucularım', lambda f: self.net.build_ssh(f)), ('SSH oturumları', lambda f: self.net.build_sessions(f))]),
                 ('Donanım', [('Sistem özeti', self._tab_hwinfo), ('Aygıt yöneticisi', self._tab_devmgr), ('Disk sağlığı', self._tab_diskhealth),
-                             ('Sürücüler', self._tab_drivers), ('Aygıt temizliği', self._tab_phantom), ('Kol / Gamepad', self._tab_pad)])]
+                             ('Sürücüler', self._tab_drivers), ('Üretici desteği', self._tab_oem), ('NVIDIA', self._tab_nvidia),
+                             ('Aygıt temizliği', self._tab_phantom), ('Kol / Gamepad', self._tab_pad)])]
 
     def _remember_page(self, _e=None):
         try:

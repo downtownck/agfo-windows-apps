@@ -94,7 +94,7 @@ check('mode', (m.TB is not None) == (MODE == 'modern'), m.TB_STATE)
 titles = [p['title'] for p in app.tabs.pages]
 check('nav.pages', titles == ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Bakım ve sağlık', 'Programlar',
                               'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları',
-                              'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Aygıt temizliği', 'Kol / Gamepad'], titles)
+                              'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Üretici desteği', 'NVIDIA', 'Aygıt temizliği', 'Kol / Gamepad'], titles)
 check('nav.last_page', app.tabs.tab(app.tabs.current, 'text') == 'İnce ayarlar', app.tabs.current)
 seen = []
 app.tabs.bind('<<NotebookTabChanged>>', lambda _e: seen.append(app.tabs.current), add='+')
@@ -417,6 +417,45 @@ check('dh.verdict', app.dh_tree.item('d0', 'tags') == ('warn',) and app.dh_tree.
 rep_html = __import__('care_hw').report_html(*app._hw_report_parts())
 check('hw.report', 'Ornek CPU' in rep_html and 'Sorunlu aygıtlar' in rep_html and 'Ornek SSD' in rep_html and 'text-decoration:none' in rep_html)
 shot('devmgr')
+
+# ---- 4.1 Uretici destegi ve NVIDIA (sahte kayitlar)
+app.tabs.select('Üretici desteği'); pump(0.2)
+app._oem_set({'type': 'oem', 'maker': 'Dell Inc.', 'model': 'Latitude 5420', 'serial': 'ORNEK12', 'sku': '0A12', 'board_maker': 'Dell Inc.', 'board': '0X1Y2Z', 'notebook': True})
+vals = {app.oem_tree.item(i, 'text'): app.oem_tree.item(i, 'values')[0] for i in app.oem_tree.get_children()}
+check('oem.render', app.oem_title.get() == 'Dell · Latitude 5420' and vals['Açılacak sayfa'].endswith('/servicetag/ORNEK12/drivers') and vals['Tür'] == 'Dizüstü', vals)
+tools = [w for w in app.oem_tools.winfo_children()]
+check('oem.tools', len(tools) == 2, len(tools))
+opened = []
+app._open_url = lambda u: opened.append(u)
+app.oem_open(); app.oem_open(search=True)
+check('oem.open', opened[0].endswith('/servicetag/ORNEK12/drivers') and 'site%3Adell.com' in opened[1], opened)
+app._oem_set({'type': 'oem', 'maker': 'HP', 'model': 'HP ProBook 450 G8 Notebook PC', 'serial': '5CDORNEK', 'notebook': True})
+app.oem_open()
+check('oem.copy_serial', app.clipboard_get() == '5CDORNEK' and opened[-1].startswith('https://support.hp.com/'), opened[-1])
+app.tabs.select('NVIDIA'); pump(0.2)
+NVI = {'type': 'nvinfo', 'gpus': [{'name': 'Intel(R) UHD Graphics', 'driver': '31.0.101.4502', 'nvidia': False},
+                                  {'name': 'NVIDIA GeForce RTX 4060 Laptop GPU', 'driver': '32.0.15.6094', 'date': '2024-09-10', 'nvidia': True}],
+       'notebook': True, 'dch': True, 'build': 26100, 'x64': True, 'nvi2': True, 'sevenzip': '', 'ddu': '',
+       'apps': [{'name': 'NVIDIA Graphics Driver 560.94', 'version': '560.94'}], 'packages': [{'inf': 'oem12.inf', 'name': 'NVIDIA GeForce RTX 4060 Laptop GPU', 'cls': 'DISPLAY', 'ver': '32.0.15.6094'}]}
+app._nv_set_info(NVI)
+check('nv.current', app.nv_state.get() == 'Kurulu: 560.94', app.nv_state.get())
+app._nv_set_latest({'version': '581.57', 'url': 'https://us.download.nvidia.com/x.exe', 'name': 'GeForce Game Ready Driver', 'date': '2025-10-16', 'details': ''})
+check('nv.update_available', app.nv_state.get() == 'Güncelleme var: 560.94 → 581.57', app.nv_state.get())
+secs = [app.nv_tree.item(i, 'text') for i in app.nv_tree.get_children()]
+check('nv.tree', secs == ['Ekran kartları', 'Durum', 'Kurulu NVIDIA yazılımları', 'NVIDIA sürücü paketleri (Windows deposu)'], secs)
+captured = []
+real_start = app.start
+app.start = lambda jobs, quiet=False: captured.extend(jobs) or True
+app.nv_uninstall('packages')
+check('nv.uninstall_cmd', captured and 'nvidia-remove-packages' in captured[0].cmd, captured and captured[0].cmd)
+captured.clear(); app.nv_minimal.set(True); app.nv_install()
+check('nv.minimal_needs_7zip', captured and '7zip.7zip' in captured[0].cmd, captured and captured[0].cmd)
+captured.clear(); app.nv_minimal.set(False); app.nv_install()
+check('nv.install_chain', [j.title for j in captured] == ['NVIDIA sürücüsünü indir', 'İmza denetimi'] and 'sig-check' in captured[1].cmd, [j.title for j in captured])
+captured.clear(); app.nv_ddu()
+check('nv.ddu_install', captured and 'Wagnardsoft.DisplayDriverUninstaller' in captured[0].cmd)
+app.start = real_start
+shot('nvidia')
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

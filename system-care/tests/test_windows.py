@@ -100,6 +100,30 @@ jb2 = sc_base.Job('Veri testi', cmd=sc_base.ps_cmd('system-info'), admin=True)
 rn._run_all([jb2])
 check('elev.runner_lines', jb2.code == 0 and any('Windows' in l for l in jb2.lines), (jb2.code, jb2.lines[:3]))
 
+
+# ---- 4.1 uretici bilgisi, NVIDIA bilgisi, NVIDIA surucu servisi (cevrim ici), imza denetimi
+import care_oem as oem  # noqa: E402
+import care_core as core  # noqa: E402
+code, lines, bad = ps('oem-info')
+o = hw.parse_records(lines, 'oem')
+check('ps.oem-info', code == 0 and not bad and o and 'maker' in o[0], (code, o[:1]))
+if o:
+    inf = oem.identify(o[0]); print('  uretici:', inf['name'], '|', inf['model'], '|', oem.support_links(inf)['drivers'], flush=True)
+code, lines, bad = ps('nvidia-info')
+nvr = hw.parse_records(lines, 'nvinfo')
+check('ps.nvidia-info', code == 0 and not bad and nvr and isinstance(nvr[0].get('gpus'), list) and nvr[0]['gpus'], (code, nvr[:1]))
+data = oem.load_nv_data(ROOT / 'assets' / 'nvidia-data.json')
+pf, _k = oem.nv_pfid(data, 'NVIDIA GeForce RTX 4070', False)
+try:
+    res = oem.nv_parse_lookup(core.fetch_text(oem.nv_lookup_url(pf, oem.nv_os_id(data, 26100)), oem.NV_HOSTS))
+except Exception as e:                                              # noqa: BLE001
+    res = {'error': str(e)}
+print('  NVIDIA servis:', res, flush=True)
+check('nv.lookup_online', res and res.get('version') and oem.version_tuple(res['version']) >= (500,) and core.host_allowed(res['url'], oem.NV_HOSTS), res)
+code, lines, bad = ps('sig-check', Paths=os.path.join(os.environ['SystemRoot'], 'explorer.exe'))
+sg = hw.parse_records(lines, 'sig')
+check('ps.sig-check', code == 0 and sg and sg[0]['status'] == 'Valid' and 'Microsoft' in sg[0]['subject'], sg)
+
 # ---- Uctan uca arayuz: gercek PowerShell ile Genel bakis, Sistem ozeti, Aygit yoneticisi, Disk sagligi
 setdir = TMP / 'lad' / 'AGFO' / 'SystemCare'
 setdir.mkdir(parents=True)
@@ -134,7 +158,7 @@ def idle(timeout=300):
 pump(1.0); idle()
 for i in range(len(app.tabs.pages)):
     app.tabs.select(i); pump(0.05)
-check('gui.all_pages', len(app.tabs.pages) == 21, len(app.tabs.pages))
+check('gui.all_pages', len(app.tabs.pages) == 23, len(app.tabs.pages))
 idle()
 app.tabs.select('Genel bakış'); pump(0.3)
 if not app.ov_loaded:
