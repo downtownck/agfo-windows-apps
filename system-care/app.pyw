@@ -3538,9 +3538,15 @@ class App(tk.Tk):
             how = ('Yurt dışında Türk IP\'si: "UGREEN ayarını kopyala" ile aldığınız Docker projesini NAS\'ta oluşturun (çıkış adı ugreen-turkiye). '
                    'Türkiye\'de yabancı IP: "Hetzner komutunu kopyala" ile aldığınız komutu sunucuda (AGFO Root Terminal / SSH) çalıştırın (çıkış adı hetzner-cikis). '
                    'Her yeni çıkış noktasını bir kez "Yönetim panelini aç" > makine > Edit route settings > "Use as exit node" ile onaylayın.')
-            self.ts_info.set('Bu bilgisayar: %s (%s) — Tailscale %s%s. %s' % (st.get('self') or '?', st.get('self_ip') or '-',
+            oth = [o for o in (st.get('others') or []) if o['os'] in ('linux', '')]
+            extra = ''
+            if oth and not (st.get('nodes') or []):
+                extra = (' Tailnet\'te çıkış noktası olmayan makineler: %s. Sunucuda "sudo tailscale set --advertise-exit-node" çalıştırıp '
+                         'yönetim panelinde "Use as exit node" onaylayın.' % ', '.join(
+                             '%s (%s)' % (o['name'], 'çevrimiçi' if o['online'] else 'çevrimdışı') for o in oth[:5]))
+            self.ts_info.set('Bu bilgisayar: %s (%s) — Tailscale %s%s. %s%s' % (st.get('self') or '?', st.get('self_ip') or '-',
                              vpn.TS_STATE_NAME.get(st.get('state'), st.get('state') or 'okunmadı'),
-                             ' · çıkış noktası olarak yayınlanıyor' if st.get('advertising') else '', how))
+                             ' · çıkış noktası olarak yayınlanıyor' if st.get('advertising') else '', how, extra))
             try:
                 self.ts_adv_btn.configure(text='Bu bilgisayarın çıkış noktalığını kapat' if st.get('advertising') else 'Bu bilgisayarı çıkış noktası yap')
             except tk.TclError:
@@ -3558,7 +3564,8 @@ class App(tk.Tk):
                 continue
             loc = ', '.join(x for x in (n['city'], n['country']) if x) or (
                 'Türkiye — UGREEN NAS (Türk IP)' if 'ugreen' in n['name'].lower() else
-                'Yurt dışı — Hetzner (yabancı IP)' if 'hetzner' in n['name'].lower() else 'kendi cihazınız')
+                'Yurt dışı — Hetzner (yabancı IP)' if 'hetzner' in n['name'].lower() else
+                'kendi sunucunuz / NAS' if n['os'] == 'linux' else 'kendi cihazınız')
             p = self.ts_ping.get(n['ip'])
             state = 'ÇIKIŞ (kullanılıyor)' if n['active'] else ('çevrimiçi' if n['online'] else 'çevrimdışı')
             if isinstance(p, int) and p >= 0:
@@ -3650,8 +3657,9 @@ class App(tk.Tk):
         self.write('Hetzner (Linux) sunucusu için komut panoya kopyalandı. Sunucuda root olarak çalıştırın; çıkan bağlantıyla giriş yapın, '
                    'sonra yönetim panelinde "hetzner-cikis" makinesini çıkış noktası olarak onaylayın.\n')
         messagebox.showinfo('Hetzner — yabancı IP çıkışı', '1) Hetzner sunucusunda root olarak (AGFO Root Terminal ya da SSH) panodaki komutu çalıştırın.\n'
-                            '2) Ekranda çıkan login.tailscale.com bağlantısını açıp aynı Tailscale hesabıyla giriş yapın.\n'
-                            '3) "Yönetim panelini aç" > hetzner-cikis > Edit route settings > "Use as exit node" işaretleyin.\n\n'
+                            '2) Tailscale sunucuda yeni kuruluyorsa ekranda çıkan login.tailscale.com bağlantısını açıp aynı hesapla giriş yapın '
+                            '(zaten bağlıysa komut yalnızca çıkış noktalığını açar; ad ve DNS ayarı değişmez).\n'
+                            '3) "Yönetim panelini aç" > sunucu (hetzner-cikis ya da mevcut adı) > Edit route settings > "Use as exit node" işaretleyin.\n\n'
                             'Komut:\n%s' % vpn.LINUX_EXIT_NODE_SCRIPT)
 
     def ts_copy_ugreen(self):

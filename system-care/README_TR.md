@@ -3,6 +3,11 @@
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
 
+## 3.13.1'de ne değişti — Hetzner komutu düzeltmesi
+
+- Tailscale sunucuda zaten kuruluysa "Hetzner komutunu kopyala" komutu artık hata vermiyor. Makinenin adı ve DNS ayarı değişmiyor; komut yalnızca çıkış noktalığını açıyor.
+- Onaylı çıkış noktası yoksa VPN sayfası, tailnet'teki çıkış noktası olmayan sunucuları ve yapılacak adımı gösteriyor.
+
 ## 3.13.0'da ne değişti — Kendi çıkış noktalarınız: Türk IP (UGREEN) / yabancı IP (Hetzner)
 - VPN sayfasında **Kendi çıkışlarım (Tailscale)** görünümü (varsayılan). Tailscale'in açık kaynak istemcisiyle (WireGuard tabanlı, modemde port açmak gerekmez) kendi cihazlarınızı internet çıkışı olarak kullanırsınız:
   - **Yurt dışındayken Türk IP'si:** Türkiye'deki UGREEN NAS çıkış noktası olur (**ugreen-turkiye**). "UGREEN ayarını kopyala" Docker Compose projesini panoya koyar ve adımları gösterir (Docker > Proje > Oluştur > yapıştır > günlükteki bağlantıyla giriş).

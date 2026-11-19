@@ -1156,6 +1156,8 @@ def tailscale_exit_nodes():
     assert r['current']['name'] == 'hetzner-cikis' and r['nodes'][1]['ip'] == '100.64.0.2'
     es = r['nodes'][2]
     assert es['mullvad'] and es['cc'] == 'ES' and es['country'] == 'İspanya' and es['city'] == 'Madrid'
+    assert [o['name'] for o in r['others']] == ['telefon']
+    assert 'tailscale set --advertise-exit-node' in c_vpn.LINUX_EXIT_NODE_SCRIPT and '--accept-dns=false' in c_vpn.LINUX_EXIT_NODE_SCRIPT
     assert c_vpn.parse_ts_status({})['nodes'] == [] and c_vpn.parse_ts_status({'Self': {'PrimaryRoutes': ['0.0.0.0/0', '::/0']}})['advertising']
     assert c_vpn.ts_use_cmd('ts', '100.64.0.2') == ['ts', 'set', '--exit-node=100.64.0.2', '--exit-node-allow-lan-access=true']
     assert c_vpn.ts_clear_cmd('ts') == ['ts', 'set', '--exit-node='] and c_vpn.ts_advertise_cmd('ts', True)[-1] == '--advertise-exit-node=true'

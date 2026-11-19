@@ -270,7 +270,8 @@ LINUX_EXIT_NODE_SCRIPT = (
     "echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf && "
     "echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf && "
     "sudo sysctl -p /etc/sysctl.d/99-tailscale.conf && "
-    "sudo tailscale up --advertise-exit-node --hostname=hetzner-cikis")
+    "if sudo tailscale status >/dev/null 2>&1; then sudo tailscale set --advertise-exit-node; "
+    "else sudo tailscale up --advertise-exit-node --hostname=hetzner-cikis --accept-dns=false; fi")
 
 
 # UGREEN NAS (UGOS Pro, Docker uygulamasi > Proje > Olustur) icin: Turkiye'deki NAS, yurt disindayken Turk IP'si veren cikis noktasi olur.
@@ -310,9 +311,13 @@ def parse_ts_status(data):
     import json
     d = json.loads(data) if isinstance(data, (str, bytes)) else (data or {})
     me = d.get('Self') or {}
-    nodes, current = [], None
+    nodes, current, others = [], None, []
     for p in (d.get('Peer') or {}).values():
         if not p.get('ExitNodeOption'):
+            # Tailnet'te olup henuz cikis noktasi olarak yayinlamayan / onaylanmamis makineler (teshis icin)
+            if '.mullvad.' not in (p.get('DNSName') or p.get('HostName') or ''):
+                others.append({'name': (p.get('DNSName') or '').split('.')[0] or p.get('HostName', ''), 'os': p.get('OS', ''),
+                               'online': bool(p.get('Online')), 'offers': '0.0.0.0/0' in (p.get('AllowedIPs') or []) or '0.0.0.0/0' in (p.get('PrimaryRoutes') or [])})
             continue
         loc = p.get('Location') or {}
         ips = p.get('TailscaleIPs') or []
@@ -328,6 +333,7 @@ def parse_ts_status(data):
     me_ips = me.get('TailscaleIPs') or []
     return {'state': d.get('BackendState', ''), 'self': (me.get('DNSName') or '').split('.')[0] or me.get('HostName', ''),
             'self_ip': next((i for i in me_ips if ':' not in i), ''), 'current': current, 'nodes': nodes,
+            'others': sorted(others, key=lambda o: (not o['online'], o['name'].lower())),
             'advertising': '0.0.0.0/0' in (me.get('PrimaryRoutes') or []) or bool(me.get('ExitNodeOption'))}
 
 
