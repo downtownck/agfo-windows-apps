@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -69,7 +69,11 @@
       "nvidia-info",
       "nvidia-uninstall",
       "nvidia-remove-packages",
-      "sig-check"
+      "sig-check",
+      "lenovo-scan",
+      "lenovo-install",
+      "dell-scan",
+      "dell-install"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -743,6 +747,27 @@
       "id": "SC-W160",
       "purpose": "Gercek NVIDIA kartli bilgisayar: indir-imza-kur (tam ve yalin), NVIDIA kaldiricisi, pnputil, DDU; farkli ureticilerde destek sayfalari",
       "type": "manual_windows",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-170",
+      "purpose": "Otomatik guncelleme modu (Lenovo/Dell/diger), PowerShell eylemleri, NVIDIA icin buyuk indirme izni (max_bytes)",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-171",
+      "purpose": "GUI: Lenovo guncelleme listesi (varsayilan secim: sessiz ve BIOS disi), kurulum komutu, Dell tarama/kurulum, diger ureticide Windows Update yonlendirmesi",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-172",
+      "purpose": "Gercek Windows (CI): LSUClient PowerShell Galerisi'nden kurulur ve gercek Lenovo katalogu (ThinkPad 20XW) okunur; DCU yoksa dell-scan 3 doner",
+      "type": "windows_ci",
+      "script": "tests/test_windows.py",
       "required_for_package": false
     }
   ]

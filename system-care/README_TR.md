@@ -1,4 +1,4 @@
-# AGFO System Care 4.1 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 4.1.1 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 **Önerilen (Python gerekmez):** `AGFO-System-Care-v4.x.x-Windows.zip` dosyasını indirip açın, klasördeki `Kur-ve-Baslat.cmd`'yi çalıştırın. Python, tkinter ve gerekli kütüphaneler pakette hazır gelir. Uygulama `%LOCALAPPDATA%\Programs\AGFO System Care` klasörüne kurulur ve Başlat menüsüne kısayol eklenir.
@@ -6,6 +6,13 @@
 **Python ile:** `AGFO-System-Care-v4.x.x.zip` paketini açıp `agfo-care/Kur-ve-Baslat.cmd` ile de kurabilirsiniz. Bunun için Python 3.10+ ve tkinter gerekir. Bu paket aynı zamanda uygulama içi güncelleme paketidir.
 
 İlk açılışta **Motorlar** sekmesindeki "Eksik motorları kur" düğmesine basın.
+
+## 4.1.1'de ne değişti — Otomatik üretici güncellemesi, NVIDIA indirme düzeltmesi
+- **NVIDIA:** 1 GB'ı aşan sürücü paketleri genel indirme sınırına (700 MB) takılıyordu; NVIDIA için sınır kaldırıldı. İndirme hatası artık ekranda bildiriliyor.
+- **Lenovo otomatik güncelleme:** Üretici desteği sayfasında "Lenovo güncellemelerini tara" bu bilgisayara uygun, kurulu olmayan sürücü, yazılım ve BIOS paketlerini Lenovo'nun kendi kataloğundan listeler (açık kaynak LSUClient modülü; ThinkPad, ThinkCentre, IdeaPad, Legion, Yoga). Seçilenler sessiz kurulur; yalnızca kurulum için UAC onayı istenir. BIOS güncellemeleri isteğe bağlıdır (varsayılan kapalı).
+- **Dell otomatik güncelleme:** Dell Command | Update komut satırıyla tarama ve sessiz kurulum (yeniden başlatmadan).
+- **Diğer üreticiler:** komut satırından otomatik güncelleme sunmadıkları için düğme Windows Update sürücü taramasına (Sürücüler sayfası) gider.
+- Üretici desteği sayfası kaydırılabilir. PowerShell 7 kurulu bilgisayarlarda bazı Windows PowerShell modüllerinin yüklenememesi giderildi.
 
 ## 4.1'de ne değişti — Üretici desteği ve NVIDIA
 - **Üretici desteği (Donanım > Üretici desteği):** Üretici, model ve seri numarası Windows'tan okunur. Dell ve ASUS'ta doğrudan ürününüzün sürücü sayfası açılır. HP, Lenovo, Acer, Sony/VAIO, MSI, Microsoft Surface, Samsung, Dynabook, Fujitsu, Huawei, Casper, Monster ve diğerlerinde resmî sürücü sayfası açılır; seri numarası ya da model panoya kopyalanır. "Üretici sitesinde ara" yalnızca üreticinin kendi sitesinde arar. Kendi topladığınız masaüstünde anakart üreticisi (ASUS, MSI, GIGABYTE, ASRock) kullanılır. Üreticinin kendi güncelleme aracı tek tıkla kurulur: Dell Command Update, HP Support Assistant / Image Assistant, Lenovo Vantage / System Update, MyASUS, MSI Center ve Intel Driver & Support Assistant.

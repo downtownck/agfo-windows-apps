@@ -84,3 +84,7 @@ Istege bagli, pakete dahil olmayan ve kullanicinin onayiyla WinGet uzerinden kur
 - Display Driver Uninstaller (MIT, Wagnardsoft) pakete dahil degildir; kullanicinin onayiyla WinGet uzerinden kurulur.
   https://github.com/Wagnard/display-drivers-uninstaller
 - NVIDIA surucu paketleri NVIDIA Corporation'in kendi sunucusundan indirilir ve NVIDIA lisansina tabidir.
+
+- LSUClient (MIT, jantari) pakete dahil degildir; Lenovo otomatik guncellemesi ilk kullanildiginda PowerShell Galerisi'nden
+  yalnizca bu kullaniciya kurulur. https://github.com/jantari/LSUClient
+- Dell Command | Update (Dell) pakete dahil degildir; kullanicinin onayiyla WinGet uzerinden kurulur.
