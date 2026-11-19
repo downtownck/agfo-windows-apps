@@ -392,7 +392,7 @@ check('apps.rows', [at.payload[i]['id'] for i in at.labels] == ['Mozilla.Firefox
 at.set_checked(list(at.labels)[1], False)
 app.apps_update(); wait_idle()
 check('apps.update_selected', 'upgrade --id Mozilla.Firefox' in logtext() and 'upgrade --id 7zip.7zip' not in logtext())
-check('apps.state_col', at.tree.set(list(at.labels)[0], 'state') == 'Başarılı', at.tree.set(list(at.labels)[0], 'state'))
+check('apps.state_col', at.tree.set(list(at.labels)[0], 'state') == 'Güncellendi', at.tree.set(list(at.labels)[0], 'state'))
 shot(9, '5-uygulamalar')
 
 # 6 Bakim (gercek pwsh)

@@ -963,9 +963,45 @@ def icons_parse_and_fetch():
             pass
     sites = [a.get('site') for a in cc.INSTALL_APPS]
     assert all('site' in a for a in cc.INSTALL_APPS) and sum(1 for s_ in sites if s_) > 140
-    assert not [s_ for s_ in sites if s_ and (s_.startswith('http') or ' ' in s_ or s_.startswith('github.com'))]
+    assert not [s_ for s_ in sites if s_ and (s_.startswith(('http://', 'https://')) or ' ' in s_ or s_.startswith('github.com'))]
     assert c._is_runtime_file('care_icons.py') and 'care_icons.py' in c.build_manifest(ROOT)['files']
     assert "'care_icons.py'" in (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
+
+
+# --------------------------------------------------------------------------- 3.10.0 guncelleme kurtarma + GitHub uygulamalari
+@test
+def winget_upgrade_recovery():
+    ns = c.upgrade_next_step
+    assert ns(0, [], False) == 'ok' and ns(3010, [], False) == 'ok' and ns(-1978334967, [], False) == 'ok'        # 0x8A150109: yeniden baslat
+    assert ns(-1978335189, [], False) == 'uptodate'                                                                 # 0x8A15002B
+    assert ns(-1978334975, [], False) == 'running'                                                                  # 0x8A150101
+    assert ns(1603, [], False) == 'interactive' and ns(1603, [], True) == 'fail'
+    assert ns(-1978334968, [], False) == 'interactive'                                                              # 0x8A150108 yayinci hatasi
+    assert ns(-1978335215, [], False) == 'fail'                                                                     # 0x8A150011 karma
+    assert ns(-1978334956, [], False) == 'reinstall'                                                                # 0x8A150114
+    msg = ['A newer version was found, but the install technology is different from the current version installed. Please uninstall the package and install the newer version.']
+    assert ns(-1978335188, msg, False) == 'reinstall'
+    assert 'kaldırıp yeniden kurmak' in c.winget_failure_reason(-1978335188, msg)
+    r = c.winget_failure_reason(1603, ['   ██████▒▒▒  10.0 MB / 20.0 MB', 'Installer failed with exit code: 1603', '> komut'])
+    assert '1603' in r and 'Installer failed' in r and '██' not in r and '> komut' not in r, r
+    cmd = c.winget_upgrade_cmd('wg', 'Opera.Opera')
+    assert cmd[1] == 'upgrade' and '--silent' in cmd and '--interactive' not in cmd
+    cmd = c.winget_upgrade_cmd('wg', 'Opera.Opera', interactive=True)
+    assert '--silent' not in cmd and cmd[-1] == '--interactive' and '--exact' in cmd
+    for h in (0x8A150109, 0x8A15002B, 0x8A150101, 0x8A150108, 0x8A150011, 0x8A150114):
+        assert (h - (1 << 32)) & 0xFFFFFFFF == h
+
+
+@test
+def install_catalog_github_additions():
+    ids = [a['id'] for a in cc.INSTALL_APPS]
+    assert len(ids) == len(set(i.lower() for i in ids)) and len(ids) >= 250
+    for must in ('Flow-Launcher.Flow-Launcher', 'LocalSend.LocalSend', 'Ollama.Ollama', 'Devolutions.UniGetUI', 'VSCodium.VSCodium', 'FilesCommunity.Files'):
+        assert must in ids, must
+    assert 'MartiCliment.UniGetUI' not in ids                                  # winget-pkgs'te yalnizca on surum kaldi
+    cats = {a['cat'] for a in cc.INSTALL_APPS}
+    assert 'Yapay zekâ' in cats and all(a['desc'] and a['name'] for a in cc.INSTALL_APPS)
+    assert not [a for a in cc.INSTALL_APPS if a['id'] in ('Logitech.GHUB', 'valinet.ExplorerPatcher', '2dust.v2rayN')]
 
 
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

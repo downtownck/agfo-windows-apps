@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.9.0",
+  "version": "3.10.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -90,7 +90,7 @@
     "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ care_tweaks.py, care_catalog.py 3.7.0+) (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})",
     "controller_scope": "Yalnizca Xbox kol/adaptor: Microsoft VID 045E + XBOX_PIDS/XBOX_ADAPTER_PIDS, adinda \"Xbox\", XboxComposite/XnaComposite sinifi veya XBOXGIP\\ (care_core.controller_is_xbox == care_tasks.ps1 IsXboxDevice)",
     "fc_settings_reset": "%LOCALAPPDATA%\\EA SPORTS FC <en yeni>\\settings\\Settings* -> ayni klasorde settings_backup_<zaman>[-n]/ (kopya boyutu dogrulanmadan silinmez)",
-    "tweaks_catalog": "care_catalog.py: WinCleaner v2.6.0 (MIT) katalogundan kayit/gorev/hizmet/guc plani ayarlari + 28 hizmet + 5 on ayar + 159 WinGet uygulamasi; serbest komut (bcdedit/netsh/betik) yok",
+    "tweaks_catalog": "care_catalog.py: WinCleaner v2.6.0 (MIT) katalogundan kayit/gorev/hizmet/guc plani ayarlari + 28 hizmet + 5 on ayar + 159 WinGet uygulamasi; serbest komut (bcdedit/netsh/betik) yok; INSTALL_APPS: 159 WinCleaner + 99 GitHub populer acik kaynak (winget-pkgs ile dogrulandi)",
     "tweaks_journal": "%LOCALAPPDATA%\\AGFO\\SystemCare\\tweaks-journal.json (son 60 oturum; her islemin ONCEKI durumu, geri alma birebir)",
     "tweaks_plans": "%LOCALAPPDATA%\\AGFO\\SystemCare\\plans\\*.json (son 20)",
     "navigation": "Sol menu (NavBook): Genel / Temizlik / Sistem / Uygulamalar / Donanim gruplari; ttk.Notebook arayuzu (add/select/tab/index/<<NotebookTabChanged>>) korunur; son acilan sayfa settings.last_page",
@@ -98,7 +98,8 @@
     "modern_ui": "ttkbootstrap 2.2.7 -> %LOCALAPPDATA%\\AGFO\\SystemCare\\ui-lib (pip --target; Python 3.10+); yoksa klasik clam; settings.modern_ui",
     "organizer": "organizer_core.py = smart-organizer/organizer_core.py (birebir); gunluk %LOCALAPPDATA%\\AGFO\\SmartOrganizer\\moves.sqlite3 (bagimsiz Smart Organizer ile ortak)",
     "app_icons": "care_icons.py: logolar pakette yok; kullanicinin PC'sinde INSTALL_APPS.site adresinden (https, apple-touch-icon > png simge > favicon.ico) indirilir -> %LOCALAPPDATA%\\AGFO\\SystemCare\\app-icons (48/20 px PNG, index.json; basarisiz 30 gun denenmez); yalnizca Uygulama kur sayfasi buyuk simge gorunumunde acilinca",
-    "install_view": "settings.install_view = grid | list; secim iki gorunum arasinda esitlenir"
+    "install_view": "settings.install_view = grid | list; secim iki gorunum arasinda esitlenir",
+    "app_update_recovery": "Uygulama guncellemeleri: sessiz (--silent) -> basarisizsa bir kez pencereli (--interactive); uygulama acik -> \"Uygulama acik\"; farkli kurulum turu / 0x8A150114 -> \"Yeniden kurulmali\" + Kaldirip yeniden kur (winget uninstall + install); Ayrinti sutunu WinGet nedenini gosterir"
   },
   "removed_surfaces": [
     {
@@ -527,6 +528,27 @@
       "purpose": "Windows: gercek sitelerden logo indirme orani; Cloudflare vb. engelleyen sitelerde harf simgesine dusme",
       "type": "manual_windows",
       "required_for_package": false
+    },
+    {
+      "id": "SC-100",
+      "purpose": "upgrade_next_step / winget_failure_reason: ok, yeniden baslatma, guncel, uygulama acik, pencereli deneme, karma uyusmazligi, farkli kurulum turu (metin ve 0x8A150114), ilerleme cubugu satirlari ayiklanir",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-101",
+      "purpose": "GUI: sahte winget ile Opera sessiz basarisiz -> pencereli basarili; WordCraft farkli kurulum turu -> Yeniden kurulmali -> Kaldirip yeniden kur -> Guncellendi",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-102",
+      "purpose": "Katalog: 258 uygulama, kimlikler tekil, GitHub eklerinin varligi, UniGetUI Devolutions kimligi, Yapay zeka kategorisi",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
     }
   ]
 }

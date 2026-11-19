@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '3.9.0'
+VERSION = '3.10.0'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -260,6 +260,46 @@ def winget_code_text(code):
     if u >= 0x80000000:
         return '0x%08X%s' % (u, (' — ' + known[u]) if u in known else '')
     return str(code)
+
+
+WINGET_RUNNING = (0x8A150101, 0x8A150103, 0x8A150111)
+WINGET_STOP = (0x8A150011, 0x8A150014, 0x8A150104, 0x8A150105, 0x8A150106, 0x8A150107, 0x8A15010C, 0x8A15010F, 0x8A150113,
+               0x8A15010A)
+_TECH_MISMATCH = re.compile(r'install technology|installer technology|kurulum teknolojisi|yükleme teknolojisi|uninstall the package and install', re.I)
+_NOISE = re.compile(r'^[\s\-\\|/█▒░▓]*$|^\s*\d+(\.\d+)?\s*(KB|MB|GB)\s*/|^\s*[█▒░▓]', re.I)
+
+
+def winget_failure_reason(code, lines):
+    """Kisa Turkce neden + WinGet'in son anlamli satiri."""
+    tail = [l.strip() for l in (lines or []) if l.strip() and not _NOISE.match(l) and not l.startswith('>')][-2:]
+    base = winget_code_text(code) if isinstance(code, int) and (code & 0xFFFFFFFF) >= 0x80000000 else (
+        'kurulum programı %s koduyla bitti' % code if code not in (None, 0) else '')
+    if _TECH_MISMATCH.search(' '.join(lines or [])):
+        base = 'yeni sürüm farklı bir kurulum türüyle geliyor; kaldırıp yeniden kurmak gerekiyor'
+    return (base + (' | ' + ' / '.join(tail)[:160] if tail else '')).strip(' |')
+
+
+def upgrade_next_step(code, lines, tried_interactive):
+    """WinGet guncellemesi sonrasi ne yapilacagi: ok | uptodate | running | reinstall | interactive | fail"""
+    u = (code & 0xFFFFFFFF) if isinstance(code, int) else None
+    if code in (0, 3010, 1641) or u in (0x8A150109, 0x8A15010B):      # basarili (gerekirse yeniden baslatma)
+        return 'ok'
+    if u == 0x8A15002B or u == 0x8A15010E:
+        return 'uptodate'
+    if u in WINGET_RUNNING:
+        return 'running'
+    if _TECH_MISMATCH.search(' '.join(lines or [])) or u == 0x8A150114:
+        return 'reinstall'
+    if u in WINGET_STOP:
+        return 'fail'
+    return 'fail' if tried_interactive else 'interactive'
+
+
+def winget_upgrade_cmd(winget, pkg_id, interactive=False):
+    cmd = winget_install_cmd(winget, pkg_id, upgrade=True)
+    if interactive:
+        cmd = [c for c in cmd if c != '--silent'] + ['--interactive']
+    return cmd
 
 
 # --------------------------------------------------------------------------- guvenli indirme + tasinabilir motorlar

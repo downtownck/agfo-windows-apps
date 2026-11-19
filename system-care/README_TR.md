@@ -1,7 +1,11 @@
-# AGFO System Care 3.9.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.10.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.10.0'da ne değişti — GitHub'ın popüler uygulamaları ve daha sağlam güncelleme
+- **Uygulama kur** kataloğu 159'dan **258** uygulamaya çıktı: GitHub'da çok sevilen 99 açık kaynak uygulama eklendi (Flow Launcher, EarTrumpet, QuickLook, Files, LocalSend, ScreenToGif, Espanso, Ditto, WinMerge, Twinkle Tray, Windhawk, System Informer, UniGetUI, VeraCrypt, Cryptomator, Ollama, Jan, GPT4All, Upscayl, Zed, VSCodium, WezTerm, Bruno, Godot, FreeCAD, KiCad, OrcaSlicer, Kodi, Moonlight/Sunshine, RetroArch ve diğerleri). Yeni **Yapay zekâ** kategorisi. Tüm WinGet kimlikleri Microsoft'un resmî winget-pkgs deposunda doğrulandı.
+- **Uygulama güncellemeleri** daha dayanıklı: sessiz güncelleme başarısız olursa uygulamanın kendi kurulum penceresiyle bir kez daha denenir. Uygulama açıksa "Uygulama açık" yazar. Yeni sürümü farklı kurulum türüyle gelen uygulamalar "Yeniden kurulmalı" diye işaretlenir; **Kaldırıp yeniden kur** düğmesi onları kaldırıp en yeni sürümü kurar. Yeni **Ayrıntı** sütunu WinGet'in hata nedenini Türkçe gösterir.
 
 ## 3.9.0'da ne değişti — Uygulama kur: logolar ve büyük simge görünümü
 - **Büyük simgeler** görünümü (varsayılan): her uygulama logosu, adı ve durumuyla bir kutucuk; tıklayınca seçilir (vurgulanır, köşede ✔). **Liste** görünümü de duruyor ve listede de küçük logolar var. Seçim iki görünüm arasında korunur; görünüm tercihi hatırlanır.
