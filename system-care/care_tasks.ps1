@@ -935,10 +935,36 @@ switch($Action) {
  }
  'sig-check' {
   # Indirilen dosyanin Authenticode imzasi (yalnizca gecerli ve beklenen yayinciysa calistirilir).
+  # Get-AuthenticodeSignature yuklenemezse (bozuk modul yolu) ayni denetim WinVerifyTrust ile yapilir.
   foreach($f in @($Paths -split '\|' | Where-Object { $_ })) {
-   $s=Get-AuthenticodeSignature -LiteralPath $f
-   EmitD ([ordered]@{type='sig';path=$f;status=[string]$s.Status;subject=$(if($s.SignerCertificate){[string]$s.SignerCertificate.Subject}else{''})})
-   Write-Output ('Imza: {0} — {1}' -f [string]$s.Status,$(if($s.SignerCertificate){$s.SignerCertificate.Subject}else{'-'}))
+   $status=''; $subject=''
+   try {
+    $s=Get-AuthenticodeSignature -LiteralPath $f -ErrorAction Stop
+    $status=[string]$s.Status; if($s.SignerCertificate) { $subject=[string]$s.SignerCertificate.Subject }
+   } catch {
+    try { $subject=[string]([Security.Cryptography.X509Certificates.X509Certificate]::CreateFromSignedFile($f)).Subject } catch { $subject='' }
+    if(-not ('AgfoTrust' -as [type])) {
+     Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public static class AgfoTrust {
+ [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] struct FILE_INFO { public uint cbStruct; public string path; public IntPtr hFile; public IntPtr known; }
+ [StructLayout(LayoutKind.Sequential)] struct DATA { public uint cbStruct; public IntPtr policy; public IntPtr sip; public uint ui; public uint revoke; public uint choice; public IntPtr file; public uint state; public IntPtr hState; public IntPtr url; public uint prov; public uint ctx; public IntPtr sig; }
+ [DllImport("wintrust.dll", CharSet=CharSet.Unicode)] static extern int WinVerifyTrust(IntPtr hwnd, ref Guid action, ref DATA data);
+ public static int Check(string path) {
+  var fi = new FILE_INFO(); fi.cbStruct = (uint)Marshal.SizeOf(typeof(FILE_INFO)); fi.path = path;
+  IntPtr pfi = Marshal.AllocHGlobal(Marshal.SizeOf(fi)); Marshal.StructureToPtr(fi, pfi, false);
+  var d = new DATA(); d.cbStruct = (uint)Marshal.SizeOf(typeof(DATA)); d.ui = 2; d.revoke = 0; d.choice = 1; d.file = pfi; d.state = 0;
+  var g = new Guid("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
+  try { return WinVerifyTrust(IntPtr.Zero, ref g, ref d); } finally { Marshal.FreeHGlobal(pfi); }
+ }
+}
+'@
+    }
+    $rc=[AgfoTrust]::Check($f)
+    $status=$(if($rc -eq 0){'Valid'}elseif(-not $subject){'NotSigned'}else{'HashMismatch'})
+   }
+   EmitD ([ordered]@{type='sig';path=$f;status=$status;subject=$subject})
+   Write-Output ('Imza: {0} — {1}' -f $status,$(if($subject){$subject}else{'-'}))
   }
  }
 }
