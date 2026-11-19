@@ -16,7 +16,7 @@ import sys
 ROOT = pathlib.Path(sys.argv[1]).resolve()
 OUT = pathlib.Path(sys.argv[2]).resolve()
 NAME = 'AGFO System Care'
-EXTRA = ['ttkbootstrap', 'PIL', 'PIL.Image', 'PIL.ImageTk', 'paramiko', 'cryptography', 'bcrypt', 'nacl']
+EXTRA = ['tkinter.ttk', 'tkinter.filedialog', 'tkinter.messagebox', 'tkinter.scrolledtext', 'tkinter.font', 'tkinter.simpledialog', 'ttkbootstrap', 'PIL', 'PIL.Image', 'PIL.ImageTk', 'paramiko', 'cryptography', 'bcrypt', 'nacl']
 
 
 def scan_imports():
@@ -29,6 +29,7 @@ def scan_imports():
                 found |= {a.name for a in n.names}
             elif isinstance(n, ast.ImportFrom) and n.module and not n.level:
                 found.add(n.module)
+                found |= {n.module + '.' + a.name for a in n.names if a.name != '*'}   # 'from tkinter import ttk' -> tkinter.ttk (alt modulse)
     return sorted(m for m in found if m.split('.')[0] not in local)
 
 
