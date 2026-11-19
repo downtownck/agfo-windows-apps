@@ -1137,4 +1137,33 @@ up this-line-is-inside-a-block
     assert c_vpn.VPNGATE_URL.startswith('https://') and c_vpn.OVPN_PKG == 'OpenVPNTechnologies.OpenVPN'
 
 
+
+@test
+def tailscale_exit_nodes():
+    st = {'BackendState': 'Running', 'Self': {'HostName': 'DESKTOP-L3', 'DNSName': 'desktop-l3.tail1234.ts.net.', 'TailscaleIPs': ['100.64.0.1', 'fd7a::1']},
+          'Peer': {
+              'k1': {'ID': 'n1', 'HostName': 'ugreen-turkiye', 'DNSName': 'ugreen-turkiye.tail1234.ts.net.', 'OS': 'linux', 'TailscaleIPs': ['100.64.0.2', 'fd7a::2'],
+                     'Online': True, 'ExitNode': False, 'ExitNodeOption': True},
+              'k2': {'ID': 'n2', 'HostName': 'hetzner-cikis', 'DNSName': 'hetzner-cikis.tail1234.ts.net.', 'OS': 'linux', 'TailscaleIPs': ['100.64.0.3'],
+                     'Online': True, 'ExitNode': True, 'ExitNodeOption': True},
+              'k3': {'ID': 'n3', 'HostName': 'telefon', 'OS': 'android', 'TailscaleIPs': ['100.64.0.4'], 'Online': True, 'ExitNodeOption': False},
+              'k4': {'ID': 'n4', 'HostName': 'es-mad-wg-001.mullvad.ts.net', 'DNSName': 'es-mad-wg-001.mullvad.ts.net.', 'OS': 'linux',
+                     'TailscaleIPs': ['100.70.0.9'], 'Online': True, 'ExitNodeOption': True, 'Location': {'Country': 'Spain', 'CountryCode': 'ES', 'City': 'Madrid'}},
+              'k5': {'ID': 'n5', 'HostName': 'eski-pc', 'DNSName': 'eski-pc.tail1234.ts.net.', 'TailscaleIPs': ['100.64.0.5'], 'Online': False, 'ExitNodeOption': True}}}
+    r = c_vpn.parse_ts_status(json.dumps(st))
+    assert r['state'] == 'Running' and r['self'] == 'desktop-l3' and r['self_ip'] == '100.64.0.1' and not r['advertising']
+    assert [n['name'] for n in r['nodes']] == ['hetzner-cikis', 'ugreen-turkiye', 'es-mad-wg-001', 'eski-pc'], [n['name'] for n in r['nodes']]
+    assert r['current']['name'] == 'hetzner-cikis' and r['nodes'][1]['ip'] == '100.64.0.2'
+    es = r['nodes'][2]
+    assert es['mullvad'] and es['cc'] == 'ES' and es['country'] == 'İspanya' and es['city'] == 'Madrid'
+    assert c_vpn.parse_ts_status({})['nodes'] == [] and c_vpn.parse_ts_status({'Self': {'PrimaryRoutes': ['0.0.0.0/0', '::/0']}})['advertising']
+    assert c_vpn.ts_use_cmd('ts', '100.64.0.2') == ['ts', 'set', '--exit-node=100.64.0.2', '--exit-node-allow-lan-access=true']
+    assert c_vpn.ts_clear_cmd('ts') == ['ts', 'set', '--exit-node='] and c_vpn.ts_advertise_cmd('ts', True)[-1] == '--advertise-exit-node=true'
+    assert 'advertise-exit-node' in c_vpn.UGREEN_COMPOSE and 'hostname: ugreen-turkiye' in c_vpn.UGREEN_COMPOSE and '/dev/net/tun' in c_vpn.UGREEN_COMPOSE
+    assert 'network_mode: host' in c_vpn.UGREEN_COMPOSE and 'restart: unless-stopped' in c_vpn.UGREEN_COMPOSE
+    assert '--advertise-exit-node' in c_vpn.LINUX_EXIT_NODE_SCRIPT and 'hetzner-cikis' in c_vpn.LINUX_EXIT_NODE_SCRIPT and 'ip_forward = 1' in c_vpn.LINUX_EXIT_NODE_SCRIPT
+    assert c_vpn.find_tailscale({'ProgramFiles': r'C:\PF'}, exists=lambda p: True).replace('\\', '/').endswith('PF/Tailscale/tailscale.exe')
+    assert c_vpn.TS_PKG == 'Tailscale.Tailscale'
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

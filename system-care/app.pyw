@@ -3096,7 +3096,7 @@ class App(tk.Tk):
         self.btn(flt, 'Görünen IP\'yi denetle', self.vpn_check_ip, 'ghost', action=False)
         self.vpn_gate_btn = self.btn(flt, 'Sunucu listesini yenile', lambda: self.vpn_gate_fetch(force=True), 'ghost', action=False)
         self.vpn_src = tk.StringVar(value=self.settings.get('vpn_source', 'own'))
-        for val, txt in (('gate', 'Ücretsiz sunucular (VPN Gate)'), ('own', 'Kendi yapılandırmalarım')):
+        for val, txt in (('gate', 'Ücretsiz (VPN Gate)'), ('own', 'WireGuard dosyalarım'), ('ts', 'Kendi çıkışlarım (Tailscale)')):
             ttk.Radiobutton(flt, text=txt, value=val, variable=self.vpn_src, command=self._vpn_switch_src).pack(side='right', padx=(8, 0))
         self.vpn_holder = tk.Frame(f, bg=PANEL); self.vpn_holder.pack(fill='both', expand=True, padx=16, pady=(8, 4))
         gf = ttk.Frame(self.vpn_holder, style='Card.TFrame')
@@ -3112,6 +3112,29 @@ class App(tk.Tk):
         self.gate_tree.tag_configure('on', foreground=OK_C)
         self.vpn_gate, self.gate_ping, self.gate_proc, self.gate_active = [], {}, None, None
         self.gate_dir = core.APP_DATA_DIR / 'vpngate'
+        # Tailscale cikis noktalari: yurt disinda Turk IP'si (Turkiye'deki bilgisayar) / Turkiye'de yabanci IP (Hetzner)
+        tsf = tk.Frame(self.vpn_holder, bg=PANEL)
+        self.vpn_ts_frame = tsf
+        tsb = tk.Frame(tsf, bg=PANEL); tsb.pack(fill='x', pady=(0, 6))
+        self.btn(tsb, 'Tailscale\'e giriş yap', self.ts_login, 'ghost', action=False)
+        self.ts_adv_btn = self.btn(tsb, 'Bu bilgisayarı çıkış noktası yap', self.ts_toggle_advertise, 'ghost', action=False)
+        self.btn(tsb, 'UGREEN ayarını kopyala (Türk IP)', self.ts_copy_ugreen, 'ghost', action=False)
+        self.btn(tsb, 'Hetzner komutunu kopyala (yabancı IP)', self.ts_copy_script, 'ghost', action=False)
+        self.btn(tsb, 'Yönetim panelini aç', lambda: self._open_url(vpn.TS_ADMIN_URL), 'ghost', action=False)
+        self.ts_info = tk.StringVar(value='')
+        tk.Label(tsf, textvariable=self.ts_info, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(1080 * self.scale)).pack(fill='x', pady=(0, 6))
+        tst = ttk.Frame(tsf, style='Card.TFrame'); tst.pack(fill='both', expand=True)
+        self.ts_tree = ttk.Treeview(tst, columns=('loc', 'os', 'ip', 'state'), show='tree headings', selectmode='browse', height=7)
+        self.ts_tree.heading('#0', text='Çıkış noktası'); self.ts_tree.column('#0', width=240, stretch=True)
+        for key, title, w in (('loc', 'Konum', 200), ('os', 'Sistem', 100), ('ip', 'Tailscale IP', 140), ('state', 'Durum', 160)):
+            self.ts_tree.heading(key, text=title); self.ts_tree.column(key, width=w, anchor='w')
+        tys = ttk.Scrollbar(tst, orient='vertical', command=self.ts_tree.yview)
+        self.ts_tree.configure(yscrollcommand=tys.set)
+        self.ts_tree.pack(side='left', fill='both', expand=True); tys.pack(side='right', fill='y')
+        self.ts_tree.bind('<Double-1>', lambda _e: self.vpn_connect())
+        self.ts_tree.tag_configure('on', foreground=OK_C); self.ts_tree.tag_configure('off', foreground=MUTED)
+        self.ts_exe, self.ts_status, self.ts_ping = vpn.find_tailscale(), None, {}
         tf = ttk.Frame(self.vpn_holder, style='Card.TFrame')
         self.vpn_own_frame = tf
         self.vpn_tree = ttk.Treeview(tf, columns=('country', 'server', 'ping', 'state'), show='tree headings', selectmode='browse', height=8)
@@ -3138,7 +3161,7 @@ class App(tk.Tk):
         self._vpn_wg_label()
         self._vpn_render()
         if 'vpn_source' not in self.settings and not self.vpn_tunnels:
-            self.vpn_src.set('gate')                           # hic yapilandirma yoksa hazir ucretsiz sunucularla acilir
+            self.vpn_src.set('ts')                             # varsayilan: kendi cikislariniz (UGREEN = Turk IP, Hetzner = yabanci IP)
         self._gate_restore()
         self._vpn_switch_src(initial=True)
         self.after(500, self._vpn_poll)
@@ -3208,8 +3231,10 @@ class App(tk.Tk):
             self.vpn_status.set('BAĞLI: %s%s%s' % (active, (' — ' + vpn.country_name(meta.get('country', ''))) if meta.get('country') else '', extra))
         elif self.gate_active:
             self._gate_status_line()
-        elif not own:
+        elif self.vpn_src.get() == 'gate':
             self._gate_render()
+        elif self.vpn_src.get() == 'ts':
+            self._ts_render()
         else:
             hint_ = ' — eklenmiş tünel yok; "Yapılandırma ekle…" ile .conf ekleyin ya da "Ücretsiz sunucular (VPN Gate)"u seçin.' if not self.vpn_tunnels else '.'
             self.vpn_status.set('Bağlı değil' + hint_)
@@ -3269,6 +3294,8 @@ class App(tk.Tk):
 
     def _vpn_switch_jobs(self, target):
         jobs = []
+        if target and self._ts_current():
+            jobs.append(Job('Tailscale çıkışını kapat', cmd=vpn.ts_clear_cmd(self.ts_exe), cancel_ok=False))
         active = self._vpn_active()
         for name, _st in list(self.vpn_running.items()):
             if name != target:
@@ -3284,6 +3311,8 @@ class App(tk.Tk):
     def vpn_connect(self, target=None):
         if self.vpn_src.get() == 'gate' and target is None:
             return self.vpn_gate_connect()
+        if self.vpn_src.get() == 'ts' and target is None:
+            return self.ts_use()
         x = target or self._vpn_selected()
         if not x:
             messagebox.showinfo('VPN', 'Listeden bir tünel seçin.'); return
@@ -3295,6 +3324,10 @@ class App(tk.Tk):
             self.start(jobs)
 
     def vpn_disconnect(self):
+        if self._ts_current():
+            self.ts_clear()
+            if not self.gate_running() and not self.vpn_running:
+                return
         if self.gate_running():
             self.vpn_gate_stop()
             if not self.vpn_running:
@@ -3371,6 +3404,20 @@ class App(tk.Tk):
                 elif kind == 'gate-list-err':
                     self.write('VPN Gate listesi alınamadı: %s\n' % val[:200])
                     self.vpn_status.set('VPN Gate listesi alınamadı (site erişilemiyor olabilir). "Sunucu listesini yenile" ile tekrar deneyin.')
+                elif kind == 'ts-status':
+                    self.ts_status = val
+                    self._vpn_refresh() if self.vpn_src.get() == 'ts' else None
+                elif kind == 'ts-status-err':
+                    self.ts_status = {'state': 'NoState', 'error': val, 'nodes': [], 'current': None, 'self': '', 'self_ip': '', 'advertising': False}
+                    if self.vpn_src.get() == 'ts':
+                        self._ts_render()
+                elif kind == 'ts-ping':
+                    self.ts_ping.update(val)
+                    self._ts_render()
+                    cb = getattr(self, '_ts_after_ping', None)
+                    self._ts_after_ping = None
+                    if cb:
+                        cb()
                 elif kind == 'gate-ping':
                     self.gate_ping.update(val)
                     self._gate_render()
@@ -3397,6 +3444,9 @@ class App(tk.Tk):
         except Exception:
             visible = False
         now = time.time()
+        if visible and self.vpn_src.get() == 'ts' and self.ts_exe and now - getattr(self, '_ts_last', 0) > 5:
+            self._ts_last = now
+            self.ts_refresh()
         if self.gate_active and now - getattr(self, '_gate_last_log', 0) > 1.5:
             self._gate_last_log = now
             self._gate_check_log()
@@ -3408,6 +3458,8 @@ class App(tk.Tk):
     def vpn_ping_all(self, names=None, then=None):
         if self.vpn_src.get() == 'gate' and names is None:
             return self.vpn_gate_ping(self._gate_visible()[:40])
+        if self.vpn_src.get() == 'ts' and names is None:
+            return self.ts_ping_all()
         items = [x for x in self.vpn_tunnels if names is None or x['name'] in names]
         if not items:
             messagebox.showinfo('VPN', 'Önce yapılandırma ekleyin.'); return
@@ -3432,6 +3484,8 @@ class App(tk.Tk):
     def vpn_fastest(self):
         if self.vpn_src.get() == 'gate':
             return self.vpn_gate_fastest()
+        if self.vpn_src.get() == 'ts':
+            return self.ts_fastest()
         want = self.vpn_country.get()
         names = [x['name'] for x in self.vpn_tunnels if want == 'Tümü' or want.endswith('(%s)' % x.get('country', ''))]
         if not names:
@@ -3448,10 +3502,209 @@ class App(tk.Tk):
             self.vpn_connect(next(x for x in self.vpn_tunnels if x['name'] == best))
         self.vpn_ping_all(names, then=pick)
 
+    # --- Tailscale cikis noktalari
+    def _ts_current(self):
+        return (self.ts_status or {}).get('current')
+
+    def _open_url(self, url):
+        import webbrowser
+        webbrowser.open(url)
+
+    def ts_refresh(self):
+        self.ts_exe = vpn.find_tailscale()
+        if not self.ts_exe:
+            self.ts_status = None
+            self._ts_render()
+            return
+        exe = self.ts_exe
+
+        def fn():
+            r = subprocess.run([exe, 'status', '--json'], capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=15,
+                               creationflags=CREATIONFLAGS)
+            if not r.stdout.strip().startswith('{'):
+                raise RuntimeError((r.stderr or r.stdout).strip()[:200] or 'Tailscale yanıt vermedi')
+            return vpn.parse_ts_status(r.stdout)
+        self._vpn_bg('ts-status', fn)
+
+    def _ts_render(self):
+        t = self.ts_tree
+        keep = t.selection()
+        t.delete(*t.get_children())
+        st = self.ts_status or {}
+        if not self.ts_exe:
+            self.ts_info.set('Tailscale kurulu değil. "Bağlan"a basınca kurulur. Kurulum sonrası "Tailscale\'e giriş yap" ile Google/Microsoft hesabınızla '
+                             'giriş yapın (kişisel kullanım ücretsiz).')
+        else:
+            how = ('Yurt dışında Türk IP\'si: "UGREEN ayarını kopyala" ile aldığınız Docker projesini NAS\'ta oluşturun (çıkış adı ugreen-turkiye). '
+                   'Türkiye\'de yabancı IP: "Hetzner komutunu kopyala" ile aldığınız komutu sunucuda (AGFO Root Terminal / SSH) çalıştırın (çıkış adı hetzner-cikis). '
+                   'Her yeni çıkış noktasını bir kez "Yönetim panelini aç" > makine > Edit route settings > "Use as exit node" ile onaylayın.')
+            self.ts_info.set('Bu bilgisayar: %s (%s) — Tailscale %s%s. %s' % (st.get('self') or '?', st.get('self_ip') or '-',
+                             vpn.TS_STATE_NAME.get(st.get('state'), st.get('state') or 'okunmadı'),
+                             ' · çıkış noktası olarak yayınlanıyor' if st.get('advertising') else '', how))
+            try:
+                self.ts_adv_btn.configure(text='Bu bilgisayarın çıkış noktalığını kapat' if st.get('advertising') else 'Bu bilgisayarı çıkış noktası yap')
+            except tk.TclError:
+                pass
+        nodes = st.get('nodes') or []
+        codes = sorted({n['cc'] for n in nodes if n['cc']}, key=lambda c: vpn.country_name(c) or c)
+        labels = ['Tümü'] + ['%s (%s)' % (vpn.country_name(c) or c, c) for c in codes]
+        if self.vpn_src.get() == 'ts':
+            self.vpn_country.configure(values=labels)
+            if self.vpn_country.get() not in labels:
+                self.vpn_country.set('Tümü')
+        want = self.vpn_country.get()
+        for n in nodes:
+            if want != 'Tümü' and not want.endswith('(%s)' % n['cc']):
+                continue
+            loc = ', '.join(x for x in (n['city'], n['country']) if x) or (
+                'Türkiye — UGREEN NAS (Türk IP)' if 'ugreen' in n['name'].lower() else
+                'Yurt dışı — Hetzner (yabancı IP)' if 'hetzner' in n['name'].lower() else 'kendi cihazınız')
+            p = self.ts_ping.get(n['ip'])
+            state = 'ÇIKIŞ (kullanılıyor)' if n['active'] else ('çevrimiçi' if n['online'] else 'çevrimdışı')
+            if isinstance(p, int) and p >= 0:
+                state += ' · %d ms' % p
+            t.insert('', 'end', iid=n['ip'] or n['id'], text=n['name'], values=(loc, n['os'], n['ip'], state),
+                     tags=('on',) if n['active'] else (() if n['online'] else ('off',)))
+        sel = [i for i in keep if t.exists(i)]
+        if sel:
+            t.selection_set(sel)
+        cur = st.get('current')
+        if cur:
+            self.vpn_status.set('BAĞLI (Tailscale çıkışı): %s%s' % (cur['name'], (' — ' + ', '.join(x for x in (cur['city'], cur['country']) if x)) if cur['mullvad'] else ''))
+        elif self.vpn_src.get() == 'ts' and not self._vpn_active() and not self.gate_active:
+            if self.ts_exe and st.get('state') == 'Running':
+                self.vpn_status.set('Çıkış noktası kullanılmıyor (normal internet).' + ('' if nodes else ' Henüz onaylı çıkış noktası yok — yukarıdaki adımlara bakın.'))
+            elif self.ts_exe:
+                self.vpn_status.set('Tailscale %s — "Tailscale\'e giriş yap"a basın.' % vpn.TS_STATE_NAME.get(st.get('state'), 'okunmadı'))
+            else:
+                self.vpn_status.set('Tailscale kurulu değil.')
+
+    def _ts_need(self):
+        self.ts_exe = vpn.find_tailscale()
+        if not self.ts_exe:
+            if messagebox.askyesno('Tailscale gerekli', 'Kendi çıkış noktalarınız için açık kaynak istemcili Tailscale kurulsun mu? (Kişisel kullanım ücretsiz.)'):
+                wg = self.engines.get('winget', {}).get('path') or core.find_winget()
+                if wg:
+                    self.start([Job('Kur: Tailscale', cmd=core.winget_install_cmd(wg, vpn.TS_PKG), on_done=lambda j: self.ts_refresh(), cancel_ok=False)])
+            return False
+        return True
+
+    def ts_login(self):
+        if not self._ts_need():
+            return
+        self.write('Tailscale: tarayıcıda giriş sayfası açılacak; girişten sonra bu sayfa kendiliğinden güncellenir.\n')
+        self.start([Job('Tailscale giriş', cmd=vpn.ts_up_cmd(self.ts_exe), on_done=lambda j: self.ts_refresh(), cancel_ok=True)])
+
+    def _ts_selected(self):
+        sel = self.ts_tree.selection()
+        nodes = (self.ts_status or {}).get('nodes') or []
+        return next((n for n in nodes if sel and (n['ip'] or n['id']) == sel[0]), None)
+
+    def ts_use(self, node=None):
+        if not self._ts_need():
+            return
+        n = node or self._ts_selected()
+        if not n:
+            messagebox.showinfo('Tailscale', 'Listeden bir çıkış noktası seçin.'); return
+        if not n['online']:
+            messagebox.showwarning('Tailscale', '%s şu an çevrimdışı; o bilgisayarın açık ve Tailscale\'in çalışıyor olması gerekir.' % n['name']); return
+        jobs = []
+        if self.gate_running():
+            self.vpn_gate_stop(quiet=True)
+        if self.vpn_running and self.vpn_wg:
+            for name in list(self.vpn_running):
+                jobs.append(Job('VPN kes: ' + name, cmd=vpn.uninstall_cmd(self.vpn_wg, name), cancel_ok=False))
+            self.vpn_running = {}
+
+        def done(job):
+            if job.code == 0:
+                self.write('Tailscale: çıkış noktası %s.\n' % n['name'])
+            self.ts_refresh()
+            self.after(2500, self.vpn_check_ip)
+        jobs.append(Job('Tailscale çıkışı: ' + n['name'], cmd=vpn.ts_use_cmd(self.ts_exe, n['ip']), on_done=done, cancel_ok=False))
+        self.start(jobs)
+
+    def ts_clear(self):
+        def done(job):
+            self.ts_refresh()
+            self.after(1500, self.vpn_check_ip)
+        self.start([Job('Tailscale çıkışını kapat', cmd=vpn.ts_clear_cmd(self.ts_exe), on_done=done, cancel_ok=False)])
+
+    def ts_toggle_advertise(self):
+        if not self._ts_need():
+            return
+        on = not (self.ts_status or {}).get('advertising')
+        if on and not messagebox.askyesno('Çıkış noktası', 'Bu bilgisayar Tailscale ağınızdaki diğer cihazlarınız için internet çıkışı olacak '
+                                          '(onlar bu bilgisayarın IP\'siyle görünür). Bilgisayarın açık kalması gerekir. Devam?'):
+            return
+
+        def done(job):
+            if job.code == 0 and on:
+                self.write('Bu bilgisayar çıkış noktası olarak yayınlandı. Yönetim panelinde bir kez onaylayın (Edit route settings > Use as exit node).\n')
+            self.ts_refresh()
+        self.start([Job('Tailscale çıkış noktası ' + ('aç' if on else 'kapat'), cmd=vpn.ts_advertise_cmd(self.ts_exe, on), on_done=done, cancel_ok=False)])
+
+    def ts_copy_script(self):
+        self.clipboard_clear()
+        self.clipboard_append(vpn.LINUX_EXIT_NODE_SCRIPT)
+        self.write('Hetzner (Linux) sunucusu için komut panoya kopyalandı. Sunucuda root olarak çalıştırın; çıkan bağlantıyla giriş yapın, '
+                   'sonra yönetim panelinde "hetzner-cikis" makinesini çıkış noktası olarak onaylayın.\n')
+        messagebox.showinfo('Hetzner — yabancı IP çıkışı', '1) Hetzner sunucusunda root olarak (AGFO Root Terminal ya da SSH) panodaki komutu çalıştırın.\n'
+                            '2) Ekranda çıkan login.tailscale.com bağlantısını açıp aynı Tailscale hesabıyla giriş yapın.\n'
+                            '3) "Yönetim panelini aç" > hetzner-cikis > Edit route settings > "Use as exit node" işaretleyin.\n\n'
+                            'Komut:\n%s' % vpn.LINUX_EXIT_NODE_SCRIPT)
+
+    def ts_copy_ugreen(self):
+        self.clipboard_clear()
+        self.clipboard_append(vpn.UGREEN_COMPOSE)
+        self.write('UGREEN NAS için Docker Compose ayarı panoya kopyalandı.\n')
+        messagebox.showinfo('UGREEN NAS — Türk IP çıkışı',
+                            '1) UGREEN NAS\'ta Docker uygulamasını açın > Proje > Oluştur.\n'
+                            '2) Proje adı: tailscale-cikis; yol olarak paylaşılan bir klasör seçin (ör. /docker/tailscale).\n'
+                            '3) Compose alanına panodaki ayarı yapıştırın ve projeyi başlatın.\n'
+                            '4) Kapsayıcı (tailscale-cikis) > Günlük: çıkan login.tailscale.com bağlantısını açıp aynı Tailscale hesabıyla giriş yapın.\n'
+                            '5) "Yönetim panelini aç" > ugreen-turkiye > Edit route settings > "Use as exit node" işaretleyin.\n\n'
+                            'Sonra bu listede "ugreen-turkiye" görünür; yurt dışındayken seçip Bağlan\'a basın.')
+
+    def ts_ping_all(self, nodes=None, then=None):
+        nodes = [n for n in (nodes if nodes is not None else (self.ts_status or {}).get('nodes') or []) if n['online'] and n['ip']]
+        if not nodes:
+            messagebox.showinfo('Tailscale', 'Çevrimiçi çıkış noktası yok.'); return
+        self._ts_after_ping = then
+
+        def fn():
+            import concurrent.futures
+
+            def one(n):
+                try:
+                    r = subprocess.run(vpn.ping_cmd(n['ip'], IS_WIN), capture_output=True, text=True, errors='replace', timeout=10, creationflags=CREATIONFLAGS)
+                    ms = vpn.parse_ping_ms(r.stdout.splitlines())
+                except Exception:
+                    ms = None
+                return n['ip'], (ms if ms is not None else -1)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+                return dict(ex.map(one, nodes))
+        self._vpn_bg('ts-ping', fn)
+
+    def ts_fastest(self):
+        want = self.vpn_country.get()
+        nodes = [n for n in (self.ts_status or {}).get('nodes') or [] if n['online'] and (want == 'Tümü' or want.endswith('(%s)' % n['cc']))]
+        if not nodes:
+            messagebox.showinfo('Tailscale', 'Çevrimiçi çıkış noktası yok.'); return
+
+        def pick():
+            ok = [n for n in nodes if isinstance(self.ts_ping.get(n['ip']), int) and self.ts_ping[n['ip']] >= 0]
+            best = min(ok, key=lambda n: self.ts_ping[n['ip']]) if ok else nodes[0]
+            self.ts_use(best)
+        self.ts_ping_all(nodes, then=pick)
+
     # --- VPN Gate (ucretsiz gonullu sunucular, OpenVPN)
     def _vpn_refresh(self):
-        if self.vpn_src.get() == 'gate':
+        src = self.vpn_src.get()
+        if src == 'gate':
             self._gate_render()
+        elif src == 'ts':
+            self._ts_render()
         else:
             self._vpn_render()
 
@@ -3461,10 +3714,16 @@ class App(tk.Tk):
             self.settings['vpn_source'] = self.vpn_src.get()
             core.save_settings(self.settings)
         self.vpn_country.set('Tümü')
-        (self.vpn_own_frame.pack_forget if gate else self.vpn_gate_frame.pack_forget)()
-        (self.vpn_gate_frame if gate else self.vpn_own_frame).pack(fill='both', expand=True)
+        src = self.vpn_src.get()
+        frames = {'gate': self.vpn_gate_frame, 'own': self.vpn_own_frame, 'ts': self.vpn_ts_frame}
+        for k, fr in frames.items():
+            if k != src:
+                fr.pack_forget()
+        frames[src].pack(fill='both', expand=True)
         if gate and not self.vpn_gate:
             self.vpn_gate_fetch(force=False)
+        if src == 'ts':
+            self.ts_refresh()
         self._vpn_refresh()
 
     def gate_running(self):
@@ -3494,7 +3753,7 @@ class App(tk.Tk):
             t.selection_set(sel)
         if self.gate_active:
             self._gate_status_line()
-        elif self.vpn_src.get() == 'gate' and not self._vpn_active():
+        elif self.vpn_src.get() == 'gate' and not self._vpn_active() and not self._ts_current():
             self.vpn_status.set('Bağlı değil — %d ücretsiz sunucu. Ülke seçip "En hızlıya bağlan"a basın.' % len(self._gate_visible()) if self.vpn_gate
                                 else 'VPN Gate sunucu listesi alınıyor...')
 
@@ -3589,6 +3848,8 @@ class App(tk.Tk):
         except ValueError as e:
             messagebox.showerror('VPN Gate', 'Bu sunucunun yapılandırması kullanılamıyor: %s' % e); return
         self.vpn_gate_stop(quiet=True)
+        if self._ts_current():
+            subprocess.run(vpn.ts_clear_cmd(self.ts_exe), creationflags=CREATIONFLAGS, timeout=30, capture_output=True)
         if self.vpn_running and self.vpn_wg:                  # WireGuard tuneli aciksa once kapat (tek VPN)
             for name in list(self.vpn_running):
                 subprocess.run(vpn.uninstall_cmd(self.vpn_wg, name), creationflags=CREATIONFLAGS, timeout=30)

@@ -259,3 +259,93 @@ def openvpn_state(log_text):
     if bad > ok:
         return 'error'
     return 'connected' if ok >= 0 else 'connecting'
+
+
+# --------------------------------------------------------------------------- Tailscale cikis noktalari (exit node)
+# Yurt disindayken Turkiye'deki bir bilgisayardan, Turkiye'deyken yurt disindaki sunucudan (Hetzner) internete cikmak icin.
+TS_PKG = 'Tailscale.Tailscale'
+TS_ADMIN_URL = 'https://login.tailscale.com/admin/machines'
+LINUX_EXIT_NODE_SCRIPT = (
+    "curl -fsSL https://tailscale.com/install.sh | sh && "
+    "echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf && "
+    "echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf && "
+    "sudo sysctl -p /etc/sysctl.d/99-tailscale.conf && "
+    "sudo tailscale up --advertise-exit-node --hostname=hetzner-cikis")
+
+
+# UGREEN NAS (UGOS Pro, Docker uygulamasi > Proje > Olustur) icin: Turkiye'deki NAS, yurt disindayken Turk IP'si veren cikis noktasi olur.
+UGREEN_COMPOSE = """services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale-cikis
+    hostname: ugreen-turkiye
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ./state:/var/lib/tailscale
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      - TS_EXTRA_ARGS=--advertise-exit-node --hostname=ugreen-turkiye
+    restart: unless-stopped
+"""
+
+
+def find_tailscale(env=None, exists=os.path.isfile):
+    env = env or os.environ
+    for base in (env.get('ProgramFiles', r'C:\Program Files'), env.get('ProgramW6432', '')):
+        if base:
+            p = os.path.join(base, 'Tailscale', 'tailscale.exe')
+            if exists(p):
+                return p
+    return None
+
+
+def parse_ts_status(data):
+    """`tailscale status --json` -> {'state', 'self', 'current', 'nodes': [...]} (yalnizca cikis noktasi olabilenler)."""
+    import json
+    d = json.loads(data) if isinstance(data, (str, bytes)) else (data or {})
+    me = d.get('Self') or {}
+    nodes, current = [], None
+    for p in (d.get('Peer') or {}).values():
+        if not p.get('ExitNodeOption'):
+            continue
+        loc = p.get('Location') or {}
+        ips = p.get('TailscaleIPs') or []
+        name = (p.get('DNSName') or '').split('.')[0] or p.get('HostName', '')
+        n = {'id': str(p.get('ID', '')), 'name': name, 'host': p.get('HostName', ''), 'ip': next((i for i in ips if ':' not in i), ips[0] if ips else ''),
+             'os': p.get('OS', ''), 'online': bool(p.get('Online')), 'active': bool(p.get('ExitNode')),
+             'cc': (loc.get('CountryCode') or '').upper(), 'city': loc.get('City', ''), 'mullvad': bool(loc)}
+        n['country'] = country_name(n['cc']) or loc.get('Country', '')
+        nodes.append(n)
+        if n['active']:
+            current = n
+    nodes.sort(key=lambda n: (not n['online'], n['mullvad'], n['name'].lower()))
+    me_ips = me.get('TailscaleIPs') or []
+    return {'state': d.get('BackendState', ''), 'self': (me.get('DNSName') or '').split('.')[0] or me.get('HostName', ''),
+            'self_ip': next((i for i in me_ips if ':' not in i), ''), 'current': current, 'nodes': nodes,
+            'advertising': '0.0.0.0/0' in (me.get('PrimaryRoutes') or []) or bool(me.get('ExitNodeOption'))}
+
+
+TS_STATE_NAME = {'Running': 'bağlı', 'NeedsLogin': 'giriş gerekli', 'Stopped': 'durdurulmuş', 'Starting': 'başlıyor', 'NoState': 'çalışmıyor',
+                 'NeedsMachineAuth': 'yönetici onayı bekleniyor'}
+
+
+def ts_use_cmd(ts, node_ip):
+    return [ts, 'set', '--exit-node=%s' % node_ip, '--exit-node-allow-lan-access=true']
+
+
+def ts_clear_cmd(ts):
+    return [ts, 'set', '--exit-node=']
+
+
+def ts_advertise_cmd(ts, on):
+    return [ts, 'set', '--advertise-exit-node=%s' % ('true' if on else 'false')]
+
+
+def ts_up_cmd(ts):
+    return [ts, 'up', '--accept-routes=false']

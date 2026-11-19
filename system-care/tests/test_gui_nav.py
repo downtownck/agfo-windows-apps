@@ -293,6 +293,39 @@ if os.name != 'nt':
     shot('vpn-gate')
     app.vpn_disconnect(); pump(0.3)
     check('gate.stopped', app.gate_proc is None and app.gate_active is None and 'vpngate_active' not in json.loads((setdir / 'settings.json').read_text(encoding='utf-8')))
+# Tailscale cikis noktalari: UGREEN (Turk IP) / Hetzner (yabanci IP), sahte tailscale.exe
+if os.name != 'nt':
+    tsj = TMP / 'ts.json'
+    def ts_state(active):
+        return json.dumps({'BackendState': 'Running', 'Self': {'HostName': 'pc', 'DNSName': 'pc.t.ts.net.', 'TailscaleIPs': ['100.64.0.1']},
+                           'Peer': {'a': {'ID': '1', 'HostName': 'ugreen-turkiye', 'DNSName': 'ugreen-turkiye.t.ts.net.', 'OS': 'linux', 'TailscaleIPs': ['100.64.0.2'],
+                                          'Online': True, 'ExitNodeOption': True, 'ExitNode': active == 'ugreen'},
+                                    'b': {'ID': '2', 'HostName': 'hetzner-cikis', 'DNSName': 'hetzner-cikis.t.ts.net.', 'OS': 'linux', 'TailscaleIPs': ['100.64.0.3'],
+                                          'Online': True, 'ExitNodeOption': True, 'ExitNode': active == 'hetzner'}}})
+    tsj.write_text(ts_state(None))
+    fts = TMP / 'tailscale.exe'
+    fts.write_text('#!/bin/sh\necho "ts $*" >> "%s"\ncase "$*" in status*) cat "%s";; esac\nexit 0\n' % (TMP / 'ts.log', tsj))
+    fts.chmod(0o755)
+    m.vpn.find_tailscale = lambda *a, **k: str(fts)
+    app.vpn_src.set('ts'); app._vpn_switch_src()
+    t0 = time.time()
+    while time.time() - t0 < 10 and not app.ts_tree.get_children():
+        pump(0.2)
+    check('ts.nodes', sorted(app.ts_tree.get_children()) == ['100.64.0.2', '100.64.0.3'], app.ts_tree.get_children())
+    check('ts.info', 'ugreen-turkiye' in app.ts_info.get() and 'hetzner-cikis' in app.ts_info.get())
+    app.ts_tree.selection_set('100.64.0.2'); app.vpn_connect(); idle()
+    tl = (TMP / 'ts.log').read_text()
+    check('ts.use', 'ts set --exit-node=100.64.0.2 --exit-node-allow-lan-access=true' in tl, tl)
+    tsj.write_text(ts_state('ugreen')); app.ts_refresh()
+    t0 = time.time()
+    while time.time() - t0 < 10 and not app._ts_current():
+        pump(0.2)
+    check('ts.status', app.vpn_status.get().startswith('BAĞLI (Tailscale çıkışı): ugreen-turkiye'), app.vpn_status.get())
+    shot('vpn-tailscale')
+    app.ts_copy_ugreen()
+    check('ts.clipboard', 'ugreen-turkiye' in app.clipboard_get())
+    app.vpn_disconnect(); idle()
+    check('ts.clear', 'ts set --exit-node=' in (TMP / 'ts.log').read_text().splitlines()[-1] or 'ts set --exit-node=\n' in (TMP / 'ts.log').read_text())
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

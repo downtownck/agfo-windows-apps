@@ -1,7 +1,14 @@
-# AGFO System Care 3.12.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.13.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.13.0'da ne değişti — Kendi çıkış noktalarınız: Türk IP (UGREEN) / yabancı IP (Hetzner)
+- VPN sayfasında **Kendi çıkışlarım (Tailscale)** görünümü (varsayılan). Tailscale'in açık kaynak istemcisiyle (WireGuard tabanlı, modemde port açmak gerekmez) kendi cihazlarınızı internet çıkışı olarak kullanırsınız:
+  - **Yurt dışındayken Türk IP'si:** Türkiye'deki UGREEN NAS çıkış noktası olur (**ugreen-turkiye**). "UGREEN ayarını kopyala" Docker Compose projesini panoya koyar ve adımları gösterir (Docker > Proje > Oluştur > yapıştır > günlükteki bağlantıyla giriş).
+  - **Türkiye'deyken yabancı IP:** Hetzner sunucusu çıkış noktası olur (**hetzner-cikis**). "Hetzner komutunu kopyala" sunucuda root olarak çalıştırılacak tek satırlık kurulumu verir.
+  - Her yeni çıkış noktası Tailscale yönetim panelinde bir kez "Use as exit node" ile onaylanır ("Yönetim panelini aç").
+- Listeden çıkışı seçip **Bağlan**, normal internete dönmek için **Bağlantıyı kes**. **En hızlıya bağlan** gecikmesi en düşük çevrimiçi çıkışı seçer. Bağlantıdan sonra görünen IP kendiliğinden denetlenir. Bu bilgisayarı da "Bu bilgisayarı çıkış noktası yap" ile çıkış yapabilirsiniz. Tailscale kurulu değilse tek tıkla kurulur (kişisel kullanım ücretsiz).
 
 ## 3.12.0'da ne değişti — Hesapsız ücretsiz VPN sunucuları (VPN Gate)
 - VPN sayfasında **Ücretsiz sunucular (VPN Gate)** seçeneği: Japonya'daki Tsukuba Üniversitesi'nin akademik VPN Gate projesinin gönüllü sunucuları, hesap ve yapılandırma dosyası gerekmeden listelenir (ülke, ölçülmüş hız, oturum sayısı, açık kalma süresi, işletmeci). Liste saatte bir yenilenir; "Sunucu listesini yenile" ile elle de alınır.
