@@ -130,9 +130,14 @@ check('ps.sig-check', code == 0 and sg and sg[0]['status'] == 'Valid' and 'Micro
 # ---- 4.1.1 Lenovo otomatik guncelleme: LSUClient modulu PowerShell Galerisi'nden kurulabiliyor mu (bu VM Lenovo degil; tarama hatasi beklenir)
 code, lines, bad = ps('lenovo-scan')
 envc = dict(os.environ); envc.pop('PSModulePath', None)
-chk = subprocess.run(['powershell.exe', '-NoProfile', '-Command', "if (Get-Module -ListAvailable -Name LSUClient) { 'VAR' } else { 'YOK' }"], capture_output=True, env=envc, timeout=120)
-print('  lenovo-scan kod', code, '| LSUClient:', chk.stdout.decode('utf-8', 'replace').strip(), '|', ' / '.join(lines[-3:]), flush=True)
-check('lsu.module_installed', b'VAR' in chk.stdout and not bad, (code, lines[-5:]))
+probe_ps = ("$m=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'WindowsPowerShell\\Modules'; $env:PSModulePath=$m+';'+$env:PSModulePath; "
+            "Import-Module LSUClient -ErrorAction Stop; $n=@(Get-LSUpdate -Model 20XW -All -ErrorAction Stop).Count; 'LSU_ALL=' + $n")
+chk = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', probe_ps], capture_output=True, env=envc, timeout=600)
+outp = chk.stdout.decode('utf-8', 'replace')
+print('  lenovo-scan kod', code, '|', ' / '.join(lines[-2:]), '| ThinkPad 20XW katalogu:', outp.strip()[-80:], chk.stderr.decode('utf-8', 'replace')[-300:], flush=True)
+import re as _re
+mm = _re.search(r'LSU_ALL=(\d+)', outp)
+check('lsu.catalog_works', mm and int(mm.group(1)) > 5 and not bad, (code, outp[-300:]))
 code, lines, bad = ps('dell-scan')
 check('ps.dell-scan_missing', code == 3 and any('kurulu degil' in l for l in lines), (code, lines[-3:]))
 
