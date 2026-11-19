@@ -1,7 +1,13 @@
-# AGFO System Care 3.11.0 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 3.12.0 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
+
+## 3.12.0'da ne değişti — Hesapsız ücretsiz VPN sunucuları (VPN Gate)
+- VPN sayfasında **Ücretsiz sunucular (VPN Gate)** seçeneği: Japonya'daki Tsukuba Üniversitesi'nin akademik VPN Gate projesinin gönüllü sunucuları, hesap ve yapılandırma dosyası gerekmeden listelenir (ülke, ölçülmüş hız, oturum sayısı, açık kalma süresi, işletmeci). Liste saatte bir yenilenir; "Sunucu listesini yenile" ile elle de alınır.
+- **En hızlıya bağlan**: seçili ülkedeki en hızlı 12 sunucunun size olan gecikmesi ölçülür, hız/gecikme dengesi en iyi olana bağlanılır. Bağlantı resmî açık kaynak **OpenVPN** istemcisiyle kurulur (yoksa tek tıkla kurulur); durum ve görünen IP sayfada görünür.
+- Güvenlik: internetten gelen yapılandırmalardan komut / betik / eklenti çalıştırabilen yönergeler (script-security, up, route-up, plugin …) atılır; VPN Gate'in herkese açık ortak kimliği dosyadan verilir.
+- Hiç kendi yapılandırmanız yoksa VPN sayfası bu seçenekle açılır. Aynı anda tek VPN çalışır (WireGuard tüneli varsa kapatılır). Gönüllü sunucular olduğundan hız ve süreklilik değişkendir; tam hız için ücretli bir WireGuard sağlayıcısı (Proton Plus, Mullvad) önerilir.
 
 ## 3.11.0'da ne değişti — VPN (WireGuard, ülke seçmeli)
 - Sol menüde yeni **Ağ > VPN** sayfası. Açık kaynak **WireGuard** (bilinen en hızlı VPN protokolü, resmî Windows istemcisi) ile farklı ülkelerin IP'leri üzerinden bağlanırsınız. WireGuard kurulu değilse sayfadan tek tıkla kurulur.

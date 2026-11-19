@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.11.0",
+  "version": "3.12.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -102,7 +102,8 @@
     "app_icons": "care_icons.py: logolar pakette yok; kullanicinin PC'sinde INSTALL_APPS.site adresinden (https, apple-touch-icon > png simge > favicon.ico) indirilir -> %LOCALAPPDATA%\\AGFO\\SystemCare\\app-icons (48/20 px PNG, index.json; basarisiz 30 gun denenmez); yalnizca Uygulama kur sayfasi buyuk simge gorunumunde acilinca",
     "install_view": "settings.install_view = grid | list; secim iki gorunum arasinda esitlenir",
     "app_update_recovery": "Uygulama guncellemeleri: sessiz (--silent) -> basarisizsa bir kez pencereli (--interactive); uygulama acik -> \"Uygulama acik\"; farkli kurulum turu / 0x8A150114 -> \"Yeniden kurulmali\" + Kaldirip yeniden kur (winget uninstall + install); Ayrinti sutunu WinGet nedenini gosterir",
-    "vpn": "WireGuard for Windows (WireGuard.WireGuard): wireguard.exe /installtunnelservice <Data\\Configurations\\ad.conf[.dpapi]> ve /uninstalltunnelservice <ad>; tek etkin tunel; meta %LOCALAPPDATA%\\AGFO\\SystemCare\\vpn-tunnels.json (anahtar yok); gecikme ping; gorunen IP https://ifconfig.co/json; vpn-status: WireGuardTunnel$* hizmetleri + wg show dump"
+    "vpn": "WireGuard for Windows (WireGuard.WireGuard): wireguard.exe /installtunnelservice <Data\\Configurations\\ad.conf[.dpapi]> ve /uninstalltunnelservice <ad>; tek etkin tunel; meta %LOCALAPPDATA%\\AGFO\\SystemCare\\vpn-tunnels.json (anahtar yok); gecikme ping; gorunen IP https://ifconfig.co/json; vpn-status: WireGuardTunnel$* hizmetleri + wg show dump",
+    "vpngate": "VPN Gate (https://www.vpngate.net/api/iphone/, 1 saat onbellek vpngate/list.csv); OpenVPN Community (OpenVPNTechnologies.OpenVPN) openvpn.exe --config current.ovpn --log openvpn.log; betik/eklenti calistiran yonergeler atilir; auth-user-pass -> auth.txt (vpn/vpn); surec PID settings.vpngate_active; tek VPN"
   },
   "removed_surfaces": [
     {
@@ -584,6 +585,26 @@
     {
       "id": "SC-W110",
       "purpose": "Windows: gercek WireGuard ile Proton/Mullvad .conf ice aktarma, baglanma, gorunen IP ulkesi, kesme; WireGuard yoneticisi .conf.dpapi donusumu sonrasi baglanma",
+      "type": "manual_windows",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-120",
+      "purpose": "VPN Gate CSV ayristirma, OpenVPN yapilandirmasi temizleme (script-security/up/route-up/plugin/log atilir, sertifika blogu korunur), auth dosyasi, durum",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-121",
+      "purpose": "GUI: onbellekten VPN Gate listesi, ulke suzgeci, en hizliya baglan (sahte OpenVPN), durum satiri, PID kaydi, kesme",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W120",
+      "purpose": "Windows: gercek VPN Gate listesi ve OpenVPN 2.7 ile baglanma, gorunen IP ulkesi; Turkiye den vpngate.net erisimi",
       "type": "manual_windows",
       "required_for_package": false
     }
