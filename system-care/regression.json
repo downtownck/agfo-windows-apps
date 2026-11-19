@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "3.13.2",
+  "version": "3.14.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -16,6 +16,10 @@
       "Uygulama güncellemeleri",
       "Uygulama kur",
       "VPN",
+      "Ağ tarayıcı",
+      "Ağ testleri",
+      "SSH sunucularım",
+      "SSH oturumları",
       "Kol / Gamepad"
     ],
     "powershell_actions": [
@@ -626,6 +630,26 @@
     {
       "id": "SC-W130",
       "purpose": "Windows + UGREEN NAS (Docker) + Hetzner: yurt disinda ugreen-turkiye ile Turk IP, Turkiye de hetzner-cikis ile yabanci IP; gorunen IP denetimi",
+      "type": "manual_windows",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-140",
+      "purpose": "SuperTools modulleri supertools/ ile bayt bayt ayni, manifest/kurulum listesinde; SSH profili, DPAPI kasasi ve tarama ayarlari yalnizca %LOCALAPPDATA% altinda; depo gizlilik denetimi (kisisel kayit dosyasi, ozel anahtar, bilinen kisisel adres yok)",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-141",
+      "purpose": "GUI: Ag tarayici (sonuc satirlari, etiketler), taramadan SSH profili, profilin yerel klasore kaydi, kayitli sunucuda komut (baglaninca gonderme), VPN > Hetzner komutunu SSH ile calistirma, tema degisiminde ag sayfalari",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-W140",
+      "purpose": "Windows: gercek ag taramasi, SMB acma, Paramiko ile dahili SSH (parola + DPAPI), SuperTools kayitlarinin System Care'de gorunmesi, NAS/Hetzner cikis komutunun SSH oturumundan calismasi",
       "type": "manual_windows",
       "required_for_package": false
     }

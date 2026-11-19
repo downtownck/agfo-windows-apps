@@ -21,6 +21,11 @@ jobs:
           cmp shared/agfo_github_update.py phantom-shot/agfo_github_update.py
           cmp shared/agfo_github_update.py mic-monitor/agfo_github_update.py
           cmp shared/agfo_github_update.py subscription-manager/agfo_github_update.py
+          for f in scanner_core.py supertools_core.py supertools_ui.py ssh_profiles.py ssh_password_vault.py ssh_password_transport.py ssh_workspace.py; do
+            cmp supertools/$f system-care/$f
+          done
+      - name: Gizlilik denetimi (kisisel kayitlar acik depoya giremez)
+        run: python -I .github/scripts/privacy_check.py .
       - name: Testler
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null

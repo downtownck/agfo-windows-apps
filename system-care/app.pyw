@@ -43,6 +43,7 @@ import care_tweaks as tweaks  # noqa: E402
 import care_theme as theme  # noqa: E402
 import care_icons as icons  # noqa: E402
 import care_vpn as vpn  # noqa: E402
+import net_tools  # noqa: E402  (SuperTools: ag tarayici, ag testleri, SSH)
 import agfo_github_update as ghu  # noqa: E402
 
 VERSION = core.VERSION
@@ -680,6 +681,18 @@ class App(tk.Tk):
         s.configure('Treeview', rowheight=int(24 * self.scale))
         s.configure('Treeview.Heading', font=('Segoe UI', 9, 'bold'))
         s.configure('Card.TFrame', background=PANEL)
+        # Ag araclari (SuperTools sayfalari) stil adlari: ayni tema jetonlari
+        for name in ('White.TFrame', 'Page.TFrame'):
+            s.configure(name, background=PANEL)
+        for name, fg, font in (('White.TLabel', FG, ('Segoe UI', 10)), ('Info.TLabel', MUTED, ('Segoe UI', 9)), ('Small.TLabel', MUTED, ('Segoe UI', 9)),
+                               ('Section.TLabel', FG, ('Segoe UI', 11, 'bold')), ('Heading.TLabel', FG, ('Segoe UI', 16, 'bold')),
+                               ('Status.TLabel', ACCENT, ('Segoe UI', 9)), ('Metric.TLabel', FG, ('Segoe UI', 20, 'bold'))):
+            s.configure(name, background=PANEL, foreground=fg, font=font)
+        s.configure('Blue.TButton', background=BTN, foreground=BTN_FG, font=('Segoe UI', 9, 'bold'), padding=(12, 6))
+        s.map('Blue.TButton', background=[('active', ACCENT), ('disabled', PANEL2)], foreground=[('disabled', MUTED)])
+        s.configure('SSH.TNotebook', background=PANEL, borderwidth=0)
+        s.configure('SSH.TNotebook.Tab', background=PANEL2, foreground=FG, padding=(12, 6))
+        s.map('SSH.TNotebook.Tab', background=[('selected', SEL)], foreground=[('selected', SEL_FG)])
         s.configure('Alt.TCheckbutton', background=PANEL2, foreground=FG)
         s.map('Alt.TCheckbutton', background=[('active', PANEL2)])
         self.option_add('*TCombobox*Listbox.background', PANEL2)
@@ -715,7 +728,7 @@ class App(tk.Tk):
         top = tk.Frame(self, bg=BG); top.pack(fill='x', padx=22, pady=(16, 6))
         tk.Label(top, text='AGFO  /  SUPERTOOLS', fg=ACCENT, bg=BG, font=('Segoe UI', 10, 'bold')).pack(anchor='w')
         tk.Label(top, text='System Care ' + '.'.join(VERSION.split('.')[:2]), fg=FG, bg=BG, font=('Segoe UI', 22, 'bold')).pack(anchor='w')
-        tk.Label(top, text='Temizlik · programlar · sürücüler · ince ayarlar · dosya düzeni — BleachBit, BCU, SDIO, WinGet ve Windows araçları tek arayüzde',
+        tk.Label(top, text='Temizlik · programlar · sürücüler · ince ayarlar · dosya düzeni · VPN ve ağ araçları — BleachBit, BCU, SDIO, WinGet, Tailscale ve Windows araçları tek arayüzde',
                  fg=MUTED, bg=BG, font=('Segoe UI', 10)).pack(anchor='w', pady=(2, 0))
         st = tk.Frame(self, bg=PANEL, padx=12, pady=8); st.pack(fill='x', padx=22, pady=8)
         self.status = tk.StringVar(value=('Hazır (yönetici)' if self.admin else 'Hazır (standart kullanıcı)') + ' — işlemler siz başlatmadıkça uygulanmaz.')
@@ -743,6 +756,7 @@ class App(tk.Tk):
         paned.pack(side='left', fill='both', expand=True)
         self.tabs = NavBook(paned, nav)
         paned.add(self.tabs, stretch='always', minsize=int(360 * self.scale))
+        self.net = net_tools.NetTools(self, self._net_colors)
         for group, pages in self.nav_pages():
             self.tabs.add_group(group)
             for title, builder in pages:
@@ -753,6 +767,8 @@ class App(tk.Tk):
         self.tabs.bind('<<NotebookTabChanged>>', self._tw_on_tab, add='+')
         self.tabs.bind('<<NotebookTabChanged>>', self._remember_page, add='+')
         self.tabs.bind('<<NotebookTabChanged>>', self._inst_on_tab, add='+')
+        self.tabs.bind('<<NotebookTabChanged>>', lambda _e: self.net.on_tab(), add='+')
+        self.theme_hooks.append(self.net.retheme)
         self._open_last_page()
 
         bottom = tk.Frame(paned, bg=BG)
@@ -776,7 +792,8 @@ class App(tk.Tk):
                 ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Sürücüler', self._tab_drivers), ('Aygıt temizliği', self._tab_phantom),
                             ('Bakım ve sağlık', self._tab_maint)]),
                 ('Uygulamalar', [('Programlar', self._tab_programs), ('Uygulama güncellemeleri', self._tab_apps), ('Uygulama kur', self._tab_install)]),
-                ('Ağ', [('VPN', self._tab_vpn)]),
+                ('Ağ', [('VPN', self._tab_vpn), ('Ağ tarayıcı', lambda f: self.net.build_scan(f)), ('Ağ testleri', lambda f: self.net.build_diag(f)),
+                        ('SSH sunucularım', lambda f: self.net.build_ssh(f)), ('SSH oturumları', lambda f: self.net.build_sessions(f))]),
                 ('Donanım', [('Kol / Gamepad', self._tab_pad)])]
 
     def _remember_page(self, _e=None):
@@ -3654,6 +3671,11 @@ class App(tk.Tk):
     def ts_copy_script(self):
         self.clipboard_clear()
         self.clipboard_append(vpn.LINUX_EXIT_NODE_SCRIPT)
+        if messagebox.askyesno('Hetzner — yabancı IP çıkışı', 'Komut panoya kopyalandı.\n\nKayıtlı bir SSH sunucusunda (Hetzner) System Care\'den '
+                               'şimdi çalıştırılsın mı?\n\nHayır: komutu kendiniz (AGFO Root Terminal / SSH) çalıştırırsınız.'):
+            if self.net.run_on_server(vpn.LINUX_EXIT_NODE_SCRIPT, 'Hetzner — çıkış noktası',
+                                      'Bittikten sonra "Yönetim panelini aç" > sunucu > Edit route settings > "Use as exit node" işaretleyin.'):
+                return
         self.write('Hetzner (Linux) sunucusu için komut panoya kopyalandı. Sunucuda root olarak çalıştırın; çıkan bağlantıyla giriş yapın, '
                    'sonra yönetim panelinde "hetzner-cikis" makinesini çıkış noktası olarak onaylayın.\n')
         messagebox.showinfo('Hetzner — yabancı IP çıkışı', '1) Hetzner sunucusunda root olarak (AGFO Root Terminal ya da SSH) panodaki komutu çalıştırın.\n'
@@ -3669,6 +3691,12 @@ class App(tk.Tk):
             self.clipboard_clear()
             self.clipboard_append(vpn.NAS_EXIT_NODE_CMD)
             self.write('UGREEN NAS için SSH komutu panoya kopyalandı.\n')
+            if messagebox.askyesno('UGREEN NAS — Türk IP çıkışı', 'Komut panoya kopyalandı.\n\nKayıtlı bir SSH sunucusu (NAS) üzerinde System Care\'den '
+                                   'şimdi çalıştırılsın mı?\n\nHayır: komutu kendiniz çalıştırırsınız.'):
+                self.net.run_on_server(vpn.NAS_EXIT_NODE_CMD, 'UGREEN NAS — çıkış noktası',
+                                       'Önce UGOS > Denetim Masası > Terminal > SSH\'yi açın. Bağlandıktan sonra "TAMAM" yazısını görünce '
+                                       '"Yönetim panelini aç" > NAS > Edit route settings > "Use as exit node" işaretleyin.')
+                return
             messagebox.showinfo('UGREEN NAS — mevcut Tailscale',
                                 '1) UGOS > Denetim Masası > Terminal > SSH\'yi açın.\n'
                                 '2) Windows\'ta PowerShell: ssh <NAS kullanıcı adınız>@<NAS yerel IP\'si> ve parolanızla girin.\n'
@@ -4601,7 +4629,15 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showerror('Yönetici erişimi', str(e))
 
+    def _net_colors(self):
+        g = globals()
+        return {k: g[k] for k in ('BG', 'PANEL', 'PANEL2', 'FG', 'MUTED', 'ACCENT', 'WARN', 'OK_C', 'BAD_C', 'SEL', 'SEL_FG', 'TREE_BG', 'LOG_BG', 'LOG_FG')}
+
     def on_close(self):
+        try:
+            self.net.close()
+        except Exception:
+            pass
         if self.busy:
             if not messagebox.askyesno('İşlem sürüyor', 'Bir işlem sürüyor. Durdurulup uygulama kapatılsın mı?\n'
                                        '(Kurulum/onarım işlemleri arka planda tamamlanabilir.)'):

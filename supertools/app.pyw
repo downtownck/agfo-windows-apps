@@ -82,6 +82,8 @@ class ScannerApp(ModernShell, SuperToolsMixin, tk.Tk):
         self.gh_result = None
         if ghu.load_state(gh_state_path()).get("auto", True):
             self.after(4000, lambda: self._gh_check(False))
+        if not self.options.get("merged_notice"):
+            self.after(1500, self._merged_notice)
         self.protocol("WM_DELETE_WINDOW", self._close)
 
     def _configure_icon(self):
@@ -442,6 +444,18 @@ class ScannerApp(ModernShell, SuperToolsMixin, tk.Tk):
             return
         self._launch_update_runner("--restore", Path(item["folder"]))
 
+    def _merged_notice(self):
+        # 1.8.0: SuperTools'un butun ozellikleri AGFO System Care 3.14.0+ icinde (Ag bolumu). Kayitlar ayni bilgisayarda paylasilir.
+        self.options["merged_notice"] = True
+        self._save_settings()
+        messagebox.showinfo("SuperTools artık System Care içinde",
+                            "AGFO SuperTools'un tüm araçları (ağ tarayıcı, ağ testleri, SSH sunucularım, SSH oturumları) artık "
+                            "AGFO System Care 3.14.0 ve sonrasında, sol menüdeki Ağ bölümünde.\n\n"
+                            "Kayıtlı SSH sunucularınız, şifreli parola kasanız ve tarama ayarlarınız bu bilgisayarda kalır; "
+                            "System Care aynı dosyaları kullandığı için orada da hazır görünür. Hiçbiri internete ya da GitHub'a gönderilmez.\n\n"
+                            "System Care: github.com/downtownck/agfo-windows-apps/releases (system-care-v3.14.0 ve sonrası)\n\n"
+                            "SuperTools bu sürümden sonra yeni sürüm almayacak; isterseniz kullanmaya devam edebilirsiniz.")
+
     def _read_settings(self) -> dict:
         try:
             data = json.loads(self.save_path.read_text(encoding="utf-8"))
@@ -462,7 +476,8 @@ class ScannerApp(ModernShell, SuperToolsMixin, tk.Tk):
         data = {"version": core.APP_VERSION, "scope": self.scope_text.get("1.0", "end-1c"),
                 "workers": self.workers_var.get(), "timeout_ms": self.timeout_var.get(),
                 "extended": bool(self.extended_var.get()), "dns": bool(self.dns_var.get()),
-                "discovery": bool(self.discovery_var.get()), "appearance": self.appearance}
+                "discovery": bool(self.discovery_var.get()), "appearance": self.appearance,
+                "merged_notice": bool(self.options.get("merged_notice"))}
         try:
             self.save_path.parent.mkdir(parents=True, exist_ok=True)
             temp = self.save_path.with_suffix(".tmp")

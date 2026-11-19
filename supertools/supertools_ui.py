@@ -49,7 +49,7 @@ class SuperToolsMixin:
         self.diag_run_btn = ttk.Button(form, text="Çalıştır", style="Blue.TButton", command=self._run_diagnostic)
         self.diag_run_btn.grid(row=1, column=3, padx=(9, 0), pady=(6, 0))
         ttk.Label(page, text="Tek kutuda örnekler:  mx: agfocert.com    dmarc: agfocert.com    "
-                  "tcp: 192.168.1.102:445    smtp: mail.example.com:587",
+                  "tcp: 192.168.1.20:445    smtp: mail.example.com:587",
                   style="Info.TLabel").grid(row=2, column=0, padx=14, sticky="w", pady=(5, 7))
         quick = ttk.Frame(page, style="White.TFrame")
         quick.grid(row=3, column=0, sticky="ew", padx=14, pady=(2, 11))
@@ -454,8 +454,10 @@ class SuperToolsMixin:
 
     def _ssh_password_dialog(self, profile, failed=False):
         """Only a transient Tk password Entry; never persist plaintext through Tk settings."""
-        from modern_shell import PALETTES
-        colors = PALETTES.get(getattr(self, "appearance", "dark"), PALETTES["dark"])
+        colors = self._ssh_dialog_colors() if hasattr(self, "_ssh_dialog_colors") else None
+        if not colors:
+            from modern_shell import PALETTES
+            colors = PALETTES.get(getattr(self, "appearance", "dark"), PALETTES["dark"])
         win = tk.Toplevel(self)
         win.title("AGFO · Güvenli SSH Girişi")
         win.configure(bg=colors["panel"])

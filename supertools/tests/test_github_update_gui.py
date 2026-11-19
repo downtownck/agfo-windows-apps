@@ -11,6 +11,8 @@ import agfo_updater as updater  # noqa: E402
 import agfo_github_update as ghu  # noqa: E402
 
 RESULTS = []
+_v = core.APP_VERSION.split('.')
+NEXT = '.'.join(_v[:-1] + [str(int(_v[-1]) + 1)])
 
 
 def check(name, cond, detail=''):
@@ -18,22 +20,22 @@ def check(name, cond, detail=''):
     print(('PASS ' if cond else 'FAIL ') + name + ('' if cond else ' - ' + str(detail)[:400]), flush=True)
 
 
-# 1.7.1 guncelleme paketi: kaynak kopyasinda surum yukseltilir, uygulamanin kendi create_update araci ile paketlenir
+# Bir sonraki yama surumu: guncelleme paketi: kaynak kopyasinda surum yukseltilir, uygulamanin kendi create_update araci ile paketlenir
 src = TMP / 'src171'
 shutil.rmtree(src, ignore_errors=True)
 shutil.copytree(ROOT, src, ignore=shutil.ignore_patterns('__pycache__', 'tests'))
-sc = (src / 'scanner_core.py').read_text(encoding='utf-8').replace('APP_VERSION = "%s"' % core.APP_VERSION, 'APP_VERSION = "1.7.1"')
+sc = (src / 'scanner_core.py').read_text(encoding='utf-8').replace('APP_VERSION = "%s"' % core.APP_VERSION, 'APP_VERSION = "%s"' % NEXT)
 (src / 'scanner_core.py').write_text(sc, encoding='utf-8')
-pkg = TMP / 'AGFO-SuperTools-v1.7.1.update.zip'
+pkg = TMP / ('AGFO-SuperTools-v%s.update.zip' % NEXT)
 subprocess.run([sys.executable, '-I', str(src / 'packaging' / 'create_update.py'), '--source', str(src), '--output', str(pkg), '--notes', 'Test surumu'], check=True,
                cwd=str(src), stdout=subprocess.DEVNULL)
-check('pkg.built_and_valid', updater.inspect_package(pkg, core.APP_VERSION)['version'] == '1.7.1')
+check('pkg.built_and_valid', updater.inspect_package(pkg, core.APP_VERSION)['version'] == NEXT)
 check('pkg.contains_github_module', 'agfo_github_update.py' in updater.inspect_package(pkg)['files'])
 DATA = pkg.read_bytes()
-REL = [{'tag_name': 'supertools-v1.7.1', 'name': 'SuperTools 1.7.1', 'draft': False, 'prerelease': False, 'body': 'Duzeltmeler',
-        'html_url': 'https://github.com/downtownck/agfo-windows-apps/releases/tag/supertools-v1.7.1', 'published_at': '2026-10-18T10:00:00Z',
+REL = [{'tag_name': 'supertools-v' + NEXT, 'name': 'SuperTools ' + NEXT, 'draft': False, 'prerelease': False, 'body': 'Duzeltmeler',
+        'html_url': 'https://github.com/downtownck/agfo-windows-apps/releases/tag/supertools-v' + NEXT, 'published_at': '2026-10-18T10:00:00Z',
         'assets': [{'name': pkg.name, 'size': len(DATA), 'digest': 'sha256:' + hashlib.sha256(DATA).hexdigest(),
-                    'browser_download_url': 'https://github.com/downtownck/agfo-windows-apps/releases/download/supertools-v1.7.1/' + pkg.name}]},
+                    'browser_download_url': 'https://github.com/downtownck/agfo-windows-apps/releases/download/supertools-v%s/' % NEXT + pkg.name}]},
        {'tag_name': 'system-care-v9.9.9', 'draft': False, 'prerelease': False, 'assets': []}]
 ghu.fetch_json = lambda url, user_agent='': REL
 
@@ -66,10 +68,10 @@ def pump(sec):
 
 
 pump(1.0)
-check('ui.title_version', '1.7.0' in app.title(), app.title())
+check('ui.title_version', core.APP_VERSION in app.title(), app.title())
 # acilista otomatik denetim (4 sn sonra) -> istem penceresi
 pump(5.5)
-check('auto.check_found', app.gh_result and app.gh_result['version'] == '1.7.1', app.gh_status_var.get())
+check('auto.check_found', app.gh_result and app.gh_result['version'] == NEXT, app.gh_status_var.get())
 check('auto.prompt_window', getattr(app, '_gh_prompt_win', None) is not None and app._gh_prompt_win.winfo_exists())
 check('ui.button_enabled', str(app.gh_update_btn['state']) == 'normal')
 app._gh_prompt_win.destroy()
@@ -82,10 +84,10 @@ app._gh_update(confirm=True); pump(2.5)
 check('dl.confirm_asked', 'AGFO güncellemesi' in asked)
 check('dl.handed_to_updater', len(launched) == 1 and launched[0][0] == '--apply' and launched[0][1].is_file(), launched)
 if launched:
-    check('dl.staged_verified', updater.inspect_package(launched[0][1], core.APP_VERSION)['version'] == '1.7.1')
+    check('dl.staged_verified', updater.inspect_package(launched[0][1], core.APP_VERSION)['version'] == NEXT)
 check('dl.download_cleaned', not any((updater.data_folder() / 'updates' / 'download').glob('*')))
 # atla
-ghu.skip_version(appmod.gh_state_path(), '1.7.1')
+ghu.skip_version(appmod.gh_state_path(), NEXT)
 r = ghu.check_for_update(appmod.GH_PREFIX, core.APP_VERSION, appmod.gh_state_path(), appmod.GH_ASSET, releases=REL, now=time.time() + 10 ** 6)
 check('skip.respected', r['status'] == 'skipped', r)
 # gercek agfo_updater ile uctan uca uygulama (gecici kurulum koku)
@@ -93,7 +95,7 @@ inst = TMP / 'install'
 shutil.rmtree(inst, ignore_errors=True)
 shutil.copytree(ROOT, inst, ignore=shutil.ignore_patterns('__pycache__', 'tests', 'packaging', '*.cmd', '*.md'))
 res = updater.perform_update(launched[0][1], inst, TMP / 'home')
-check('apply.real_updater', res['before'] == '1.7.0' and res['after'] == '1.7.1' and updater.current_version(inst) == '1.7.1', res)
+check('apply.real_updater', res['before'] == core.APP_VERSION and res['after'] == NEXT and updater.current_version(inst) == NEXT, res)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]
 print('\nSuperTools GitHub GUI: %d pass, %d fail' % (len(RESULTS) - len(fails), len(fails)))

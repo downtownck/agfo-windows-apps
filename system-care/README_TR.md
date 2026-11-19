@@ -3,6 +3,16 @@
 ## Kurulum
 ZIP'i açın, `agfo-care/Kur-ve-Baslat.cmd` çalıştırın. Python 3.8+ ve tkinter gerekir (python.org kurulumunda varsayılan olarak gelir). 2.x sürümünün üzerine kurulur; çalışan eski sürüm kurulumda kapatılır. İlk açılışta **Motorlar** sekmesinden "Eksik motorları kur" düğmesine basın.
 
+## 3.14.0'da ne değişti — SuperTools artık System Care içinde
+
+Sol menüdeki **Ağ** bölümüne SuperTools'un tüm araçları geldi:
+- **Ağ tarayıcı:** yerel ağdaki cihazları bulur (ICMP/TCP, ARP, SSDP/mDNS). SMB klasörünü ya da web arayüzünü açar, paylaşımları sorgular, NAS hesabıyla bağlanır, CSV kaydeder. Bulunan cihazdan tek tıkla SSH profili oluşturulur.
+- **Ağ testleri:** MX, SPF, DMARC, DKIM, MTA-STS, SMTP, TLS sertifikası, HTTP, TCP portu, ping, traceroute ve RDAP.
+- **SSH sunucularım ve SSH oturumları:** kayıtlı sunucular, dahili SSH (parola isteğe bağlı olarak Windows DPAPI ile 1–24 saat), birden çok oturum ve alt alta iki oturum görünümü.
+- **VPN ile bağlantı:** "UGREEN ayarını kopyala" ve "Hetzner komutunu kopyala" komutu kayıtlı bir SSH sunucusunda doğrudan çalıştırabiliyor. Bağlantı kurulunca komut oturuma gönderiliyor; ayrı bir uygulama açmak gerekmiyor.
+
+**Kayıtlarınız bu bilgisayarda kalır.** SSH profilleri, şifreli parola kasası, bilinen sunucu anahtarları ve tarama ayarları SuperTools ile aynı yerde, `%LOCALAPPDATA%\AGFO-MultiSubnet-Scanner` klasöründe tutulur. SuperTools'ta kayıtlı sunucularınız System Care'de kendiliğinden görünür. Bu dosyalar uygulama paketine, güncellemelere ya da GitHub'a hiçbir zaman girmez. Depoda bunu denetleyen bir gizlilik testi var: kişisel kayıt dosyası, özel anahtar ya da bilinen kişisel adres bulunursa sürüm çıkmaz.
+
 ## 3.13.2'de ne değişti — UGREEN'de mevcut Tailscale
 
 - NAS Tailscale'de zaten görünüyorsa "UGREEN ayarını kopyala" tek satırlık bir SSH komutu veriyor. Komut sadece çıkış noktalığını açıyor; Docker kurulumu gerekmiyor.

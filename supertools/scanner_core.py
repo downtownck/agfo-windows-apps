@@ -21,7 +21,7 @@ from dataclasses import dataclass, replace
 from threading import Event
 from typing import Callable, Iterable, Optional
 
-APP_VERSION = "1.7.0"
+APP_VERSION = "1.8.0"
 MAX_TARGETS = 2048
 COMMON_PORTS = (445, 80, 443)
 EXTENDED_PORTS = (445, 80, 443, 22, 21, 8080, 8443, 5000, 5001, 873, 2049)

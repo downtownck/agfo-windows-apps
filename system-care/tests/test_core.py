@@ -1169,4 +1169,57 @@ def tailscale_exit_nodes():
     assert c_vpn.TS_PKG == 'Tailscale.Tailscale'
 
 
+# --------------------------------------------------------------------------- 3.14.0 SuperTools (ag araclari) + gizlilik
+ST_MODULES = ('scanner_core.py', 'supertools_core.py', 'supertools_ui.py', 'ssh_profiles.py', 'ssh_password_vault.py',
+              'ssh_password_transport.py', 'ssh_workspace.py')
+
+
+@test
+def supertools_bundle_and_privacy():
+    import os, tempfile, importlib.util
+    st = ROOT.parent / 'supertools'
+    inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
+    for name in ST_MODULES + ('net_tools.py',):
+        if st.is_dir() and name != 'net_tools.py':                       # depoda: SuperTools modulleriyle bayt bayt ayni
+            assert (st / name).read_bytes() == (ROOT / name).read_bytes(), name
+        assert c._is_runtime_file(name) and name in c.build_manifest(ROOT)['files'], name
+        assert "'%s'" % name in inst, name
+    tmp = tempfile.mkdtemp()
+    old = os.environ.get('LOCALAPPDATA')
+    os.environ['LOCALAPPDATA'] = tmp
+    try:
+        import ssh_profiles as sp, ssh_password_vault as sv
+        paths = [sp.storage_path(), sv.vault_path()]
+        try:
+            import net_tools as nt                                      # tkinter gerektirir
+            paths.append(nt.settings_path())
+        except ImportError:
+            pass
+        for pth in paths:       # kayitlar yalnizca yerel kullanici klasorunde
+            assert str(pth).startswith(tmp) and 'AGFO-MultiSubnet-Scanner' in str(pth) and ROOT not in pth.parents, pth
+    finally:
+        if old is None:
+            os.environ.pop('LOCALAPPDATA', None)
+        else:
+            os.environ['LOCALAPPDATA'] = old
+    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    for t in ('Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları'):
+        assert "('%s'," % t in app
+    gi = ROOT.parent / '.gitignore'
+    if gi.is_file():
+        g = gi.read_text(encoding='utf-8')
+        assert 'ssh-profiles*.json' in g and '*.dpapi*' in g
+    chk = ROOT.parent / '.github' / 'scripts' / 'privacy_check.py'
+    if chk.is_file():
+        spec = importlib.util.spec_from_file_location('privacy_check', chk)
+        pc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(pc)
+        found = pc.scan(ROOT.parent)
+        assert not found, found
+        bad = pathlib.Path(tempfile.mkdtemp())
+        (bad / 'not.md').write_text('ssh ornek@10.0.0.5 ve 192.168.1.' + '102', encoding='utf-8')
+        (bad / 'ssh-profiles.json').write_text('[]', encoding='utf-8')
+        assert len(pc.scan(bad)) == 2, pc.scan(bad)
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

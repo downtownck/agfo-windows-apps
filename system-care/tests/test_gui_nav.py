@@ -93,7 +93,8 @@ idle()
 check('mode', (m.TB is not None) == (MODE == 'modern'), m.TB_STATE)
 titles = [p['title'] for p in app.tabs.pages]
 check('nav.pages', titles == ['Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Sürücüler', 'Aygıt temizliği', 'Bakım ve sağlık',
-                              'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Kol / Gamepad'], titles)
+                              'Programlar', 'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım',
+                              'SSH oturumları', 'Kol / Gamepad'], titles)
 check('nav.last_page', app.tabs.tab(app.tabs.current, 'text') == 'İnce ayarlar', app.tabs.current)
 seen = []
 app.tabs.bind('<<NotebookTabChanged>>', lambda _e: seen.append(app.tabs.current), add='+')
@@ -326,6 +327,53 @@ if os.name != 'nt':
     check('ts.clipboard', 'set --advertise-exit-node' in app.clipboard_get() and 'docker exec' in app.clipboard_get())
     app.vpn_disconnect(); idle()
     check('ts.clear', 'ts set --exit-node=' in (TMP / 'ts.log').read_text().splitlines()[-1] or 'ts set --exit-node=\n' in (TMP / 'ts.log').read_text())
+
+# ---- Ag araclari (SuperTools): tarayici, SSH profili yerel klasorde, kayitli sunucuda tek komut
+net = app.net
+app.tabs.select('Ağ tarayıcı'); pump(1.5)
+check('net.discovered', net.discovered)
+import scanner_core as sc  # noqa: E402
+for r in (sc.HostResult('10.0.0.5', True, (22, 445), hostname='ornek-nas', elapsed_ms=4, mac='00:11:22:33:44:55'),
+          sc.HostResult('10.0.0.9', False, (), discovery='ARP', verified=False)):
+    net._insert_result(r)
+check('net.rows', sorted(net.tree.get_children()) == ['10.0.0.5', '10.0.0.9'] and '1 aktif' in net.found_var.get(), net.found_var.get())
+shot('net-scan')
+check('net.tags', net.tree.item('10.0.0.5', 'tags') == ('smb',) and net.tree.item('10.0.0.9', 'tags') == ('candidate',))
+net.tree.selection_set('10.0.0.5')
+net._ssh_from_selected(); pump(0.3)
+check('net.ssh_from_scan', net.ssh_host_var.get() == '10.0.0.5' and app.tabs.tab(app.tabs.current, 'text') == 'SSH sunucularım')
+net.ssh_user_var.set('yonetici'); net._ssh_save(); pump(0.2)
+prof_file = TMP / 'lad' / 'AGFO-MultiSubnet-Scanner' / 'ssh-profiles.json'
+check('net.profile_local_only', prof_file.is_file() and len(net.ssh_profiles) == 1 and not list(ROOT.rglob('ssh-profiles*.json')), prof_file)
+opened, sent = [], []
+net._ssh_open_password = lambda failed=False, profile_override=None: opened.append(profile_override)
+picked = net.ssh_profiles[0]
+net._pick_profile = lambda title, hint='': picked
+check('net.run_on_server', net.run_on_server('echo TAMAM', 'Test') and opened == [picked] and net._pending_cmd == {picked.id: 'echo TAMAM'})
+
+
+class FakeTransport:
+    def send(self, text): sent.append(text)
+    def close(self): pass
+
+
+rec = net.ssh_workspace.add_session(picked)
+net.msg_queue.put(('ssh_live_connected', (rec.id, FakeTransport(), picked.name, False)))
+pump(1.5)
+check('net.pending_cmd_sent', sent == ['echo TAMAM\n'] and not net._pending_cmd, sent)
+check('net.diag_built', str(net.diag_output.cget('bg')).lower() == m.LOG_BG.lower() and net.diag_tool_combo.get() == 'DNS MX', net.diag_output.cget('bg'))
+net._set_diag_output('deneme'); check('net.diag_output', net.diag_output.get('1.0', 'end-1c') == 'deneme')
+cur = m.THEME_KEY
+alt = next(k for k in theme.theme_keys() if k != cur)
+app.apply_theme(alt); pump(0.3)
+check('net.retheme', str(net.diag_output.cget('bg')).lower() == m.LOG_BG.lower() and str(net.scope_text.cget('bg')).lower() == m.TREE_BG.lower())
+app.apply_theme(cur); pump(0.2)
+shot('net-ssh')
+app.ts_copy_script = app.ts_copy_script  # VPN > Hetzner: kayitli sunucuda calistir yolu
+net._pending_cmd.clear(); opened.clear()
+app.ts_copy_script(); pump(0.2)
+check('net.vpn_hetzner_via_ssh', opened == [picked] and 'advertise-exit-node' in net._pending_cmd.get(picked.id, ''), net._pending_cmd)
+net._pending_cmd.clear()
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

@@ -74,6 +74,7 @@ jobs:
           C=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" system-care/care_core.py)
           [ "$V" = "$C" ] || { echo "Etiket $V ile care_core.py VERSION $C uyusmuyor"; exit 1; }
           cmp shared/agfo_github_update.py system-care/agfo_github_update.py
+          python -I .github/scripts/privacy_check.py .
           echo "VERSION=$V" >> "$GITHUB_ENV"
       - name: Testler
         run: |
@@ -110,6 +111,7 @@ jobs:
           C=$(sed -n 's/^APP_VERSION = "\([0-9.]*\)"/\1/p' supertools/scanner_core.py)
           [ "$V" = "$C" ] || { echo "Etiket $V ile scanner_core.py APP_VERSION $C uyusmuyor"; exit 1; }
           cmp shared/agfo_github_update.py supertools/agfo_github_update.py
+          python -I .github/scripts/privacy_check.py .
           echo "VERSION=$V" >> "$GITHUB_ENV"
       - name: Testler
         run: |

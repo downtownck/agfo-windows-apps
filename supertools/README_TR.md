@@ -1,3 +1,7 @@
+# AGFO SuperTools 1.8.0 — artık System Care içinde (son sürüm)
+
+SuperTools'un tüm araçları AGFO System Care 3.14.0 ve sonrasında, sol menüdeki **Ağ** bölümünde. Kayıtlı SSH sunucularınız ve ayarlarınız bilgisayarınızda (`%LOCALAPPDATA%\AGFO-MultiSubnet-Scanner`) kalır ve System Care'de kendiliğinden görünür. SuperTools bu sürümden sonra yeni sürüm almayacak.
+
 # AGFO SuperTools 1.7.0 — GitHub'dan tek tıkla güncelleme
 
 Uygulama açılışta (en fazla 6 saatte bir) `downtownck/agfo-windows-apps` deposundaki `supertools-v*` sürümlerini denetler.
@@ -156,7 +160,7 @@ dmarc: agfocert.com
 dkim: selector:agfocert.com
 mtasts: agfocert.com
 tlsrpt: agfocert.com
-tcp: 192.168.1.102:445
+tcp: 192.168.1.20:445
 smtp: mail.example.com:587
 ```
 
