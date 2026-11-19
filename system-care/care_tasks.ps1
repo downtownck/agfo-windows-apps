@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','lenovo-scan','lenovo-install','dell-scan','dell-install')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -9,7 +9,8 @@ param(
  [string]$InstanceIds = '',
  [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no',
  [string]$PlanFile = '',
- [ValidateSet('','enable','disable','restart','remove')][string]$PnpOp = ''
+ [ValidateSet('','enable','disable','restart','remove')][string]$PnpOp = '',
+ [ValidateSet('yes','no')][string]$IncludeBios = 'no'
 )
 # AGFO System Care 4.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
@@ -313,6 +314,26 @@ function Cim([string]$cls,[string]$ns='root\cimv2',[string]$filter='') {
 function Txt($v) { if($null -eq $v) { return '' } ; return ([string]$v).Trim() }
 function U16([object]$arr) { if(-not $arr) { return '' } ; return (-join ($arr | Where-Object { $_ -gt 0 } | ForEach-Object { [char]$_ })).Trim() }
 function HwRec([string]$kind,[string]$name,$props) { $r=[ordered]@{type='hw';kind=$kind;name=$name}; foreach($k in $props.Keys) { $r[$k]=$props[$k] }; EmitD $r }
+
+# ---- 4.1.1 uretici otomatik guncelleme: Lenovo (LSUClient, MIT, PowerShell Galerisi) ve Dell (Dell Command | Update CLI)
+function EnsureLSUClient {
+ if (Get-Module -ListAvailable -Name LSUClient) { Import-Module LSUClient -ErrorAction Stop; return }
+ Write-Output 'LSUClient modulu (acik kaynak, MIT) PowerShell Galerisi''nden bu kullaniciya kuruluyor...'
+ [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+ if (-not (Get-PackageProvider -ListAvailable -Name NuGet -ErrorAction SilentlyContinue | Where-Object { $_.Version -ge [version]'2.8.5.201' })) {
+  Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope CurrentUser -Force | Out-Null
+ }
+ Install-Module -Name LSUClient -Scope CurrentUser -Force -AllowClobber -Repository PSGallery -ErrorAction Stop
+ Import-Module LSUClient -ErrorAction Stop
+}
+function LsuRec($u) {
+ $un=$false; try { $un=[bool]$u.Installer.Unattended } catch {}
+ return [ordered]@{type='lsu';id=[string]$u.ID;title=[string]$u.Title;category=[string]$u.Category;ptype=[string]$u.Type;version=[string]$u.Version;severity=[string]$u.Severity;reboot=[string]$u.RebootType;unattended=$un;date=[string]$u.ReleaseDate}
+}
+function FindDcu {
+ foreach($b in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) { if(-not $b) { continue }; $e=Join-Path $b 'Dell\CommandUpdate\dcu-cli.exe'; if(Test-Path -LiteralPath $e) { return $e } }
+ return ''
+}
 
 switch($Action) {
  'driver-scan' {
@@ -966,5 +987,52 @@ public static class AgfoTrust {
    EmitD ([ordered]@{type='sig';path=$f;status=$status;subject=$subject})
    Write-Output ('Imza: {0} — {1}' -f $status,$(if($subject){$subject}else{'-'}))
   }
+ }
+ 'lenovo-scan' {
+  # Lenovo: bu bilgisayara uygun, kurulu olmayan surucu/BIOS/yazilim paketleri (Lenovo'nun kendi katalogundan).
+  EnsureLSUClient
+  $n=0
+  foreach($u in @(Get-LSUpdate -ErrorAction Stop)) { EmitD (LsuRec $u); $n++ }
+  Write-Output ('Lenovo guncellemesi: '+$n)
+ }
+ 'lenovo-install' {
+  # Secili paketler (yalnizca sessiz kurulabilenler) kurulur; BIOS istege bagli.
+  RequireAdmin
+  EnsureLSUClient
+  $ids=@($UpdateIds -split ',' | Where-Object { $_ })
+  $all=@(Get-LSUpdate -ErrorAction Stop | Where-Object { $_.Installer.Unattended })
+  if($IncludeBios -ne 'yes') { $all=@($all | Where-Object { [string]$_.Type -ne 'BIOS' -and [string]$_.Category -notmatch 'BIOS|UEFI' }) }
+  if($ids.Count) { $all=@($all | Where-Object { $ids -contains [string]$_.ID }) }
+  if(-not $all.Count) { Write-Output 'Kurulacak (sessiz kurulabilen) Lenovo guncellemesi yok.'; exit 0 }
+  Write-Output ('Kurulacak paket: '+$all.Count)
+  $fail=0
+  foreach($r in @($all | Install-LSUpdate -Verbose 4>&1)) {
+   if($r -is [System.Management.Automation.VerboseRecord]) { Write-Output ([string]$r.Message); continue }
+   $ok=$false; try { $ok=[bool]$r.Success } catch {}
+   if(-not $ok) { $fail++ }
+   EmitD ([ordered]@{type='lsures';id=[string]$r.ID;title=[string]$r.Title;ok=$ok;pending=[string]$r.PendingAction;reason=[string]$r.FailureReason})
+   Write-Output ('{0}: {1}' -f [string]$r.Title,$(if($ok){'tamam'}else{'HATA '+[string]$r.FailureReason}))
+  }
+  if($fail) { exit 1 }
+ }
+ 'dell-scan' {
+  $dcu=FindDcu
+  if(-not $dcu) { Write-Output 'Dell Command | Update kurulu degil.'; exit 3 }
+  $log=Join-Path $env:TEMP 'agfo-dcu-scan'
+  & $dcu /scan ('-outputLog='+$log+'.log') ('-report='+$log) 2>&1 | ForEach-Object { Write-Output ([string]$_) }
+  $code=$LASTEXITCODE
+  foreach($x in @(Get-ChildItem -LiteralPath $log -Filter *.xml -ErrorAction SilentlyContinue)) {
+   try { [xml]$doc=Get-Content -LiteralPath $x.FullName -Raw; foreach($u in @($doc.updates.update)) { EmitD ([ordered]@{type='dcu';name=[string]$u.name;version=[string]$u.version;category=[string]$u.category;urgency=[string]$u.urgency;size=[string]$u.size}) } } catch {}
+  }
+  exit $code
+ }
+ 'dell-install' {
+  RequireAdmin
+  $dcu=FindDcu
+  if(-not $dcu) { Write-Output 'Dell Command | Update kurulu degil.'; exit 3 }
+  $args2=@('/applyUpdates','-silent','-reboot=disable','-outputLog='+(Join-Path $env:TEMP 'agfo-dcu-apply.log'))
+  if($IncludeBios -ne 'yes') { $args2+='-updateType=driver,firmware,application,utility,others' }
+  & $dcu @args2 2>&1 | ForEach-Object { Write-Output ([string]$_) }
+  exit $LASTEXITCODE
  }
 }

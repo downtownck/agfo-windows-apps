@@ -7,6 +7,7 @@ import care_oem as oem  # noqa: E402
 class VendorPage:
     # ------------------------------------------------------------------ URETICI DESTEGI
     def _tab_oem(self, f):
+        f = make_scroll(f, PANEL)                                    # sayfa uzun: kaydirilabilir
         head = tk.Frame(f, bg=PANEL); head.pack(fill='x', padx=16, pady=(12, 2))
         tk.Label(head, text='Üretici desteği', fg=FG, bg=PANEL, font=('Segoe UI', 12, 'bold')).pack(side='left')
         self.oem_title = tk.StringVar(value='')
@@ -28,6 +29,19 @@ class VendorPage:
         self.oem_tools = tk.Frame(f, bg=PANEL); self.oem_tools.pack(fill='x', padx=16)
         self.oem_info, self.oem_links, self.oem_loaded = None, None, False
         tk.Label(self.oem_tools, text='Önce "Tanı"ya basın.', fg=MUTED, bg=PANEL, font=('Segoe UI', 9)).pack(anchor='w')
+        tk.Label(f, text='Otomatik güncelleme', fg=FG, bg=PANEL, font=('Segoe UI', 10, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(10, 2))
+        self.oem_auto_note = tk.StringVar(value='Önce "Tanı"ya basın.')
+        tk.Label(f, textvariable=self.oem_auto_note, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
+                 wraplength=int(980 * self.scale)).pack(fill='x', padx=16)
+        ab = tk.Frame(f, bg=PANEL); ab.pack(fill='x', padx=16, pady=(4, 0))
+        self.oem_scan_btn = self.btn(ab, 'Güncellemeleri tara', self.oem_auto_scan, 'go')
+        self.oem_inst_btn = self.btn(ab, 'Seçilenleri kur', self.oem_auto_install, 'normal')
+        self.oem_bios = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ab, text='BIOS / UEFI güncellemelerini dahil et (yeniden başlatma ister)', variable=self.oem_bios).pack(side='left', padx=(10, 0))
+        cols = [('kind', 'Tür', 130, 'w'), ('ver', 'Sürüm', 120, 'w'), ('sev', 'Önem', 100, 'w'), ('silent', 'Sessiz kurulum', 110, 'w')]
+        self.oem_upd = CheckTree(f, cols, first=('Güncelleme', 420), height=6)
+        self.oem_upd.pack(fill='both', expand=True, padx=16, pady=(6, 8))
+        self.oem_updates = []
 
     def _vendor_on_tab(self, _e=None):
         try:
@@ -67,6 +81,20 @@ class VendorPage:
             tk.Label(row, text='  ' + note + ('  · Microsoft Store' if source == 'msstore' else '  · WinGet'), fg=MUTED, bg=PANEL2,
                      font=('Segoe UI', 9)).pack(side='left')
             self.mkbtn(row, 'Kur', lambda s=source, p=pkg, n=name: self.oem_install_tool(s, p, n), 'ghost', small=True).pack(side='right')
+        mode = oem.auto_update_mode(info)
+        self.oem_auto_note.set({
+            'lenovo': 'Lenovo\'nun kendi güncelleme kataloğu bu bilgisayar için taranır (açık kaynak LSUClient modülü; ThinkPad, ThinkCentre, IdeaPad, '
+                      'Legion, Yoga). Sürücü, yazılım ve isteğe bağlı BIOS güncellemeleri listelenir; seçtikleriniz sessiz kurulur (UAC onayı). '
+                      'İlk taramada LSUClient bu kullanıcıya kurulur.',
+            'dell': 'Dell Command | Update komut satırıyla taranır ve kurulur (sessiz, yeniden başlatmadan). Kurulu değilse önce kurmanız istenir.',
+            'other': '%s komut satırından otomatik güncelleme sunmuyor. Bu bilgisayarın sürücüleri Windows Update üzerinden taranıp kurulabilir '
+                     '(Sürücüler sayfası); üreticinin kendi aracı yukarıda.' % info['name'],
+        }[mode])
+        self.oem_scan_btn.configure(text={'lenovo': 'Lenovo güncellemelerini tara', 'dell': 'Dell güncellemelerini tara',
+                                          'other': 'Windows Update sürücülerini tara'}[mode])
+        self.oem_inst_btn.configure(text='Tümünü kur' if mode == 'dell' else 'Seçilenleri kur')
+        self.oem_upd.clear()
+        self.oem_updates = []
 
     def oem_open(self, search=False):
         if not self.oem_links:
@@ -90,13 +118,86 @@ class VendorPage:
         self.clipboard_append(txt)
         self.write('Üretici bilgileri panoya kopyalandı.\n')
 
-    def oem_install_tool(self, source, pkg, name):
+    def oem_install_tool(self, source, pkg, name, ask=True):
         wg = self.engines.get('winget', {}).get('path') or core.find_winget()
         if not wg:
             messagebox.showerror('WinGet yok', 'WinGet bulunamadı.'); return
-        if not messagebox.askyesno('Üretici aracı', '%s kurulsun mu?\n(%s: %s)' % (name, 'Microsoft Store' if source == 'msstore' else 'WinGet', pkg)):
+        if ask and not messagebox.askyesno('Üretici aracı', '%s kurulsun mu?\n(%s: %s)' % (name, 'Microsoft Store' if source == 'msstore' else 'WinGet', pkg)):
             return
         self.start([Job('Kur: ' + name, cmd=oem.tool_install_cmd(wg, source, pkg), cancel_ok=False)])
+
+    def oem_auto_scan(self):
+        if not self.oem_info:
+            messagebox.showinfo('Üretici desteği', 'Önce "Tanı"ya basın.'); return
+        mode = oem.auto_update_mode(self.oem_info)
+        if mode == 'other':
+            self.tabs.select('Sürücüler')
+            self.drv_scan()
+            return
+        action = 'lenovo-scan' if mode == 'lenovo' else 'dell-scan'
+
+        def done(job):
+            if mode == 'dell' and job.code == 3:
+                if messagebox.askyesno('Dell Command | Update', 'Dell Command | Update kurulu değil. WinGet ile kurulsun mu?\nKurulduktan sonra taramayı tekrarlayın.'):
+                    self.oem_install_tool('winget', 'Dell.CommandUpdate.Universal', 'Dell Command | Update', ask=False)
+                return
+            self._oem_set_updates([r for r in job.data if r.get('type') in ('lsu', 'dcu')], mode, job.code)
+        self.start([Job('Üretici güncellemeleri (%s)' % self.oem_info['name'], cmd=ps_cmd(action), on_done=done, show_output=True)])
+
+    def _oem_set_updates(self, recs, mode, code=0):
+        self.oem_updates = recs
+        t = self.oem_upd
+        t.clear()
+        for i, r in enumerate(recs):
+            if r.get('type') == 'lsu':
+                bios = 'BIOS' in (r.get('ptype', '') + r.get('category', '')).upper() or 'UEFI' in r.get('category', '').upper()
+                t.add('u%d' % i, r.get('title') or r.get('id'), (r.get('category') or r.get('ptype') or '-', r.get('version', ''), r.get('severity', ''),
+                      'evet' if r.get('unattended') else 'hayır (elle)'), checked=bool(r.get('unattended')) and not bios,
+                      tags=() if r.get('unattended') else ('risky',), payload=r)
+            else:
+                t.add('u%d' % i, r.get('name', ''), (r.get('category', ''), r.get('version', ''), r.get('urgency', ''), 'evet'), checked=True, payload=r)
+        t.refresh_marks()
+        if mode == 'dell' and code == 500:
+            self.write('Dell: güncelleme yok.\n')
+        self.write('Üretici güncellemesi: %d paket bulundu.\n' % len(recs))
+
+    def oem_auto_install(self):
+        if not self.oem_info:
+            messagebox.showinfo('Üretici desteği', 'Önce "Tanı"ya basın.'); return
+        mode = oem.auto_update_mode(self.oem_info)
+        if mode == 'other':
+            self.tabs.select('Sürücüler')
+            return
+        bios = 'yes' if self.oem_bios.get() else 'no'
+        if mode == 'lenovo':
+            sel = [p for p in self.oem_upd.checked_payloads() if p and p.get('type') == 'lsu']
+            if not sel:
+                messagebox.showinfo('Lenovo', 'Önce taratın ve kurulacak güncellemeleri işaretleyin.'); return
+            manual = [p for p in sel if not p.get('unattended')]
+            msg = '%d Lenovo güncellemesi sessiz kurulacak.%s%s\n\nYönetici onayı (UAC) istenecek. Devam?' % (
+                len(sel) - len(manual), ('\n%d paket sessiz kurulamadığı için atlanacak (Lenovo Vantage ile kurun).' % len(manual)) if manual else '',
+                '\nBIOS güncellemesi seçiliyse bilgisayar yeniden başlatıldığında uygulanır; bu sırada güç kesilmemeli.' if bios == 'yes' else '')
+            if not messagebox.askyesno('Lenovo otomatik güncelleme', msg):
+                return
+            ids = ','.join(p['id'] for p in sel if p.get('unattended'))
+            self.start([Job('Lenovo güncellemelerini kur', cmd=ps_cmd('lenovo-install', UpdateIds=ids, IncludeBios=bios), cancel_ok=False,
+                            on_done=lambda j: self._oem_auto_done(j))])
+        else:
+            if not messagebox.askyesno('Dell otomatik güncelleme', 'Dell Command | Update uygun tüm güncellemeleri sessiz kuracak (%s).\n'
+                                       'Yönetici onayı (UAC) istenecek. Devam?' % ('BIOS dahil' if bios == 'yes' else 'BIOS hariç')):
+                return
+            self.start([Job('Dell güncellemelerini kur', cmd=ps_cmd('dell-install', IncludeBios=bios), cancel_ok=False, on_done=lambda j: self._oem_auto_done(j))])
+
+    def _oem_auto_done(self, job):
+        res = [r for r in job.data if r.get('type') == 'lsures']
+        ok = sum(1 for r in res if r.get('ok'))
+        reboot = any('REBOOT' in (r.get('pending') or '').upper() for r in res) or job.code in (1, 5)
+        if res:
+            self.write('Lenovo: %d/%d güncelleme kuruldu.\n' % (ok, len(res)))
+        if reboot:
+            messagebox.showinfo('Üretici güncellemesi', 'Güncellemeler kuruldu. Tamamlanması için bilgisayarı yeniden başlatın.')
+        elif job.code not in (0,):
+            messagebox.showwarning('Üretici güncellemesi', 'İşlem %s koduyla bitti. Ayrıntı işlem günlüğünde.' % job.code)
 
     # ------------------------------------------------------------------ NVIDIA
     def _tab_nvidia(self, f):
@@ -245,13 +346,21 @@ class VendorPage:
             if dest.is_file() and dest.stat().st_size > 50 * 1024 * 1024:
                 runner.say('Daha önce indirilmiş dosya kullanılıyor: %s' % dest)
                 return 0
-            runner.say('İndiriliyor: %s' % L['url'])
-            core.download(L['url'], dest, oem.NV_HOSTS, progress=runner.progress_cb('NVIDIA sürücüsü'), should_stop=runner.stop.is_set)
+            runner.say('İndiriliyor: %s (%s)' % (L['url'], L.get('size') or '?'))
+            try:
+                core.download(L['url'], dest, oem.NV_HOSTS, progress=runner.progress_cb('NVIDIA sürücüsü'), should_stop=runner.stop.is_set,
+                              max_bytes=oem.NV_MAX_BYTES)
+            except Exception as e:                                  # noqa: BLE001
+                runner.say('İndirme başarısız: %s' % e)
+                job.error = str(e)
+                return 1
             return 0
 
         def sig_done(job):
             if not dest.is_file():
-                self.write('NVIDIA sürücüsü indirilemedi; kurulum yapılmadı.\n'); return
+                self.write('NVIDIA sürücüsü indirilemedi; kurulum yapılmadı.\n')
+                messagebox.showerror('NVIDIA', 'Sürücü indirilemedi. Ayrıntı işlem günlüğünde.\nİsterseniz "NVIDIA sitesinde aç" ile elle indirebilirsiniz.')
+                return
             sig = next((r for r in job.data if r.get('type') == 'sig'), {})
             if sig.get('status') != 'Valid' or 'NVIDIA Corporation' not in sig.get('subject', ''):
                 self.write('İmza doğrulanamadı (%s, %s); kurulum yapılmadı.\n' % (sig.get('status'), sig.get('subject')))

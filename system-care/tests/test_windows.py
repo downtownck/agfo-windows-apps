@@ -126,6 +126,16 @@ code, lines, bad = ps('sig-check', Paths=os.path.join(os.environ['SystemRoot'], 
 sg = hw.parse_records(lines, 'sig')
 check('ps.sig-check', code == 0 and sg and sg[0]['status'] == 'Valid' and 'Microsoft' in sg[0]['subject'], sg)
 
+
+# ---- 4.1.1 Lenovo otomatik guncelleme: LSUClient modulu PowerShell Galerisi'nden kurulabiliyor mu (bu VM Lenovo degil; tarama hatasi beklenir)
+code, lines, bad = ps('lenovo-scan')
+envc = dict(os.environ); envc.pop('PSModulePath', None)
+chk = subprocess.run(['powershell.exe', '-NoProfile', '-Command', "if (Get-Module -ListAvailable -Name LSUClient) { 'VAR' } else { 'YOK' }"], capture_output=True, env=envc, timeout=120)
+print('  lenovo-scan kod', code, '| LSUClient:', chk.stdout.decode('utf-8', 'replace').strip(), '|', ' / '.join(lines[-3:]), flush=True)
+check('lsu.module_installed', b'VAR' in chk.stdout and not bad, (code, lines[-5:]))
+code, lines, bad = ps('dell-scan')
+check('ps.dell-scan_missing', code == 3 and any('kurulu degil' in l for l in lines), (code, lines[-3:]))
+
 # ---- Uctan uca arayuz: gercek PowerShell ile Genel bakis, Sistem ozeti, Aygit yoneticisi, Disk sagligi
 setdir = TMP / 'lad' / 'AGFO' / 'SystemCare'
 setdir.mkdir(parents=True)

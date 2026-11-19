@@ -132,6 +132,14 @@ def vendor_tools(info):
     return tools + COMPONENT_TOOLS
 
 
+def auto_update_mode(info):
+    """Komut satirindan otomatik guncelleme: Lenovo (LSUClient, MIT) ve Dell (Dell Command | Update CLI); digerleri Windows Update."""
+    v = (info or {}).get('vendor')
+    if info and info.get('generic'):
+        return 'other'
+    return v if v in ('lenovo', 'dell') else 'other'
+
+
 def tool_install_cmd(winget, source, pkg_id):
     """Microsoft Store uygulamalari yonetici baglaminda kurulamaz; uygulama normal kullaniciyla calistigi icin dogrudan winget."""
     if source == 'msstore':
@@ -146,6 +154,7 @@ NV_LOOKUP = 'https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/serv
 NV_DATA_URL = 'https://raw.githubusercontent.com/ZenitH-AT/nvidia-data/main/gpu-data.json'
 NV_HOSTS = ('geforce.com', 'nvidia.com', 'githubusercontent.com')
 NV_DRIVER_PAGE = 'https://www.nvidia.com/tr-tr/drivers/'
+NV_MAX_BYTES = 3 * 1024 * 1024 * 1024        # NVIDIA surucu paketleri 1 GB'i asiyor (genel 700 MB siniri yetmez)
 DDU_PKG = 'Wagnardsoft.DisplayDriverUninstaller'
 SEVENZIP_PKG = '7zip.7zip'
 MIN_FILES = ['Display.Driver', 'NVI2', 'EULA.txt', 'ListDevices.txt', 'setup.cfg', 'setup.exe']   # nvidia-update (MIT) ile ayni yalin kurulum

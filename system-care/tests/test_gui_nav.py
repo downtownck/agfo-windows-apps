@@ -456,6 +456,33 @@ captured.clear(); app.nv_ddu()
 check('nv.ddu_install', captured and 'Wagnardsoft.DisplayDriverUninstaller' in captured[0].cmd)
 app.start = real_start
 shot('nvidia')
+
+# ---- 4.1.1 Uretici otomatik guncelleme (Lenovo / Dell / diger)
+app.tabs.select('Üretici desteği'); pump(0.2)
+app._oem_set({'type': 'oem', 'maker': 'LENOVO', 'model': '82XF', 'family': 'IdeaPad Slim 5 16IAH8', 'serial': 'PFORNEK1', 'notebook': True})
+check('auto.lenovo_mode', 'LSUClient' in app.oem_auto_note.get() and app.oem_scan_btn.cget('text') == 'Lenovo güncellemelerini tara')
+LSU = [{'type': 'lsu', 'id': 'n3xyz01w', 'title': 'Intel Graphics Driver', 'category': 'Display and Video Graphics', 'ptype': 'Driver', 'version': '31.0.101.5', 'severity': 'Recommended', 'unattended': True},
+       {'type': 'lsu', 'id': 'kycn40ww', 'title': 'BIOS Update', 'category': 'BIOS/UEFI', 'ptype': 'BIOS', 'version': 'KYCN40WW', 'severity': 'Critical', 'unattended': True},
+       {'type': 'lsu', 'id': 'manual1', 'title': 'Lenovo Hotkeys', 'category': 'Software', 'ptype': 'Application', 'version': '1.0', 'severity': 'Optional', 'unattended': False}]
+app._oem_set_updates(LSU, 'lenovo')
+checked = [p['id'] for p in app.oem_upd.checked_payloads() if p]
+check('auto.lenovo_default_selection', checked == ['n3xyz01w'], checked)
+captured = []
+real_start = app.start
+app.start = lambda jobs, quiet=False: captured.extend(jobs) or True
+app.oem_auto_install()
+check('auto.lenovo_install_cmd', captured and 'lenovo-install' in captured[0].cmd and 'n3xyz01w' in captured[0].cmd and captured[0].cmd[-1] == 'no', captured and captured[0].cmd)
+captured.clear()
+app._oem_set({'type': 'oem', 'maker': 'Dell Inc.', 'model': 'Latitude 5420', 'serial': 'ORNEK12'})
+app.oem_auto_scan()
+check('auto.dell_scan', captured and 'dell-scan' in captured[0].cmd)
+captured.clear(); app.oem_bios.set(True); app.oem_auto_install()
+check('auto.dell_install', captured and 'dell-install' in captured[0].cmd and captured[0].cmd[-1] == 'yes', captured and captured[0].cmd)
+app.oem_bios.set(False)
+app.start = real_start
+app._oem_set({'type': 'oem', 'maker': 'HP', 'model': 'HP ProBook 450 G8', 'serial': '5CDORNEK'})
+check('auto.other_mode', app.oem_scan_btn.cget('text') == 'Windows Update sürücülerini tara')
+shot('oem-auto')
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

@@ -364,14 +364,14 @@ def fetch_text(url, allowed, limit=3 * 1024 * 1024, accept=None):
         return r.read(limit).decode('utf-8', 'replace')
 
 
-def download(url, dest, allowed, progress=None, should_stop=None, sha256=None):
+def download(url, dest, allowed, progress=None, should_stop=None, sha256=None, max_bytes=None):
     import hashlib
     dest = pathlib.Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + '.part')
     h = hashlib.sha256()
     try:
-        return _download_to(url, dest, tmp, h, allowed, progress, should_stop, sha256)
+        return _download_to(url, dest, tmp, h, allowed, progress, should_stop, sha256, max_bytes or MAX_DOWNLOAD)
     except BaseException:
         try:
             tmp.unlink()
@@ -380,11 +380,12 @@ def download(url, dest, allowed, progress=None, should_stop=None, sha256=None):
         raise
 
 
-def _download_to(url, dest, tmp, h, allowed, progress, should_stop, sha256):
+def _download_to(url, dest, tmp, h, allowed, progress, should_stop, sha256, limit=None):
+    limit = limit or MAX_DOWNLOAD
     done = 0
     with _request(url, allowed) as r, open(tmp, 'wb') as f:
         total = int(r.headers.get('Content-Length') or 0)
-        if total > MAX_DOWNLOAD:
+        if total > limit:
             raise OSError('Dosya beklenenden büyük (%d MB)' % (total // 1048576))
         last = 0.0
         while True:
@@ -396,7 +397,7 @@ def _download_to(url, dest, tmp, h, allowed, progress, should_stop, sha256):
             f.write(chunk)
             h.update(chunk)
             done += len(chunk)
-            if done > MAX_DOWNLOAD:
+            if done > limit:
                 raise OSError('İndirme boyut sınırını aştı')
             if progress and time.time() - last > 0.25:
                 progress(done, total)

@@ -104,8 +104,8 @@ ACTIONS = {
  ],
 }
 # Sekme ici dugmelerin kullandigi diger care_tasks.ps1 eylemleri
-INTERNAL_PS_ACTIONS = ['oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','vpn-status','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
-ADMIN_ACTIONS = {'nvidia-uninstall','nvidia-remove-packages','pnp-action','controller-reset','bt-restart','phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
+INTERNAL_PS_ACTIONS = ['lenovo-scan','lenovo-install','dell-scan','dell-install','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','vpn-status','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','controller-list','controller-reset','bt-restart','phantom-list','phantom-remove','appx-list','appx-remove','driver-analyze','driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','recycle-paths']
+ADMIN_ACTIONS = {'lenovo-install','dell-install','nvidia-uninstall','nvidia-remove-packages','pnp-action','controller-reset','bt-restart','phantom-remove','driver-install','driver-backup','component-analyze','component-clean','health-scan','health-repair','restore-point','sdio-scan','sdio-install'}
 DANGER_TEXT = {
  'temp-clean':'7 günden eski Temp dosyaları kalıcı olarak silinir. Önizleme yapmanız önerilir.',
  'component-clean':'Windows bileşen deposu temizlenecek. Bu işlem zaman alabilir.',
@@ -683,6 +683,37 @@ class NavBook(tk.Frame):
                 self._paint(i, NAV_SEL, NAV_SEL_FG, ACCENT, True)
             else:
                 self._paint(i, NAV_BG, NAV_FG, NAV_BG, False)
+
+
+# =========================================================================== kaydirilabilir sayfa
+def make_scroll(parent, bg):
+    """Uzun sayfalar icin dikey kaydirilabilir ic cerceve (fare tekerlegi imlec sayfadayken calisir). Donus: ic cerceve."""
+    canvas = tk.Canvas(parent, bg=bg, highlightthickness=0, bd=0)
+    sb = ttk.Scrollbar(parent, orient='vertical', command=canvas.yview)
+    canvas.configure(yscrollcommand=sb.set)
+    sb.pack(side='right', fill='y')
+    canvas.pack(side='left', fill='both', expand=True)
+    inner = tk.Frame(canvas, bg=bg)
+    win = canvas.create_window(0, 0, window=inner, anchor='nw')
+    inner.bind('<Configure>', lambda _e: canvas.configure(scrollregion=canvas.bbox('all')))
+    canvas.bind('<Configure>', lambda e: canvas.itemconfigure(win, width=e.width))
+
+    def scroll(e):
+        if canvas.winfo_height() >= inner.winfo_reqheight():
+            return
+        canvas.yview_scroll((-1 if (getattr(e, 'num', 0) == 4 or getattr(e, 'delta', 0) > 0) else 1) * 3, 'units')
+
+    def on(_e):
+        for seq in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            canvas.bind_all(seq, scroll)
+
+    def off(_e):
+        for seq in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            canvas.unbind_all(seq)
+    canvas.bind('<Enter>', on)
+    canvas.bind('<Leave>', off)
+    inner._scroll_canvas = canvas
+    return inner
 
 
 # =========================================================================== canli kol gorseli

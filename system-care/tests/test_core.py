@@ -1308,4 +1308,40 @@ def nvidia_helpers():
     assert 'UninstallPackage Display.Driver' in ps and "'-silent','-n'" in ps and '/delete-driver $inf /uninstall /force' in ps
 
 
+@test
+def oem_auto_update_and_nv_limit():
+    assert oem.auto_update_mode(oem.identify({'maker': 'LENOVO', 'model': '82XF'})) == 'lenovo'
+    assert oem.auto_update_mode(oem.identify({'maker': 'Dell Inc.', 'model': 'XPS 13'})) == 'dell'
+    assert oem.auto_update_mode(oem.identify({'maker': 'HP', 'model': 'x'})) == 'other'
+    assert oem.auto_update_mode(oem.identify({'maker': 'System manufacturer', 'board_maker': 'LENOVO', 'board': 'x'})) == 'other'
+    ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
+    for act in ('lenovo-scan', 'lenovo-install', 'dell-scan', 'dell-install'):
+        assert "'%s'" % act in ps.split('[string]$Action')[0] and " '%s' {" % act in ps, act
+    assert 'Install-Module -Name LSUClient -Scope CurrentUser' in ps and 'Installer.Unattended' in ps and "'/applyUpdates','-silent','-reboot=disable'" in ps
+    assert '[string]$IncludeBios' in ps
+    assert oem.NV_MAX_BYTES > 2 * 1024 ** 3 and 'max_bytes' in (ROOT / 'care_core.py').read_text(encoding='utf-8')
+    import tempfile, http.server, threading
+    big = tempfile.mkdtemp()
+    data = b'x' * 2048
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
+        def log_message(self, *a):
+            pass
+    old = c.MAX_DOWNLOAD
+    try:
+        c.MAX_DOWNLOAD = 1024                                        # genel sinirin altinda kalan buyuk dosya: max_bytes ile izin verilir
+        srv = http.server.HTTPServer(('127.0.0.1', 0), H)
+        threading.Thread(target=srv.handle_request, daemon=True).start()
+        import urllib.request
+        url = 'http://127.0.0.1:%d/f.exe' % srv.server_port
+        orig = c._request
+        c._request = lambda u, allowed, accept=None: urllib.request.urlopen(u, timeout=10)
+        dest, _h = c.download(url, pathlib.Path(big) / 'f.exe', ('127.0.0.1',), max_bytes=4096)
+        assert dest.stat().st_size == 2048
+    finally:
+        c.MAX_DOWNLOAD = old
+        c._request = orig
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))
