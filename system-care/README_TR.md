@@ -1,4 +1,4 @@
-# AGFO System Care 4.1.1 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 4.2 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 **Önerilen (Python gerekmez):** `AGFO-System-Care-v4.x.x-Windows.zip` dosyasını indirip açın, klasördeki `Kur-ve-Baslat.cmd`'yi çalıştırın. Python, tkinter ve gerekli kütüphaneler pakette hazır gelir. Uygulama `%LOCALAPPDATA%\Programs\AGFO System Care` klasörüne kurulur ve Başlat menüsüne kısayol eklenir.
@@ -6,6 +6,12 @@
 **Python ile:** `AGFO-System-Care-v4.x.x.zip` paketini açıp `agfo-care/Kur-ve-Baslat.cmd` ile de kurabilirsiniz. Bunun için Python 3.10+ ve tkinter gerekir. Bu paket aynı zamanda uygulama içi güncelleme paketidir.
 
 İlk açılışta **Motorlar** sekmesindeki "Eksik motorları kur" düğmesine basın.
+
+## 4.2'de ne değişti — Çalışan uygulamalar, Servisler, Başlangıç
+Sol menüde **Sistem** bölümüne üç sayfa geldi:
+- **Çalışan uygulamalar:** açık uygulamalar ve arka plan süreçleri; işlemci (son 1 sn) ve bellek kullanımı, pencere başlığı, yayıncı ve dosya yolu. Seçili süreci (ya da alt süreçleriyle birlikte) sonlandırma, dosya konumunu açma, 10 saniyede bir otomatik yenileme. Windows'un kritik süreçleri (csrss, lsass, svchost, dwm…) listede görünür ama sonlandırılamaz; başka kullanıcıya ait süreçler için yönetici onayı istenir.
+- **Servisler:** tüm Windows servisleri; başlat, durdur, yeniden başlat ve başlangıç türü (Otomatik / El ile / Devre dışı). "Yalnız çalışanlar" ve "Microsoft dışı" süzgeçleri. Windows için gerekli servisler (RPC, olay günlüğü, WMI, güvenlik duvarı, Defender, DNS…) durdurulamaz ya da devre dışı bırakılamaz.
+- **Başlangıç:** Windows açılırken başlayan uygulamalar (Run kayıtları ve Başlangıç klasörleri). Devre dışı bırakma Görev Yöneticisi'yle aynı yöntemle yapılır: kayıt silinmez, istediğiniz zaman yeniden etkinleştirilebilir.
 
 ## 4.1.1'de ne değişti — Otomatik üretici güncellemesi, NVIDIA indirme düzeltmesi
 - **NVIDIA:** 1 GB'ı aşan sürücü paketleri genel indirme sınırına (700 MB) takılıyordu; NVIDIA için sınır kaldırıldı. İndirme hatası artık ekranda bildiriliyor.

@@ -1,6 +1,6 @@
 {
   "project": "agfo-system-care",
-  "version": "4.1.1",
+  "version": "4.2.0",
   "contract_version": 3,
   "public_surfaces": {
     "tabs": [
@@ -10,6 +10,9 @@
       "Bloatware",
       "Dosya düzeni",
       "İnce ayarlar",
+      "Çalışan uygulamalar",
+      "Servisler",
+      "Başlangıç",
       "Bakım ve sağlık",
       "Programlar",
       "Uygulama güncellemeleri",
@@ -73,7 +76,13 @@
       "lenovo-scan",
       "lenovo-install",
       "dell-scan",
-      "dell-install"
+      "dell-install",
+      "proc-list",
+      "proc-kill",
+      "svc-list",
+      "svc-action",
+      "startup-list",
+      "startup-set"
     ],
     "powershell_params": [
       "-Action <ValidateSet>",
@@ -766,6 +775,27 @@
     {
       "id": "SC-172",
       "purpose": "Gercek Windows (CI): LSUClient PowerShell Galerisi'nden kurulur ve gercek Lenovo katalogu (ThinkPad 20XW) okunur; DCU yoksa dell-scan 3 doner",
+      "type": "windows_ci",
+      "script": "tests/test_windows.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-180",
+      "purpose": "Surec/servis kritik listeleri, suzgecler, baslangic komutundan yol, yonetici ayrimi, ItemsB64 aktarimi, PowerShell eylemleri",
+      "type": "unit",
+      "script": "tests/test_core.py",
+      "required_for_package": true
+    },
+    {
+      "id": "SC-181",
+      "purpose": "GUI: surec listesi suzgecleri ve kritik sureci sonlandirmama, servis listesi ve kritik servisi devre disi birakmama, baslangic kullanici/yonetici is ayrimi",
+      "type": "gui",
+      "script": "tests/test_gui_nav.py",
+      "required_for_package": false
+    },
+    {
+      "id": "SC-182",
+      "purpose": "Gercek Windows (CI): proc-list, proc-kill (gercek sureci sonlandirir, System'i reddeder), svc-list, kritik servis korumasi, HKCU Run ogesini kapatip acma",
       "type": "windows_ci",
       "script": "tests/test_windows.py",
       "required_for_package": false
