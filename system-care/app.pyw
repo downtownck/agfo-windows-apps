@@ -25,10 +25,11 @@ from sc_maint import MaintPage  # noqa: E402
 from sc_pad import PadPage  # noqa: E402
 from sc_hardware import HardwarePage  # noqa: E402
 from sc_vendor import VendorPage  # noqa: E402
+from sc_procs import ProcsPage  # noqa: E402
 from sc_common import CommonMixin  # noqa: E402
 
 
-class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, HardwarePage, VendorPage, CommonMixin, tk.Tk):
+class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, HardwarePage, VendorPage, ProcsPage, CommonMixin, tk.Tk):
     def __init__(self):
         super().__init__()
         self.admin = core.is_admin()
@@ -193,6 +194,7 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
         self.tabs.bind('<<NotebookTabChanged>>', lambda _e: self.net.on_tab(), add='+')
         self.tabs.bind('<<NotebookTabChanged>>', self._hw_on_tab, add='+')
         self.tabs.bind('<<NotebookTabChanged>>', self._vendor_on_tab, add='+')
+        self.tabs.bind('<<NotebookTabChanged>>', self._procs_on_tab, add='+')
         self.theme_hooks.append(self.net.retheme)
         self._open_last_page()
 
@@ -214,7 +216,8 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
     def nav_pages(self):
         return [('Genel', [('Genel bakış', self._tab_overview), ('Motorlar', self._tab_engines)]),
                 ('Temizlik', [('Temizlik', self._tab_clean), ('Bloatware', self._tab_bloat), ('Dosya düzeni', self._tab_organizer)]),
-                ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Bakım ve sağlık', self._tab_maint)]),
+                ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Çalışan uygulamalar', self._tab_procs), ('Servisler', self._tab_services),
+                            ('Başlangıç', self._tab_startup), ('Bakım ve sağlık', self._tab_maint)]),
                 ('Uygulamalar', [('Programlar', self._tab_programs), ('Uygulama güncellemeleri', self._tab_apps), ('Uygulama kur', self._tab_install)]),
                 ('Ağ', [('VPN', self._tab_vpn), ('Ağ tarayıcı', lambda f: self.net.build_scan(f)), ('Ağ testleri', lambda f: self.net.build_diag(f)),
                         ('SSH sunucularım', lambda f: self.net.build_ssh(f)), ('SSH oturumları', lambda f: self.net.build_sessions(f))]),

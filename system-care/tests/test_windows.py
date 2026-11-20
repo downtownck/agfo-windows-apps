@@ -141,6 +141,44 @@ check('lsu.catalog_works', mm and int(mm.group(1)) > 5 and not bad, (code, outp[
 code, lines, bad = ps('dell-scan')
 check('ps.dell-scan_missing', code == 3 and any('kurulu degil' in l for l in lines), (code, lines[-3:]))
 
+
+# ---- 4.2 surecler / servisler / baslangic (gercek Windows)
+import care_procs as pr  # noqa: E402
+code, lines, bad = ps('proc-list')
+procs = hw.parse_records(lines, 'proc')
+check('ps.proc-list', code == 0 and not bad and len(procs) > 20 and any(p['name'].lower().startswith('python') for p in procs), (code, len(procs)))
+victim = subprocess.Popen(['ping', '-n', '300', '127.0.0.1'], stdout=subprocess.DEVNULL)
+time.sleep(1)
+code, lines, bad = ps('proc-kill', ItemsB64=pr.b64_items([{'pid': victim.pid, 'name': 'PING'}, {'pid': 4, 'name': 'System'}]), Op='kill')
+time.sleep(1)
+check('ps.proc-kill', victim.poll() is not None and any('Kritik' in l for l in lines), (code, victim.poll(), lines[-4:]))
+code, lines, bad = ps('svc-list')
+svcs = hw.parse_records(lines, 'svc')
+check('ps.svc-list', code == 0 and not bad and len(svcs) > 100 and any(s['name'] == 'Winmgmt' and s['state'] == 'Running' for s in svcs), (code, len(svcs)))
+code, lines, bad = ps('svc-action', ItemsB64=pr.b64_items([{'name': 'Winmgmt'}]), Op='stop')
+check('ps.svc-action_guard', any('Kritik servis' in l for l in lines), lines[-3:])
+import winreg  # noqa: E402
+rk = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Run')
+winreg.SetValueEx(rk, 'AGFOTestBaslangic', 0, winreg.REG_SZ, '"C:\\Windows\\notepad.exe" /x')
+try:
+    code, lines, bad = ps('startup-list')
+    st = [r for r in hw.parse_records(lines, 'startup') if r['name'] == 'AGFOTestBaslangic']
+    check('ps.startup-list', code == 0 and not bad and st and st[0]['enabled'] and st[0]['scope'] == 'hkcu-run', st)
+    code, lines, bad = ps('startup-set', ItemsB64=pr.b64_items([{'scope': 'hkcu-run', 'name': 'AGFOTestBaslangic'}]), Op='disable')
+    code2, lines2, _b = ps('startup-list')
+    st2 = [r for r in hw.parse_records(lines2, 'startup') if r['name'] == 'AGFOTestBaslangic']
+    ps('startup-set', ItemsB64=pr.b64_items([{'scope': 'hkcu-run', 'name': 'AGFOTestBaslangic'}]), Op='enable')
+    code3, lines3, _b = ps('startup-list')
+    st3 = [r for r in hw.parse_records(lines3, 'startup') if r['name'] == 'AGFOTestBaslangic']
+    check('ps.startup-set', code == 0 and st2 and st2[0]['enabled'] is False and st3 and st3[0]['enabled'] is True, (code, st2, st3))
+finally:
+    winreg.DeleteValue(rk, 'AGFOTestBaslangic')
+    try:
+        ak = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run', 0, winreg.KEY_SET_VALUE)
+        winreg.DeleteValue(ak, 'AGFOTestBaslangic')
+    except OSError:
+        pass
+
 # ---- Uctan uca arayuz: gercek PowerShell ile Genel bakis, Sistem ozeti, Aygit yoneticisi, Disk sagligi
 setdir = TMP / 'lad' / 'AGFO' / 'SystemCare'
 setdir.mkdir(parents=True)
@@ -175,7 +213,7 @@ def idle(timeout=300):
 pump(1.0); idle()
 for i in range(len(app.tabs.pages)):
     app.tabs.select(i); pump(0.05)
-check('gui.all_pages', len(app.tabs.pages) == 23, len(app.tabs.pages))
+check('gui.all_pages', len(app.tabs.pages) == 26, len(app.tabs.pages))
 idle()
 app.tabs.select('Genel bakış'); pump(0.3)
 if not app.ov_loaded:

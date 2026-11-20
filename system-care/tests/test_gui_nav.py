@@ -92,7 +92,7 @@ pump(1.0)
 idle()
 check('mode', (m.TB is not None) == (MODE == 'modern'), m.TB_STATE)
 titles = [p['title'] for p in app.tabs.pages]
-check('nav.pages', titles == ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Bakım ve sağlık', 'Programlar',
+check('nav.pages', titles == ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Çalışan uygulamalar', 'Servisler', 'Başlangıç', 'Bakım ve sağlık', 'Programlar',
                               'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları',
                               'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Üretici desteği', 'NVIDIA', 'Aygıt temizliği', 'Kol / Gamepad'], titles)
 check('nav.last_page', app.tabs.tab(app.tabs.current, 'text') == 'İnce ayarlar', app.tabs.current)
@@ -483,6 +483,44 @@ app.start = real_start
 app._oem_set({'type': 'oem', 'maker': 'HP', 'model': 'HP ProBook 450 G8', 'serial': '5CDORNEK'})
 check('auto.other_mode', app.oem_scan_btn.cget('text') == 'Windows Update sürücülerini tara')
 shot('oem-auto')
+
+# ---- 4.2 Calisan uygulamalar / Servisler / Baslangic (sahte kayitlar)
+app.tabs.select('Çalışan uygulamalar'); pump(0.2)
+PROCS = [{'type': 'proc', 'pid': 4120, 'name': 'chrome', 'cpu': 4.5, 'mem': 734003200, 'title': 'Google Chrome', 'company': 'Google LLC', 'path': 'C:\\Program Files\\Google\\Chrome\\chrome.exe', 'session': 1},
+         {'type': 'proc', 'pid': 880, 'name': 'lsass', 'cpu': 0.1, 'mem': 20971520, 'title': '', 'company': '', 'path': '', 'session': 0},
+         {'type': 'proc', 'pid': 5000, 'name': 'notepad', 'cpu': 0.0, 'mem': 15728640, 'title': 'Adsız - Not Defteri', 'company': 'Microsoft', 'path': 'C:\\Windows\\notepad.exe', 'session': 1}]
+app._pc_set(PROCS)
+check('pc.windowed', [app.pc_tree.item(i, 'text') for i in app.pc_tree.get_children()] == ['chrome'], [app.pc_tree.item(i, 'text') for i in app.pc_tree.get_children()])
+app.pc_hide_sys.set(False); app.pc_windowed.set(False); app._pc_render()
+check('pc.all', len(app.pc_tree.get_children()) == 3 and app.pc_tree.item('p880', 'tags') == ('crit',))
+captured = []
+real_start = app.start
+app.start = lambda jobs, quiet=False: captured.extend(jobs) or True
+app.pc_tree.selection_set(('p4120', 'p880')); app.pc_kill(False)
+import base64 as _b64, json as _json
+sent = _json.loads(_b64.b64decode(captured[0].cmd[captured[0].cmd.index('-ItemsB64') + 1])) if captured else []
+check('pc.kill_skips_critical', sent == [{'pid': 4120, 'name': 'chrome'}] and captured[0].cmd[-1] == 'kill' and not captured[0].admin, sent)
+captured.clear()
+app.tabs.select('Servisler'); pump(0.2)
+app._sv_set([{'type': 'svc', 'name': 'Spooler', 'display': 'Yazdırma Biriktiricisi', 'state': 'Running', 'start': 'Auto', 'account': 'LocalSystem', 'path': 'C:\\Windows\\System32\\spoolsv.exe'},
+             {'type': 'svc', 'name': 'RpcSs', 'display': 'Uzak Yordam Çağrısı (RPC)', 'state': 'Running', 'start': 'Auto', 'path': 'C:\\Windows\\system32\\svchost.exe -k rpcss'},
+             {'type': 'svc', 'name': 'OrnekGuncelleme', 'display': 'Ornek Updater', 'state': 'Stopped', 'start': 'Auto', 'delayed': True, 'path': '"C:\\Program Files\\Ornek\\upd.exe"'}])
+check('sv.render', app.sv_count.get() == '3 gösteriliyor · 2 çalışıyor / 3' and app.sv_tree.set('s2', 'start') == 'Otomatik (gecikmeli)', (app.sv_count.get(), app.sv_tree.set('s2', 'start')))
+app.sv_tree.selection_set(('s0', 's1')); app.sv_action('disabled')
+svs = _json.loads(_b64.b64decode(captured[0].cmd[captured[0].cmd.index('-ItemsB64') + 1])) if captured else []
+check('sv.disable_skips_critical', svs == [{'name': 'Spooler'}] and 'svc-action' in captured[0].cmd and captured[0].cmd[-1] == 'disabled', svs)
+captured.clear()
+app.sv_third.set(True); app._sv_render()
+check('sv.third_party', [app.sv_tree.set(i, 'name') for i in app.sv_tree.get_children()] == ['OrnekGuncelleme'])
+app.tabs.select('Başlangıç'); pump(0.2)
+app._st_set([{'type': 'startup', 'scope': 'hkcu-run', 'name': 'OneDrive', 'command': '"C:\\Users\\u\\OneDrive.exe" /background', 'enabled': True},
+             {'type': 'startup', 'scope': 'hklm-run', 'name': 'OrnekTray', 'command': 'C:\\Program Files\\Ornek\\tray.exe', 'enabled': True},
+             {'type': 'startup', 'scope': 'user-folder', 'name': 'Eski.lnk', 'command': 'C:\\Eski\\e.exe', 'enabled': False}])
+check('st.render', app.st_count.get() == '3 öğe · 2 etkin' and app.st_tree.set('st2', 'state') == 'Devre dışı', app.st_count.get())
+app.st_tree.selection_set(('st0', 'st1')); app.st_set('disable')
+check('st.split_admin', len(captured) == 2 and not captured[0].admin and captured[1].admin and all(j.cmd[-1] == 'disable' for j in captured), [(j.title, j.admin) for j in captured])
+app.start = real_start
+shot('services')
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

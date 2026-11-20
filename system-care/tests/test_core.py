@@ -900,7 +900,7 @@ def organizer_bundle_and_nav_contract():
         assert name in c.build_manifest(ROOT)['files']
     inst = (ROOT / 'packaging' / 'install_windows.ps1').read_text(encoding='utf-8')
     assert "'care_theme.py'" in inst and "'organizer_core.py'" in inst and 'ttkbootstrap==' + th.TB_VERSION in inst and '--target $uiLib' in inst
-    order = ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Bakım ve sağlık', 'Programlar',
+    order = ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Çalışan uygulamalar', 'Servisler', 'Başlangıç', 'Bakım ve sağlık', 'Programlar',
              'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Aygıt temizliği', 'Kol / Gamepad']
     nav = app.split('def nav_pages(self):')[1].split('def _remember_page')[0]
     pos = [nav.index("('%s'," % t) for t in order]
@@ -1342,6 +1342,39 @@ def oem_auto_update_and_nv_limit():
     finally:
         c.MAX_DOWNLOAD = old
         c._request = orig
+
+
+# --------------------------------------------------------------------------- 4.2 surecler / servisler / baslangic
+import care_procs as pr  # noqa: E402
+
+
+@test
+def procs_services_startup_helpers():
+    assert pr.is_critical_proc({'name': 'lsass', 'pid': 700}) and pr.is_critical_proc({'name': 'svchost.exe', 'pid': 1200}) and pr.is_critical_proc({'name': 'x', 'pid': 4})
+    assert not pr.is_critical_proc({'name': 'chrome', 'pid': 5000, 'session': 1, 'path': 'C:\\Program Files\\Google\\chrome.exe'})
+    recs = [{'type': 'proc', 'pid': 10, 'name': 'chrome', 'cpu': 3.0, 'mem': 500, 'title': 'Google', 'path': 'C:\\Program Files\\c.exe'},
+            {'type': 'proc', 'pid': 11, 'name': 'svchost', 'cpu': 9.0, 'mem': 900, 'title': '', 'path': 'C:\\Windows\\System32\\svchost.exe'},
+            {'type': 'proc', 'pid': 12, 'name': 'helper', 'cpu': 0.0, 'mem': 50, 'title': '', 'path': 'C:\\Tools\\h.exe'}]
+    assert [r['pid'] for r in pr.filter_procs(recs)] == [11, 10, 12]
+    assert [r['pid'] for r in pr.filter_procs(recs, windowed_only=True)] == [10]
+    assert [r['pid'] for r in pr.filter_procs(recs, hide_system=True)] == [10, 12] and [r['pid'] for r in pr.filter_procs(recs, 'TOOLS')] == [12]
+    assert pr.is_critical_service('RpcSs') and pr.is_critical_service({'name': 'WinDefend'}) and not pr.is_critical_service('Spooler')
+    svcs = [{'type': 'svc', 'name': 'Spooler', 'display': 'Print Spooler', 'state': 'Running', 'path': 'C:\\Windows\\System32\\spoolsv.exe'},
+            {'type': 'svc', 'name': 'AdobeARM', 'display': 'Adobe Update', 'state': 'Stopped', 'path': '"C:\\Program Files\\Adobe\\arm.exe"'}]
+    assert [r['name'] for r in pr.filter_services(svcs)] == ['Spooler', 'AdobeARM'] and [r['name'] for r in pr.filter_services(svcs, third_party=True)] == ['AdobeARM']
+    assert [r['name'] for r in pr.filter_services(svcs, running_only=True)] == ['Spooler']
+    assert pr.command_exe('"C:\\A B\\x.exe" --min') == 'C:\\A B\\x.exe' and pr.command_exe('C:\\Tools\\t.exe /s') == 'C:\\Tools\\t.exe'
+    assert pr.command_exe('rundll32 a.dll,Start') == 'rundll32' and pr.command_exe('') == ''
+    u, a = pr.split_by_admin([{'scope': 'hkcu-run', 'name': 'a'}, {'scope': 'hklm-run', 'name': 'b'}, {'scope': 'common-folder', 'name': 'c'}])
+    assert [x['name'] for x in u] == ['a'] and [x['name'] for x in a] == ['b', 'c']
+    import base64 as _b
+    assert json.loads(_b.b64decode(pr.b64_items([{'pid': 1, 'name': 'çğ'}]))) == [{'pid': 1, 'name': 'çğ'}]
+    ps = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
+    for act in ('proc-list', 'proc-kill', 'svc-list', 'svc-action', 'startup-list', 'startup-set'):
+        assert "'%s'" % act in ps.split('[string]$Action')[0] and " '%s' {" % act in ps, act
+    assert 'StartupApproved\\Run' in ps and "$b[0]=3" in ps and "$b[0]=2" in ps and "Set-Service -Name $name -StartupType Disabled" in ps
+    for crit in ('rpcss', 'winmgmt', 'mpssvc'):
+        assert crit in ps.split("'svc-action' {")[1].split("'startup-list' {")[0]
 
 
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

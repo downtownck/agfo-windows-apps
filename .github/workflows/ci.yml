@@ -133,5 +133,5 @@ jobs:
           if (-not $fin) { $p.Kill(); throw 'zaman asimi' }
           if (-not (Test-Path $out)) { throw 'oz-denetim dosyasi yok' }
           $t = Get-Content $out -Raw; Write-Host $t
-          if ($t -notmatch '^OK \S+ pages=23 ui=modern frozen=True mods=ttkbootstrap PIL paramiko') { throw 'oz-denetim basarisiz' }
+          if ($t -notmatch '^OK \S+ pages=26 ui=modern frozen=True mods=ttkbootstrap PIL paramiko') { throw 'oz-denetim basarisiz' }
           Get-ChildItem 'dist-rt\AGFO System Care' | Select-Object Name, Length | Format-Table | Out-String | Write-Host

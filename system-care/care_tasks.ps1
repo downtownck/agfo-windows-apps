@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','lenovo-scan','lenovo-install','dell-scan','dell-install')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','lenovo-scan','lenovo-install','dell-scan','dell-install','proc-list','proc-kill','svc-list','svc-action','startup-list','startup-set')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -10,7 +10,9 @@ param(
  [ValidateSet('yes','no')][string]$ForceRestorePoint = 'no',
  [string]$PlanFile = '',
  [ValidateSet('','enable','disable','restart','remove')][string]$PnpOp = '',
- [ValidateSet('yes','no')][string]$IncludeBios = 'no'
+ [ValidateSet('yes','no')][string]$IncludeBios = 'no',
+ [string]$ItemsB64 = '',
+ [ValidateSet('','start','stop','restart','auto','manual','disabled','enable','disable','kill','killtree')][string]$Op = ''
 )
 # AGFO System Care 4.0 gorev motoru.
 # Insan icin satirlar ASCII Turkce; uygulamanin okudugu kayitlar '@@' onekli tek satir JSON olarak yazilir.
@@ -343,6 +345,20 @@ function LsuRec($u) {
 function FindDcu {
  foreach($b in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) { if(-not $b) { continue }; $e=Join-Path $b 'Dell\CommandUpdate\dcu-cli.exe'; if(Test-Path -LiteralPath $e) { return $e } }
  return ''
+}
+
+# ---- 4.2 surecler / servisler / baslangic
+function ItemsFromB64 { if(-not $ItemsB64) { return @() }; $e=[Text.UTF8Encoding]::new($false); $o=ConvertFrom-Json ($e.GetString([Convert]::FromBase64String($ItemsB64))); $r=@(); foreach($x in $o) { $r+=$x }; return $r }
+$StartupApprovedKeys = @{
+ 'hkcu-run'='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
+ 'hklm-run'='HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
+ 'hklm-run32'='HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32'
+ 'user-folder'='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder'
+ 'common-folder'='HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder'
+}
+function StartupEnabled([string]$scope,[string]$name) {
+ try { $v=(Get-ItemProperty -LiteralPath $StartupApprovedKeys[$scope] -Name $name -ErrorAction Stop).$name; if($v -is [byte[]] -and $v.Length -gt 0) { return (($v[0] -band 1) -eq 0) } } catch {}
+ return $true
 }
 
 switch($Action) {
@@ -1044,5 +1060,116 @@ public static class AgfoTrust {
   if($IncludeBios -ne 'yes') { $args2+='-updateType=driver,firmware,application,utility,others' }
   & $dcu @args2 2>&1 | ForEach-Object { Write-Output ([string]$_) }
   exit $LASTEXITCODE
+ }
+ 'proc-list' {
+  # Calisan surecler: CPU (1 sn ornekleme), bellek, pencere basligi, yol, yayinci, oturum.
+  $cores=[Environment]::ProcessorCount
+  $t0=@{}; foreach($p in @(Get-Process -ErrorAction SilentlyContinue)) { try { $t0[$p.Id]=$p.TotalProcessorTime.TotalMilliseconds } catch {} }
+  Start-Sleep -Milliseconds 1000
+  $n=0
+  foreach($p in @(Get-Process -ErrorAction SilentlyContinue)) {
+   $cpu=0.0; try { if($t0.ContainsKey($p.Id)) { $cpu=[math]::Round(($p.TotalProcessorTime.TotalMilliseconds-$t0[$p.Id])/(10.0*$cores),1) } } catch {}
+   $path=''; $company=''; $desc=''
+   try { $path=[string]$p.Path } catch {}
+   try { $company=[string]$p.Company; $desc=[string]$p.Description } catch {}
+   EmitD ([ordered]@{type='proc';pid=$p.Id;name=[string]$p.ProcessName;cpu=[math]::Max(0,$cpu);mem=[int64]$p.WorkingSet64;title=[string]$p.MainWindowTitle;path=$path;company=$company;desc=$desc;session=[int]$p.SessionId})
+   $n++
+  }
+  Write-Output ('Surec sayisi: '+$n)
+ }
+ 'proc-kill' {
+  # Secili surecleri sonlandirir (kill: yalniz surec, killtree: alt surecleriyle). Kritik surecler reddedilir.
+  $crit=@('system','idle','registry','smss','csrss','wininit','winlogon','services','lsass','lsaiso','svchost','fontdrvhost','dwm','memory compression','secure system','msmpeng')
+  $fail=0
+  foreach($x in (ItemsFromB64)) {
+   $id=[int]$x.pid
+   try { $p=Get-Process -Id $id -ErrorAction Stop } catch { Write-Output ('Zaten kapanmis: '+$id); continue }
+   if($crit -contains $p.ProcessName.ToLower() -or $id -le 4) { Write-Output ('Kritik surec, atlandi: {0} ({1})' -f $p.ProcessName,$id); continue }
+   if($x.name -and $p.ProcessName -ne [string]$x.name) { Write-Output ('PID baska bir surece gecmis, atlandi: '+$id); continue }
+   try {
+    if($Op -eq 'killtree') { $o=& taskkill.exe /PID $id /T /F 2>&1; if($LASTEXITCODE -ne 0) { throw ($o -join ' ') } }
+    else { Stop-Process -Id $id -Force -ErrorAction Stop }
+    Write-Output ('Sonlandirildi: {0} ({1})' -f $p.ProcessName,$id)
+    Emit ([ordered]@{type='killres';pid=$id;ok=$true})
+   } catch { $fail++; Write-Output ('HATA: {0} ({1}) — {2}' -f $p.ProcessName,$id,$_.Exception.Message); Emit ([ordered]@{type='killres';pid=$id;ok=$false;denied=([string]$_.Exception.Message -match 'erisim|Access|denied|reddedildi')}) }
+  }
+  if($fail) { exit 1 }
+ }
+ 'svc-list' {
+  $n=0
+  foreach($v in (Cim Win32_Service)) {
+   $delayed=$false; try { $delayed=[bool](Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\'+$v.Name) -Name DelayedAutostart -ErrorAction Stop).DelayedAutostart } catch {}
+   EmitD ([ordered]@{type='svc';name=[string]$v.Name;display=[string]$v.DisplayName;state=[string]$v.State;start=[string]$v.StartMode;delayed=$delayed;account=[string]$v.StartName;path=[string]$v.PathName;desc=[string]$v.Description;pid=[int]$v.ProcessId})
+   $n++
+  }
+  Write-Output ('Servis sayisi: '+$n)
+ }
+ 'svc-action' {
+  RequireAdmin
+  $crit=@('rpcss','dcomlaunch','rpceptmapper','lsm','samss','eventlog','plugplay','winmgmt','bfe','mpssvc','windefend','cryptsvc','dnscache','dhcp','nsi','profsvc','power','brokerinfrastructure','coremessagingregistrar','systemeventsbroker','gpsvc','schedule','usermanager','staterepository','trustedinstaller')
+  $fail=0
+  foreach($x in (ItemsFromB64)) {
+   $name=[string]$x.name
+   if($crit -contains $name.ToLower() -and @('stop','disabled','restart') -contains $Op) { Write-Output ('Kritik servis, atlandi: '+$name); continue }
+   try {
+    switch($Op) {
+     'start'    { Start-Service -Name $name -ErrorAction Stop }
+     'stop'     { Stop-Service -Name $name -Force -ErrorAction Stop }
+     'restart'  { Restart-Service -Name $name -Force -ErrorAction Stop }
+     'auto'     { Set-Service -Name $name -StartupType Automatic -ErrorAction Stop }
+     'manual'   { Set-Service -Name $name -StartupType Manual -ErrorAction Stop }
+     'disabled' { Set-Service -Name $name -StartupType Disabled -ErrorAction Stop }
+     default    { throw 'gecersiz islem' }
+    }
+    Write-Output ('Tamam: {0} ({1})' -f $name,$Op)
+   } catch { $fail++; Write-Output ('HATA: {0} ({1}) — {2}' -f $name,$Op,$_.Exception.Message) }
+  }
+  if($fail) { exit 1 }
+ }
+ 'startup-list' {
+  # Baslangic: Run anahtarlari ve baslangic klasorleri; etkin/devre disi durumu Gorev Yoneticisi'nin StartupApproved kaydindan.
+  $src=@(
+   @('hkcu-run','HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'),
+   @('hklm-run','HKLM:\Software\Microsoft\Windows\CurrentVersion\Run'),
+   @('hklm-run32','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run'))
+  $n=0
+  foreach($s in $src) {
+   try { $key=Get-Item -LiteralPath $s[1] -ErrorAction Stop } catch { continue }
+   foreach($nm in $key.GetValueNames()) {
+    if(-not $nm) { continue }
+    $cmd=[string]$key.GetValue($nm,'',[Microsoft.Win32.RegistryValueOptions]::None)
+    EmitD ([ordered]@{type='startup';scope=$s[0];name=$nm;command=$cmd;enabled=(StartupEnabled $s[0] $nm)})
+    $n++
+   }
+  }
+  $folders=@(@('user-folder',[Environment]::GetFolderPath('Startup')),@('common-folder',[Environment]::GetFolderPath('CommonStartup')))
+  $sh=$null; try { $sh=New-Object -ComObject WScript.Shell } catch {}
+  foreach($f in $folders) {
+   if(-not $f[1] -or -not (Test-Path -LiteralPath $f[1])) { continue }
+   foreach($i in @(Get-ChildItem -LiteralPath $f[1] -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'desktop.ini' })) {
+    $cmd=$i.FullName
+    if($sh -and $i.Extension -eq '.lnk') { try { $l=$sh.CreateShortcut($i.FullName); $cmd=('"{0}" {1}' -f $l.TargetPath,$l.Arguments).Trim() } catch {} }
+    EmitD ([ordered]@{type='startup';scope=$f[0];name=$i.Name;command=$cmd;enabled=(StartupEnabled $f[0] $i.Name)})
+    $n++
+   }
+  }
+  Write-Output ('Baslangic ogesi: '+$n)
+ }
+ 'startup-set' {
+  # Gorev Yoneticisi ile ayni: StartupApproved degeri 02.. (etkin) / 03.. + zaman (devre disi). Kayit silinmez.
+  $fail=0
+  foreach($x in (ItemsFromB64)) {
+   $scope=[string]$x.scope; $name=[string]$x.name; $key=$StartupApprovedKeys[$scope]
+   if(-not $key) { Write-Output ('Bilinmeyen konum: '+$scope); $fail++; continue }
+   if($scope -like 'hklm*' -or $scope -like 'common*') { if(-not (IsAdmin)) { Write-Output ('Yonetici gerekir: '+$name); $fail++; continue } }
+   try {
+    if(-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
+    $b=New-Object byte[] 12
+    if($Op -eq 'disable') { $b[0]=3; [BitConverter]::GetBytes([DateTime]::UtcNow.ToFileTimeUtc()).CopyTo($b,4) } else { $b[0]=2 }
+    New-ItemProperty -LiteralPath $key -Name $name -PropertyType Binary -Value $b -Force | Out-Null
+    Write-Output ('{0}: {1}' -f $name,$(if($Op -eq 'disable'){'devre disi'}else{'etkin'}))
+   } catch { $fail++; Write-Output ('HATA: {0} — {1}' -f $name,$_.Exception.Message) }
+  }
+  if($fail) { exit 1 }
  }
 }
