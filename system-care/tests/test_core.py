@@ -1172,6 +1172,16 @@ def tailscale_exit_nodes():
     assert 'advertise-exit-node' in c_vpn.UGREEN_COMPOSE and 'hostname: ugreen-turkiye' in c_vpn.UGREEN_COMPOSE and '/dev/net/tun' in c_vpn.UGREEN_COMPOSE
     assert 'network_mode: host' in c_vpn.UGREEN_COMPOSE and 'restart: unless-stopped' in c_vpn.UGREEN_COMPOSE
     assert '--advertise-exit-node' in c_vpn.LINUX_EXIT_NODE_SCRIPT and 'hetzner-cikis' in c_vpn.LINUX_EXIT_NODE_SCRIPT and 'ip_forward = 1' in c_vpn.LINUX_EXIT_NODE_SCRIPT
+    # 4.3.2: netcup (CyberPanel) icin ayni kurulum, kendi adiyla; firewalld varsa maskeleme, yoksa dokunmaz
+    nc = c_vpn.NETCUP_EXIT_NODE_SCRIPT
+    assert '--hostname=netcup-cikis' in nc and 'hetzner' not in nc and '--accept-dns=false' in nc and 'tailscale set --advertise-exit-node' in nc
+    assert 'firewall-cmd --state' in nc and nc.index('firewall-cmd --state') < nc.index('--add-masquerade') and '--add-masquerade' in c_vpn.LINUX_EXIT_NODE_SCRIPT
+    assert c_vpn.linux_exit_node_script('netcup-cikis') == nc and set(c_vpn.EXIT_NODE_SERVERS) == {'hetzner', 'netcup'}
+    for bad in ('a b', 'x;rm -rf /', '', 'Netcup'):
+        try:
+            c_vpn.linux_exit_node_script(bad); raise AssertionError(bad)
+        except ValueError:
+            pass
     assert c_vpn.find_tailscale({'ProgramFiles': r'C:\PF'}, exists=lambda p: True).replace('\\', '/').endswith('PF/Tailscale/tailscale.exe')
     assert c_vpn.TS_PKG == 'Tailscale.Tailscale'
 

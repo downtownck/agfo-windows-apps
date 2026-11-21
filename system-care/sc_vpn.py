@@ -55,7 +55,8 @@ class VpnPage:
         self.btn(tsb, 'Tailscale\'e giriş yap', self.ts_login, 'ghost', action=False)
         self.ts_adv_btn = self.btn(tsb, 'Bu bilgisayarı çıkış noktası yap', self.ts_toggle_advertise, 'ghost', action=False)
         self.btn(tsb, 'UGREEN ayarını kopyala (Türk IP)', self.ts_copy_ugreen, 'ghost', action=False)
-        self.btn(tsb, 'Hetzner komutunu kopyala (yabancı IP)', self.ts_copy_script, 'ghost', action=False)
+        self.btn(tsb, 'Hetzner komutunu kopyala (yabancı IP)', lambda: self.ts_copy_script('hetzner'), 'ghost', action=False)
+        self.btn(tsb, 'netcup komutunu kopyala (yabancı IP)', lambda: self.ts_copy_script('netcup'), 'ghost', action=False)
         self.btn(tsb, 'Yönetim panelini aç', lambda: self._open_url(vpn.TS_ADMIN_URL), 'ghost', action=False)
         self.ts_info = tk.StringVar(value='')
         tk.Label(tsf, textvariable=self.ts_info, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
@@ -472,7 +473,8 @@ class VpnPage:
                              'giriş yapın (kişisel kullanım ücretsiz).')
         else:
             how = ('Yurt dışında Türk IP\'si: "UGREEN ayarını kopyala" ile aldığınız Docker projesini NAS\'ta oluşturun (çıkış adı ugreen-turkiye). '
-                   'Türkiye\'de yabancı IP: "Hetzner komutunu kopyala" ile aldığınız komutu sunucuda (AGFO Root Terminal / SSH) çalıştırın (çıkış adı hetzner-cikis). '
+                   'Türkiye\'de yabancı IP: "Hetzner / netcup komutunu kopyala" ile aldığınız komutu ilgili sunucuda (AGFO Root Terminal / SSH) çalıştırın '
+                   '(çıkış adları hetzner-cikis, netcup-cikis). '
                    'Her yeni çıkış noktasını bir kez "Yönetim panelini aç" > makine > Edit route settings > "Use as exit node" ile onaylayın.')
             oth = [o for o in (st.get('others') or []) if o['os'] in ('linux', '')]
             extra = ''
@@ -501,6 +503,7 @@ class VpnPage:
             loc = ', '.join(x for x in (n['city'], n['country']) if x) or (
                 'Türkiye — UGREEN NAS (Türk IP)' if any(k in n['name'].lower() for k in ('ugreen', 'nas', 'dxp', 'dh2', 'dh4')) else
                 'Yurt dışı — Hetzner (yabancı IP)' if 'hetzner' in n['name'].lower() else
+                'Yurt dışı — netcup (yabancı IP)' if 'netcup' in n['name'].lower() else
                 'kendi sunucunuz / NAS' if n['os'] == 'linux' else 'kendi cihazınız')
             p = self.ts_ping.get(n['ip'])
             state = 'ÇIKIŞ (kullanılıyor)' if n['active'] else ('çevrimiçi' if n['online'] else 'çevrimdışı')
@@ -587,21 +590,26 @@ class VpnPage:
             self.ts_refresh()
         self.start([Job('Tailscale çıkış noktası ' + ('aç' if on else 'kapat'), cmd=vpn.ts_advertise_cmd(self.ts_exe, on), on_done=done, cancel_ok=False)])
 
-    def ts_copy_script(self):
+    def ts_copy_script(self, key='hetzner'):
+        name, host, what = vpn.EXIT_NODE_SERVERS[key]
+        script = vpn.linux_exit_node_script(host)
+        title = '%s — %s çıkışı' % (name, what)
         self.clipboard_clear()
-        self.clipboard_append(vpn.LINUX_EXIT_NODE_SCRIPT)
-        if messagebox.askyesno('Hetzner — yabancı IP çıkışı', 'Komut panoya kopyalandı.\n\nKayıtlı bir SSH sunucusunda (Hetzner) System Care\'den '
-                               'şimdi çalıştırılsın mı?\n\nHayır: komutu kendiniz (AGFO Root Terminal / SSH) çalıştırırsınız.'):
-            if self.net.run_on_server(vpn.LINUX_EXIT_NODE_SCRIPT, 'Hetzner — çıkış noktası',
-                                      'Bittikten sonra "Yönetim panelini aç" > sunucu > Edit route settings > "Use as exit node" işaretleyin.'):
+        self.clipboard_append(script)
+        if messagebox.askyesno(title, 'Komut panoya kopyalandı.\n\nKayıtlı bir SSH sunucusunda (%s) System Care\'den şimdi çalıştırılsın mı?\n\n'
+                               'Hayır: komutu kendiniz (AGFO Root Terminal / SSH) çalıştırırsınız.' % name):
+            if self.net.run_on_server(script, '%s — çıkış noktası' % name,
+                                      'Listeden %s sunucusunu seçin. Bittikten sonra "Yönetim panelini aç" > sunucu > Edit route settings > '
+                                      '"Use as exit node" işaretleyin.' % name):
                 return
-        self.write('Hetzner (Linux) sunucusu için komut panoya kopyalandı. Sunucuda root olarak çalıştırın; çıkan bağlantıyla giriş yapın, '
-                   'sonra yönetim panelinde "hetzner-cikis" makinesini çıkış noktası olarak onaylayın.\n')
-        messagebox.showinfo('Hetzner — yabancı IP çıkışı', '1) Hetzner sunucusunda root olarak (AGFO Root Terminal ya da SSH) panodaki komutu çalıştırın.\n'
+        self.write('%s (Linux) sunucusu için komut panoya kopyalandı. Sunucuda root olarak çalıştırın; çıkan bağlantıyla giriş yapın, '
+                   'sonra yönetim panelinde "%s" makinesini çıkış noktası olarak onaylayın.\n' % (name, host))
+        messagebox.showinfo(title, '1) %s sunucusunda root olarak (AGFO Root Terminal ya da SSH) panodaki komutu çalıştırın.\n'
                             '2) Tailscale sunucuda yeni kuruluyorsa ekranda çıkan login.tailscale.com bağlantısını açıp aynı hesapla giriş yapın '
                             '(zaten bağlıysa komut yalnızca çıkış noktalığını açar; ad ve DNS ayarı değişmez).\n'
-                            '3) "Yönetim panelini aç" > sunucu (hetzner-cikis ya da mevcut adı) > Edit route settings > "Use as exit node" işaretleyin.\n\n'
-                            'Komut:\n%s' % vpn.LINUX_EXIT_NODE_SCRIPT)
+                            '3) "Yönetim panelini aç" > sunucu (%s ya da mevcut adı) > Edit route settings > "Use as exit node" işaretleyin.\n\n'
+                            'CyberPanel sunucularında firewalld çalışıyorsa komut, Tailscale belgesindeki gibi maskelemeyi (masquerade) de açar; '
+                            'web siteleri ve DNS ayarı etkilenmez.\n\nKomut:\n%s' % (name, host, script))
 
     def ts_copy_ugreen(self):
         if messagebox.askyesno('UGREEN NAS — Türk IP çıkışı', 'UGREEN NAS Tailscale yönetim panelinde zaten görünüyor mu?\n\n'

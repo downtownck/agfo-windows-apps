@@ -265,13 +265,34 @@ def openvpn_state(log_text):
 # Yurt disindayken Turkiye'deki bir bilgisayardan, Turkiye'deyken yurt disindaki sunucudan (Hetzner) internete cikmak icin.
 TS_PKG = 'Tailscale.Tailscale'
 TS_ADMIN_URL = 'https://login.tailscale.com/admin/machines'
-LINUX_EXIT_NODE_SCRIPT = (
-    "curl -fsSL https://tailscale.com/install.sh | sh && "
-    "echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf && "
-    "echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf && "
-    "sudo sysctl -p /etc/sysctl.d/99-tailscale.conf && "
-    "if sudo tailscale status >/dev/null 2>&1; then sudo tailscale set --advertise-exit-node; "
-    "else sudo tailscale up --advertise-exit-node --hostname=hetzner-cikis --accept-dns=false; fi")
+# Linux sunucuyu (Hetzner, netcup ... CyberPanel olanlar dahil) Tailscale cikis noktasi yapan tek satir.
+# - Tailscale zaten bagliysa yalniz cikis noktaligini acar (ad/DNS degismez); degilse kurar ve verilen adla giris baglantisi verir.
+# - firewalld calisiyorsa (CyberPanel'in varsayilani) Tailscale belgesindeki bilinen sorun icin maskelemeyi acar; calismiyorsa dokunmaz.
+# - --accept-dns=false: sunucunun DNS ayari (web siteleri, e-posta) degismez.
+EXIT_NODE_SERVERS = {
+    # anahtar: (gorunen ad, Tailscale makine adi, aciklama)
+    'hetzner': ('Hetzner', 'hetzner-cikis', 'yabancı IP'),
+    'netcup': ('netcup', 'netcup-cikis', 'yabancı IP — netcup sunucusu'),
+}
+_HOST_RX = re.compile(r'^[a-z0-9][a-z0-9-]{0,62}$')
+
+
+def linux_exit_node_script(hostname='hetzner-cikis'):
+    if not _HOST_RX.match(hostname or ''):
+        raise ValueError('Geçersiz makine adı: %r' % hostname)
+    return (
+        "curl -fsSL https://tailscale.com/install.sh | sh && "
+        "echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf && "
+        "echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf && "
+        "sudo sysctl -p /etc/sysctl.d/99-tailscale.conf && "
+        "{ if command -v firewall-cmd >/dev/null 2>&1 && sudo firewall-cmd --state >/dev/null 2>&1; then "
+        "sudo firewall-cmd --permanent --add-masquerade && sudo firewall-cmd --reload; fi; } && "
+        "if sudo tailscale status >/dev/null 2>&1; then sudo tailscale set --advertise-exit-node; "
+        "else sudo tailscale up --advertise-exit-node --hostname=%s --accept-dns=false; fi" % hostname)
+
+
+LINUX_EXIT_NODE_SCRIPT = linux_exit_node_script('hetzner-cikis')
+NETCUP_EXIT_NODE_SCRIPT = linux_exit_node_script('netcup-cikis')
 
 
 # Tailscale NAS'ta zaten kuruluysa (UGOS uygulama merkezi ya da Docker): SSH ile tek satir. IP yonlendirmeyi acar, tailscale'i
