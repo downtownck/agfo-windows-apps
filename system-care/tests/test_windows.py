@@ -61,6 +61,18 @@ check('ps.disk-health', code == 0 and not bad and len(disks) >= 1 and all(hw.dis
 for d in disks:
     print('  disk:', d.get('name'), '->', hw.disk_verdict(d), flush=True)
 
+# 4.3: gercek Windows DPAPI — System Care anahtari ve AI Editor'un sakladigi anahtar (ayni entropi) cozulebilmeli
+import care_ai as _ai  # noqa: E402
+_tok = 'agfoed.5.abcd1234.' + 'Z' * 40
+_enc = _ai.protect(_tok)
+check('ai.dpapi_roundtrip', _enc.startswith('dpapi:') and _tok not in _enc and _ai.unprotect(_enc) == _tok and _ai.unprotect(_enc, _ai.EDITOR_ENTROPY) == '', _enc[:20])
+_edsrc = ROOT.parent / 'ai-editor' / 'src'
+if (_edsrc / 'agfo_secrets.py').is_file():
+    sys.path.insert(0, str(_edsrc))
+    import agfo_secrets as _eds  # noqa: E402
+    check('ai.reads_ai_editor_secret', _ai.unprotect(_eds.protect(_tok), _ai.EDITOR_ENTROPY) == _tok)
+    sys.path.remove(str(_edsrc))
+
 code, lines, bad = ps('pnp-list')
 pnp = hw.parse_records(lines, 'pnp')
 check('ps.pnp-list', code == 0 and not bad and len(pnp) >= 10 and all(r.get('id') for r in pnp), (code, bad, len(pnp)))
@@ -213,7 +225,7 @@ def idle(timeout=300):
 pump(1.0); idle()
 for i in range(len(app.tabs.pages)):
     app.tabs.select(i); pump(0.05)
-check('gui.all_pages', len(app.tabs.pages) == 26, len(app.tabs.pages))
+check('gui.all_pages', len(app.tabs.pages) == 27, len(app.tabs.pages))
 idle()
 app.tabs.select('Genel bakış'); pump(0.3)
 if not app.ov_loaded:

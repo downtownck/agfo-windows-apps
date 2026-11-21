@@ -172,7 +172,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Tokens' ) ) {
             add_submenu_page(
                 'agfo-ai-manager',
                 'AI Editor bağlantısı',
-                '🖊️ AI Editor bağlantısı',
+                '🖊️ AI Editor / System Care bağlantısı',
                 self::capability(),
                 self::PAGE,
                 [ __CLASS__, 'render_page' ]
@@ -217,13 +217,14 @@ if ( ! class_exists( 'AGFO_AIM_Editor_Tokens' ) ) {
             $rows = self::list_for( $user_id );
             $site = home_url();
             echo '<div class="wrap"><h1>AI Editor bağlantısı</h1>';
-            echo '<p>Windows için <strong>AGFO AI Editor</strong> bu siteye bir <em>bağlantı anahtarı</em> ile bağlanır. '
-                . 'API anahtarlarınız sitede kalır; editör yalnızca metin düzenleme, çeviri ve sohbet uçlarını kullanabilir. '
+            echo '<p>Windows için <strong>AGFO AI Editor</strong> ve <strong>AGFO System Care</strong> bu siteye bir <em>bağlantı anahtarı</em> ile bağlanır. '
+                . 'API anahtarlarınız sitede kalır; uygulamalar yalnızca metin düzenleme, çeviri ve sohbet uçlarını kullanabilir. '
+                . 'Her bilgisayar ve uygulama için ayrı etiketli anahtar oluşturmanız önerilir (ör. "System Care — ofis"). '
                 . 'Anahtar, onu oluşturan kullanıcının (' . esc_html( wp_get_current_user()->user_login ) . ') yetkileriyle çalışır.</p>';
             if ( $new !== '' ) {
                 echo '<div class="notice notice-success"><p><strong>Yeni anahtar oluşturuldu. Şimdi kopyalayın — bir daha gösterilmez.</strong></p>'
                     . '<p><input type="text" readonly class="large-text code" style="font-size:14px" onclick="this.select()" value="' . esc_attr( $new ) . '"></p>'
-                    . '<p>Editörde: <em>Ayarlar › Bağlantı</em> › Site adresi: <code>' . esc_html( $site ) . '</code> › Bağlantı anahtarı: yukarıdaki değer.</p></div>';
+                    . '<p>System Care\'de: <em>Genel › AI asistan › Bağlantı</em>. Editörde: <em>Ayarlar › Bağlantı</em> › Site adresi: <code>' . esc_html( $site ) . '</code> › Bağlantı anahtarı: yukarıdaki değer.</p></div>';
             }
             if ( ! empty( $_GET['agfo_err'] ) ) {
                 echo '<div class="notice notice-error"><p>En fazla ' . (int) self::MAX_TOKENS . ' anahtar oluşturulabilir; kullanılmayanları silin.</p></div>';

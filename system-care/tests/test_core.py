@@ -1377,4 +1377,85 @@ def procs_services_startup_helpers():
         assert crit in ps.split("'svc-action' {")[1].split("'startup-list' {")[0]
 
 
+@test
+def ai_manager_client():
+    """4.3: AI Manager istemcisi — ayni uc/anahtar AI Editor ile; profil, gizlilik maskesi, sifreli saklama, AI Editor'den alma."""
+    import care_ai as ai
+    sent = []
+
+    def req(url, method='GET', headers=None, payload=None, timeout=0):
+        sent.append({'url': url, 'method': method, 'headers': headers or {}, 'payload': payload})
+        if '/wp-json/' in url:
+            return 404, b'<html>not found</html>', {}
+        if url.endswith('%2Feditor%2Fping') or 'editor/ping' in url:
+            return 200, json.dumps({'plugin_version': '17.16.0', 'profiles': ['editor', 'system_care']}).encode(), {}
+        if 'editor/info' in url:
+            return 200, json.dumps({'plugin_version': '17.16.0', 'user': 'Ali', 'text_ready': True, 'text_provider': 'OpenAI', 'text_model': 'gpt-5.5'}).encode(), {}
+        return 200, json.dumps({'text': '## Sonuç\n**Güvenli**: kapatın.', 'provider': 'OpenAI', 'model': 'gpt-5.5'}).encode(), {}
+    tok = 'agfoed.5.abcd1234.' + 'B' * 40
+    cl = ai.ManagerClient('agfo.example/wp-admin/', tok, request=req, sleep=lambda s: None)
+    assert cl.base == 'https://agfo.example' and cl.auth_headers() == {'X-AGFO-Editor-Token': tok}
+    t = cl.test()
+    assert t['ok'] and t['profile'] and t['model'] == 'OpenAI / gpt-5.5' and t['version'] == '17.16.0', t
+    assert '/wp-json/agfo-ai/v1/editor/ping' in sent[0]['url'] and '?rest_route=/agfo-ai/v1/editor/ping' in sent[1]['url']      # kalici baglanti yoksa ?rest_route=
+    sent.clear()
+    r = cl.chat([{'role': 'user', 'content': 'soru'}], 'veri')
+    p = sent[-1]['payload']
+    assert p['profile'] == 'system_care' and p['document'] == 'veri' and p['messages'] == [{'role': 'user', 'content': 'soru'}] and p['instruction']
+    assert len(sent) == 1 and sent[0]['method'] == 'POST' and sent[0]['headers']['X-AGFO-Editor-Token'] == tok      # rota bicimi hatirlanir
+    assert r['text'] == 'Sonuç\nGüvenli: kapatın.' and r['model'] == 'gpt-5.5', r
+    # hata mesajlari
+    for status, body, frag in ((401, {'code': 'agfo_editor_token_invalid'}, 'yeni anahtar'), (403, {'code': 'agfo_editor_forbidden', 'message': 'yok'}, 'yetkisi yok'),
+                               (500, {'code': 'x', 'message': 'patladı'}, 'patladı')):
+        c2 = ai.ManagerClient('https://agfo.example', tok, request=lambda *a, s=status, b=body, **k: (s, json.dumps(b).encode(), {}), sleep=lambda s: None)
+        try:
+            c2.chat([{'role': 'user', 'content': 'x'}]); raise AssertionError('hata bekleniyordu')
+        except ai.AIError as e:
+            assert frag in str(e), (status, e)
+    tries = []
+    c3 = ai.ManagerClient('https://agfo.example', tok, sleep=tries.append,
+                          request=lambda *a, **k: (429, b'{"code":"rate"}', {'Retry-After': '3'}) if len(tries) < 2 else (200, b'{"text":"tamam"}', {}))
+    assert c3.chat([{'role': 'user', 'content': 'x'}])['text'] == 'tamam' and tries == [3.0, 3.0]
+    try:
+        ai.ManagerClient('http://agfo.example', tok); raise AssertionError('http reddedilmeli')
+    except ai.AIError:
+        pass
+    try:
+        ai.ManagerClient('https://agfo.example').chat([{'role': 'user', 'content': 'x'}]); raise AssertionError('anahtarsiz reddedilmeli')
+    except ai.AIError as e:
+        assert 'ayarlanmamış' in str(e)
+    # gizlilik maskesi
+    raw = ('C:\\Users\\ayse\\AppData\\x.exe  OFIS-PC  ornek@example.com  AA:BB:CC:DD:EE:FF  Seri no: PF3ABC12  8.8.8.8  192.168.1.50  '
+           '100.101.2.3  agfoed.5.abcd1234.' + 'C' * 40 + ' sk-abcdef123456789')
+    m = ai.mask_private(raw, user='ayse', computer='OFIS-PC')
+    for leak in ('ayse', 'OFIS-PC', 'ornek@', 'AA:BB', 'PF3ABC12', '8.8.8.8', 'CCCCCCCC', '123456789'):
+        assert leak not in m, (leak, m)
+    assert '192.168.1.50' in m and '100.101.2.3' in m and '<kullanıcı>' in m and '<bilgisayar>' in m and '<genel IP>' in m, m
+    doc = ai.build_document([('A', 'x' * 70000), ('B', '')], mask=False)
+    assert len(doc) <= ai.MAX_DOCUMENT and '=== B' not in doc
+    # baglam metinleri
+    assert 'chrome' in ai.procs_context([{'name': 'chrome', 'cpu': 3, 'mem': 1048576 * 50}]) and ai.procs_context([]) == ''
+    svc = ai.services_context([{'name': 'Spooler', 'state': 'Running', 'start': 'Auto', 'path': 'C:\\Windows\\System32\\spoolsv.exe'},
+                               {'name': 'Ornek', 'state': 'Stopped', 'start': 'Auto', 'path': 'C:\\Program Files\\O\\o.exe'}])
+    assert 'Ornek' in svc and 'Spooler |' not in svc and 'toplam 2' in svc, svc
+    assert 'devre dışı' in ai.startup_context([{'name': 'X', 'enabled': False, 'scope': 'hkcu-run', 'command': 'x.exe'}])
+    assert ai.log_context('a' * 20000).startswith('İŞLEM GÜNLÜĞÜ') and len(ai.log_context('a' * 20000)) < 12100
+    # sifreli saklama + AI Editor'den alma
+    st = ai.store_config({}, 'https://agfo.example', tok)
+    assert tok not in json.dumps(st) and ai.load_config(st)['token'] == tok and ai.load_config({})['url'] == ''
+    with tempfile.TemporaryDirectory() as d:
+        pth = pathlib.Path(d) / 'settings.json'
+        pth.write_text(json.dumps({'manager_url': 'https://agfocert.com', 'manager_token': ai.protect(tok, ai.EDITOR_ENTROPY)}), encoding='utf-8')
+        assert ai.import_ai_editor(pth) == {'url': 'https://agfocert.com', 'token': tok, 'user': '', 'password': ''}
+        pth.write_text(json.dumps({'manager_url': 'https://agfocert.com'}), encoding='utf-8')
+        assert ai.import_ai_editor(pth) == {} and ai.import_ai_editor(pathlib.Path(d) / 'yok.json') == {}
+    assert ai.TOKEN_RX.match(tok) and not ai.TOKEN_RX.match('agfoed.x')
+    # DPAPI entropisi AI Editor ile ayni olmali (ayni kullanici anahtari cozebilsin)
+    ed = (ROOT.parent / 'ai-editor' / 'src' / 'agfo_secrets.py')
+    if ed.is_file():
+        assert "ENTROPY = b'AGFO-AI-Editor/1'" in ed.read_text(encoding='utf-8')
+    src = app_source()
+    assert "('AI asistan', self._tab_ai)" in src and 'AiPage' in src and "ai_ask_about('servisler'" in src
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

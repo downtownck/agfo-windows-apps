@@ -26,10 +26,11 @@ from sc_pad import PadPage  # noqa: E402
 from sc_hardware import HardwarePage  # noqa: E402
 from sc_vendor import VendorPage  # noqa: E402
 from sc_procs import ProcsPage  # noqa: E402
+from sc_ai import AiPage  # noqa: E402
 from sc_common import CommonMixin  # noqa: E402
 
 
-class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, HardwarePage, VendorPage, ProcsPage, CommonMixin, tk.Tk):
+class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, TweaksPage, PhantomPage, DriversPage, AppsPage, InstallPage, VpnPage, MaintPage, PadPage, HardwarePage, VendorPage, ProcsPage, AiPage, CommonMixin, tk.Tk):
     def __init__(self):
         super().__init__()
         self.admin = core.is_admin()
@@ -203,6 +204,7 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
         bar = tk.Frame(bottom, bg=BG); bar.pack(fill='x', pady=(8, 0))
         tk.Label(bar, text='İŞLEM GÜNLÜĞÜ', bg=BG, fg=ACCENT, font=('Segoe UI', 10, 'bold')).pack(side='left')
         self.mkbtn(bar, 'Günlük klasörünü aç', self.open_logs, 'ghost', small=True).pack(side='right')
+        self.mkbtn(bar, 'AI ile açıkla', self.ai_explain_log, 'ghost', small=True).pack(side='right', padx=(0, 8))
         self.mkbtn(bar, 'Temizle', self.clear_log, 'ghost', small=True).pack(side='right', padx=(0, 8))
         self.log = tk.Text(bottom, height=7, bg=LOG_BG, fg=LOG_FG, insertbackground=FG, relief='flat', font=('Consolas', 9),
                            padx=10, pady=8, wrap='word', undo=False)
@@ -214,7 +216,7 @@ class App(EnginesPage, CleanPage, ProgramsPage, BloatPage, OrganizerPage, Tweaks
 
     # ------------------------------------------------------------------ gezinme ve gorunum
     def nav_pages(self):
-        return [('Genel', [('Genel bakış', self._tab_overview), ('Motorlar', self._tab_engines)]),
+        return [('Genel', [('Genel bakış', self._tab_overview), ('AI asistan', self._tab_ai), ('Motorlar', self._tab_engines)]),
                 ('Temizlik', [('Temizlik', self._tab_clean), ('Bloatware', self._tab_bloat), ('Dosya düzeni', self._tab_organizer)]),
                 ('Sistem', [('İnce ayarlar', self._tab_tweaks), ('Çalışan uygulamalar', self._tab_procs), ('Servisler', self._tab_services),
                             ('Başlangıç', self._tab_startup), ('Bakım ve sağlık', self._tab_maint)]),

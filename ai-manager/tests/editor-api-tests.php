@@ -244,5 +244,22 @@ ea_check( 'E45 models list: current route, speed, unavailable dropped', ( $md['c
     && count( $md['models'] ?? [] ) === 1 && $md['models'][0]['speed'] === 'fast' && $md['models'][0]['model'] === 'gpt-5-mini' );
 ea_check( 'E46 models list carries no secrets', strpos( json_encode( $md ), 'NEVER' ) === false && strpos( json_encode( $md ), 'sk-' ) === false );
 
+// ---- 17.16.0: System Care profile
+$ca = AGFO_AIM_Editor_API::chat_args();
+ea_check( 'E47 profile arg accepts editor/system_care only', isset( $ca['profile'] ) && $ca['profile']['validate_callback']( 'system_care' ) === true && $ca['profile']['validate_callback']( 'editor' ) === true && $ca['profile']['validate_callback']( 'hack' ) === false );
+$GLOBALS['AGFO_E']['SENT'] = [];
+$GLOBALS['AGFO_E']['DEFAULT'] = ea_cfg( 'openai', 'gpt-4.1-mini' );
+$GLOBALS['AGFO_E']['REPLY'] = [ 'choices' => [ [ 'message' => [ 'content' => 'Tamam' ], 'finish_reason' => 'stop' ] ] ];
+AGFO_AIM_Editor_API::rest_chat( new AGFO_E_Request( [ 'messages' => [ [ 'role' => 'user', 'content' => 'Bu servis ne?' ] ], 'document' => 'svc list', 'profile' => 'system_care', 'instruction' => 'Kısa yaz' ] ) );
+$sent = $GLOBALS['AGFO_E']['SENT'][0] ?? [];
+$sys  = json_encode( $sent['body'] ?? [], JSON_UNESCAPED_UNICODE );
+ea_check( 'E48 system_care profile uses Windows prompt + source', strpos( $sys, 'System Care assistant' ) !== false && strpos( $sys, 'writing assistant' ) === false && ( $sent['args']['source'] ?? '' ) === 'agfo-system-care' && strpos( $sys, 'Additional instruction from the app: Kısa yaz' ) !== false );
+$GLOBALS['AGFO_E']['SENT'] = [];
+AGFO_AIM_Editor_API::rest_chat( new AGFO_E_Request( [ 'messages' => [ [ 'role' => 'user', 'content' => 'x' ] ] ] ) );
+$sys = json_encode( $GLOBALS['AGFO_E']['SENT'][0]['body'] ?? [], JSON_UNESCAPED_UNICODE );
+ea_check( 'E49 default profile stays the editor prompt', strpos( $sys, 'writing assistant' ) !== false && ( $GLOBALS['AGFO_E']['SENT'][0]['args']['source'] ?? '' ) === 'agfo-ai-editor' );
+$pg = AGFO_AIM_Editor_API::rest_ping();
+ea_check( 'E50 ping lists profiles', in_array( 'system_care', (array) ( $pg->data['profiles'] ?? [] ), true ) );
+
 echo "\n{$pass} pass, {$fail} fail\n";
 exit( $fail > 0 ? 1 : 0 );

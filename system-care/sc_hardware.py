@@ -115,6 +115,8 @@ class HardwarePage:
         self.btn(bar, 'Oku', self.hw_scan, 'go')
         self.btn(bar, 'Raporu kaydet (HTML)…', self.hw_save_report, 'ghost', action=False)
         self.btn(bar, 'Metni kopyala', self.hw_copy_report, 'ghost', action=False)
+        self.btn(bar, 'AI ile yorumla', lambda: (self._goto_ai(), self.ai_ask('Donanım raporunu yorumla: zayıf ya da sorunlu bir parça, '
+                 'eskimiş sürücü/BIOS, yetersiz bellek veya disk var mı? Yükseltme ya da bakım önerin varsa sırala.', ('hw',))), 'ghost', action=False)
         self.btn(bar, 'Sensörleri oku', self.hw_read_sensors, 'ghost')
         self.btn(bar, 'Sensörleri etkinleştir…', self.hw_enable_sensors, 'ghost')
         tf = ttk.Frame(f, style='Card.TFrame'); tf.pack(fill='both', expand=True, padx=16, pady=8)

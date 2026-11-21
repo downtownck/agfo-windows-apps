@@ -1,4 +1,4 @@
-# AGFO System Care 4.2 — Açık kaynak motorlar tek arayüzde
+# AGFO System Care 4.3 — Açık kaynak motorlar tek arayüzde
 
 ## Kurulum
 **Önerilen (Python gerekmez):** `AGFO-System-Care-v4.x.x-Windows.zip` dosyasını indirip açın, klasördeki `Kur-ve-Baslat.cmd`'yi çalıştırın. Python, tkinter ve gerekli kütüphaneler pakette hazır gelir. Uygulama `%LOCALAPPDATA%\Programs\AGFO System Care` klasörüne kurulur ve Başlat menüsüne kısayol eklenir.
@@ -6,6 +6,15 @@
 **Python ile:** `AGFO-System-Care-v4.x.x.zip` paketini açıp `agfo-care/Kur-ve-Baslat.cmd` ile de kurabilirsiniz. Bunun için Python 3.10+ ve tkinter gerekir. Bu paket aynı zamanda uygulama içi güncelleme paketidir.
 
 İlk açılışta **Motorlar** sekmesindeki "Eksik motorları kur" düğmesine basın.
+
+## 4.3'te ne değişti — AI asistan (AGFO AI Manager bağlantısı)
+System Care, AGFO AI Editor gibi WordPress sitenizdeki **AGFO AI Manager**'a bağlanır. **Genel › AI asistan** sayfası:
+- **Bağlantı:** site adresi + bağlantı anahtarı (WordPress › AI Manager › *AI Editor / System Care bağlantısı* sayfasından oluşturulur). AI Editor bu bilgisayarda kuruluysa **AI Editor'ün bağlantısını kullan** tek tıkla aynı bağlantıyı alır. API anahtarları sitede kalır; bilgisayarda yalnız Windows DPAPI ile şifrelenmiş bağlantı anahtarı durur.
+- **Soruya ekle:** Sistem özeti, Çalışan uygulamalar, Servisler, Başlangıç, İşlem günlüğü. Veri henüz okunmadıysa önce (salt okunur) okunur. **Gönderilecek veri…** gönderilecek metnin tamamını gösterir. Kullanıcı adı, bilgisayar adı, e-posta, seri no, MAC ve genel IP varsayılan olarak maskelenir.
+- **Hızlı sorular:** Bilgisayarımı değerlendir, Açılışı hızlandır, Servisleri incele, Yavaşlığın nedeni ne?, Günlükteki hatayı açıkla.
+- Diğer sayfalarda **AI'ya sor** (Çalışan uygulamalar, Servisler, Başlangıç), **AI ile yorumla** (Sistem özeti) ve işlem günlüğünde **AI ile açıkla** düğmeleri seçili öğeyi doğrudan asistana götürür.
+- AI yalnız öneri verir, hiçbir işlemi kendisi uygulamaz. Yanıt beklerken uygulamanın diğer sayfaları kullanılabilir.
+- AI Manager 17.16.0 ve üstü System Care'e özel Windows bakım istemini kullanır (her öneride risk düzeyi ve geri alınabilirlik); daha eski 17.5+ sürümler de çalışır.
 
 ## 4.2'de ne değişti — Çalışan uygulamalar, Servisler, Başlangıç
 Sol menüde **Sistem** bölümüne üç sayfa geldi:

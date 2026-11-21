@@ -92,7 +92,7 @@ pump(1.0)
 idle()
 check('mode', (m.TB is not None) == (MODE == 'modern'), m.TB_STATE)
 titles = [p['title'] for p in app.tabs.pages]
-check('nav.pages', titles == ['Genel bakış', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Çalışan uygulamalar', 'Servisler', 'Başlangıç', 'Bakım ve sağlık', 'Programlar',
+check('nav.pages', titles == ['Genel bakış', 'AI asistan', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Çalışan uygulamalar', 'Servisler', 'Başlangıç', 'Bakım ve sağlık', 'Programlar',
                               'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları',
                               'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Üretici desteği', 'NVIDIA', 'Aygıt temizliği', 'Kol / Gamepad'], titles)
 check('nav.last_page', app.tabs.tab(app.tabs.current, 'text') == 'İnce ayarlar', app.tabs.current)
@@ -521,6 +521,46 @@ app.st_tree.selection_set(('st0', 'st1')); app.st_set('disable')
 check('st.split_admin', len(captured) == 2 and not captured[0].admin and captured[1].admin and all(j.cmd[-1] == 'disable' for j in captured), [(j.title, j.admin) for j in captured])
 app.start = real_start
 shot('services')
+
+# ---- 4.3 AI asistan (AI Manager): sahte istemciyle, ag yok
+import care_ai as _ai
+CALLS = []
+
+
+def _fake_chat(self, messages, document='', max_tokens=2400):
+    CALLS.append({'base': self.base, 'token': self.token, 'messages': messages, 'document': document})
+    return {'text': '**Öneri:** OrnekTray güvenle kapatılabilir.', 'provider': 'OpenAI', 'model': 'gpt-test', 'truncated': False}
+
+
+_ai.ManagerClient.chat = _fake_chat
+app.tabs.select('AI asistan'); pump(0.2)
+check('ai.page', app.tabs.tab(app.tabs.current, 'text') == 'AI asistan' and 'Bağlı değil' in app.ai_conn.get(), app.ai_conn.get())
+app.ai_url.set('agfo.example'); app.ai_token.set('agfoed.5.abcd1234.' + 'A' * 40)
+app._ai_test = lambda cfg: None
+app.ai_save_test()
+stored = json.loads((pathlib.Path(os.environ['LOCALAPPDATA']) / 'AGFO' / 'SystemCare' / 'settings.json').read_text(encoding='utf-8')).get('ai', {})
+check('ai.saved_encrypted', stored.get('url') == 'https://agfo.example' and 'agfoed' not in json.dumps(stored) and app.ai_cfg['token'].startswith('agfoed.5.'), stored)
+os.environ['USERNAME'] = 'ornekkul'
+app.st_tree.selection_set(('st1',))
+app.ai_ask_about('başlangıç öğeleri', app._st_sel(), ['name', 'enabled', 'scope', 'command'])
+for _ in range(40):
+    pump(0.05)
+    if not app.ai_busy and CALLS:
+        break
+pump(0.3)
+txt = app.ai_text.get('1.0', 'end')
+check('ai.chat_roundtrip', CALLS and CALLS[0]['base'] == 'https://agfo.example' and 'OrnekTray' in CALLS[0]['document'] and 'Öneri: OrnekTray' in txt
+      and '**' not in txt and 'gpt-test' in txt, (len(CALLS), txt[-300:]))
+CALLS.clear()
+app.ai_ask('Bu süreçler normal mi? ornekkul kullanıcısıyım', ('procs',))
+for _ in range(40):
+    pump(0.05)
+    if not app.ai_busy and CALLS:
+        break
+check('ai.context_masked', CALLS and 'chrome' in CALLS[0]['document'] and '<kullanıcı>' in CALLS[0]['messages'][-1]['content']
+      and len(CALLS[0]['messages']) == 3 and app.ai_ctx['procs'].get(), CALLS[0]['messages'] if CALLS else None)
+check('ai.no_runner', not app.busy)
+shot('ai')
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

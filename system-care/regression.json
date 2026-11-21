@@ -1,804 +1,813 @@
 {
-  "project": "agfo-system-care",
-  "version": "4.2.0",
-  "contract_version": 3,
-  "public_surfaces": {
-    "tabs": [
-      "Genel bakış",
-      "Motorlar",
-      "Temizlik",
-      "Bloatware",
-      "Dosya düzeni",
-      "İnce ayarlar",
-      "Çalışan uygulamalar",
-      "Servisler",
-      "Başlangıç",
-      "Bakım ve sağlık",
-      "Programlar",
-      "Uygulama güncellemeleri",
-      "Uygulama kur",
-      "VPN",
-      "Ağ tarayıcı",
-      "Ağ testleri",
-      "SSH sunucularım",
-      "SSH oturumları",
-      "Sistem özeti",
-      "Aygıt yöneticisi",
-      "Disk sağlığı",
-      "Sürücüler",
-      "Üretici desteği",
-      "NVIDIA",
-      "Aygıt temizliği",
-      "Kol / Gamepad"
-    ],
-    "powershell_actions": [
-      "driver-scan",
-      "driver-install",
-      "devices",
-      "drivers-list",
-      "driver-backup",
-      "app-scan",
-      "app-update",
-      "temp-preview",
-      "temp-clean",
-      "component-analyze",
-      "component-clean",
-      "health-scan",
-      "health-repair",
-      "system-info",
-      "restore-point",
-      "recycle-paths",
-      "driver-analyze",
-      "appx-list",
-      "appx-remove",
-      "phantom-list",
-      "phantom-remove",
-      "controller-list",
-      "controller-reset",
-      "bt-restart",
-      "tweak-read",
-      "tweak-write",
-      "dns-list",
-      "dns-flush",
-      "explorer-restart",
-      "vpn-status",
-      "hw-inventory",
-      "disk-health",
-      "pnp-list",
-      "pnp-action",
-      "overview",
-      "sensors",
-      "oem-info",
-      "nvidia-info",
-      "nvidia-uninstall",
-      "nvidia-remove-packages",
-      "sig-check",
-      "lenovo-scan",
-      "lenovo-install",
-      "dell-scan",
-      "dell-install",
-      "proc-list",
-      "proc-kill",
-      "svc-list",
-      "svc-action",
-      "startup-list",
-      "startup-set"
-    ],
-    "powershell_params": [
-      "-Action <ValidateSet>",
-      "-BackupPath <string>",
-      "-UpdateIds <comma list>",
-      "-Paths <pipe list>",
-      "-IncludeWU yes|no",
-      "-Packages <pipe list of PackageFullName>",
-      "-Provisioned yes|no",
-      "-InstanceIds <pipe list>",
-      "-ForceRestorePoint yes|no",
-      "-PlanFile <JSON {ops:[...]} yolu; care_tweaks.py uretir>"
-    ],
-    "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle | controller | bt-radio | controller-reset | bt-service | read | write | dns-adapter)",
-    "engines_winget": {
-      "bleachbit": "BleachBit.BleachBit",
-      "bcu": "Klocman.BulkCrapUninstaller",
-      "sdio": "GlennDelahoy.SnappyDriverInstallerOrigin"
-    },
-    "install_dir": "%LOCALAPPDATA%\\Programs\\AGFO System Care",
-    "log_dir": "%LOCALAPPDATA%\\AGFO\\DriverCare\\logs",
-    "settings": "%LOCALAPPDATA%\\AGFO\\SystemCare\\settings.json",
-    "sdio_workdir": "%ProgramData%\\AGFO\\SDIO",
-    "start_menu": "Programs\\AGFO\\AGFO System Care.lnk",
-    "engine_dir": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\engines\\\\{BleachBit,BCU,SDIO}",
-    "download_hosts": {
-      "bleachbit": [
-        "bleachbit.org",
-        "sourceforge.net",
-        "sf.net"
-      ],
-      "bcu": [
-        "github.com",
-        "githubusercontent.com"
-      ],
-      "sdio": [
-        "glenn.delahoy.com"
-      ]
-    },
-    "update_backups": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\update-backups (en son 3)",
-    "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ care_tweaks.py, care_catalog.py 3.7.0+) (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})",
-    "controller_scope": "Yalnizca Xbox kol/adaptor: Microsoft VID 045E + XBOX_PIDS/XBOX_ADAPTER_PIDS, adinda \"Xbox\", XboxComposite/XnaComposite sinifi veya XBOXGIP\\ (care_core.controller_is_xbox == care_tasks.ps1 IsXboxDevice)",
-    "fc_settings_reset": "%LOCALAPPDATA%\\EA SPORTS FC <en yeni>\\settings\\Settings* -> ayni klasorde settings_backup_<zaman>[-n]/ (kopya boyutu dogrulanmadan silinmez)",
-    "tweaks_catalog": "care_catalog.py: WinCleaner v2.6.0 (MIT) katalogundan kayit/gorev/hizmet/guc plani ayarlari + 28 hizmet + 5 on ayar + 159 WinGet uygulamasi; serbest komut (bcdedit/netsh/betik) yok; INSTALL_APPS: 159 WinCleaner + 99 GitHub populer acik kaynak (winget-pkgs ile dogrulandi)",
-    "tweaks_journal": "%LOCALAPPDATA%\\AGFO\\SystemCare\\tweaks-journal.json (son 60 oturum; her islemin ONCEKI durumu, geri alma birebir)",
-    "tweaks_plans": "%LOCALAPPDATA%\\AGFO\\SystemCare\\plans\\*.json (son 20)",
-    "navigation": "Sol menu (NavBook): Genel / Temizlik / Sistem / Uygulamalar / Donanim gruplari; ttk.Notebook arayuzu (add/select/tab/index/<<NotebookTabChanged>>) korunur; son acilan sayfa settings.last_page",
-    "themes": "care_theme.THEMES (12 palet); settings.theme; canli degisim (tk bilesenleri jetonla yeniden boyanir, ttk bilesenleri ttkbootstrap/clam ile)",
-    "modern_ui": "ttkbootstrap 2.2.7 -> %LOCALAPPDATA%\\AGFO\\SystemCare\\ui-lib (pip --target; Python 3.10+); yoksa klasik clam; settings.modern_ui",
-    "organizer": "organizer_core.py = smart-organizer/organizer_core.py (birebir); gunluk %LOCALAPPDATA%\\AGFO\\SmartOrganizer\\moves.sqlite3 (bagimsiz Smart Organizer ile ortak)",
-    "app_icons": "care_icons.py: logolar pakette yok; kullanicinin PC'sinde INSTALL_APPS.site adresinden (https, apple-touch-icon > png simge > favicon.ico) indirilir -> %LOCALAPPDATA%\\AGFO\\SystemCare\\app-icons (48/20 px PNG, index.json; basarisiz 30 gun denenmez); yalnizca Uygulama kur sayfasi buyuk simge gorunumunde acilinca",
-    "install_view": "settings.install_view = grid | list; secim iki gorunum arasinda esitlenir",
-    "app_update_recovery": "Uygulama guncellemeleri: sessiz (--silent) -> basarisizsa bir kez pencereli (--interactive); uygulama acik -> \"Uygulama acik\"; farkli kurulum turu / 0x8A150114 -> \"Yeniden kurulmali\" + Kaldirip yeniden kur (winget uninstall + install); Ayrinti sutunu WinGet nedenini gosterir",
-    "vpn": "WireGuard for Windows (WireGuard.WireGuard): wireguard.exe /installtunnelservice <Data\\Configurations\\ad.conf[.dpapi]> ve /uninstalltunnelservice <ad>; tek etkin tunel; meta %LOCALAPPDATA%\\AGFO\\SystemCare\\vpn-tunnels.json (anahtar yok); gecikme ping; gorunen IP https://ifconfig.co/json; vpn-status: WireGuardTunnel$* hizmetleri + wg show dump",
-    "vpngate": "VPN Gate (https://www.vpngate.net/api/iphone/, 1 saat onbellek vpngate/list.csv); OpenVPN Community (OpenVPNTechnologies.OpenVPN) openvpn.exe --config current.ovpn --log openvpn.log; betik/eklenti calistiran yonergeler atilir; auth-user-pass -> auth.txt (vpn/vpn); surec PID settings.vpngate_active; tek VPN",
-    "tailscale": "Tailscale (Tailscale.Tailscale) cikis noktalari: tailscale status --json, set --exit-node=<ip> --exit-node-allow-lan-access=true, set --exit-node=, set --advertise-exit-node; UGREEN Docker Compose (hostname ugreen-turkiye, Turk IP) ve Hetzner kurulum komutu (hetzner-cikis, yabanci IP) panoya; tek VPN kurali (WireGuard/OpenVPN kapatilir)"
-  },
-  "removed_surfaces": [
-    {
-      "what": "sdio-open / bcu-open (web sayfasi acan dugmeler)",
-      "reason": "Kullanici istegi: motorlar uygulama icine entegre edildi",
-      "replaced_by": "Suruculer > SDIO paneli, Programlar sekmesi, Motorlar sekmesi"
-    },
-    {
-      "what": "bb-check / bb-preview / bb-clean (yalnizca system.tmp)",
-      "replaced_by": "Temizlik sekmesi - tum temizleyiciler secilebilir"
-    },
-    {
-      "what": "driver-install (tum suruculer)",
-      "replaced_by": "driver-install -UpdateIds (yalnizca isaretlenenler); -UpdateIds verilmezse eski davranis"
-    },
-    {
-      "what": "Suruculer sekmesindeki ayri \"Windows Update ile tara / Sorunlu aygitlar / Kurulu suruculer\" dugmeleri",
-      "replaced_by": "Surucu Merkezi tek tarama + suzgecler (eylemler care_tasks.ps1 icinde korunuyor)"
-    }
+ "project": "agfo-system-care",
+ "version": "4.2.0",
+ "contract_version": 3,
+ "public_surfaces": {
+  "tabs": [
+   "Genel bakış",
+   "AI asistan",
+   "Motorlar",
+   "Temizlik",
+   "Bloatware",
+   "Dosya düzeni",
+   "İnce ayarlar",
+   "Çalışan uygulamalar",
+   "Servisler",
+   "Başlangıç",
+   "Bakım ve sağlık",
+   "Programlar",
+   "Uygulama güncellemeleri",
+   "Uygulama kur",
+   "VPN",
+   "Ağ tarayıcı",
+   "Ağ testleri",
+   "SSH sunucularım",
+   "SSH oturumları",
+   "Sistem özeti",
+   "Aygıt yöneticisi",
+   "Disk sağlığı",
+   "Sürücüler",
+   "Üretici desteği",
+   "NVIDIA",
+   "Aygıt temizliği",
+   "Kol / Gamepad"
   ],
-  "tests": [
-    {
-      "id": "SC-001",
-      "purpose": "app.pyw ve care_core.py Python 3.11/3.12/3.13 ile derlenir",
-      "type": "py_compile",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-002",
-      "purpose": "care_tasks.ps1 ve install_windows.ps1 PowerShell AST hatasiz",
-      "type": "ps_parse",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-003",
-      "purpose": "app.pyw icindeki tum ps_cmd eylemleri care_tasks.ps1 ValidateSet ile birebir",
-      "type": "contract",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-004",
-      "purpose": "Runner akis: BOM, \\r ilerleme, NUL, UTF-8, @@JSON veri, bozuk veri uyarisi, cikis kodu, gunlukte tek ilerleme karesi, zincir durdurma",
-      "type": "unit",
-      "script": "tests/test_runner_stream.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-010",
-      "purpose": "WinGet tablo ayristirici EN/TR, ozet satiri ve bos cikti",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-011",
-      "purpose": "BleachBit temizleyici ayristirma; riskli secenekler varsayilan secilmez",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-012",
-      "purpose": "Program kaydi suzme (guncelleme/sistem bileseni), MSI urun kodu, sessiz/normal kaldirma komutu, yetim tespiti",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-013",
-      "purpose": "Artik klasor onerisi yalnizca kesin eslesme; kok klasor ve baska programin konumu asla onerilmez",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-014",
-      "purpose": "BCU export XML ayristirma ve birlestirme (sema bagimsiz)",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-015",
-      "purpose": "SDIO betikleri: analiz kipinde install/restorepoint yok, enableinstall off; kurulumda restorepoint -> select -> install sirasi; yalnizca Reference Manual komutlari; bos kategori ve bosluklu yol reddedilir",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-016",
-      "purpose": "Motor bulma: WinGet Packages altinda en yeni SDIO_x64_R*.exe secilir",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-020",
-      "purpose": "GUI uctan uca (Xvfb, gercek Tk): 6 sekme; motor kurulum zinciri; BleachBit yukle/oneri/grup isaretleme/onizleme yalnizca secilenler/temizlik onayi; program arama/suzgec/siralama/sessiz kaldirma/yetim atlama/yeniden tarama/artik penceresi/geri donusum cagrisi; WU yalnizca secili UpdateIds; surucu envanteri gruplu; sorunlu aygit; SDIO analiz gunluk izleme ve betik; WinGet yalnizca secili guncelleme ve durum sutunu; Bakim gercek pwsh; Durdur; dugmelerin yeniden etkinlesmesi; kaynakta webbrowser yok",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "covers": [
-        "button:*"
-      ],
-      "required_for_package": true
-    },
-    {
-      "id": "SC-021",
-      "purpose": "recycle-paths: kok/sistem/kisa yol reddedilir, olmayan yol bildirilir, kalici silme yapilmaz; bos ortam degiskeninde cokmez",
-      "type": "runtime_pwsh",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-022",
-      "purpose": "temp-preview/temp-clean gercek pwsh ile",
-      "type": "runtime_pwsh",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-017",
-      "purpose": "Surucu eslestirme: HWID > uyumlu kimlik; HWID varken genel surucu 'daha zayif'; kod 28 eksik; kod 43 sorunlu; kod 45 bilgi; eslesmeyen adaylar ayri; sayaclar; guncellemeler en ustte",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-018",
-      "purpose": "Surum karsilastirma (uzunluk farki, tarih yedegi) ve WU basligindan surum ayristirma",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-019",
-      "purpose": "Indirme: yalnizca https + izinli alan adi (sonek hilesi reddi), SHA-256, boyut siniri, hata halinde .part silinir; BleachBit kararli surum secimi; BCU portable asset + digest; SDIO zip baglantisi",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-023",
-      "purpose": "Tasinabilir kurulum: zip-slip reddi, eksik exe'de geri alma, yerinde guncelleme, gecici zip temizligi",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-024",
-      "purpose": "GUI: BleachBit eksik -> 'Eksik motorlari kur' tasinabilir paketle WinGet'siz kurar; tasinabilir basarisizsa WinGet '/S /allusers' denenir ve anlasilir hata yazar",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-025",
-      "purpose": "GUI Surucu Merkezi: sayaclar, aygit satiri (kurulu/yeni surum), SDIO tarzi aday satirlari ve durumlari, onerilenler varsayilan isaretli, suzgec/arama, secimin suzgec degisiminde korunmasi, ayrinti paneli, geri yukleme noktasi -> yalnizca isaretli UpdateIds -> yeniden tarama",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-026",
-      "purpose": "BleachBit: /get/ HTML sayfasi degil dogrudan dosya adresi; yayinci sha256sum dosyasi ile dogrulama; HTML donerse acik mesaj; ozetsiz bilinmeyen surum kurulmaz",
-      "type": "unit+gui",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-027",
-      "purpose": "WinGet 0x8A15002B/0x8A150061/0x8A15010D 'zaten kurulu': motor kayit defterinden bulunursa kullanilir, bulunamazsa kayitli konumla acik aciklama; kayit defteri kesfi (InstallLocation/kaldirici/simge)",
-      "type": "unit+gui",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-028",
-      "purpose": "Bloatware katalogu: onerilen/dikkat/korunan/diger; Photos ve DevHome genel Windows kuralina takilmaz; NonRemovable ve System imzali paketler korunur; Win32 desenleri; yetim kayitlar dislanir",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-029",
-      "purpose": "appx-remove: Store, WinGet, VCLibs, codec, surucu yardimcisi, sistem ve Guvenlik paketleri PowerShell tarafinda reddedilir (gercek pwsh); korumasiz paketler kaldirma adimina ulasir",
-      "type": "runtime_pwsh",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-030",
-      "purpose": "GUI Bloatware: gruplar ve sayaclar, onerilenler varsayilan isaretli, korunanlar gizli ve secilemez (grup isareti/tumunu sec ile bile), arama/suzgecte secim korunur, yalnizca isaretli PackageFullName'ler, Provisioned bayragi, once geri yukleme noktasi, Win32 kaldirici, yeniden tarama",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-031",
-      "purpose": "Guncelleme denetimi: gecerli/duz/eski/MANIFEST'siz paket; degistirilmis dosya (SHA), zip-slip, baska ZIP, eksik zorunlu dosya, bozuk ZIP reddi; tests/.cmd kuruluma girmez",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-032",
-      "purpose": "Guncelleme uygulama: yedek, atomik kopya, eski modul temizligi, VERSION, __pycache__; sozdizimi hatali paket on kontrolde durur; yarida kesilen kurulum otomatik geri alinir; surume geri donus; en fazla 3 yedek; ayni saniyede iki islemde yedek adi cakismasi",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-033",
-      "purpose": "GUI Guncelleme: degistirilmis paket reddedilir ve Uygula kapali kalir; gecerli 3.3.1 paketi denetim listesi (surum, MANIFEST, Python derleme, gercek pwsh sozdizimi) -> Uygula; baska isler Uygula durumunu bozmaz; kurulum kopyasina uygulanir, yedek listelenir, gecmis yazilir; yedege donus; kapatilan pencereden sonra cokme yok",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-034",
-      "purpose": "GitHub tek tik: sahte API ile bant gorunur; bozuk indirme (SHA) reddedilir ve kurulum degismez; gecerli 3.4.1 indirilip denetlenir, kurulur; bant gizlenir; indirme temizlenir; durum kaydedilir. Arka plan sonucu ana is parcacigina kuyrukla aktarilir.",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-035",
-      "purpose": "Aygit temizligi: son gorulme = max(baglanma, ayrilma, kayit yazma); yas; gelecek tarih 0; ROOT/SWD/System 'dikkat' ve secilmez; 30+ gun varsayilan; istatistik",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-036",
-      "purpose": "GUI aygit temizligi: gruplar, sayaclar, varsayilan secim, dikkat etiketi, suzgec/arama ve secimin korunmasi, yalnizca isaretli InstanceId'ler, once 24 saat sinirini asan geri yukleme noktasi, yeniden tarama",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-037",
-      "purpose": "Kol algilama: USB/Bluetooth(VID&02045E)/Xbox Wireless Adapter/XBOXGIP kimlikleri dogru yola ayrilir; Microsoft fare/klavye ve baska ureticiler asla kol sayilmaz; listede tekrar elenir, sorunlu bilesen once; istatistik",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-038",
-      "purpose": "Kol tanisi: kol yok / surucu sorunu / yalniz Bluetooth (FC 27 + Steam Input uyarisi, bthserv durmus) / USB / adaptor / XInput yok / yuvasiz / FC klasoru yok dallari; XInput tus/pil/kayma yardimcilari; Windows disinda XInputReader guvenli",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-039",
-      "purpose": "FC ayar sifirlama: en yeni 'EA SPORTS FC nn' klasoru surum sirasiyla secilir; yalnizca Settings* dosyalari yedeklenip silinir, digerleri korunur; ayni saniyede ikinci yedek oncekini ezmez. Sozlesme: ValidateSet/uygulama eylem listeleri/yonetici eylemleri ve iki taraftaki urun kimligi listesi birebir; controller-reset Xbox olmayani reddeder",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-040",
-      "purpose": "GUI Kol / Gamepad: sekme var; XInput yokken canli test mesaji; tarama yalnizca Xbox satirlari (fare elenir), sayaclar, Baglanti sutunu, sorunlu satir once ve isaretli, tani metni; surucu sifirlama yalnizca isaretli InstanceId'ler (isaretsizse tum Xbox satirlari, fare asla) ve ardindan yeniden tarama; Bluetooth hizmeti yeniden baslatma + tarama; FC ayarlari en yeni klasorde yedeklenip sifirlanir, ikinci denemede bilgi verilir; Windows disinda kisayollar guvenli",
-      "type": "gui_runtime",
-      "script": "tests/gui_smoke.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-W01",
-      "purpose": "Windows: BleachBit tasinabilir 6.0.4 indirilir, motor klasorune acilir, --list-cleaners calisir",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W02",
-      "purpose": "Windows: driver-analyze gercek aygitlari ve WU adaylarini getirir; DriverHardwareID eslesmesi gercek verilerde dogru",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W03",
-      "purpose": "Windows: tek secili WU surucusu geri yukleme noktasindan sonra kurulur",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W04",
-      "purpose": "Windows: BCU WinGet + portable yedek yolu; SDIO portable yedek yolu (sayfa baglanti bicimi)",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W05",
-      "purpose": "Windows: gercek NSIS/Inno kaldiricilari, BCU export XML, SDIO betik kipi gunlugu",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W06",
-      "purpose": "Windows: 150% DPI yerlesim",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W07",
-      "purpose": "Windows: appx-list gercek paketleri getirir; onerilen bir paket kaldirilir ve Store'dan geri kurulabilir; provisioned kaldirma yonetici ile calisir",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W08",
-      "purpose": "Windows: kurulu uygulamada Guncelleme ile yeni ZIP uygulanir, uygulama yeniden baslar; yedege donus calisir",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W09",
-      "purpose": "Windows: phantom-list gercek bagli olmayan aygitlari getirir; pnputil /remove-device ile bir USB bellek kaydi kaldirilir; bagli aygit reddedilir; zorlanmis geri yukleme noktasi olusur ve frekans degeri geri yuklenir",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W10",
-      "purpose": "Windows: gercek Xbox kolu USB ve Bluetooth ile controller-list dogru yolu ve durumu gosterir; canli testte tuslar/analoglar/tetikler/pil; controller-reset (yonetici) sonrasi kol yeniden taninir; bt-restart eslestirmeyi korur; Xbox Accessories ve Steam kumanda ayarlari acilir",
-      "type": "windows_runtime",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-070",
-      "purpose": "Ince ayar katalogu: kimlik tekilligi, kategori/risk/tur, kayit kovani ve deger turu, her oge icin uygula/varsayilan plani dogrulanir, on ayarlar bilinen kimlikler, engelli hizmetler (RpcSs, DcomLaunch, WinDefend) on ayara girmez",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-071",
-      "purpose": "Durum tespiti: kayit (cok degerli, istege bagli, deger silme, tum alt anahtarlar), hizmet, gorev, guc plani; uygulanmis/kismen/uygulanmamis/bilinmiyor/yok",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-072",
-      "purpose": "Yazma plani + gunluk + geri alma: onceki deger birebir, yeni anahtar bosalirsa temizlenir, basarisiz islem geri alinmaz, ters sira, hizmet/gorev/guc/DNS geri alma",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-073",
-      "purpose": "Plan dogrulama gecersiz kovan/yol/tur/CLSID disi anahtar silme/gorev yolu/guc GUID/DNS/bilinmeyen islemi reddeder; PowerShell tarafi da CLSID ve \\Microsoft\\Windows\\ sinirini uygular",
-      "type": "unit+contract",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-074",
-      "purpose": "Profil disa/ice aktarma (kendi bicimi + WinCleaner tweakIds/serviceIds), WinGet kesik kimlik eslesmesi, kurulum katalogu gruplari",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-075",
-      "purpose": "Yeni dosyalar (care_tweaks.py, care_catalog.py) MANIFEST ve install_windows.ps1 listesinde; surum care_core.py'den okunur",
-      "type": "contract",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-W70",
-      "purpose": "Windows: Gamer Modu on ayarini uygula -> Durumu oku -> Son degisikligi geri al; kayit degerleri ve hizmet baslangic turleri onceki haline doner",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W71",
-      "purpose": "Windows: DNS Cloudflare -> Gecmisten geri al (DHCP veya onceki elle girilmis adresler geri gelir)",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-080",
-      "purpose": "Tema paletleri: 16 renk, metin/menu karsitligi >= 4.5, uyari/basari/hata >= 3, dugme yazisi okunur, jeton renkleri tekil (canli tema degisimi icin)",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-081",
-      "purpose": "ttkbootstrap yukleyici: kapali / kurulu degil / Python surumu; pip --target komutu; pythonw -> python.exe",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-082",
-      "purpose": "organizer_core.py Smart Organizer ile birebir; yeni dosyalar MANIFEST ve kurulum listesinde; sol menu sirasi; ttk.Notebook yok; tum dugmeler mkbtn",
-      "type": "contract",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-083",
-      "purpose": "Xvfb GUI (klasik ve modern): 12 sayfa sirasi, son sayfa, her sayfaya gecis tek cerceve gorunur, Notebook uyumu, 12 temanin canli uygulanmasi (gunluk, pencere, menu, liste etiket renkleri), Dosya duzeni analiz -> kabul -> tasima -> geri alma",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W80",
-      "purpose": "Windows: Kur-ve-Baslat.cmd ttkbootstrap'i ui-lib klasorune kurar; modern gorunum acilir; internet yokken klasik gorunumle acilir",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-090",
-      "purpose": "Logo: sayfadaki simge baglantilarinin siralamasi (apple-touch, boyut, ico sonda, svg/http yok, base href), HTML donen aday atlanir, kucuk gorsel reddedilir, basarisizlik 30 gun yeniden denenmez, site adresi bicimi, https disi reddedilir",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-091",
-      "purpose": "GUI: Uygulama kur varsayilan buyuk simge, 159 kutucuk, sahte logolar yuklenir, sitesi olmayan denenmez, kutucuk secimi, arama, liste<->kutucuk secim esitlemesi, listede kucuk logo, tema degisiminde kutucuk renkleri",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W90",
-      "purpose": "Windows: gercek sitelerden logo indirme orani; Cloudflare vb. engelleyen sitelerde harf simgesine dusme",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-100",
-      "purpose": "upgrade_next_step / winget_failure_reason: ok, yeniden baslatma, guncel, uygulama acik, pencereli deneme, karma uyusmazligi, farkli kurulum turu (metin ve 0x8A150114), ilerleme cubugu satirlari ayiklanir",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-101",
-      "purpose": "GUI: sahte winget ile Opera sessiz basarisiz -> pencereli basarili; WordCraft farkli kurulum turu -> Yeniden kurulmali -> Kaldirip yeniden kur -> Guncellendi",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-102",
-      "purpose": "Katalog: 258 uygulama, kimlikler tekil, GitHub eklerinin varligi, UniGetUI Devolutions kimligi, Yapay zeka kategorisi",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-103",
-      "purpose": "0x8A15002B + \"does not apply to your system or requirements\" (Skywork) -> Yeniden kurulmali; yalin 0x8A15002B -> Zaten guncel olabilir",
-      "type": "unit+gui",
-      "script": "tests/test_core.py, tests/test_gui_nav.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-104",
-      "purpose": "Kaldirip yeniden kur: sessiz kaldirma 1603 -> pencereli kaldirma -> o da olmazsa winget install --force ile uzerine kurulum; aciklama satira yazilir",
-      "type": "unit+gui",
-      "script": "tests/test_core.py, tests/test_gui_nav.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-110",
-      "purpose": "WireGuard .conf ayristirma (IPv4/IPv6 endpoint, tam tunel, eksik anahtar/endpoint reddi), dosya adindan ulke (Proton/Mullvad bicimleri), tunel adi (32 karakter, cakisma), ping (EN/TR/Unix), wg dump, ifconfig.co, .conf.dpapi onceligi",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-111",
-      "purpose": "GUI: sahte WireGuard + sahte ping ile ice aktarma (bozuk dosya reddi), ulke suzgeci, en hizliya baglanma, tunel degistirmede eskisini kaldirma, silme, meta dosyasinda ozel anahtar yok",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W110",
-      "purpose": "Windows: gercek WireGuard ile Proton/Mullvad .conf ice aktarma, baglanma, gorunen IP ulkesi, kesme; WireGuard yoneticisi .conf.dpapi donusumu sonrasi baglanma",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-120",
-      "purpose": "VPN Gate CSV ayristirma, OpenVPN yapilandirmasi temizleme (script-security/up/route-up/plugin/log atilir, sertifika blogu korunur), auth dosyasi, durum",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-121",
-      "purpose": "GUI: onbellekten VPN Gate listesi, ulke suzgeci, en hizliya baglan (sahte OpenVPN), durum satiri, PID kaydi, kesme",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W120",
-      "purpose": "Windows: gercek VPN Gate listesi ve OpenVPN 2.7 ile baglanma, gorunen IP ulkesi; Turkiye den vpngate.net erisimi",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-130",
-      "purpose": "tailscale status --json ayristirma (yalnizca cikis noktalari, cevrimici/aktif, Mullvad konumu, IPv4 secimi, yayinlama), komutlar, UGREEN compose ve Hetzner betigi icerigi",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-131",
-      "purpose": "GUI: sahte tailscale.exe ile dugum listesi, cikis secimi (set --exit-node), durum satiri, UGREEN ayarini panoya kopyalama, cikisi kapatma",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W130",
-      "purpose": "Windows + UGREEN NAS (Docker) + Hetzner: yurt disinda ugreen-turkiye ile Turk IP, Turkiye de hetzner-cikis ile yabanci IP; gorunen IP denetimi",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-140",
-      "purpose": "SuperTools modulleri supertools/ ile bayt bayt ayni, manifest/kurulum listesinde; SSH profili, DPAPI kasasi ve tarama ayarlari yalnizca %LOCALAPPDATA% altinda; depo gizlilik denetimi (kisisel kayit dosyasi, ozel anahtar, bilinen kisisel adres yok)",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-141",
-      "purpose": "GUI: Ag tarayici (sonuc satirlari, etiketler), taramadan SSH profili, profilin yerel klasore kaydi, kayitli sunucuda komut (baglaninca gonderme), VPN > Hetzner komutunu SSH ile calistirma, tema degisiminde ag sayfalari",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W140",
-      "purpose": "Windows: gercek ag taramasi, SMB acma, Paramiko ile dahili SSH (parola + DPAPI), SuperTools kayitlarinin System Care'de gorunmesi, NAS/Hetzner cikis komutunun SSH oturumundan calismasi",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-150",
-      "purpose": "Kod bolunmesi: kurulum listesi her kok modulu icerir, manifest sc_*.py dosyalarini tasir, sozlesme testleri tum modulleri okur",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-151",
-      "purpose": "GUI: Genel bakis kartlari ve saglik puani, Sistem ozeti bolumleri, Aygit yoneticisi gruplari/sorun metni/islem komutu, Disk sagligi karari, HTML rapor",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-152",
-      "purpose": "Yetki modeli: hangi isin tek basina UAC ile yukseltilecegi (ADMIN_ACTIONS, admin=True, yalniz Windows)",
-      "type": "unit",
-      "script": "tests/test_runner_stream.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-153",
-      "purpose": "Gercek Windows (CI): hw-inventory, disk-health, pnp-list, overview, sensors ve eski salt-okunur eylemler; care_elevated.ps1 arguman aktarimi; Runner UAC yolu; uctan uca arayuz",
-      "type": "windows_ci",
-      "script": "tests/test_windows.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-154",
-      "purpose": "Hazir calisma ortami (PyInstaller): exe oz-denetimi 21 sayfa, modern gorunum, gomulu ttkbootstrap/PIL/paramiko",
-      "type": "windows_ci",
-      "script": ".github/workflows/ci.yml",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W150",
-      "purpose": "Windows 10/11 gercek makine: UAC onayiyla surucu/aygit/ince ayar islemleri, Windows paketinin kurulumu ve uygulama ici guncelleme, LibreHardwareMonitor sensorleri",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-160",
-      "purpose": "Uretici tanima ve destek baglantilari (Dell servis etiketi, ASUS model sayfasi, HP/Lenovo panoya seri, ozel masaustu -> anakart ureticisi, bilinmeyen -> arama), uretici araclari",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-161",
-      "purpose": "NVIDIA: surum donusumu, GPU adi temizleme, urun ailesi kimligi (paketteki veri), isletim sistemi kimligi, surucu servisi yaniti ayristirma, kurulum/yalin kurulum/DDU komutlari, setup.cfg temizligi",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-162",
-      "purpose": "GUI: Uretici destegi sayfasi (dogrudan sayfa, panoya seri, araclar), NVIDIA sayfasi (guncelleme durumu, agac, kaldirma/7-Zip/indir-imza/DDU is zincirleri), kaydirilabilir menu",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-163",
-      "purpose": "Gercek Windows (CI): oem-info, nvidia-info, NVIDIA surucu servisinden cevrim ici son surum (RTX 4070), Authenticode imza denetimi",
-      "type": "windows_ci",
-      "script": "tests/test_windows.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-W160",
-      "purpose": "Gercek NVIDIA kartli bilgisayar: indir-imza-kur (tam ve yalin), NVIDIA kaldiricisi, pnputil, DDU; farkli ureticilerde destek sayfalari",
-      "type": "manual_windows",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-170",
-      "purpose": "Otomatik guncelleme modu (Lenovo/Dell/diger), PowerShell eylemleri, NVIDIA icin buyuk indirme izni (max_bytes)",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-171",
-      "purpose": "GUI: Lenovo guncelleme listesi (varsayilan secim: sessiz ve BIOS disi), kurulum komutu, Dell tarama/kurulum, diger ureticide Windows Update yonlendirmesi",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-172",
-      "purpose": "Gercek Windows (CI): LSUClient PowerShell Galerisi'nden kurulur ve gercek Lenovo katalogu (ThinkPad 20XW) okunur; DCU yoksa dell-scan 3 doner",
-      "type": "windows_ci",
-      "script": "tests/test_windows.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-180",
-      "purpose": "Surec/servis kritik listeleri, suzgecler, baslangic komutundan yol, yonetici ayrimi, ItemsB64 aktarimi, PowerShell eylemleri",
-      "type": "unit",
-      "script": "tests/test_core.py",
-      "required_for_package": true
-    },
-    {
-      "id": "SC-181",
-      "purpose": "GUI: surec listesi suzgecleri ve kritik sureci sonlandirmama, servis listesi ve kritik servisi devre disi birakmama, baslangic kullanici/yonetici is ayrimi",
-      "type": "gui",
-      "script": "tests/test_gui_nav.py",
-      "required_for_package": false
-    },
-    {
-      "id": "SC-182",
-      "purpose": "Gercek Windows (CI): proc-list, proc-kill (gercek sureci sonlandirir, System'i reddeder), svc-list, kritik servis korumasi, HKCU Run ogesini kapatip acma",
-      "type": "windows_ci",
-      "script": "tests/test_windows.py",
-      "required_for_package": false
-    }
-  ]
+  "powershell_actions": [
+   "driver-scan",
+   "driver-install",
+   "devices",
+   "drivers-list",
+   "driver-backup",
+   "app-scan",
+   "app-update",
+   "temp-preview",
+   "temp-clean",
+   "component-analyze",
+   "component-clean",
+   "health-scan",
+   "health-repair",
+   "system-info",
+   "restore-point",
+   "recycle-paths",
+   "driver-analyze",
+   "appx-list",
+   "appx-remove",
+   "phantom-list",
+   "phantom-remove",
+   "controller-list",
+   "controller-reset",
+   "bt-restart",
+   "tweak-read",
+   "tweak-write",
+   "dns-list",
+   "dns-flush",
+   "explorer-restart",
+   "vpn-status",
+   "hw-inventory",
+   "disk-health",
+   "pnp-list",
+   "pnp-action",
+   "overview",
+   "sensors",
+   "oem-info",
+   "nvidia-info",
+   "nvidia-uninstall",
+   "nvidia-remove-packages",
+   "sig-check",
+   "lenovo-scan",
+   "lenovo-install",
+   "dell-scan",
+   "dell-install",
+   "proc-list",
+   "proc-kill",
+   "svc-list",
+   "svc-action",
+   "startup-list",
+   "startup-set"
+  ],
+  "powershell_params": [
+   "-Action <ValidateSet>",
+   "-BackupPath <string>",
+   "-UpdateIds <comma list>",
+   "-Paths <pipe list>",
+   "-IncludeWU yes|no",
+   "-Packages <pipe list of PackageFullName>",
+   "-Provisioned yes|no",
+   "-InstanceIds <pipe list>",
+   "-ForceRestorePoint yes|no",
+   "-PlanFile <JSON {ops:[...]} yolu; care_tweaks.py uretir>"
+  ],
+  "data_protocol": "@@ onekli tek satir JSON (type: dev | wu-driver | device | driver | recycle | controller | bt-radio | controller-reset | bt-service | read | write | dns-adapter)",
+  "engines_winget": {
+   "bleachbit": "BleachBit.BleachBit",
+   "bcu": "Klocman.BulkCrapUninstaller",
+   "sdio": "GlennDelahoy.SnappyDriverInstallerOrigin"
+  },
+  "install_dir": "%LOCALAPPDATA%\\Programs\\AGFO System Care",
+  "log_dir": "%LOCALAPPDATA%\\AGFO\\DriverCare\\logs",
+  "settings": "%LOCALAPPDATA%\\AGFO\\SystemCare\\settings.json",
+  "sdio_workdir": "%ProgramData%\\AGFO\\SDIO",
+  "start_menu": "Programs\\AGFO\\AGFO System Care.lnk",
+  "engine_dir": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\engines\\\\{BleachBit,BCU,SDIO}",
+  "download_hosts": {
+   "bleachbit": [
+    "bleachbit.org",
+    "sourceforge.net",
+    "sf.net"
+   ],
+   "bcu": [
+    "github.com",
+    "githubusercontent.com"
+   ],
+   "sdio": [
+    "glenn.delahoy.com"
+   ]
+  },
+  "update_backups": "%LOCALAPPDATA%\\\\AGFO\\\\SystemCare\\\\update-backups (en son 3)",
+  "update_package": "Surum ZIP; kok: app.pyw + care_core.py + care_tasks.ps1 (+ care_tweaks.py, care_catalog.py 3.7.0+) (+ istege bagli MANIFEST.json {app, version, files: {rel: sha256}})",
+  "controller_scope": "Yalnizca Xbox kol/adaptor: Microsoft VID 045E + XBOX_PIDS/XBOX_ADAPTER_PIDS, adinda \"Xbox\", XboxComposite/XnaComposite sinifi veya XBOXGIP\\ (care_core.controller_is_xbox == care_tasks.ps1 IsXboxDevice)",
+  "fc_settings_reset": "%LOCALAPPDATA%\\EA SPORTS FC <en yeni>\\settings\\Settings* -> ayni klasorde settings_backup_<zaman>[-n]/ (kopya boyutu dogrulanmadan silinmez)",
+  "tweaks_catalog": "care_catalog.py: WinCleaner v2.6.0 (MIT) katalogundan kayit/gorev/hizmet/guc plani ayarlari + 28 hizmet + 5 on ayar + 159 WinGet uygulamasi; serbest komut (bcdedit/netsh/betik) yok; INSTALL_APPS: 159 WinCleaner + 99 GitHub populer acik kaynak (winget-pkgs ile dogrulandi)",
+  "tweaks_journal": "%LOCALAPPDATA%\\AGFO\\SystemCare\\tweaks-journal.json (son 60 oturum; her islemin ONCEKI durumu, geri alma birebir)",
+  "tweaks_plans": "%LOCALAPPDATA%\\AGFO\\SystemCare\\plans\\*.json (son 20)",
+  "navigation": "Sol menu (NavBook): Genel / Temizlik / Sistem / Uygulamalar / Donanim gruplari; ttk.Notebook arayuzu (add/select/tab/index/<<NotebookTabChanged>>) korunur; son acilan sayfa settings.last_page",
+  "themes": "care_theme.THEMES (12 palet); settings.theme; canli degisim (tk bilesenleri jetonla yeniden boyanir, ttk bilesenleri ttkbootstrap/clam ile)",
+  "modern_ui": "ttkbootstrap 2.2.7 -> %LOCALAPPDATA%\\AGFO\\SystemCare\\ui-lib (pip --target; Python 3.10+); yoksa klasik clam; settings.modern_ui",
+  "organizer": "organizer_core.py = smart-organizer/organizer_core.py (birebir); gunluk %LOCALAPPDATA%\\AGFO\\SmartOrganizer\\moves.sqlite3 (bagimsiz Smart Organizer ile ortak)",
+  "app_icons": "care_icons.py: logolar pakette yok; kullanicinin PC'sinde INSTALL_APPS.site adresinden (https, apple-touch-icon > png simge > favicon.ico) indirilir -> %LOCALAPPDATA%\\AGFO\\SystemCare\\app-icons (48/20 px PNG, index.json; basarisiz 30 gun denenmez); yalnizca Uygulama kur sayfasi buyuk simge gorunumunde acilinca",
+  "install_view": "settings.install_view = grid | list; secim iki gorunum arasinda esitlenir",
+  "app_update_recovery": "Uygulama guncellemeleri: sessiz (--silent) -> basarisizsa bir kez pencereli (--interactive); uygulama acik -> \"Uygulama acik\"; farkli kurulum turu / 0x8A150114 -> \"Yeniden kurulmali\" + Kaldirip yeniden kur (winget uninstall + install); Ayrinti sutunu WinGet nedenini gosterir",
+  "vpn": "WireGuard for Windows (WireGuard.WireGuard): wireguard.exe /installtunnelservice <Data\\Configurations\\ad.conf[.dpapi]> ve /uninstalltunnelservice <ad>; tek etkin tunel; meta %LOCALAPPDATA%\\AGFO\\SystemCare\\vpn-tunnels.json (anahtar yok); gecikme ping; gorunen IP https://ifconfig.co/json; vpn-status: WireGuardTunnel$* hizmetleri + wg show dump",
+  "vpngate": "VPN Gate (https://www.vpngate.net/api/iphone/, 1 saat onbellek vpngate/list.csv); OpenVPN Community (OpenVPNTechnologies.OpenVPN) openvpn.exe --config current.ovpn --log openvpn.log; betik/eklenti calistiran yonergeler atilir; auth-user-pass -> auth.txt (vpn/vpn); surec PID settings.vpngate_active; tek VPN",
+  "tailscale": "Tailscale (Tailscale.Tailscale) cikis noktalari: tailscale status --json, set --exit-node=<ip> --exit-node-allow-lan-access=true, set --exit-node=, set --advertise-exit-node; UGREEN Docker Compose (hostname ugreen-turkiye, Turk IP) ve Hetzner kurulum komutu (hetzner-cikis, yabanci IP) panoya; tek VPN kurali (WireGuard/OpenVPN kapatilir)",
+  "ai_manager": {
+   "endpoint": "/wp-json/agfo-ai/v1/editor/chat (yoksa /?rest_route=), ping/info",
+   "auth": "X-AGFO-Editor-Token: agfoed.<uid>.<id>.<secret> (AI Editor ile ayni anahtar turu)",
+   "profile": "system_care (AI Manager 17.16+; eskide instruction ile)",
+   "storage": "settings.json > ai {url, token(dpapi), user, password(dpapi), mask, source}; depoya/paket icine girmez",
+   "privacy": "build_document + mask_private: kullanici/bilgisayar adi, e-posta, seri no, MAC, genel IP, anahtarlar maskelenir; yerel/Tailscale IP kalir",
+   "limits": "document <= 58000, mesaj <= 19000, son 12 tur"
+  }
+ },
+ "removed_surfaces": [
+  {
+   "what": "sdio-open / bcu-open (web sayfasi acan dugmeler)",
+   "reason": "Kullanici istegi: motorlar uygulama icine entegre edildi",
+   "replaced_by": "Suruculer > SDIO paneli, Programlar sekmesi, Motorlar sekmesi"
+  },
+  {
+   "what": "bb-check / bb-preview / bb-clean (yalnizca system.tmp)",
+   "replaced_by": "Temizlik sekmesi - tum temizleyiciler secilebilir"
+  },
+  {
+   "what": "driver-install (tum suruculer)",
+   "replaced_by": "driver-install -UpdateIds (yalnizca isaretlenenler); -UpdateIds verilmezse eski davranis"
+  },
+  {
+   "what": "Suruculer sekmesindeki ayri \"Windows Update ile tara / Sorunlu aygitlar / Kurulu suruculer\" dugmeleri",
+   "replaced_by": "Surucu Merkezi tek tarama + suzgecler (eylemler care_tasks.ps1 icinde korunuyor)"
+  }
+ ],
+ "tests": [
+  {
+   "id": "SC-001",
+   "purpose": "app.pyw ve care_core.py Python 3.11/3.12/3.13 ile derlenir",
+   "type": "py_compile",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-002",
+   "purpose": "care_tasks.ps1 ve install_windows.ps1 PowerShell AST hatasiz",
+   "type": "ps_parse",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-003",
+   "purpose": "app.pyw icindeki tum ps_cmd eylemleri care_tasks.ps1 ValidateSet ile birebir",
+   "type": "contract",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-004",
+   "purpose": "Runner akis: BOM, \\r ilerleme, NUL, UTF-8, @@JSON veri, bozuk veri uyarisi, cikis kodu, gunlukte tek ilerleme karesi, zincir durdurma",
+   "type": "unit",
+   "script": "tests/test_runner_stream.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-010",
+   "purpose": "WinGet tablo ayristirici EN/TR, ozet satiri ve bos cikti",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-011",
+   "purpose": "BleachBit temizleyici ayristirma; riskli secenekler varsayilan secilmez",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-012",
+   "purpose": "Program kaydi suzme (guncelleme/sistem bileseni), MSI urun kodu, sessiz/normal kaldirma komutu, yetim tespiti",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-013",
+   "purpose": "Artik klasor onerisi yalnizca kesin eslesme; kok klasor ve baska programin konumu asla onerilmez",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-014",
+   "purpose": "BCU export XML ayristirma ve birlestirme (sema bagimsiz)",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-015",
+   "purpose": "SDIO betikleri: analiz kipinde install/restorepoint yok, enableinstall off; kurulumda restorepoint -> select -> install sirasi; yalnizca Reference Manual komutlari; bos kategori ve bosluklu yol reddedilir",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-016",
+   "purpose": "Motor bulma: WinGet Packages altinda en yeni SDIO_x64_R*.exe secilir",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-020",
+   "purpose": "GUI uctan uca (Xvfb, gercek Tk): 6 sekme; motor kurulum zinciri; BleachBit yukle/oneri/grup isaretleme/onizleme yalnizca secilenler/temizlik onayi; program arama/suzgec/siralama/sessiz kaldirma/yetim atlama/yeniden tarama/artik penceresi/geri donusum cagrisi; WU yalnizca secili UpdateIds; surucu envanteri gruplu; sorunlu aygit; SDIO analiz gunluk izleme ve betik; WinGet yalnizca secili guncelleme ve durum sutunu; Bakim gercek pwsh; Durdur; dugmelerin yeniden etkinlesmesi; kaynakta webbrowser yok",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "covers": [
+    "button:*"
+   ],
+   "required_for_package": true
+  },
+  {
+   "id": "SC-021",
+   "purpose": "recycle-paths: kok/sistem/kisa yol reddedilir, olmayan yol bildirilir, kalici silme yapilmaz; bos ortam degiskeninde cokmez",
+   "type": "runtime_pwsh",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-022",
+   "purpose": "temp-preview/temp-clean gercek pwsh ile",
+   "type": "runtime_pwsh",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-017",
+   "purpose": "Surucu eslestirme: HWID > uyumlu kimlik; HWID varken genel surucu 'daha zayif'; kod 28 eksik; kod 43 sorunlu; kod 45 bilgi; eslesmeyen adaylar ayri; sayaclar; guncellemeler en ustte",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-018",
+   "purpose": "Surum karsilastirma (uzunluk farki, tarih yedegi) ve WU basligindan surum ayristirma",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-019",
+   "purpose": "Indirme: yalnizca https + izinli alan adi (sonek hilesi reddi), SHA-256, boyut siniri, hata halinde .part silinir; BleachBit kararli surum secimi; BCU portable asset + digest; SDIO zip baglantisi",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-023",
+   "purpose": "Tasinabilir kurulum: zip-slip reddi, eksik exe'de geri alma, yerinde guncelleme, gecici zip temizligi",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-024",
+   "purpose": "GUI: BleachBit eksik -> 'Eksik motorlari kur' tasinabilir paketle WinGet'siz kurar; tasinabilir basarisizsa WinGet '/S /allusers' denenir ve anlasilir hata yazar",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-025",
+   "purpose": "GUI Surucu Merkezi: sayaclar, aygit satiri (kurulu/yeni surum), SDIO tarzi aday satirlari ve durumlari, onerilenler varsayilan isaretli, suzgec/arama, secimin suzgec degisiminde korunmasi, ayrinti paneli, geri yukleme noktasi -> yalnizca isaretli UpdateIds -> yeniden tarama",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-026",
+   "purpose": "BleachBit: /get/ HTML sayfasi degil dogrudan dosya adresi; yayinci sha256sum dosyasi ile dogrulama; HTML donerse acik mesaj; ozetsiz bilinmeyen surum kurulmaz",
+   "type": "unit+gui",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-027",
+   "purpose": "WinGet 0x8A15002B/0x8A150061/0x8A15010D 'zaten kurulu': motor kayit defterinden bulunursa kullanilir, bulunamazsa kayitli konumla acik aciklama; kayit defteri kesfi (InstallLocation/kaldirici/simge)",
+   "type": "unit+gui",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-028",
+   "purpose": "Bloatware katalogu: onerilen/dikkat/korunan/diger; Photos ve DevHome genel Windows kuralina takilmaz; NonRemovable ve System imzali paketler korunur; Win32 desenleri; yetim kayitlar dislanir",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-029",
+   "purpose": "appx-remove: Store, WinGet, VCLibs, codec, surucu yardimcisi, sistem ve Guvenlik paketleri PowerShell tarafinda reddedilir (gercek pwsh); korumasiz paketler kaldirma adimina ulasir",
+   "type": "runtime_pwsh",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-030",
+   "purpose": "GUI Bloatware: gruplar ve sayaclar, onerilenler varsayilan isaretli, korunanlar gizli ve secilemez (grup isareti/tumunu sec ile bile), arama/suzgecte secim korunur, yalnizca isaretli PackageFullName'ler, Provisioned bayragi, once geri yukleme noktasi, Win32 kaldirici, yeniden tarama",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-031",
+   "purpose": "Guncelleme denetimi: gecerli/duz/eski/MANIFEST'siz paket; degistirilmis dosya (SHA), zip-slip, baska ZIP, eksik zorunlu dosya, bozuk ZIP reddi; tests/.cmd kuruluma girmez",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-032",
+   "purpose": "Guncelleme uygulama: yedek, atomik kopya, eski modul temizligi, VERSION, __pycache__; sozdizimi hatali paket on kontrolde durur; yarida kesilen kurulum otomatik geri alinir; surume geri donus; en fazla 3 yedek; ayni saniyede iki islemde yedek adi cakismasi",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-033",
+   "purpose": "GUI Guncelleme: degistirilmis paket reddedilir ve Uygula kapali kalir; gecerli 3.3.1 paketi denetim listesi (surum, MANIFEST, Python derleme, gercek pwsh sozdizimi) -> Uygula; baska isler Uygula durumunu bozmaz; kurulum kopyasina uygulanir, yedek listelenir, gecmis yazilir; yedege donus; kapatilan pencereden sonra cokme yok",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-034",
+   "purpose": "GitHub tek tik: sahte API ile bant gorunur; bozuk indirme (SHA) reddedilir ve kurulum degismez; gecerli 3.4.1 indirilip denetlenir, kurulur; bant gizlenir; indirme temizlenir; durum kaydedilir. Arka plan sonucu ana is parcacigina kuyrukla aktarilir.",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-035",
+   "purpose": "Aygit temizligi: son gorulme = max(baglanma, ayrilma, kayit yazma); yas; gelecek tarih 0; ROOT/SWD/System 'dikkat' ve secilmez; 30+ gun varsayilan; istatistik",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-036",
+   "purpose": "GUI aygit temizligi: gruplar, sayaclar, varsayilan secim, dikkat etiketi, suzgec/arama ve secimin korunmasi, yalnizca isaretli InstanceId'ler, once 24 saat sinirini asan geri yukleme noktasi, yeniden tarama",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-037",
+   "purpose": "Kol algilama: USB/Bluetooth(VID&02045E)/Xbox Wireless Adapter/XBOXGIP kimlikleri dogru yola ayrilir; Microsoft fare/klavye ve baska ureticiler asla kol sayilmaz; listede tekrar elenir, sorunlu bilesen once; istatistik",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-038",
+   "purpose": "Kol tanisi: kol yok / surucu sorunu / yalniz Bluetooth (FC 27 + Steam Input uyarisi, bthserv durmus) / USB / adaptor / XInput yok / yuvasiz / FC klasoru yok dallari; XInput tus/pil/kayma yardimcilari; Windows disinda XInputReader guvenli",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-039",
+   "purpose": "FC ayar sifirlama: en yeni 'EA SPORTS FC nn' klasoru surum sirasiyla secilir; yalnizca Settings* dosyalari yedeklenip silinir, digerleri korunur; ayni saniyede ikinci yedek oncekini ezmez. Sozlesme: ValidateSet/uygulama eylem listeleri/yonetici eylemleri ve iki taraftaki urun kimligi listesi birebir; controller-reset Xbox olmayani reddeder",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-040",
+   "purpose": "GUI Kol / Gamepad: sekme var; XInput yokken canli test mesaji; tarama yalnizca Xbox satirlari (fare elenir), sayaclar, Baglanti sutunu, sorunlu satir once ve isaretli, tani metni; surucu sifirlama yalnizca isaretli InstanceId'ler (isaretsizse tum Xbox satirlari, fare asla) ve ardindan yeniden tarama; Bluetooth hizmeti yeniden baslatma + tarama; FC ayarlari en yeni klasorde yedeklenip sifirlanir, ikinci denemede bilgi verilir; Windows disinda kisayollar guvenli",
+   "type": "gui_runtime",
+   "script": "tests/gui_smoke.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-W01",
+   "purpose": "Windows: BleachBit tasinabilir 6.0.4 indirilir, motor klasorune acilir, --list-cleaners calisir",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W02",
+   "purpose": "Windows: driver-analyze gercek aygitlari ve WU adaylarini getirir; DriverHardwareID eslesmesi gercek verilerde dogru",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W03",
+   "purpose": "Windows: tek secili WU surucusu geri yukleme noktasindan sonra kurulur",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W04",
+   "purpose": "Windows: BCU WinGet + portable yedek yolu; SDIO portable yedek yolu (sayfa baglanti bicimi)",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W05",
+   "purpose": "Windows: gercek NSIS/Inno kaldiricilari, BCU export XML, SDIO betik kipi gunlugu",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W06",
+   "purpose": "Windows: 150% DPI yerlesim",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W07",
+   "purpose": "Windows: appx-list gercek paketleri getirir; onerilen bir paket kaldirilir ve Store'dan geri kurulabilir; provisioned kaldirma yonetici ile calisir",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W08",
+   "purpose": "Windows: kurulu uygulamada Guncelleme ile yeni ZIP uygulanir, uygulama yeniden baslar; yedege donus calisir",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W09",
+   "purpose": "Windows: phantom-list gercek bagli olmayan aygitlari getirir; pnputil /remove-device ile bir USB bellek kaydi kaldirilir; bagli aygit reddedilir; zorlanmis geri yukleme noktasi olusur ve frekans degeri geri yuklenir",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W10",
+   "purpose": "Windows: gercek Xbox kolu USB ve Bluetooth ile controller-list dogru yolu ve durumu gosterir; canli testte tuslar/analoglar/tetikler/pil; controller-reset (yonetici) sonrasi kol yeniden taninir; bt-restart eslestirmeyi korur; Xbox Accessories ve Steam kumanda ayarlari acilir",
+   "type": "windows_runtime",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-070",
+   "purpose": "Ince ayar katalogu: kimlik tekilligi, kategori/risk/tur, kayit kovani ve deger turu, her oge icin uygula/varsayilan plani dogrulanir, on ayarlar bilinen kimlikler, engelli hizmetler (RpcSs, DcomLaunch, WinDefend) on ayara girmez",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-071",
+   "purpose": "Durum tespiti: kayit (cok degerli, istege bagli, deger silme, tum alt anahtarlar), hizmet, gorev, guc plani; uygulanmis/kismen/uygulanmamis/bilinmiyor/yok",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-072",
+   "purpose": "Yazma plani + gunluk + geri alma: onceki deger birebir, yeni anahtar bosalirsa temizlenir, basarisiz islem geri alinmaz, ters sira, hizmet/gorev/guc/DNS geri alma",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-073",
+   "purpose": "Plan dogrulama gecersiz kovan/yol/tur/CLSID disi anahtar silme/gorev yolu/guc GUID/DNS/bilinmeyen islemi reddeder; PowerShell tarafi da CLSID ve \\Microsoft\\Windows\\ sinirini uygular",
+   "type": "unit+contract",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-074",
+   "purpose": "Profil disa/ice aktarma (kendi bicimi + WinCleaner tweakIds/serviceIds), WinGet kesik kimlik eslesmesi, kurulum katalogu gruplari",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-075",
+   "purpose": "Yeni dosyalar (care_tweaks.py, care_catalog.py) MANIFEST ve install_windows.ps1 listesinde; surum care_core.py'den okunur",
+   "type": "contract",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-W70",
+   "purpose": "Windows: Gamer Modu on ayarini uygula -> Durumu oku -> Son degisikligi geri al; kayit degerleri ve hizmet baslangic turleri onceki haline doner",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W71",
+   "purpose": "Windows: DNS Cloudflare -> Gecmisten geri al (DHCP veya onceki elle girilmis adresler geri gelir)",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-080",
+   "purpose": "Tema paletleri: 16 renk, metin/menu karsitligi >= 4.5, uyari/basari/hata >= 3, dugme yazisi okunur, jeton renkleri tekil (canli tema degisimi icin)",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-081",
+   "purpose": "ttkbootstrap yukleyici: kapali / kurulu degil / Python surumu; pip --target komutu; pythonw -> python.exe",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-082",
+   "purpose": "organizer_core.py Smart Organizer ile birebir; yeni dosyalar MANIFEST ve kurulum listesinde; sol menu sirasi; ttk.Notebook yok; tum dugmeler mkbtn",
+   "type": "contract",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-083",
+   "purpose": "Xvfb GUI (klasik ve modern): 12 sayfa sirasi, son sayfa, her sayfaya gecis tek cerceve gorunur, Notebook uyumu, 12 temanin canli uygulanmasi (gunluk, pencere, menu, liste etiket renkleri), Dosya duzeni analiz -> kabul -> tasima -> geri alma",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W80",
+   "purpose": "Windows: Kur-ve-Baslat.cmd ttkbootstrap'i ui-lib klasorune kurar; modern gorunum acilir; internet yokken klasik gorunumle acilir",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-090",
+   "purpose": "Logo: sayfadaki simge baglantilarinin siralamasi (apple-touch, boyut, ico sonda, svg/http yok, base href), HTML donen aday atlanir, kucuk gorsel reddedilir, basarisizlik 30 gun yeniden denenmez, site adresi bicimi, https disi reddedilir",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-091",
+   "purpose": "GUI: Uygulama kur varsayilan buyuk simge, 159 kutucuk, sahte logolar yuklenir, sitesi olmayan denenmez, kutucuk secimi, arama, liste<->kutucuk secim esitlemesi, listede kucuk logo, tema degisiminde kutucuk renkleri",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W90",
+   "purpose": "Windows: gercek sitelerden logo indirme orani; Cloudflare vb. engelleyen sitelerde harf simgesine dusme",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-100",
+   "purpose": "upgrade_next_step / winget_failure_reason: ok, yeniden baslatma, guncel, uygulama acik, pencereli deneme, karma uyusmazligi, farkli kurulum turu (metin ve 0x8A150114), ilerleme cubugu satirlari ayiklanir",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-101",
+   "purpose": "GUI: sahte winget ile Opera sessiz basarisiz -> pencereli basarili; WordCraft farkli kurulum turu -> Yeniden kurulmali -> Kaldirip yeniden kur -> Guncellendi",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-102",
+   "purpose": "Katalog: 258 uygulama, kimlikler tekil, GitHub eklerinin varligi, UniGetUI Devolutions kimligi, Yapay zeka kategorisi",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-103",
+   "purpose": "0x8A15002B + \"does not apply to your system or requirements\" (Skywork) -> Yeniden kurulmali; yalin 0x8A15002B -> Zaten guncel olabilir",
+   "type": "unit+gui",
+   "script": "tests/test_core.py, tests/test_gui_nav.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-104",
+   "purpose": "Kaldirip yeniden kur: sessiz kaldirma 1603 -> pencereli kaldirma -> o da olmazsa winget install --force ile uzerine kurulum; aciklama satira yazilir",
+   "type": "unit+gui",
+   "script": "tests/test_core.py, tests/test_gui_nav.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-110",
+   "purpose": "WireGuard .conf ayristirma (IPv4/IPv6 endpoint, tam tunel, eksik anahtar/endpoint reddi), dosya adindan ulke (Proton/Mullvad bicimleri), tunel adi (32 karakter, cakisma), ping (EN/TR/Unix), wg dump, ifconfig.co, .conf.dpapi onceligi",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-111",
+   "purpose": "GUI: sahte WireGuard + sahte ping ile ice aktarma (bozuk dosya reddi), ulke suzgeci, en hizliya baglanma, tunel degistirmede eskisini kaldirma, silme, meta dosyasinda ozel anahtar yok",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W110",
+   "purpose": "Windows: gercek WireGuard ile Proton/Mullvad .conf ice aktarma, baglanma, gorunen IP ulkesi, kesme; WireGuard yoneticisi .conf.dpapi donusumu sonrasi baglanma",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-120",
+   "purpose": "VPN Gate CSV ayristirma, OpenVPN yapilandirmasi temizleme (script-security/up/route-up/plugin/log atilir, sertifika blogu korunur), auth dosyasi, durum",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-121",
+   "purpose": "GUI: onbellekten VPN Gate listesi, ulke suzgeci, en hizliya baglan (sahte OpenVPN), durum satiri, PID kaydi, kesme",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W120",
+   "purpose": "Windows: gercek VPN Gate listesi ve OpenVPN 2.7 ile baglanma, gorunen IP ulkesi; Turkiye den vpngate.net erisimi",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-130",
+   "purpose": "tailscale status --json ayristirma (yalnizca cikis noktalari, cevrimici/aktif, Mullvad konumu, IPv4 secimi, yayinlama), komutlar, UGREEN compose ve Hetzner betigi icerigi",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-131",
+   "purpose": "GUI: sahte tailscale.exe ile dugum listesi, cikis secimi (set --exit-node), durum satiri, UGREEN ayarini panoya kopyalama, cikisi kapatma",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W130",
+   "purpose": "Windows + UGREEN NAS (Docker) + Hetzner: yurt disinda ugreen-turkiye ile Turk IP, Turkiye de hetzner-cikis ile yabanci IP; gorunen IP denetimi",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-140",
+   "purpose": "SuperTools modulleri supertools/ ile bayt bayt ayni, manifest/kurulum listesinde; SSH profili, DPAPI kasasi ve tarama ayarlari yalnizca %LOCALAPPDATA% altinda; depo gizlilik denetimi (kisisel kayit dosyasi, ozel anahtar, bilinen kisisel adres yok)",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-141",
+   "purpose": "GUI: Ag tarayici (sonuc satirlari, etiketler), taramadan SSH profili, profilin yerel klasore kaydi, kayitli sunucuda komut (baglaninca gonderme), VPN > Hetzner komutunu SSH ile calistirma, tema degisiminde ag sayfalari",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W140",
+   "purpose": "Windows: gercek ag taramasi, SMB acma, Paramiko ile dahili SSH (parola + DPAPI), SuperTools kayitlarinin System Care'de gorunmesi, NAS/Hetzner cikis komutunun SSH oturumundan calismasi",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-150",
+   "purpose": "Kod bolunmesi: kurulum listesi her kok modulu icerir, manifest sc_*.py dosyalarini tasir, sozlesme testleri tum modulleri okur",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-151",
+   "purpose": "GUI: Genel bakis kartlari ve saglik puani, Sistem ozeti bolumleri, Aygit yoneticisi gruplari/sorun metni/islem komutu, Disk sagligi karari, HTML rapor",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-152",
+   "purpose": "Yetki modeli: hangi isin tek basina UAC ile yukseltilecegi (ADMIN_ACTIONS, admin=True, yalniz Windows)",
+   "type": "unit",
+   "script": "tests/test_runner_stream.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-153",
+   "purpose": "Gercek Windows (CI): hw-inventory, disk-health, pnp-list, overview, sensors ve eski salt-okunur eylemler; care_elevated.ps1 arguman aktarimi; Runner UAC yolu; uctan uca arayuz",
+   "type": "windows_ci",
+   "script": "tests/test_windows.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-154",
+   "purpose": "Hazir calisma ortami (PyInstaller): exe oz-denetimi 21 sayfa, modern gorunum, gomulu ttkbootstrap/PIL/paramiko",
+   "type": "windows_ci",
+   "script": ".github/workflows/ci.yml",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W150",
+   "purpose": "Windows 10/11 gercek makine: UAC onayiyla surucu/aygit/ince ayar islemleri, Windows paketinin kurulumu ve uygulama ici guncelleme, LibreHardwareMonitor sensorleri",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-160",
+   "purpose": "Uretici tanima ve destek baglantilari (Dell servis etiketi, ASUS model sayfasi, HP/Lenovo panoya seri, ozel masaustu -> anakart ureticisi, bilinmeyen -> arama), uretici araclari",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-161",
+   "purpose": "NVIDIA: surum donusumu, GPU adi temizleme, urun ailesi kimligi (paketteki veri), isletim sistemi kimligi, surucu servisi yaniti ayristirma, kurulum/yalin kurulum/DDU komutlari, setup.cfg temizligi",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-162",
+   "purpose": "GUI: Uretici destegi sayfasi (dogrudan sayfa, panoya seri, araclar), NVIDIA sayfasi (guncelleme durumu, agac, kaldirma/7-Zip/indir-imza/DDU is zincirleri), kaydirilabilir menu",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-163",
+   "purpose": "Gercek Windows (CI): oem-info, nvidia-info, NVIDIA surucu servisinden cevrim ici son surum (RTX 4070), Authenticode imza denetimi",
+   "type": "windows_ci",
+   "script": "tests/test_windows.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-W160",
+   "purpose": "Gercek NVIDIA kartli bilgisayar: indir-imza-kur (tam ve yalin), NVIDIA kaldiricisi, pnputil, DDU; farkli ureticilerde destek sayfalari",
+   "type": "manual_windows",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-170",
+   "purpose": "Otomatik guncelleme modu (Lenovo/Dell/diger), PowerShell eylemleri, NVIDIA icin buyuk indirme izni (max_bytes)",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-171",
+   "purpose": "GUI: Lenovo guncelleme listesi (varsayilan secim: sessiz ve BIOS disi), kurulum komutu, Dell tarama/kurulum, diger ureticide Windows Update yonlendirmesi",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-172",
+   "purpose": "Gercek Windows (CI): LSUClient PowerShell Galerisi'nden kurulur ve gercek Lenovo katalogu (ThinkPad 20XW) okunur; DCU yoksa dell-scan 3 doner",
+   "type": "windows_ci",
+   "script": "tests/test_windows.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-180",
+   "purpose": "Surec/servis kritik listeleri, suzgecler, baslangic komutundan yol, yonetici ayrimi, ItemsB64 aktarimi, PowerShell eylemleri",
+   "type": "unit",
+   "script": "tests/test_core.py",
+   "required_for_package": true
+  },
+  {
+   "id": "SC-181",
+   "purpose": "GUI: surec listesi suzgecleri ve kritik sureci sonlandirmama, servis listesi ve kritik servisi devre disi birakmama, baslangic kullanici/yonetici is ayrimi",
+   "type": "gui",
+   "script": "tests/test_gui_nav.py",
+   "required_for_package": false
+  },
+  {
+   "id": "SC-182",
+   "purpose": "Gercek Windows (CI): proc-list, proc-kill (gercek sureci sonlandirir, System'i reddeder), svc-list, kritik servis korumasi, HKCU Run ogesini kapatip acma",
+   "type": "windows_ci",
+   "script": "tests/test_windows.py",
+   "required_for_package": false
+  }
+ ]
 }

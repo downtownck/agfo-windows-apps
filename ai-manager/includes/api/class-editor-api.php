@@ -26,6 +26,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
         public const MAX_CHARS     = 60000;
         public const MAX_MESSAGES  = 40;
         public const MAX_MSG_CHARS = 20000;
+        public const PROFILES      = [ 'editor', 'system_care' ]; // NEW 17.16.0
 
         public const AUTH_HEADER   = 'HTTP_X_AGFO_EDITOR_AUTH';
 
@@ -167,6 +168,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                 'plugin_version'  => defined( 'AGFO_AIM_VERSION' ) ? AGFO_AIM_VERSION : '',
                 'api_version'     => self::API_VERSION,
                 'token_auth'      => class_exists( 'AGFO_AIM_Editor_Tokens' ),
+                'profiles'        => self::PROFILES,
                 'app_passwords'   => $app_pw,
                 'https'           => function_exists( 'is_ssl' ) ? (bool) is_ssl() : null,
                 'received'        => [
@@ -275,6 +277,15 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
                     'default'           => 2400,
                     'validate_callback' => function ( $v ) {
                         return is_numeric( $v ) && (int) $v >= 256 && (int) $v <= 8000;
+                    },
+                ],
+                // NEW 17.16.0: which app is asking (AGFO AI Editor or AGFO System Care).
+                'profile'     => [
+                    'type'              => 'string',
+                    'required'          => false,
+                    'default'           => 'editor',
+                    'validate_callback' => function ( $v ) {
+                        return is_string( $v ) && in_array( $v, self::PROFILES, true );
                     },
                 ],
                 'instruction' => [
@@ -413,6 +424,7 @@ if ( ! class_exists( 'AGFO_AIM_Editor_API' ) ) {
             $result   = AGFO_AIM_Content_Transformer::chat( $messages, $document, [
                 'instruction'       => (string) ( $request->get_param( 'instruction' ) ?? '' ),
                 'max_output_tokens' => max( 256, min( 8000, $max ?: 2400 ) ),
+                'profile'           => in_array( (string) $request->get_param( 'profile' ), self::PROFILES, true ) ? (string) $request->get_param( 'profile' ) : 'editor',
             ] );
             if ( is_wp_error( $result ) ) {
                 return self::rest_error( $result );

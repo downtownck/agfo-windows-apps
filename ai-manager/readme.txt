@@ -3,7 +3,7 @@ Contributors: agfocert
 Tags: ai, image-generation, featured-image, music-generation, tts, gemini, wordpress
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 17.15.0
+Stable tag: 17.16.0
 License: GPL-2.0-or-later
 
 Central AI provider, capability, persistent job, private asset and budget management for the AGFO ecosystem.
@@ -43,6 +43,10 @@ Existing public agfo_* APIs, AJAX action names, option keys and data/data.json r
 * Added agfo_content_generate_structured() with JSON Schema Structured Outputs for trusted AGFO plugin integrations.
 * Academy Content Studio timeout is capped at 60 seconds; general content transformations at 45 seconds.
 * Added elapsed time, finish reason and reasoning-token diagnostics.
+
+= 17.16.0 =
+* Yeni: AGFO System Care (Windows bakım uygulaması) aynı bağlantı anahtarıyla AI Manager'a bağlanır. /editor/chat ucu `profile=system_care` ile Windows bakım asistanı istemini kullanır; günlükte kaynak "agfo-system-care" olarak görünür.
+* /editor/ping yanıtı desteklenen profilleri (`profiles`) bildirir.
 
 = 17.15.0 =
 * OpenRouter seslendirme sağlayıcısı (/api/v1/audio/speech): tek OpenRouter anahtarıyla Gemini TTS, Grok Voice, Kokoro, OpenAI ve sesini bildiğimiz diğer modeller. Model listesi OpenRouter'dan alınır, sesler modele göre listelenir (voice_ids). Yalnız PCM veren modellerde ses WAV'a sarılır, FFmpeg varsa MP3'e çevrilir; hız desteklemeyen modelde hızsız yeniden denenir. Ses Stüdyosu'nda OpenRouter paneli, AI Editor'de (2.15.0) OpenRouter sağlayıcısı. Otomatik yönlendirme OpenRouter'ı yalnız açıkça seçildiğinde kullanır.

@@ -80,8 +80,8 @@ ok( 'K15 max 10 keys per user', is_wp_error( $K::create( 9 ) ) );
 
 $_SERVER['HTTP_X_AGFO_EDITOR_TOKEN'] = 'x';
 $p = AGFO_AIM_Editor_API::rest_ping()->data;
-ok( 'K16 ping: version + booleans only', $p['plugin_version'] === '17.5.0' && $p['token_auth'] === true && $p['received']['token'] === true
-    && $p['received']['authorization'] === false && $p['app_passwords'] === false && count( $p ) === 7 );
+ok( 'K16 ping: version + booleans + profile names only', $p['plugin_version'] === '17.5.0' && $p['token_auth'] === true && $p['received']['token'] === true
+    && $p['received']['authorization'] === false && $p['app_passwords'] === false && count( $p ) === 8 && $p['profiles'] === [ 'editor', 'system_care' ] );
 
 $key2 = $K::create( 5, 'det' );
 $_SERVER['HTTP_X_AGFO_EDITOR_TOKEN'] = $key2;
