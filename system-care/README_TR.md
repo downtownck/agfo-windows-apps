@@ -7,6 +7,12 @@
 
 İlk açılışta **Motorlar** sekmesindeki "Eksik motorları kur" düğmesine basın.
 
+## 4.3.1'de ne değişti — AI önerileri seçilip uygulanabilir
+AI asistanın yanıtındaki uygulanabilir öneriler sohbetin altında **Önerilen işlemler** listesinde çıkar: başlangıç öğesini devre dışı bırakma/etkinleştirme, servis başlatma/durdurma/başlangıç türü, süreç sonlandırma, uygulama sayfası ya da Windows ayarı açma.
+- Her öneri uygulamanın gerçek listeleriyle eşleştirilir. Listede olmayan, zaten istenen durumda olan, Windows için gerekli servis/süreçlere dokunan öneriler gri görünür ve uygulanamaz; nedeni Durum sütunundadır.
+- AI'ın "güvenli" dediği öneriler hazır işaretli gelir; "dikkat" ve "riskli" olanları siz işaretlersiniz. **Seçilenleri uygula** önce tam listeyi onaya sunar, yönetici gerekenler için UAC ister, sonra listeleri yenileyip durumu günceller.
+- Başlangıç ve servis değişiklikleri geri alınabilir (ilgili sayfadan yeniden etkinleştirin).
+
 ## 4.3'te ne değişti — AI asistan (AGFO AI Manager bağlantısı)
 System Care, AGFO AI Editor gibi WordPress sitenizdeki **AGFO AI Manager**'a bağlanır. **Genel › AI asistan** sayfası:
 - **Bağlantı:** site adresi + bağlantı anahtarı (WordPress › AI Manager › *AI Editor / System Care bağlantısı* sayfasından oluşturulur). AI Editor bu bilgisayarda kuruluysa **AI Editor'ün bağlantısını kullan** tek tıkla aynı bağlantıyı alır. API anahtarları sitede kalır; bilgisayarda yalnız Windows DPAPI ile şifrelenmiş bağlantı anahtarı durur.

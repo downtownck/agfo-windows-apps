@@ -560,6 +560,58 @@ for _ in range(40):
 check('ai.context_masked', CALLS and 'chrome' in CALLS[0]['document'] and '<kullanıcı>' in CALLS[0]['messages'][-1]['content']
       and len(CALLS[0]['messages']) == 3 and app.ai_ctx['procs'].get(), CALLS[0]['messages'] if CALLS else None)
 check('ai.no_runner', not app.busy)
+# 4.3.1: uygulanabilir oneriler — secilebilir liste, dogrulama, onayla uygulama
+ACTS = [{'type': 'startup_disable', 'name': 'OrnekTray', 'risk': 'güvenli', 'why': 'gereksiz'},
+        {'type': 'startup_disable', 'name': 'OneDrive', 'risk': 'dikkat', 'why': 'eşitleme'},
+        {'type': 'startup_disable', 'name': 'Eski.lnk', 'risk': 'güvenli', 'why': 'x'},
+        {'type': 'service_disabled', 'name': 'RpcSs', 'risk': 'güvenli', 'why': 'yanlış öneri'},
+        {'type': 'service_manual', 'name': 'OrnekGuncelleme', 'risk': 'güvenli', 'why': 'gecikmeli'},
+        {'type': 'process_end', 'name': 'chrome', 'risk': 'dikkat', 'why': 'bellek'},
+        {'type': 'open_page', 'name': 'NVIDIA', 'risk': 'güvenli', 'why': 'sürücü'},
+        {'type': 'startup_disable', 'name': 'Yok Boyle', 'risk': 'güvenli', 'why': 'x'}]
+
+
+def _fake_chat2(self, messages, document='', max_tokens=4000, actions=True):
+    CALLS.append({'messages': messages})
+    return {'text': 'Önerilerim aşağıda.', 'actions': [dict(a) for a in ACTS], 'provider': 'OpenAI', 'model': 'gpt-test', 'truncated': False}
+
+
+_ai.ManagerClient.chat = _fake_chat2
+CALLS.clear()
+app.ai_ask('Açılışı hızlandır', ('startup',))
+for _ in range(60):
+    pump(0.05)
+    if not app.ai_busy and CALLS and app.ai_acts.labels:
+        break
+pump(0.2)
+P = app.ai_acts.payload
+rows = {P[i]['name']: P[i] for i in P}
+check('ai.actions_listed', app.ai_actbox.winfo_manager() == 'pack' and len(P) == 8 and app.ai_act_count.get() == '8 öneri · 5 uygulanabilir', (app.ai_act_count.get(), len(P)))
+check('ai.actions_validated', rows['OrnekTray']['ok'] and not rows['Eski.lnk']['ok'] and rows['Eski.lnk']['note'] == 'zaten devre dışı'
+      and not rows['RpcSs']['ok'] and 'gerekli' in rows['RpcSs']['note'] and not rows['Yok Boyle']['ok'] and rows['chrome']['ok'] and rows['NVIDIA']['ok'],
+      {k: (v['ok'], v['note']) for k, v in rows.items()})
+checked = sorted(P[i]['name'] for i in app.ai_acts.checked)
+check('ai.default_checked_safe_only', checked == ['NVIDIA', 'OrnekGuncelleme', 'OrnekTray'], checked)
+captured = []
+app.start = lambda jobs, quiet=False: captured.extend(jobs) or True
+import tkinter.messagebox as _mb
+_ask = _mb.askyesno
+asked = []
+sc_ai_mod = sys.modules['sc_ai']
+sc_ai_mod.messagebox.askyesno = lambda t, m: asked.append(m) or True
+app.ai_apply()
+cmds = [(j.title, j.cmd[j.cmd.index('-Action') + 1] if '-Action' in j.cmd else '', j.admin) for j in captured]
+st_items = _json.loads(_b64.b64decode(captured[0].cmd[captured[0].cmd.index('-ItemsB64') + 1])) if captured else []
+check('ai.apply_jobs', len(captured) == 2 and captured[0].admin and st_items == [{'scope': 'hklm-run', 'name': 'OrnekTray'}]
+      and 'svc-action' in captured[1].cmd and captured[1].cmd[-1] == 'manual' and asked and 'OrnekTray' in asked[0], (cmds, asked))
+captured.clear(); asked.clear()
+app.ai_acts.set_all(False); app.ai_acts.set_checked([i for i in P if P[i]['name'] == 'chrome'][0], True)
+app.ai_apply()
+kill = _json.loads(_b64.b64decode(captured[0].cmd[captured[0].cmd.index('-ItemsB64') + 1])) if captured else []
+check('ai.apply_kill', kill == [{'pid': 4120, 'name': 'chrome'}] and captured[0].cmd[-1] == 'kill', kill)
+sc_ai_mod.messagebox.askyesno = _ask
+app.start = real_start
+captured.clear()
 shot('ai')
 check('busy_free', not app.busy)
 app.destroy()

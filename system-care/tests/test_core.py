@@ -1458,4 +1458,45 @@ def ai_manager_client():
     assert "('AI asistan', self._tab_ai)" in src and 'AiPage' in src and "ai_ask_about('servisler'" in src
 
 
+@test
+def ai_actions():
+    """4.3.1: AI onerileri — AGFO_ACTIONS satiri ayrilir, beyaz liste, gercek kayitlarla dogrulama, kritik koruma."""
+    import care_ai as ai
+    txt = ('Öneriler:\n- Steam kapatılabilir.\n\nAGFO_ACTIONS: [{"type":"startup_disable","name":"Steam","risk":"Güvenli","why":"oyun"},'
+           '{"type":"format_disk","name":"C:","risk":"riskli"},{"type":"startup_disable","name":"steam"},{"type":"service_stop","name":"RpcSs"},'
+           '{"type":"service_disabled","name":"Ornek Updater","risk":"dikkat"},{"type":"process_end","name":"chrome.exe"},'
+           '{"type":"process_end","name":"lsass"},{"type":"open_page","name":"nvidia"},{"type":"open_settings","name":"ms-settings:display-advanced"},'
+           '{"type":"open_settings","name":"cmd.exe /c del"},{"type":"startup_enable","name":"Eski"}]')
+    body, acts = ai.parse_actions(txt)
+    assert body == 'Öneriler:\n- Steam kapatılabilir.' and 'AGFO_ACTIONS' not in body
+    assert [a['type'] for a in acts].count('startup_disable') == 1 and not any(a['type'] == 'format_disk' for a in acts) and acts[0]['risk'] == 'güvenli'
+    assert ai.parse_actions('x\n```json\nAGFO_ACTIONS: []\n```')[1] == [] and ai.parse_actions('metin\nAGFO_ACTIONS: [{"type":')[0] == 'metin'
+    assert ai.parse_actions('düz metin') == ('düz metin', [])
+    st = [{'name': 'Steam', 'scope': 'hkcu-run', 'enabled': True}, {'name': 'Eski.lnk', 'scope': 'common-folder', 'enabled': False}]
+    sv = [{'name': 'RpcSs', 'display': 'RPC', 'state': 'Running', 'start': 'Auto'},
+          {'name': 'OrnekUpd', 'display': 'Ornek Updater', 'state': 'Stopped', 'start': 'Auto'}]
+    pc = [{'pid': 10, 'name': 'chrome', 'session': 1, 'path': 'C:\\c.exe'}, {'pid': 11, 'name': 'chrome', 'session': 1, 'path': 'C:\\c.exe'},
+          {'pid': 700, 'name': 'lsass', 'session': 0}]
+    v = {(a['type'], a['name']): a for a in ai.validate_actions(acts, st, sv, pc, ['NVIDIA', 'Temizlik'])}
+    assert v[('startup_disable', 'Steam')]['ok'] and v[('startup_disable', 'Steam')]['targets'] == [st[0]]
+    assert not v[('service_stop', 'RpcSs')]['ok'] and 'gerekli' in v[('service_stop', 'RpcSs')]['note']
+    sd = v[('service_disabled', 'Ornek Updater')]
+    assert sd['ok'] and sd['targets'][0]['name'] == 'OrnekUpd'
+    assert v[('process_end', 'chrome.exe')]['ok'] and len(v[('process_end', 'chrome.exe')]['targets']) == 2
+    assert not v[('process_end', 'lsass')]['ok']
+    assert v[('open_page', 'nvidia')]['targets'] == ['NVIDIA'] and v[('open_settings', 'ms-settings:display-advanced')]['ok']
+    assert not v[('open_settings', 'cmd.exe /c del')]['ok']
+    en = v[('startup_enable', 'Eski')]
+    assert en['ok'] and en['targets'] == [st[1]] and 'UAC' in en['note']
+    assert ai.needed_lists(acts) == ['procs', 'services', 'startup']
+    sent = []
+    cl = ai.ManagerClient('https://agfo.example', 'agfoed.5.abcd1234.' + 'B' * 40, sleep=lambda s: None,
+                          request=lambda u, m='GET', h=None, p=None, t=0: sent.append(p) or (200, json.dumps({'text': txt}).encode(), {}))
+    r = cl.chat([{'role': 'user', 'content': 'x'}])
+    assert 'AGFO_ACTIONS' in sent[0]['instruction'] and len(sent[0]['instruction']) < 4000 and '<' not in sent[0]['instruction']
+    assert len(r['actions']) == len(acts) and 'AGFO_ACTIONS' not in r['text']
+    cl.chat([{'role': 'user', 'content': 'x'}], actions=False)
+    assert 'AGFO_ACTIONS' not in sent[1]['instruction']
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))

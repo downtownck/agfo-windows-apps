@@ -146,7 +146,8 @@
    "profile": "system_care (AI Manager 17.16+; eskide instruction ile)",
    "storage": "settings.json > ai {url, token(dpapi), user, password(dpapi), mask, source}; depoya/paket icine girmez",
    "privacy": "build_document + mask_private: kullanici/bilgisayar adi, e-posta, seri no, MAC, genel IP, anahtarlar maskelenir; yerel/Tailscale IP kalir",
-   "limits": "document <= 58000, mesaj <= 19000, son 12 tur"
+   "limits": "document <= 58000, mesaj <= 19000, son 12 tur",
+   "actions": "Yanit sonu tek satir: AGFO_ACTIONS: [{type,name,risk,why}]; type: startup_disable|startup_enable|service_stop|service_start|service_manual|service_disabled|service_auto|process_end|open_page|open_settings(ms-settings:)"
   }
  },
  "removed_surfaces": [
@@ -808,6 +809,13 @@
    "type": "windows_ci",
    "script": "tests/test_windows.py",
    "required_for_package": false
+  },
+  {
+   "id": "SC-092",
+   "purpose": "AI onerileri: AGFO_ACTIONS ayristirma, beyaz liste, gercek kayitlarla dogrulama, kritik servis/surec korumasi, varsayilan yalniz guvenli isaretli, onayli uygulama isleri",
+   "type": "unit+gui",
+   "script": "tests/test_core.py::ai_actions, tests/test_gui_nav.py",
+   "required_for_package": true
   }
  ]
 }

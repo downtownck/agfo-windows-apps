@@ -74,7 +74,27 @@ class AiPage:
         self._ai_tags()
         self.theme_hooks.append(self._ai_tags)
 
+        self.ai_actbox = tk.Frame(f, bg=PANEL)          # yanit uygulanabilir oneri dondurunce gorunur
+        ah = tk.Frame(self.ai_actbox, bg=PANEL); ah.pack(fill='x')
+        tk.Label(ah, text='Önerilen işlemler', fg=FG, bg=PANEL, font=('Segoe UI', 10, 'bold')).pack(side='left')
+        self.ai_act_count = tk.StringVar(value='')
+        tk.Label(ah, textvariable=self.ai_act_count, fg=MUTED, bg=PANEL, font=('Segoe UI', 9)).pack(side='left', padx=(8, 0))
+        self.ai_apply_btn = self.btn(ah, 'Seçilenleri uygula', self.ai_apply, 'go', side='right')
+        self.btn(ah, 'Gizle', lambda: self.ai_actbox.pack_forget(), 'ghost', action=False, side='right')
+        self.btn(ah, 'Hiçbiri', lambda: self.ai_acts.set_all(False), 'ghost', action=False, side='right')
+        self.btn(ah, 'Tümü', lambda: self.ai_acts.set_all(True), 'ghost', action=False, side='right')
+        self.btn(ah, 'Yalnız güvenliler', lambda: self.ai_acts.set_all(True, lambda i: (self.ai_acts.payload.get(i) or {}).get('risk') == 'güvenli'),
+                 'ghost', action=False, side='right')
+        tk.Label(self.ai_actbox, text='İşaretleyip "Seçilenleri uygula"ya basın. Uygulamadan önce liste onaya sunulur; başlangıç ve servis değişiklikleri '
+                                      'geri alınabilir (ilgili sayfadan yeniden etkinleştirin). Gri satırlar uygulanamaz: gerekçesi Durum sütununda.',
+                 fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left', wraplength=int(1040 * self.scale)).pack(fill='x', pady=(2, 4))
+        self.ai_acts = CheckTree(self.ai_actbox, [('act', 'İşlem', 200, 'w'), ('risk', 'Risk', 80, 'w'), ('state', 'Durum', 230, 'w'), ('why', 'Gerekçe', 420, 'w')],
+                                 first=('Hedef', int(230 * self.scale)), height=7)
+        self.ai_acts.pack(fill='both', expand=True)
+        self.ai_actions = []
+
         inp = tk.Frame(f, bg=PANEL); inp.pack(fill='x', padx=16, pady=(0, 12))
+        self.ai_inp = inp
         self.ai_q = tk.Text(inp, height=3, bg=PANEL2, fg=FG, insertbackground=FG, relief='flat', font=('Segoe UI', 10), wrap='word', padx=8, pady=6)
         self.ai_q.pack(side='left', fill='x', expand=True)
         self.ai_q.bind('<Control-Return>', lambda _e: (self.ai_send(), 'break')[1])
@@ -86,6 +106,95 @@ class AiPage:
         self._ai_say('info', 'Bağlantıyı bir kez kurun (üstte), sonra soru yazın ya da "Hızlı" düğmelerinden birini kullanın. '
                              'Diğer sayfalardaki "AI\'ya sor" düğmeleri seçtiğiniz öğeyi buraya getirir.\n')
         self._ai_update_state()
+
+    def _ai_show_actions(self, actions):
+        """Onerileri dogrulamak icin gereken listeleri (yoksa) okur, sonra tabloyu doldurur."""
+        self.ai_actions = list(actions)
+        if not actions:
+            self.ai_actbox.pack_forget(); return
+        if self.busy and not self.in_callback:          # baska is suruyor: eldeki listelerle dogrula
+            self._ai_render_actions(); return
+        self._ai_fill(ai.needed_lists(actions), self._ai_render_actions)
+
+    def _ai_pages(self):
+        try:
+            return [self.tabs.tab(i, 'text') for i in range(len(self.tabs.pages))]
+        except Exception:
+            return []
+
+    def _ai_render_actions(self):
+        acts = ai.validate_actions(self.ai_actions, getattr(self, 'st_records', []), getattr(self, 'sv_records', []),
+                                   getattr(self, 'pc_records', []), self._ai_pages())
+        t = self.ai_acts
+        t.clear()
+        for i, a in enumerate(acts):
+            tags = () if a['ok'] else ('muted',)
+            if a['ok'] and a['risk'] != 'güvenli':
+                tags = ('risky',)
+            t.add('a%d' % i, a['name'], values=(a['label'], a['risk'], a['note'] or 'uygulanabilir', a['why']), tags=tags, payload=a,
+                  checked=a['ok'] and a['risk'] == 'güvenli', checkable=a['ok'])
+        n_ok = sum(1 for a in acts if a['ok'])
+        self.ai_act_count.set('%d öneri · %d uygulanabilir' % (len(acts), n_ok))
+        if not self.ai_actbox.winfo_manager():
+            self.ai_actbox.pack(fill='both', padx=16, pady=(0, 8), before=self.ai_inp)
+
+    def ai_apply(self):
+        sel = [self.ai_acts.payload[i] for i in self.ai_acts.checked if self.ai_acts.payload.get(i) and self.ai_acts.payload[i]['ok']]
+        if not sel:
+            messagebox.showinfo('Önerilen işlemler', 'Uygulanacak öneri işaretlenmedi.'); return
+        order = list(ai.ACTION_TYPES)
+        sel.sort(key=lambda a: order.index(a['type']))
+        lines = ['• %s: %s (%s)' % (a['label'], a['name'], a['risk']) for a in sel]
+        risky = [a for a in sel if a['risk'] == 'riskli']
+        msg = '%d işlem uygulanacak:\n%s%s\n\nYönetici onayı (UAC) istenebilir. Devam?' % (
+            len(sel), '\n'.join(lines[:25]) + ('\n…' if len(lines) > 25 else ''),
+            '\n\nUYARI: %d işlem AI tarafından "riskli" olarak işaretlendi.' % len(risky) if risky else '')
+        if not (messagebox.askyesno if not risky else messagebox.askokcancel)('Önerilen işlemleri uygula', msg):
+            return
+        jobs, reload = [], set()
+        st_on = [r for a in sel if a['type'] == 'startup_enable' for r in a['targets']]
+        st_off = [r for a in sel if a['type'] == 'startup_disable' for r in a['targets']]
+        for op, recs in (('disable', st_off), ('enable', st_on)):
+            if not recs:
+                continue
+            reload.add('startup')
+            user, admin = pr_split(recs)
+            if user:
+                jobs.append(Job('AI öneri — başlangıç: %s (%d)' % (op, len(user)), cmd=ps_cmd('startup-set', ItemsB64=pr_b64([pr_item(r) for r in user]), Op=op), cancel_ok=False))
+            if admin:
+                jobs.append(Job('AI öneri — başlangıç (tüm kullanıcılar): %s (%d)' % (op, len(admin)),
+                                cmd=ps_cmd('startup-set', ItemsB64=pr_b64([pr_item(r) for r in admin]), Op=op), cancel_ok=False, admin=True))
+        for typ, op in ai.SERVICE_OP.items():
+            names = [r['name'] for a in sel if a['type'] == typ for r in a['targets']]
+            if names:
+                reload.add('services')
+                jobs.append(Job('AI öneri — servis: %s (%d)' % (op, len(names)), cmd=ps_cmd('svc-action', ItemsB64=pr_b64([{'name': n} for n in names]), Op=op),
+                                cancel_ok=False))
+        procs = [{'pid': r['pid'], 'name': r['name']} for a in sel if a['type'] == 'process_end' for r in a['targets']]
+        if procs:
+            reload.add('procs')
+            jobs.append(Job('AI öneri — süreç sonlandır (%d)' % len(procs), cmd=ps_cmd('proc-kill', ItemsB64=pr_b64(procs), Op='kill'), cancel_ok=False))
+        opens = [a for a in sel if a['kind'] in ('page', 'settings')]
+        self._ai_say('info', '  Uygulanıyor: %s\n' % '; '.join('%s — %s' % (a['label'], a['name']) for a in sel))
+        self.write('AI önerileri uygulanıyor (%d): %s\n' % (len(sel), '; '.join('%s: %s' % (a['label'], a['name']) for a in sel)))
+
+        def finish():
+            for a in opens:
+                if a['kind'] == 'settings' and IS_WIN:
+                    try:
+                        os.startfile(a['targets'][0])
+                    except OSError as e:
+                        self.write('Ayar açılamadı (%s): %s\n' % (a['name'], e))
+            pages = [a for a in opens if a['kind'] == 'page']
+            if pages:
+                self.tabs.select(pages[0]['targets'][0])
+        if not jobs:
+            finish(); return
+
+        def after_jobs(_job):
+            self._ai_fill(sorted(reload), lambda: (self._ai_render_actions(), finish()), force=True)
+        jobs[-1].on_done = after_jobs
+        self.start(jobs)
 
     def _ai_tags(self):
         t = self.ai_text
@@ -241,8 +350,8 @@ class AiPage:
             parts.append(extra)
         return parts
 
-    def _ai_missing_jobs(self, keys):
-        """Secilen baglam henuz okunmadiysa okuyacak isler (PowerShell, salt okunur)."""
+    def _ai_missing_jobs(self, keys, force=False):
+        """Secilen baglam henuz okunmadiysa (force: her durumda) okuyacak isler (PowerShell, salt okunur)."""
         jobs = []
         if not IS_WIN:
             return jobs
@@ -250,13 +359,13 @@ class AiPage:
             jobs.append('hw')
         for key, (action, typ) in CTX_LIST_JOB.items():
             attr = {'procs': 'pc_records', 'services': 'sv_records', 'startup': 'st_records'}[key]
-            if key in keys and not getattr(self, attr, None):
+            if key in keys and (force or not getattr(self, attr, None)):
                 jobs.append(key)
         return jobs
 
-    def _ai_fill(self, keys, then):
+    def _ai_fill(self, keys, then, force=False):
         """Eksik baglam verisini okur, sonra then() cagirir."""
-        missing = self._ai_missing_jobs(keys)
+        missing = self._ai_missing_jobs(keys, force)
         if not missing:
             then(); return
         if self.busy and not self.in_callback:
@@ -343,7 +452,10 @@ class AiPage:
         self._ai_say('me', 'AI: ')
         self._ai_say('ai', res['text'] + '\n')
         meta = ' · '.join(x for x in (res.get('provider'), res.get('model')) if x)
-        self._ai_say('info', '  (%s%s)\n' % (meta or 'AI Manager', ' · yanıt kısaltıldı' if res.get('truncated') else ''))
+        acts = res.get('actions') or []
+        self._ai_say('info', '  (%s%s%s)\n' % (meta or 'AI Manager', ' · yanıt kısaltıldı' if res.get('truncated') else '',
+                                              ' · %d uygulanabilir öneri aşağıda' % len(acts) if acts else ''))
+        self._ai_show_actions(acts)
 
     def ai_copy_last(self):
         if not self.ai_result:
@@ -352,7 +464,8 @@ class AiPage:
         self.clipboard_append(self.ai_result['text'])
 
     def ai_clear(self):
-        self.ai_history, self.ai_result = [], None
+        self.ai_history, self.ai_result, self.ai_actions = [], None, []
+        self.ai_actbox.pack_forget()
         self.ai_text.configure(state='normal'); self.ai_text.delete('1.0', 'end'); self.ai_text.configure(state='disabled')
 
     # ------------------------------------------------------------------ diğer sayfalardan
@@ -375,6 +488,21 @@ class AiPage:
     def ai_explain_log(self):
         self._goto_ai()
         self.ai_ask('İşlem günlüğündeki son hata ya da uyarıyı açıkla: ne anlama geliyor, nedeni ne olabilir, nasıl düzeltirim?', ('log',))
+
+
+def pr_split(recs):
+    import care_procs as pr
+    return pr.split_by_admin(recs)
+
+
+def pr_item(rec):
+    import care_procs as pr
+    return pr.startup_item(rec)
+
+
+def pr_b64(items):
+    import care_procs as pr
+    return pr.b64_items(items)
 
 
 def hw_report_text(app):

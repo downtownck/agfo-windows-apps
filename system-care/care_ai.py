@@ -42,6 +42,15 @@ INSTRUCTION = ('AGFO System Care (Windows bakım uygulaması) içinden soruluyor
                'yalnız verilen sistem verisine dayanarak kısa ve uygulanabilir yanıt ver; her öneride risk düzeyini '
                '(güvenli / dikkat / riskli) ve geri alınıp alınamayacağını belirt; kritik sistem servislerini ve güvenlik '
                'yazılımını kapatmayı önerme.')
+ACTION_INSTRUCTION = (
+    ' Yanıtın EN SONUNA, uygulama tarafından tek tıkla uygulanabilecek önerilerin için tek satır ekle: AGFO_ACTIONS: ve ardından JSON dizi. '
+    'Her öğe {"type": "...", "name": "...", "risk": "güvenli|dikkat|riskli", "why": "kısa gerekçe"} biçiminde olsun. '
+    'type yalnız şunlardan biri: startup_disable, startup_enable (name = başlangıç öğesinin listedeki adı); '
+    'service_stop, service_start, service_manual, service_disabled, service_auto (name = servisin kısa adı); '
+    'process_end (name = süreç adı); open_page (name = uygulama sayfası: Üretici desteği, NVIDIA, Sürücüler, Temizlik, Bloatware, '
+    'Disk sağlığı, Aygıt yöneticisi, Uygulama güncellemeleri, Programlar, Bakım ve sağlık); open_settings (name = ms-settings: ile başlayan Windows ayar adresi). '
+    'Yalnız verilen verideki adları aynen kullan; emin olmadığın ya da kullanıcının kullanımına bağlı öneriyi "dikkat" işaretle; '
+    'uygulanacak öneri yoksa AGFO_ACTIONS: [] yaz. Bu satırdan metin içinde söz etme.')
 
 SC_ENTROPY = b'AGFO-System-Care/AI/1'
 EDITOR_ENTROPY = b'AGFO-AI-Editor/1'          # AI Editor'un agfo_secrets.py ile ayni (ayni kullanici cozebilir)
@@ -434,7 +443,7 @@ class ManagerClient:
         out['ok'] = True
         return out
 
-    def chat(self, messages, document='', max_tokens=2400) -> dict:
+    def chat(self, messages, document='', max_tokens=4000, actions=True) -> dict:
         msgs = []
         for m in (messages or [])[-MAX_TURNS:]:
             role = 'assistant' if m.get('role') == 'assistant' else 'user'
@@ -443,13 +452,14 @@ class ManagerClient:
                 msgs.append({'role': role, 'content': content})
         if not msgs or msgs[-1]['role'] != 'user':
             raise AIError('Bir soru yazın.')
-        payload = {'messages': msgs, 'document': (document or '')[:MAX_DOCUMENT], 'profile': PROFILE, 'instruction': INSTRUCTION,
-                   'max_output_tokens': int(max(256, min(8000, max_tokens)))}
+        payload = {'messages': msgs, 'document': (document or '')[:MAX_DOCUMENT], 'profile': PROFILE,
+                   'instruction': INSTRUCTION + (ACTION_INSTRUCTION if actions else ''), 'max_output_tokens': int(max(256, min(8000, max_tokens)))}
         d = self.call('/editor/chat', payload, timeout=240 if max_tokens > 3000 else TIMEOUT)
         text = d.get('text') if isinstance(d.get('text'), str) else ''
         if not text.strip():
             raise AIError('AI Manager boş yanıt döndürdü.')
-        return {'text': clean_reply(text), 'provider': str(d.get('provider') or ''), 'model': str(d.get('model') or ''),
+        body, acts = parse_actions(text)
+        return {'text': clean_reply(body), 'actions': acts, 'provider': str(d.get('provider') or ''), 'model': str(d.get('model') or ''),
                 'truncated': bool(d.get('truncated'))}
 
 
@@ -462,6 +472,134 @@ def clean_reply(text: str) -> str:
     s = re.sub(r'(?m)^\s*[*•]\s+', '- ', s)
     s = re.sub(r'<[^>]{1,40}>', lambda m: m.group(0) if m.group(0).startswith(('<kullanıcı', '<bilgisayar', '<gizli', '<e-posta', '<MAC', '<genel', '<anahtar')) else '', s)
     return re.sub(r'\n{3,}', '\n\n', s).strip()
+
+
+
+# --------------------------------------------------------------------------- uygulanabilir öneriler
+ACTION_TYPES = {
+    'startup_disable': ('startup', 'Başlangıçta devre dışı bırak'), 'startup_enable': ('startup', 'Başlangıçta etkinleştir'),
+    'service_stop': ('service', 'Servisi durdur'), 'service_start': ('service', 'Servisi başlat'),
+    'service_manual': ('service', 'Servis başlangıcı: El ile'), 'service_disabled': ('service', 'Servisi devre dışı bırak'),
+    'service_auto': ('service', 'Servis başlangıcı: Otomatik'), 'process_end': ('process', 'Süreci sonlandır'),
+    'open_page': ('page', 'Sayfayı aç'), 'open_settings': ('settings', 'Windows ayarını aç'),
+}
+SERVICE_OP = {'service_stop': 'stop', 'service_start': 'start', 'service_manual': 'manual', 'service_disabled': 'disabled', 'service_auto': 'auto'}
+RISKS = {'güvenli': 'güvenli', 'guvenli': 'güvenli', 'safe': 'güvenli', 'dikkat': 'dikkat', 'caution': 'dikkat', 'riskli': 'riskli', 'risky': 'riskli'}
+_ACT_RX = re.compile(r'(?is)(?:^|\n)[ \t>*`_-]*AGFO_ACTIONS\s*:?\s*(?:```(?:json)?\s*)?(\[.*?\])\s*(?:```)?\s*$')
+_SETTINGS_RX = re.compile(r'^ms-settings:[a-z0-9\-_]{1,60}$', re.I)
+
+
+def _norm(s):
+    return re.sub(r'\s+', ' ', str(s or '')).strip().casefold()
+
+
+def parse_actions(text):
+    """Yanittan 'AGFO_ACTIONS: [...]' satirini ayirir. (metin, eylemler). Bozuk/eksik JSON -> eylem yok, metin korunur."""
+    text = text or ''
+    m = _ACT_RX.search(text)
+    if not m:
+        # model satiri yarida biraktiysa (kisaltilmis yanit) gorunmesin
+        cut = re.search(r'(?is)\n[ \t>*`_-]*AGFO_ACTIONS\s*:.*$', text)
+        return (text[:cut.start()] if cut else text).rstrip(), []
+    body = text[:m.start()].rstrip()
+    try:
+        raw = json.loads(m.group(1))
+    except ValueError:
+        return body, []
+    out, seen = [], set()
+    for a in raw if isinstance(raw, list) else []:
+        if not isinstance(a, dict):
+            continue
+        typ = str(a.get('type') or '').strip().lower()
+        name = re.sub(r'\s+', ' ', str(a.get('name') or '')).strip()[:160]
+        if typ not in ACTION_TYPES or not name or (typ, name.casefold()) in seen:
+            continue
+        seen.add((typ, name.casefold()))
+        out.append({'type': typ, 'name': name, 'risk': RISKS.get(_norm(a.get('risk')), 'dikkat'),
+                    'why': re.sub(r'\s+', ' ', str(a.get('why') or '')).strip()[:240]})
+        if len(out) >= 40:
+            break
+    return body, out
+
+
+def validate_actions(actions, startups=(), services=(), procs=(), pages=()):
+    """Her oneriyi uygulamanin gercek kayitlariyla eslestirir. Ekler: ok, note, targets (kayit listesi), label, kind.
+    Eslesmeyen, kritik ya da zaten istenen durumdaki oneriler uygulanamaz (ok=False) ama listede gerekcesiyle gorunur."""
+    try:
+        import care_procs as pr
+    except Exception:
+        pr = None
+    st = {}
+    for r in startups or []:
+        st.setdefault(_norm(r.get('name')), []).append(r)
+        st.setdefault(_norm(re.sub(r'\.lnk$', '', r.get('name') or '', flags=re.I)), []).append(r)
+    sv = {}
+    for r in services or []:
+        sv.setdefault(_norm(r.get('name')), r)
+        sv.setdefault(_norm(r.get('display')), r)
+    pc = {}
+    for r in procs or []:
+        n = _norm(re.sub(r'\.exe$', '', r.get('name') or '', flags=re.I))
+        pc.setdefault(n, []).append(r)
+    page_map = {_norm(p): p for p in pages or []}
+    out = []
+    for a in actions or []:
+        kind, label = ACTION_TYPES[a['type']]
+        v = dict(a, kind=kind, label=label, ok=False, note='', targets=[])
+        key = _norm(a['name'])
+        if kind == 'startup':
+            recs = list({id(r): r for r in st.get(key, []) + st.get(_norm(re.sub(r'\.lnk$', '', a['name'], flags=re.I)), [])}.values())
+            if not recs:
+                v['note'] = 'başlangıç listesinde bulunamadı'
+            else:
+                want = a['type'] == 'startup_enable'
+                todo = [r for r in recs if bool(r.get('enabled')) != want]
+                v['targets'] = todo
+                v['ok'] = bool(todo)
+                v['note'] = '' if todo else ('zaten etkin' if want else 'zaten devre dışı')
+                if todo and pr and any(pr.startup_needs_admin(r) for r in todo):
+                    v['note'] = 'yönetici onayı (UAC) ister'
+        elif kind == 'service':
+            r = sv.get(key)
+            op = SERVICE_OP[a['type']]
+            if not r:
+                v['note'] = 'servis listesinde bulunamadı'
+            elif pr and op in ('stop', 'disabled') and pr.is_critical_service(r):
+                v['note'] = 'Windows için gerekli servis — uygulanmaz'
+            elif op == 'stop' and r.get('state') != 'Running':
+                v['note'] = 'zaten durmuş'
+            elif op == 'start' and r.get('state') == 'Running':
+                v['note'] = 'zaten çalışıyor'
+            elif op in ('manual', 'disabled', 'auto') and (r.get('start') or '').lower().startswith({'manual': 'manual', 'disabled': 'disabled', 'auto': 'auto'}[op]):
+                v['note'] = 'başlangıç türü zaten böyle'
+            else:
+                v['ok'], v['targets'], v['note'] = True, [r], 'yönetici onayı (UAC) ister'
+        elif kind == 'process':
+            recs = pc.get(_norm(re.sub(r'\.exe$', '', a['name'], flags=re.I)), [])
+            safe = [r for r in recs if not (pr and pr.is_critical_proc(r))]
+            if not recs:
+                v['note'] = 'çalışan süreçlerde bulunamadı'
+            elif not safe:
+                v['note'] = 'kritik Windows süreci — uygulanmaz'
+            else:
+                v['ok'], v['targets'] = True, safe
+                v['note'] = '%d örnek; kaydedilmemiş iş kaybolabilir' % len(safe)
+        elif kind == 'page':
+            p = page_map.get(key)
+            v['ok'], v['targets'] = bool(p), [p] if p else []
+            v['note'] = '' if p else 'uygulamada böyle bir sayfa yok'
+        elif kind == 'settings':
+            ok = bool(_SETTINGS_RX.match(a['name']))
+            v['ok'], v['targets'] = ok, [a['name']] if ok else []
+            v['note'] = '' if ok else 'geçersiz ayar adresi'
+        out.append(v)
+    return out
+
+
+def needed_lists(actions):
+    """Dogrulama icin okunmasi gereken listeler: {'startup', 'services', 'procs'}."""
+    m = {'startup': 'startup', 'service': 'services', 'process': 'procs'}
+    return sorted({m[ACTION_TYPES[a['type']][0]] for a in actions or [] if ACTION_TYPES[a['type']][0] in m})
 
 
 QUICK = [
