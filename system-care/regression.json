@@ -1,6 +1,6 @@
 {
  "project": "agfo-system-care",
- "version": "4.2.0",
+ "version": "4.3.0",
  "contract_version": 3,
  "public_surfaces": {
   "tabs": [
