@@ -17,6 +17,7 @@ os.environ['LOCALAPPDATA'] = tempfile.mkdtemp()
 
 import agfo_github_update as ghu  # noqa: E402
 import router_core as core  # noqa: E402
+import router_history as hist  # noqa: E402
 import router_startup as startup  # noqa: E402
 import router_store as rstore  # noqa: E402
 import router_update as upd  # noqa: E402
@@ -454,11 +455,60 @@ def installer_files_are_consistent():
         assert all(b < 128 for b in raw), name + ' ASCII olmali (Windows kabuk iletileri yalnizca Ingilizce)'
     ps = (ROOT / 'packaging/build_local.ps1').read_text()
     for mod in ('router_app', 'router_core', 'router_update', 'router_wifi', 'router_store', 'router_startup',
-                'agfo_github_update'):
+                'router_history', 'agfo_github_update'):
         assert "'%s'" % mod in ps, mod + ' PyInstaller hidden-import listesinde yok'
     low = ' '.join(p.read_text(encoding='utf-8', errors='replace').lower() for p in ROOT.rglob('*')
                    if p.is_file() and p.suffix in ('.py', '.pyw', '.cmd', '.ps1', '.md'))
     assert ('stag' + 'ing') not in low
+
+
+EVENTS_XML = """<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><EventID>8001</EventID>
+<TimeCreated SystemTime="2026-11-20T18:30:15.1234567Z"/></System><EventData><Data Name="InterfaceGuid">{x}</Data>
+<Data Name="ProfileName">Salon-Router</Data><Data Name="SSID">Salon-Router</Data></EventData></Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><EventID>8001</EventID>
+<TimeCreated SystemTime="2026-11-18T07:00:00.000Z"/></System><EventData><Data Name="ProfileName">Kafe 2</Data>
+<Data Name="SSID">Kafe</Data></EventData></Event>
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><EventID>8001</EventID>
+<TimeCreated SystemTime="2026-11-19T07:00:00Z"/></System><EventData><Data Name="SSID">Salon-Router</Data></EventData></Event>"""
+
+
+@test
+def history_parsers():
+    import struct
+    st = struct.pack('<8H', 2026, 11, 6, 20, 18, 30, 15, 0)
+    assert hist.parse_systemtime(st) == __import__('datetime').datetime(2026, 11, 20, 18, 30, 15)
+    assert hist.parse_systemtime(b'\x00' * 16) is None and hist.parse_systemtime(b'') is None
+    ev = hist.parse_events(EVENTS_XML)
+    assert [e['ssid'] for e in ev] == ['Salon-Router', 'Kafe', 'Salon-Router'] and ev[0]['time'] is not None
+    assert hist.parse_events('bozuk <xml') == [] and hist.parse_events('') == []
+    reg = hist.registry_entries(
+        [{'guid': '{A}', 'name': 'Salon-Router 2', 'description': 'Salon-Router', 'nametype': 0x47, 'last': None},
+         {'guid': '{B}', 'name': 'Ofis LAN', 'description': 'Ofis LAN', 'nametype': 6, 'last': None}],
+        [{'guid': '{a}', 'gateway_mac': 'aa:bb:cc:00:00:09'}])
+    assert reg == [{'ssid': 'Salon-Router', 'last': None, 'gateway_mac': 'aa:bb:cc:00:00:09'}], reg   # kablolu ag elenir
+    assert hist.collect_events(run=lambda *a, **k: (_ for _ in ()).throw(OSError('x'))) == []
+
+
+@test
+def history_discover_finds_home_routers():
+    import datetime as D
+    reg = [{'ssid': 'Salon-Router', 'last': D.datetime(2026, 11, 21), 'gateway_mac': 'aa:bb:cc:00:00:09'},
+           {'ssid': 'Kafe', 'last': D.datetime(2026, 10, 1), 'gateway_mac': ''}]
+    ev = hist.parse_events(EVENTS_XML)
+    nets = w.parse_networks(NETWORKS_EN) + [{'ssid': 'Bilinmeyen', 'bssid': 'aa:aa:aa:aa:aa:aa', 'signal': 99,
+                                             'band': '', 'channel': 1}]
+    res = hist.discover(['Salon-Router', 'Yatak-Odasi', 'Komsu'], reg, ev, nets)
+    by = {r['ssid']: r for r in res}
+    assert 'Bilinmeyen' not in by                                  # gecmiste hic baglanilmamis ag onerilmez
+    assert by['Salon-Router']['suggest'] and by['Salon-Router']['signal'] == 91 and by['Salon-Router']['count'] == 2
+    assert by['Salon-Router']['gw_match'] is True                  # ag gecidi MAC'i router ailesiyle eslesiyor
+    assert by['Yatak-Odasi']['suggest'] and by['Yatak-Odasi']['saved'] and by['Yatak-Odasi']['count'] == 0
+    assert by['Komsu']['visible'] and not by['Komsu']['suggest']   # cok zayif sinyal: otomatik eklenmez
+    assert not by['Kafe']['visible'] and not by['Kafe']['suggest'] and not by['Kafe']['saved']
+    assert [r['ssid'] for r in res][:2] == ['Salon-Router', 'Yatak-Odasi'] and res[-1]['ssid'] == 'Kafe'
+    assert hist.discover([], [], [], nets) == []
+    got = hist.gather(run_scan=lambda: (nets, ''), run_profiles=lambda: ['Yatak-Odasi'], reg=lambda: [], ev=lambda: [])
+    assert [g['ssid'] for g in got] == ['Yatak-Odasi']
 
 
 print('AGFO ROUTER CONNECT CORE OK: %d tests' % len(PASSED))

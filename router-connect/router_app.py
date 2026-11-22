@@ -11,6 +11,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
+import router_history as history
 import router_startup as startup
 import router_update as updater
 import router_wifi as wifi
@@ -97,6 +98,7 @@ class App(tk.Tk):
         self.btn_go.pack(side="left", padx=(0, 6))
         self.btn_scan = ttk.Button(bar, text="Yenile", command=lambda: self.cycle(force=False, do_connect=False))
         self.btn_scan.pack(side="left", padx=(0, 6))
+        ttk.Button(bar, text="Geçmişten bul…", command=self.open_discover).pack(side="left", padx=(0, 6))
         ttk.Button(bar, text="Router ekle…", command=self.open_picker).pack(side="left", padx=(0, 6))
         ttk.Button(bar, text="Yeniden adlandır", command=self.rename_selected).pack(side="left", padx=(0, 6))
         ttk.Button(bar, text="Listeden çıkar", command=self.remove_selected).pack(side="left")
@@ -213,7 +215,7 @@ class App(tk.Tk):
         else:
             self.now_lbl.configure(text="Bağlı değil" if self.cur is not None else "Wi-Fi kartı bulunamadı")
         if not routers:
-            self.hint_lbl.configure(text="Henüz router seçilmedi. \"Router ekle…\" ile evdeki ağları seç.")
+            self.hint_lbl.configure(text="Henüz router yok. \"Geçmişten bul…\" daha önce bağlandığın ağları ekler, \"Router ekle…\" elle seçtirir.")
         elif not ranked and self.nets:
             self.hint_lbl.configure(text="Seçtiğin router'ların hiçbiri şu an menzilde görünmüyor.")
         elif not self.nets:
@@ -318,6 +320,43 @@ class App(tk.Tk):
     def open_picker(self):
         PickDialog(self)
 
+    def open_discover(self):
+        DiscoverDialog(self)
+
+    def find_known(self, auto=False):
+        """Daha once baglanilan, su an menzilde gorunen aglari bulup listeye ekler (liste bos olsa da calisir)."""
+        if self.busy:
+            return
+        self.set_busy(True)
+        self.log("Daha önce bağlandığın ağlar aranıyor…")
+
+        def work():
+            try:
+                found = history.gather()
+                err = ""
+            except Exception as e:
+                found, err = [], str(e) or e.__class__.__name__
+            self.post(lambda: self._known_done(found, err, auto))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _known_done(self, found, err, auto):
+        self.set_busy(False)
+        if err:
+            self.log("✖ Geçmiş okunamadı: " + err)
+        else:
+            picks = [f for f in found if f["suggest"]]
+            added = [f["ssid"] for f in picks if self.store.add(f["ssid"], "", f["ssid"])]
+            if added:
+                self.log(f"{len(added)} router geçmişten otomatik eklendi: " + ", ".join(added)
+                         + ". Yanlış olanı \"Listeden çıkar\" ile silebilirsin.")
+            elif found:
+                self.log("Geçmişte bağlandığın ağlar var ama şu an hiçbiri menzilde görünmüyor.")
+            else:
+                self.log("Windows'ta kayıtlı Wi-Fi ağı bulunamadı. \"Router ekle…\" ile elle seç.")
+            self.refresh_table()
+        if auto or self.store.routers:
+            self.cycle(force=False, do_connect=bool(self.store.settings["auto"]))
+
     def rename_selected(self):
         r = self.selected_router()
         if not r:
@@ -335,7 +374,10 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------ baslangic ve guncelleme
     def _startup_tasks(self):
-        self.cycle(force=False, do_connect=bool(self.store.settings["auto"]))
+        if self.store.routers:
+            self.cycle(force=False, do_connect=bool(self.store.settings["auto"]))
+        else:
+            self.find_known(auto=True)          # liste bossa gecmisten kendisi doldurur
         self._schedule_auto()
         self.after(2500, lambda: self.check_update(manual=False))
 
@@ -375,6 +417,79 @@ class App(tk.Tk):
 
 
 # ======================================================================
+class DiscoverDialog(tk.Toplevel):
+    """Daha once baglanilan aglar: Windows profilleri + ag gecmisi + zaman cizelgesi. Menzildekiler onceden secilir."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app, self.rows = app, []
+        self.title("Geçmişten bul")
+        self.geometry("860x480")
+        self.configure(bg=BG)
+        self.transient(app)
+        ttk.Label(self, text="Daha önce bağlandığın ağlar", style="Title.TLabel").pack(anchor="w", padx=14, pady=(12, 0))
+        ttk.Label(self, text="Şu an menzilde olanlar evdeki router'lardır; onlar önceden seçili gelir. Gri satırlar "
+                             "başka yerlerde bağlandığın ağlardır.", foreground=MUTED, wraplength=820,
+                  justify="left").pack(anchor="w", padx=14, pady=(0, 4))
+        cols = ("ssid", "signal", "last", "count", "note")
+        self.tree = ttk.Treeview(self, columns=cols, show="headings", selectmode="extended")
+        for c, t, w in (("ssid", "Ağ adı (SSID)", 220), ("signal", "Sinyal", 190), ("last", "Son bağlanma", 130),
+                        ("count", "Bağlanma", 70), ("note", "Not", 200)):
+            self.tree.heading(c, text=t)
+            self.tree.column(c, width=w, anchor="w")
+        self.tree.tag_configure("far", foreground="#6b7280")
+        self.tree.pack(fill="both", expand=True, padx=14, pady=4)
+        self.lbl = ttk.Label(self, text="Aranıyor…", foreground=MUTED)
+        self.lbl.pack(anchor="w", padx=14)
+        bar = ttk.Frame(self, padding=(14, 8))
+        bar.pack(fill="x")
+        ttk.Button(bar, text="Yeniden ara", command=self.search).pack(side="left")
+        ttk.Button(bar, text="Seçilenleri ekle", style="Accent.TButton", command=self.add).pack(side="right")
+        ttk.Button(bar, text="Kapat", command=self.destroy).pack(side="right", padx=6)
+        self.search()
+
+    def search(self):
+        self.lbl.configure(text="Aranıyor…")
+
+        def work():
+            try:
+                found, err = history.gather(), ""
+            except Exception as e:
+                found, err = [], str(e) or e.__class__.__name__
+            self.app.post(lambda: self._fill(found, err))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _fill(self, found, err):
+        if not self.winfo_exists():
+            return
+        self.rows = found
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        keep = []
+        for f in found:
+            note = []
+            if f["gw_match"]:
+                note.append("router eşleşti")
+            if not f["saved"]:
+                note.append("kayıtlı profil yok")
+            last = f["last"].strftime("%d.%m.%Y") if f["last"] else "–"
+            iid = self.tree.insert("", "end", values=(f["ssid"], bars(f["signal"]) if f["visible"] else "menzilde değil",
+                                                      last, f["count"] or "–", ", ".join(note)),
+                                   tags=() if f["visible"] else ("far",))
+            if f["suggest"]:
+                keep.append(iid)
+        self.tree.selection_set(keep)
+        self.lbl.configure(text=err or (f"{len(found)} ağ bulundu, {len(keep)} tanesi menzilde." if found else
+                                        "Windows'ta kayıtlı Wi-Fi ağı bulunamadı."))
+
+    def add(self):
+        picked = [self.rows[self.tree.index(i)] for i in self.tree.selection()]
+        added = [f["ssid"] for f in picked if self.app.store.add(f["ssid"], "", f["ssid"])]
+        self.app.refresh_table()
+        self.app.log(f"{len(added)} router eklendi." if added else "Seçilenler zaten listede.")
+        self.destroy()
+
+
 class PickDialog(tk.Toplevel):
     """Gorunen aglardan router sec. Ayni adli (ornegin mesh) router'lar icin BSSID sabitlenebilir."""
 

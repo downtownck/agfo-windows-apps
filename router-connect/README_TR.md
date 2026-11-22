@@ -12,12 +12,22 @@ Kaldırmak için `Kaldir.cmd` kullan; router listen silinmez. `Baslat.cmd` kayna
 
 ## Kullanım
 
-1. **Router ekle…** ile evde görünen ağları listele, router'larını seç (Ctrl ile birden çok).
+1. **Router listesi kendiliğinden dolar.** Uygulama ilk açılışta liste boşsa daha önce bağlandığın ağlara bakar ve o an menzilde görünenleri ekler (aşağıda nasıl). Sonradan **Geçmişten bul…** ile aynısını istediğin zaman yaparsın; satırlar işaretli gelir, istemediğini kaldırıp eklersin. Elle seçmek için **Router ekle…** var (Ctrl ile birden çok).
 2. **En yakına bağlan:** seçtiğin router'ları tarar, sinyali en güçlü olana bağlanır. **Yenile** yalnızca tarar, bağlantıyı değiştirmez.
 3. **Otomatik** kutusu işaretliyse uygulama her *tarama aralığında* (varsayılan 60 sn) tarar ve yalnızca daha güçlü router'ın sinyali şu anki bağlantıdan en az *geçiş eşiği* kadar (varsayılan 10 puan) yüksekse geçer. Eşik, iki router arasında gidip gelmeyi önler.
 4. **Windows açılınca küçültülmüş başlat** otomatik kipi bilgisayar açılınca hazır tutar. Pencereyi kapatma, küçült; kapatırsan tarama durur.
 
 Otomatik kip başka bir ağa (örneğin telefon noktası) bağlıyken dokunmaz; yalnızca bağlı değilken ya da seçili router'lardan birindeyken çalışır. **En yakına bağlan** düğmesi ise her durumda geçer.
+
+### Geçmişten nasıl bulur
+
+Üç kaynak birleştirilir; hiçbiri yönetici yetkisi istemez, okunamayan kaynak atlanır:
+
+- Windows'ta **kayıtlı Wi-Fi profilleri**.
+- Windows'un **ağ geçmişi** (son bağlanma zamanı ve ağ geçidinin, yani router'ın MAC adresi). Router'ın MAC adresi şu an görünen router'la eşleşirse listede "router eşleşti" yazar.
+- **Bağlanma zaman çizelgesi** (WLAN-AutoConfig olay günlüğü): ağa kaç kez bağlandığın ve ne zaman.
+
+"Aynı ev" ölçütü, geçmişte bağlandığın bir ağın **şu an menzilde** görünmesidir. Kafe ya da iş yeri gibi başka yerlerdeki ağlar burada görünmediği için eklenmez, **Geçmişten bul…** penceresinde gri satır olarak kalır. Sinyali %30'un altındaki ağlar (komşunun ağı gibi) otomatik eklenmez. Bir ağ yanlışlıkla eklenirse **Listeden çıkar** ile silersin.
 
 ### Router'lar farklı adlıysa / aynı adlıysa
 

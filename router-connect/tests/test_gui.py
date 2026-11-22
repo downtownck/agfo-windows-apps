@@ -24,6 +24,7 @@ messagebox.askyesno = lambda *a, **k: True
 import time  # noqa: E402
 
 import router_app as A  # noqa: E402
+import router_history as history  # noqa: E402
 import router_wifi as wifi  # noqa: E402
 
 NETS = [
@@ -53,6 +54,42 @@ app = A.App()
 app.update()
 assert app.title().endswith(A.VERSION) and not app.tree.get_children()
 assert 'Router ekle' in app.hint_lbl.cget('text') or app.hint_lbl.cget('text') == ''
+
+# gecmisten otomatik ekleme: liste bos olsa da bulur (Salon + Yatak menzilde, Komsu zayif, Kafe menzilde degil)
+history.collect_registry = lambda: []
+history.collect_events = lambda *a, **k: []
+wifi.profiles = lambda *a, **k: ['Salon-Router', 'Yatak-Odasi', 'Komsu', 'Kafe']
+app.find_known(auto=True)
+for _ in range(80):
+    app.update()
+    if not app.busy and app.store.routers:
+        break
+    time.sleep(0.05)
+assert [r['ssid'] for r in app.store.routers] == ['Salon-Router', 'Yatak-Odasi'], app.store.routers
+assert 'otomatik eklendi' in app.logbox.get('1.0', 'end')
+app.find_known(auto=False)                         # tekrar: yeni bir sey eklemez
+for _ in range(40):
+    app.update()
+    time.sleep(0.05)
+assert len(app.store.routers) == 2
+for r in list(app.store.routers):
+    app.store.remove(r)
+app.refresh_table()
+assert 'Geçmişten bul' in app.hint_lbl.cget('text')
+
+# Gecmisten bul penceresi: menzildekiler onceden secili, ekle
+dd = A.DiscoverDialog(app)
+for _ in range(60):
+    app.update()
+    if dd.rows:
+        break
+    time.sleep(0.05)
+assert len(dd.rows) == 4 and len(dd.tree.selection()) == 2, (len(dd.rows), dd.tree.selection())
+dd.add()
+assert sorted(r['ssid'] for r in app.store.routers) == ['Salon-Router', 'Yatak-Odasi']
+for r in list(app.store.routers):
+    app.store.remove(r)
+app.refresh_table()
 
 # bos listede "en yakina baglan" bilgilendirir, baglanmaz
 app.connect_nearest()

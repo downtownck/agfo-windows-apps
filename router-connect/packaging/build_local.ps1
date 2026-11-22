@@ -55,7 +55,7 @@ try {
                  '--distpath', $dist, '--workpath', (Join-Path $cache 'work'), '--specpath', (Join-Path $cache 'spec'),
                  '--paths', $root, '--icon', $ico,
                  '--hidden-import', 'router_app', '--hidden-import', 'router_core', '--hidden-import', 'router_update',
-                 '--hidden-import', 'router_wifi', '--hidden-import', 'router_store', '--hidden-import', 'router_startup',
+                 '--hidden-import', 'router_wifi', '--hidden-import', 'router_store', '--hidden-import', 'router_startup', '--hidden-import', 'router_history',
                  '--hidden-import', 'agfo_github_update',
                  (Join-Path $root 'app.pyw'))
     if ((Invoke-Native $vpy $pyiArgs) -ne 0) { throw 'PyInstaller build failed.' }
