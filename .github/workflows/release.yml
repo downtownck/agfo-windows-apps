@@ -579,16 +579,16 @@ jobs:
           $c = (Select-String -Path router-connect/router_core.py -Pattern "^VERSION = '([0-9.]+)'").Matches[0].Groups[1].Value
           if ($v -ne $c) { throw "Etiket $v ile router_core.py VERSION $c uyusmuyor" }
           if ((Get-FileHash shared/agfo_github_update.py).Hash -ne (Get-FileHash router-connect/agfo_github_update.py).Hash) { throw 'Ortak modul kopyasi farkli' }
-          python -I .github/scripts/privacy_check.py .
+          python -X utf8 -I .github/scripts/privacy_check.py .
           if ($LASTEXITCODE) { throw 'gizlilik denetimi basarisiz' }
           "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Testler (gercek Windows'ta, WLAN API yapi boyutlari ve arayuz)
         run: |
-          python -I shared/tests/test_agfo_github_update.py shared
+          python -X utf8 -I shared/tests/test_agfo_github_update.py shared
           if ($LASTEXITCODE) { throw 'ortak modul testi basarisiz' }
-          python -I router-connect/tests/test_core.py router-connect
+          python -X utf8 -I router-connect/tests/test_core.py router-connect
           if ($LASTEXITCODE) { throw 'cekirdek testleri basarisiz' }
-          python -I router-connect/tests/test_gui.py router-connect
+          python -X utf8 -I router-connect/tests/test_gui.py router-connect
           if ($LASTEXITCODE) { throw 'arayuz testi basarisiz' }
       - name: Paketle
         run: |
