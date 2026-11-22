@@ -485,7 +485,16 @@ def history_parsers():
         [{'guid': '{A}', 'name': 'Salon-Router 2', 'description': 'Salon-Router', 'nametype': 0x47, 'last': None},
          {'guid': '{B}', 'name': 'Ofis LAN', 'description': 'Ofis LAN', 'nametype': 6, 'last': None}],
         [{'guid': '{a}', 'gateway_mac': 'aa:bb:cc:00:00:09'}])
-    assert reg == [{'ssid': 'Salon-Router', 'last': None, 'gateway_mac': 'aa:bb:cc:00:00:09'}], reg   # kablolu ag elenir
+    assert [(r['ssid'], r['wireless'], r['gateway_mac']) for r in reg] == [
+        ('Salon-Router', True, 'aa:bb:cc:00:00:09'), ('Ofis LAN', False, '')], reg
+    # kablolu ag yeni satir acmaz; bilinen bir Wi-Fi adiyla ayni ise onu zenginlestirir
+    d = hist.discover(['Salon-Router'], reg, [], [])
+    assert [x['ssid'] for x in d] == ['Salon-Router'] and d[0]['gateway_mac'] == 'aa:bb:cc:00:00:09'
+    # profil adi SSID'den farkliysa ("Salon-Router 2") yine de eslesir
+    d2 = hist.discover(['Salon-Router 2'], [{'ssid': 'Baska', 'name': 'Salon-Router 2', 'last': __import__('datetime').datetime(2026, 1, 2),
+                                             'wireless': True, 'gateway_mac': ''}], [], [])
+    assert d2[0]['ssid'] == 'Salon-Router 2' and d2[0]['last'] is not None and len(d2) == 1, d2
+    assert 'kayıt defteri' in hist.diag_text()
     assert hist.collect_events(run=lambda *a, **k: (_ for _ in ()).throw(OSError('x'))) == []
 
 

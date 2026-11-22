@@ -25,6 +25,14 @@ NAMETYPE_WIRELESS = 0x47
 MIN_SIGNAL = 30          # bu degerin altindaki (zayif / komsu) aglar otomatik eklenmez
 
 
+DIAG = {'registry': '', 'events': ''}
+
+
+def diag_text() -> str:
+    """Hangi kaynak kac kayit verdi / neden okunamadi (arayuzde gosterilir)."""
+    return 'kayıt defteri: %s · olay günlüğü: %s' % (DIAG['registry'] or '–', DIAG['events'] or '–')
+
+
 def parse_systemtime(raw):
     """Kayit defterindeki 16 baytlik SYSTEMTIME -> datetime (yerel saat); gecersizse None."""
     try:
@@ -40,17 +48,19 @@ def registry_entries(profiles: list, signatures: list) -> list:
     gw = {s['guid'].lower(): s.get('gateway_mac', '') for s in signatures}
     out = []
     for p in profiles:
-        if p.get('nametype') != NAMETYPE_WIRELESS:
-            continue
         ssid = (p.get('description') or p.get('name') or '').strip()
-        if ssid:
-            out.append({'ssid': ssid, 'last': p.get('last'), 'gateway_mac': gw.get(p['guid'].lower(), '')})
+        if not ssid:
+            continue
+        out.append({'ssid': ssid, 'name': (p.get('name') or '').strip(), 'last': p.get('last'),
+                    'wireless': p.get('nametype') == NAMETYPE_WIRELESS,
+                    'gateway_mac': gw.get((p.get('guid') or '').lower(), '')})
     return out
 
 
 def collect_registry() -> list:
     """HKLM NetworkList'ten kablosuz ag gecmisi; Windows disinda ya da hata durumunda []."""
     if sys.platform != 'win32':
+        DIAG['registry'] = 'Windows değil'
         return []
     try:
         import winreg
@@ -82,8 +92,11 @@ def collect_registry() -> list:
             mac = value(p, 'DefaultGatewayMac')
             sigs.append({'guid': value(p, 'ProfileGuid') or '',
                          'gateway_mac': wifi.fmt_mac(bytes(mac).hex()) if mac else ''})
-        return registry_entries(profiles, [s for s in sigs if s['guid']])
-    except Exception:
+        res = registry_entries(profiles, [s for s in sigs if s['guid']])
+        DIAG['registry'] = '%d kayıt (%d tarihli)' % (len(res), sum(1 for r in res if r['last']))
+        return res
+    except Exception as e:
+        DIAG['registry'] = 'okunamadı (%s)' % (str(e) or e.__class__.__name__)
         return []
 
 
@@ -116,14 +129,20 @@ def parse_events(xml_text: str) -> list:
 def collect_events(limit=1000, run=subprocess.run) -> list:
     """WLAN-AutoConfig gunlugunden son baglantilar; okunamazsa (yetki/kapali gunluk) []."""
     if sys.platform != 'win32':
+        DIAG['events'] = 'Windows değil'
         return []
     try:
         p = run(['wevtutil', 'qe', WLAN_LOG, '/q:*[System[(EventID=8001)]]', '/c:%d' % limit, '/rd:true', '/f:xml'],
                 capture_output=True, timeout=30, creationflags=wifi.CREATE_NO_WINDOW)
         if p.returncode:
+            err = wifi.decode(p.stderr or b'').strip().splitlines()
+            DIAG['events'] = 'okunamadı (%s)' % ((err[0] if err else 'kod %d' % p.returncode)[:80])
             return []
-        return parse_events(wifi.decode(p.stdout or b''))
-    except Exception:
+        res = parse_events(wifi.decode(p.stdout or b''))
+        DIAG['events'] = '%d bağlanma kaydı' % len(res)
+        return res
+    except Exception as e:
+        DIAG['events'] = 'okunamadı (%s)' % (str(e) or e.__class__.__name__)
         return []
 
 
@@ -146,7 +165,11 @@ def discover(profiles: list, registry: list, events: list, nets: list, min_signa
         if name:
             ent(name)['saved'] = True
     for r in registry:
-        e = ent(r['ssid'])
+        names = [x for x in (r['ssid'], r.get('name')) if x]
+        key = next((x for x in names if x in by), None)           # kayitli profille eslesen ad (SSID ya da profil adi)
+        if key is None and not r.get('wireless', True):
+            continue                                              # kablolu ag: yalniz bilinen bir Wi-Fi adini zenginlestirir
+        e = ent(key or r['ssid'])
         e['last'] = newer(e['last'], r.get('last'))
         e['gateway_mac'] = r.get('gateway_mac') or e['gateway_mac']
     for ev in events:

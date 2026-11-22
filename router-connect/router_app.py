@@ -32,17 +32,25 @@ ROW_TAGS = {
 }
 
 
+def px(app, value):
+    """Piksel degerini ekran olcegine (DPI) gore buyutur; 96 DPI'da degismez."""
+    try:
+        return int(value * float(app.tk.call("tk", "scaling")) / 1.3333)
+    except Exception:
+        return value
+
+
 def bars(signal):
     n = max(0, min(10, int(signal) // 10))
-    return "█" * n + "░" * (10 - n) + f"  {int(signal)}%"
+    return "■" * n + "□" * (10 - n) + f"  {int(signal)}%"
 
 
 class App(tk.Tk):
     def __init__(self, minimized=False):
         super().__init__()
         self.title(f"{APP_NAME} {VERSION}")
-        self.geometry("920x640")
-        self.minsize(760, 520)
+        self.geometry(f"{px(self, 980)}x{px(self, 660)}")
+        self.minsize(px(self, 800), px(self, 540))
         self.configure(bg=BG)
         self.store = Store()
         self.busy = False
@@ -89,7 +97,7 @@ class App(tk.Tk):
         ttk.Label(card, text="Şu an bağlı", style="Muted.TLabel").pack(anchor="w")
         self.now_lbl = ttk.Label(card, text="–", style="Big.TLabel")
         self.now_lbl.pack(anchor="w")
-        self.hint_lbl = ttk.Label(card, text="", style="Muted.TLabel", wraplength=860, justify="left")
+        self.hint_lbl = ttk.Label(card, text="", style="Muted.TLabel", wraplength=px(self, 900), justify="left")
         self.hint_lbl.pack(anchor="w", pady=(2, 0))
 
         bar = ttk.Frame(self, padding=(14, 4))
@@ -105,10 +113,10 @@ class App(tk.Tk):
 
         cols = ("name", "ssid", "bssid", "signal", "band", "state")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=7, selectmode="browse")
-        for c, t, w in (("name", "Router", 150), ("ssid", "Ağ adı (SSID)", 170), ("bssid", "BSSID (sabit)", 140),
-                        ("signal", "Sinyal", 190), ("band", "Bant", 70), ("state", "Durum", 120)):
+        for c, t, w in (("name", "Router", 160), ("ssid", "Ağ adı (SSID)", 180), ("bssid", "BSSID (sabit)", 130),
+                        ("signal", "Sinyal", 210), ("band", "Bant", 80), ("state", "Durum", 130)):
             self.tree.heading(c, text=t)
-            self.tree.column(c, width=w, anchor="w")
+            self.tree.column(c, width=px(self, w), anchor="w")
         for tag, cfg in ROW_TAGS.items():
             self.tree.tag_configure(tag, **cfg)
         self.tree.pack(fill="x", padx=14, pady=(6, 2))
@@ -344,6 +352,7 @@ class App(tk.Tk):
         if err:
             self.log("✖ Geçmiş okunamadı: " + err)
         else:
+            self.log("Geçmiş kaynağı — " + history.diag_text())
             picks = [f for f in found if f["suggest"]]
             added = [f["ssid"] for f in picks if self.store.add(f["ssid"], "", f["ssid"])]
             if added:
@@ -424,19 +433,19 @@ class DiscoverDialog(tk.Toplevel):
         super().__init__(app)
         self.app, self.rows = app, []
         self.title("Geçmişten bul")
-        self.geometry("860x480")
+        self.geometry(f"{px(app, 980)}x{px(app, 520)}")
         self.configure(bg=BG)
         self.transient(app)
         ttk.Label(self, text="Daha önce bağlandığın ağlar", style="Title.TLabel").pack(anchor="w", padx=14, pady=(12, 0))
         ttk.Label(self, text="Şu an menzilde olanlar evdeki router'lardır; onlar önceden seçili gelir. Gri satırlar "
-                             "başka yerlerde bağlandığın ağlardır.", foreground=MUTED, wraplength=820,
+                             "başka yerlerde bağlandığın ağlardır.", foreground=MUTED, wraplength=px(app, 920),
                   justify="left").pack(anchor="w", padx=14, pady=(0, 4))
         cols = ("ssid", "signal", "last", "count", "note")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", selectmode="extended")
-        for c, t, w in (("ssid", "Ağ adı (SSID)", 220), ("signal", "Sinyal", 190), ("last", "Son bağlanma", 130),
-                        ("count", "Bağlanma", 70), ("note", "Not", 200)):
+        for c, t, w in (("ssid", "Ağ adı (SSID)", 220), ("signal", "Sinyal", 210), ("last", "Son bağlanma", 130),
+                        ("count", "Bağlanma", 80), ("note", "Not", 200)):
             self.tree.heading(c, text=t)
-            self.tree.column(c, width=w, anchor="w")
+            self.tree.column(c, width=px(app, w), anchor="w", stretch=(c == "note"))
         self.tree.tag_configure("far", foreground="#6b7280")
         self.tree.pack(fill="both", expand=True, padx=14, pady=4)
         self.lbl = ttk.Label(self, text="Aranıyor…", foreground=MUTED)
@@ -479,8 +488,9 @@ class DiscoverDialog(tk.Toplevel):
             if f["suggest"]:
                 keep.append(iid)
         self.tree.selection_set(keep)
-        self.lbl.configure(text=err or (f"{len(found)} ağ bulundu, {len(keep)} tanesi menzilde." if found else
-                                        "Windows'ta kayıtlı Wi-Fi ağı bulunamadı."))
+        head = err or (f"{len(found)} ağ bulundu, {len(keep)} tanesi menzilde." if found else
+                       "Windows'ta kayıtlı Wi-Fi ağı bulunamadı.")
+        self.lbl.configure(text=head + "   Geçmiş kaynağı — " + history.diag_text())
 
     def add(self):
         picked = [self.rows[self.tree.index(i)] for i in self.tree.selection()]
@@ -497,17 +507,17 @@ class PickDialog(tk.Toplevel):
         super().__init__(app)
         self.app, self.rows = app, []
         self.title("Router seç")
-        self.geometry("760x460")
+        self.geometry(f"{px(app, 880)}x{px(app, 500)}")
         self.configure(bg=BG)
         self.transient(app)
         ttk.Label(self, text="Evdeki router'ları seç (Ctrl ile birden çok)", style="Title.TLabel").pack(
             anchor="w", padx=14, pady=(12, 4))
         cols = ("ssid", "bssid", "signal", "band")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", selectmode="extended")
-        for c, t, w in (("ssid", "Ağ adı (SSID)", 220), ("bssid", "BSSID", 150), ("signal", "Sinyal", 200),
+        for c, t, w in (("ssid", "Ağ adı (SSID)", 220), ("bssid", "BSSID", 160), ("signal", "Sinyal", 210),
                         ("band", "Bant", 80)):
             self.tree.heading(c, text=t)
-            self.tree.column(c, width=w, anchor="w")
+            self.tree.column(c, width=px(app, w), anchor="w", stretch=(c == "band"))
         self.tree.pack(fill="both", expand=True, padx=14, pady=4)
         self.v_pin = tk.BooleanVar(value=False)
         ttk.Checkbutton(self, variable=self.v_pin,
