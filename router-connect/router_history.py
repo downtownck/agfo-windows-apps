@@ -192,7 +192,7 @@ def discover(profiles: list, registry: list, events: list, nets: list, min_signa
 
 def gather(run_scan=None, run_profiles=None, reg=None, ev=None) -> list:
     """Tarar, gecmisi toplar, birlestirir (arka plan parcaciginda cagrilir)."""
-    nets, _ = (run_scan or wifi.scan)()
+    nets, _ = (run_scan or wifi.scan_merged)()
     try:
         profs = (run_profiles or wifi.profiles)()
     except wifi.WifiError:

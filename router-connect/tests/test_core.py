@@ -316,6 +316,23 @@ def scan_requests_fresh_scan_and_parses():
 
 
 @test
+def scan_merged_combines_passes():
+    a = [{'ssid': 'A', 'bssid': 'aa:aa:aa:aa:aa:01', 'signal': 40, 'band': '', 'channel': 1}]
+    b = [{'ssid': 'A', 'bssid': 'AA-AA-AA-AA-AA-01', 'signal': 70, 'band': '', 'channel': 1},
+         {'ssid': 'B', 'bssid': 'bb:bb:bb:bb:bb:02', 'signal': 90, 'band': '', 'channel': 6}]      # 1. turda eksik olan ag
+    seq = [a, b]
+    import router_wifi as rw
+    orig = rw.scan
+    rw.scan = lambda **k: (seq.pop(0), '')
+    try:
+        nets, _ = rw.scan_merged(passes=2)
+    finally:
+        rw.scan = orig
+    by = {n['ssid']: n for n in nets}
+    assert len(nets) == 2 and by['A']['signal'] == 70 and by['B']['signal'] == 90, nets
+
+
+@test
 def decode_handles_oem_and_utf8():
     assert w.decode('Çalışma'.encode('utf-8')) == 'Çalışma'
     assert isinstance(w.decode(b'\xe7a\xfd\xfdma'), str)

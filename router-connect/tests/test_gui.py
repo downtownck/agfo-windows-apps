@@ -46,6 +46,7 @@ def fake_connect(ssid, bssid='', iface=None, profile=None, **kw):
 
 
 wifi.scan = lambda *a, **k: (NETS, '')
+wifi.scan_merged = lambda *a, **k: (NETS, '')
 wifi.current = lambda *a, **k: STATE['cur']
 wifi.connect = fake_connect
 

@@ -353,6 +353,7 @@ class App(tk.Tk):
             self.log("✖ Geçmiş okunamadı: " + err)
         else:
             self.log("Geçmiş kaynağı — " + history.diag_text())
+            self.log("Menzilde görülen bilinen ağ: %d / %d" % (sum(1 for f in found if f["visible"]), len(found)))
             picks = [f for f in found if f["suggest"]]
             added = [f["ssid"] for f in picks if self.store.add(f["ssid"], "", f["ssid"])]
             if added:

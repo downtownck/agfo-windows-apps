@@ -305,6 +305,19 @@ def scan(force=True, wait=3.0, run=run_netsh, scan_request=request_scan, sleep=t
     return parse_networks(out), out
 
 
+def scan_merged(passes=2, wait=3.5, run=run_netsh, scan_request=request_scan, sleep=time.sleep):
+    """Birden cok taze tarama yapip BSSID basina en guclu sinyali birlestirir. Tek tarama, Windows'un onbellekten
+    verdigi eksik listeyle sonuclanabilir (yakin bir router listede gorunmeyebilir); iki tur bunu kapatir."""
+    best, raw = {}, ''
+    for _ in range(max(1, passes)):
+        nets, raw = scan(force=True, wait=wait, run=run, scan_request=scan_request, sleep=sleep)
+        for n in nets:
+            k = norm_mac(n['bssid'])
+            if k not in best or n['signal'] > best[k]['signal']:
+                best[k] = n
+    return list(best.values()), raw
+
+
 def current(run=run_netsh):
     """Ilk Wi-Fi kartinin durumu (bagliysa bagli olan oncelikli); kart yoksa None."""
     rc, out = run(['show', 'interfaces'])
