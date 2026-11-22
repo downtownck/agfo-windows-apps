@@ -51,8 +51,9 @@ jobs:
           xvfb-run -a python -I mic-monitor/tests/test_gui.py mic-monitor
           python -I subscription-manager/tests/test_core.py subscription-manager
           xvfb-run -a python -I subscription-manager/tests/test_gui.py subscription-manager
-          python -I router-connect/tests/test_core.py router-connect
+          xvfb-run -a python -I router-connect/tests/test_core.py router-connect
           xvfb-run -a python -I router-connect/tests/test_gui.py router-connect
+          python -I router-connect/tests/test_update.py router-connect
           python -m compileall -q supertools system-care backupsync/src phantom-shot mic-monitor subscription-manager router-connect
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
           python -m unittest discover -s backupsync/tests
