@@ -10,6 +10,7 @@ name: Release
 #   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd: EXE kullanicinin PC'sinde derlenir) + AGFO-Phantom-Shot.exe (uygulama ici guncelleme)
 #   mic-monitor-vX.Y.Z  -> AGFO-Mic-Monitor-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd) + AGFO-Mic-Monitor.exe (uygulama ici guncelleme)
 #   subscription-manager-vX.Y.Z -> AGFO-Subscription-Manager-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd; uygulama ici guncelleme de bunu kullanir)
+#   router-connect-vX.Y.Z -> AGFO-Router-Connect-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd; uygulama ici guncelleme de bunu kullanir)
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -35,6 +36,7 @@ jobs:
       ps: ${{ steps.d.outputs.ps }}
       mm: ${{ steps.d.outputs.mm }}
       sm: ${{ steps.d.outputs.sm }}
+      rn: ${{ steps.d.outputs.rn }}
     steps:
       - uses: actions/checkout@v4
       - id: d
@@ -57,6 +59,8 @@ jobs:
           echo "mm=$(need mic-monitor-v$MM)" >> "$GITHUB_OUTPUT"
           SM=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" subscription-manager/subscription_core.py)
           echo "sm=$(need subscription-manager-v$SM)" >> "$GITHUB_OUTPUT"
+          RN=$(sed -n "s/^VERSION = '\([0-9.]*\)'/\1/p" router-connect/router_core.py)
+          echo "rn=$(need router-connect-v$RN)" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   system-care:
@@ -557,3 +561,67 @@ jobs:
         run: |
           NOTES=".github/release-notes/${TAG}.md"; [ -f "$NOTES" ] || { echo "AGFO Subscription Manager ${VERSION}" > /tmp/notes.md; NOTES=/tmp/notes.md; }
           gh release create "$TAG" out/* --title "AGFO Subscription Manager ${VERSION}" --notes-file "$NOTES" --target "$GITHUB_SHA"
+
+  router-connect:
+    needs: detect
+    if: needs.detect.outputs.rn != ''
+    runs-on: windows-latest
+    env: { TAG: '${{ needs.detect.outputs.rn }}' }
+    defaults:
+      run: { shell: pwsh }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Surum / etiket, ortak modul ve gizlilik denetimi
+        run: |
+          $v = $env:TAG -replace '^router-connect-v',''
+          $c = (Select-String -Path router-connect/router_core.py -Pattern "^VERSION = '([0-9.]+)'").Matches[0].Groups[1].Value
+          if ($v -ne $c) { throw "Etiket $v ile router_core.py VERSION $c uyusmuyor" }
+          if ((Get-FileHash shared/agfo_github_update.py).Hash -ne (Get-FileHash router-connect/agfo_github_update.py).Hash) { throw 'Ortak modul kopyasi farkli' }
+          python -I .github/scripts/privacy_check.py .
+          if ($LASTEXITCODE) { throw 'gizlilik denetimi basarisiz' }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Testler (gercek Windows'ta, WLAN API yapi boyutlari ve arayuz)
+        run: |
+          python -I shared/tests/test_agfo_github_update.py shared
+          if ($LASTEXITCODE) { throw 'ortak modul testi basarisiz' }
+          python -I router-connect/tests/test_core.py router-connect
+          if ($LASTEXITCODE) { throw 'cekirdek testleri basarisiz' }
+          python -I router-connect/tests/test_gui.py router-connect
+          if ($LASTEXITCODE) { throw 'arayuz testi basarisiz' }
+      - name: Paketle
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          $src = "AGFO-Router-Connect-v$env:VERSION"
+          New-Item -ItemType Directory -Force "pkg/$src" | Out-Null
+          Get-ChildItem router-connect -Force | Where-Object { $_.Name -notin @('dist', '__pycache__', 'tests') } | Copy-Item -Destination "pkg/$src/" -Recurse -Force
+          Get-ChildItem "pkg/$src" -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force
+          if (-not (Test-Path "pkg/$src/Derle-ve-Kur.cmd")) { throw 'Derle-ve-Kur.cmd pakette yok' }
+          Compress-Archive -Path "pkg/$src" -DestinationPath "out/$src-Kurulum.zip"
+          Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
+          Get-Content out/SHA256SUMS.txt
+      - name: Yerel derleme yolu testi (Kurulum ZIP'i ac -> build_local.ps1 -> EXE acilis testi)
+        run: |
+          $zip = (Get-ChildItem out -Filter '*-Kurulum.zip' | Select-Object -First 1).FullName
+          $t = Join-Path $env:RUNNER_TEMP 'rc-local'
+          Expand-Archive -LiteralPath $zip -DestinationPath $t -Force
+          $dir = (Get-ChildItem $t -Directory | Select-Object -First 1).FullName
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dir 'packaging\build_local.ps1')
+          if ($LASTEXITCODE) { $l = Join-Path $env:LOCALAPPDATA 'AGFO\RouterConnect\build\last-build.txt'; if (Test-Path $l) { Get-Content $l -Tail 60 }; throw 'build_local.ps1 basarisiz' }
+          $exe = Join-Path $dir 'dist\AGFO-Router-Connect.exe'
+          if (-not (Test-Path $exe)) { throw 'EXE uretilmedi' }
+          # Wi-Fi karti olmayan makinede de acilmali (hata mesaji verip calismaya devam eder).
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 12
+          $alive = @(Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue).Count
+          Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $alive) { throw ('EXE acilista kapandi, cikis kodu ' + $p.ExitCode) }
+          Write-Host 'Yerel derleme yolu dogrulandi.'
+      - name: Yayinla
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          $notes = ".github/release-notes/$env:TAG.md"
+          if (-not (Test-Path $notes)) { "AGFO Router Connect $env:VERSION" | Set-Content notes.md; $notes = 'notes.md' }
+          gh release create $env:TAG (Get-ChildItem out -File).FullName --title "AGFO Router Connect $env:VERSION" --notes-file $notes --target $env:GITHUB_SHA

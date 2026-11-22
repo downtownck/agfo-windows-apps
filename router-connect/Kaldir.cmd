@@ -1,0 +1,4 @@
+@echo off
+chcp 65001 >nul
+powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$d=Join-Path $env:LOCALAPPDATA 'Programs\AGFO-Router-Connect'; $m=Join-Path ([Environment]::GetFolderPath('Programs')) 'AGFO\AGFO Router Connect.lnk'; $k=Join-Path ([Environment]::GetFolderPath('Desktop')) 'AGFO Router Connect.lnk'; $s=Join-Path ([Environment]::GetFolderPath('Startup')) 'AGFO Router Connect.lnk'; Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Remove-Item -LiteralPath $m,$k,$s -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue; Write-Host 'App removed. Your router list (APPDATA\AGFO\RouterConnect) was kept.'"
+pause
