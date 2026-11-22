@@ -35,32 +35,63 @@ function Invoke-Native {
 }
 
 try {
-    $py = Find-AGFOPython
-    if (-not $py) { throw 'Python 3.10+ (with tkinter) was not found. Install it from https://www.python.org/downloads/windows/ and run this again.' }
-    Write-Host ('Python: ' + $py.Python)
+    $pys = @(Find-AGFOPythons)
+    if (-not $pys.Count) { throw 'Python 3.10+ (with tkinter) was not found. Install it from https://www.python.org/downloads/windows/ and run this again.' }
+    Write-Host ('Python candidates: ' + (($pys | ForEach-Object { "$($_.Version)" }) -join ', '))
 
-    # Separate build environment (does not touch the Python installation).
-    $vpy = Join-Path $venv 'Scripts\python.exe'
-    if (-not (Test-Path -LiteralPath $vpy)) {
-        Write-Host 'Preparing the build environment (first run only)...'
-        if ((Invoke-Native $py.Python @('-m', 'venv', $venv)) -ne 0) { throw 'Could not create the build environment (venv).' }
-    }
-    Write-Host 'Checking libraries: PyInstaller ...'
-    $pipArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '--upgrade', 'PyInstaller>=6.16,<7')
-    if ((Invoke-Native $vpy $pipArgs) -ne 0) { throw 'Could not install the libraries. Check the internet connection.' }
-
-    Write-Host 'Building the EXE (1-2 minutes)...'
-    $ico = Join-Path $root 'assets\agfo-router.ico'
-    $pyiArgs = @('-m', 'PyInstaller', '--noconfirm', '--clean', '--onefile', '--windowed', '--name', $appName,
-                 '--distpath', $dist, '--workpath', (Join-Path $cache 'work'), '--specpath', (Join-Path $cache 'spec'),
-                 '--paths', $root, '--icon', $ico,
-                 '--hidden-import', 'router_app', '--hidden-import', 'router_core', '--hidden-import', 'router_update',
-                 '--hidden-import', 'router_wifi', '--hidden-import', 'router_store', '--hidden-import', 'router_startup', '--hidden-import', 'router_history',
-                 '--hidden-import', 'agfo_github_update',
-                 (Join-Path $root 'app.pyw'))
-    if ((Invoke-Native $vpy $pyiArgs) -ne 0) { throw 'PyInstaller build failed.' }
     $exe = Join-Path $dist ($appName + '.exe')
-    if (-not (Test-Path -LiteralPath $exe)) { throw 'Build finished but the EXE was not found.' }
+    $ico = Join-Path $root 'assets\agfo-router.ico'
+    $selfTest = Join-Path $cache 'selftest.txt'
+    $built = $false
+    $tried = @()
+    foreach ($py in $pys) {
+        $tag = "$($py.Version)"
+        $tried += $tag
+        Write-Host ''
+        Write-Host ('=== Python ' + $tag + ' (' + $py.Python + ') ===')
+        # Separate build environment per Python version (does not touch the Python installation).
+        $venv = Join-Path $cache ('venv-' + $tag)
+        $vpy = Join-Path $venv 'Scripts\python.exe'
+        if (-not (Test-Path -LiteralPath $vpy)) {
+            Write-Host 'Preparing the build environment (first run only)...'
+            if ((Invoke-Native $py.Python @('-m', 'venv', $venv)) -ne 0) { Write-Host 'venv failed, trying the next Python.'; continue }
+        }
+        Write-Host 'Checking libraries: PyInstaller ...'
+        $pipArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '--upgrade', 'PyInstaller>=6.16,<7')
+        if ((Invoke-Native $vpy $pipArgs) -ne 0) { Write-Host 'Could not install PyInstaller (check the internet connection), trying the next Python.'; continue }
+
+        Write-Host 'Building the EXE (1-2 minutes)...'
+        if (Test-Path -LiteralPath $exe) { Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue }
+        $pyiArgs = @('-m', 'PyInstaller', '--noconfirm', '--clean', '--onefile', '--windowed', '--name', $appName,
+                     '--distpath', $dist, '--workpath', (Join-Path $cache ('work-' + $tag)), '--specpath', (Join-Path $cache 'spec'),
+                     '--paths', $root, '--icon', $ico,
+                     '--hidden-import', 'tkinter', '--hidden-import', 'tkinter.ttk', '--hidden-import', 'tkinter.messagebox',
+                     '--hidden-import', 'tkinter.simpledialog',
+                     '--hidden-import', 'router_app', '--hidden-import', 'router_core', '--hidden-import', 'router_update',
+                     '--hidden-import', 'router_wifi', '--hidden-import', 'router_store', '--hidden-import', 'router_startup',
+                     '--hidden-import', 'router_history', '--hidden-import', 'router_selftest',
+                     '--hidden-import', 'agfo_github_update',
+                     (Join-Path $root 'app.pyw'))
+        if ((Invoke-Native $vpy $pyiArgs) -ne 0) { Write-Host 'PyInstaller build failed, trying the next Python.'; continue }
+        if (-not (Test-Path -LiteralPath $exe)) { Write-Host 'Build finished but the EXE was not found, trying the next Python.'; continue }
+
+        # Self-test: the EXE must really contain tkinter (a broken bundle would only fail when the user opens it).
+        Write-Host 'Self-test of the new EXE...'
+        if (Test-Path -LiteralPath $selfTest) { Remove-Item -LiteralPath $selfTest -Force -ErrorAction SilentlyContinue }
+        $proc = Start-Process -FilePath $exe -ArgumentList @('--selftest', ('"' + $selfTest + '"')) -PassThru
+        if (-not $proc.WaitForExit(120000)) { try { $proc.Kill() } catch {}; Write-Host 'Self-test timed out, trying the next Python.'; continue }
+        $res = ''
+        if (Test-Path -LiteralPath $selfTest) { $res = (Get-Content -LiteralPath $selfTest -Raw) }
+        Add-Content -LiteralPath $log -Value ('SELFTEST Python ' + $tag + ' exit=' + $proc.ExitCode + ' ' + $res)
+        if ($proc.ExitCode -eq 0 -and $res -match '^OK ') {
+            Write-Host ('Self-test passed: ' + $res.Trim()) -ForegroundColor Green
+            $built = $true
+            break
+        }
+        Write-Host ('Self-test FAILED with Python ' + $tag + ': ' + $res.Trim()) -ForegroundColor Yellow
+        Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue
+    }
+    if (-not $built) { throw ('No Python produced a working EXE (tried: ' + ($tried -join ', ') + '). See the details file.') }
     Write-Host ('EXE ready: ' + $exe) -ForegroundColor Green
 
     if ($Install) {

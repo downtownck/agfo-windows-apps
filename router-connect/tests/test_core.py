@@ -455,7 +455,7 @@ def installer_files_are_consistent():
         assert all(b < 128 for b in raw), name + ' ASCII olmali (Windows kabuk iletileri yalnizca Ingilizce)'
     ps = (ROOT / 'packaging/build_local.ps1').read_text()
     for mod in ('router_app', 'router_core', 'router_update', 'router_wifi', 'router_store', 'router_startup',
-                'router_history', 'agfo_github_update'):
+                'router_history', 'router_selftest', 'agfo_github_update'):
         assert "'%s'" % mod in ps, mod + ' PyInstaller hidden-import listesinde yok'
     low = ' '.join(p.read_text(encoding='utf-8', errors='replace').lower() for p in ROOT.rglob('*')
                    if p.is_file() and p.suffix in ('.py', '.pyw', '.cmd', '.ps1', '.md'))
@@ -509,6 +509,25 @@ def history_discover_finds_home_routers():
     assert hist.discover([], [], [], nets) == []
     got = hist.gather(run_scan=lambda: (nets, ''), run_profiles=lambda: ['Yatak-Odasi'], reg=lambda: [], ev=lambda: [])
     assert [g['ssid'] for g in got] == ['Yatak-Odasi']
+
+
+@test
+def selftest_module_and_entry():
+    out = pathlib.Path(tempfile.mkdtemp()) / 'st.txt'
+    try:
+        import tkinter  # noqa: F401
+        have_tk = True
+    except ImportError:
+        have_tk = False
+    import router_selftest as st
+    code = st.run(['app.pyw', '--selftest', str(out)])
+    text = out.read_text(encoding='utf-8')
+    if have_tk:
+        assert code == 0 and text.startswith('OK ' + core.VERSION), text
+    else:
+        assert code == 1 and text.startswith('FAIL'), text      # tkinter yoksa net hata (dosyaya yazilir)
+    app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
+    assert "'--selftest' in sys.argv" in app and app.index('--selftest') < app.index('from router_app import main')
 
 
 print('AGFO ROUTER CONNECT CORE OK: %d tests' % len(PASSED))

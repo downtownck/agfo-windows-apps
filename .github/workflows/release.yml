@@ -612,12 +612,20 @@ jobs:
           if ($LASTEXITCODE) { $l = Join-Path $env:LOCALAPPDATA 'AGFO\RouterConnect\build\last-build.txt'; if (Test-Path $l) { Get-Content $l -Tail 60 }; throw 'build_local.ps1 basarisiz' }
           $exe = Join-Path $dir 'dist\AGFO-Router-Connect.exe'
           if (-not (Test-Path $exe)) { throw 'EXE uretilmedi' }
-          # Wi-Fi karti olmayan makinede de acilmali (hata mesaji verip calismaya devam eder).
-          $p = Start-Process -FilePath $exe -PassThru
-          Start-Sleep -Seconds 12
+          # EXE oz-denetimi: tkinter/Tcl-Tk EXE'nin icinde gercekten var mi (pencereli EXE hata verince de ayakta kalir, bu yuzden
+          # "calisiyor mu" bakmak yetmez; cikis kodu ve sonuc dosyasi denetlenir).
+          $st = Join-Path $env:RUNNER_TEMP 'rc-selftest.txt'
+          $p = Start-Process -FilePath $exe -ArgumentList @('--selftest', ('"' + $st + '"')) -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'EXE oz-denetimi zaman asimi' }
+          $res = if (Test-Path $st) { Get-Content $st -Raw } else { '(sonuc dosyasi yok)' }
+          Write-Host $res
+          if ($p.ExitCode -ne 0 -or $res -notmatch '^OK ') { throw ('EXE oz-denetimi basarisiz, cikis ' + $p.ExitCode) }
+          # Normal acilis: Wi-Fi karti olmayan makinede de ayakta kalmali.
+          $p2 = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
           $alive = @(Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue).Count
           Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue | Stop-Process -Force
-          if (-not $alive) { throw ('EXE acilista kapandi, cikis kodu ' + $p.ExitCode) }
+          if (-not $alive) { throw ('EXE acilista kapandi, cikis kodu ' + $p2.ExitCode) }
           Write-Host 'Yerel derleme yolu dogrulandi.'
       - name: Yayinla
         env: { GH_TOKEN: '${{ github.token }}' }

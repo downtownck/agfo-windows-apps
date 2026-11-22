@@ -24,7 +24,7 @@ function Test-AGFOPython {
     }
 }
 
-function Find-AGFOPython {
+function Find-AGFOPythons {
     $candidates = New-Object System.Collections.Generic.List[string]
     $registryRoots = @(
         'HKCU:\Software\Python\PythonCore',
@@ -55,15 +55,33 @@ function Find-AGFOPython {
         $cmd = Get-Command 'python.exe' -ErrorAction Stop
         if ($cmd.Source) { $candidates.Add($cmd.Source) }
     } catch {}
-    # Prefer newest interpreter, do not trust py.exe or PATH shims without testing.
-    $distinct = @($candidates | Select-Object -Unique)
-    $distinct = @($distinct | Sort-Object -Descending)
-    foreach ($candidate in $distinct) {
-        if (Test-AGFOPython -Executable $candidate) {
-            $pyw = Join-Path (Split-Path -Parent $candidate) 'pythonw.exe'
-            if (-not (Test-Path -LiteralPath $pyw)) { continue }
-            return [pscustomobject]@{ Python = $candidate; PythonW = $pyw }
-        }
+    # Interpreters are tested (tkinter import) and ordered: versions PyInstaller supports best (3.10-3.13) first,
+    # then the rest, each group newest first. The build tries them in this order until the EXE self-test passes.
+    $found = @()
+    foreach ($candidate in @($candidates | Select-Object -Unique)) {
+        if (-not (Test-AGFOPython -Executable $candidate)) { continue }
+        $pyw = Join-Path (Split-Path -Parent $candidate) 'pythonw.exe'
+        if (-not (Test-Path -LiteralPath $pyw)) { continue }
+        $ver = $null
+        try {
+            $out = (& $candidate -c "import sys;print('%d.%d' % sys.version_info[:2])" 2>$null | Select-Object -First 1)
+            $ver = [version]("$out".Trim())
+        } catch {}
+        if (-not $ver) { continue }
+        $found += [pscustomobject]@{ Python = $candidate; PythonW = $pyw; Version = $ver }
     }
+    $good = @($found | Where-Object { $_.Version -ge [version]'3.10' -and $_.Version -lt [version]'3.14' } | Sort-Object Version -Descending)
+    $rest = @($found | Where-Object { -not ($_.Version -ge [version]'3.10' -and $_.Version -lt [version]'3.14') } | Sort-Object Version -Descending)
+    $all = @($good) + @($rest)
+    # one entry per major.minor
+    $seen = @{}
+    $uniq = @()
+    foreach ($f in $all) { $k = "$($f.Version)"; if (-not $seen.ContainsKey($k)) { $seen[$k] = 1; $uniq += $f } }
+    return $uniq
+}
+
+function Find-AGFOPython {
+    $all = @(Find-AGFOPythons)
+    if ($all.Count) { return $all[0] }
     return $null
 }
