@@ -9,8 +9,8 @@ name: Release
 #   ai-editor-vX.Y.Z    -> AGFO-AI-Editor.exe (Windows'ta derlenir) + AGFO-AI-Editor-Kur.cmd (yoneticisiz kurulum) + ekran goruntusu
 #   phantom-shot-vX.Y.Z -> AGFO-Phantom-Shot-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd: EXE kullanicinin PC'sinde derlenir) + AGFO-Phantom-Shot.exe (uygulama ici guncelleme)
 #   mic-monitor-vX.Y.Z  -> AGFO-Mic-Monitor-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd) + AGFO-Mic-Monitor.exe (uygulama ici guncelleme)
-#   subscription-manager-vX.Y.Z -> AGFO-Subscription-Manager-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd; uygulama ici guncelleme de bunu kullanir)
-#   router-connect-vX.Y.Z -> AGFO-Router-Connect-vX.Y.Z-Kurulum.zip (Derle-ve-Kur.cmd; uygulama ici guncelleme de bunu kullanir)
+#   subscription-manager-vX.Y.Z -> AGFO-Subscription-Manager-vX.Y.Z-Kurulum.zip (ilk kurulum: Derle-ve-Kur.cmd) + AGFO-Router-Connect.exe (uygulama ici SESSIZ guncelleme bunu indirir)
+#   router-connect-vX.Y.Z -> AGFO-Router-Connect-vX.Y.Z-Kurulum.zip (ilk kurulum: Derle-ve-Kur.cmd) + AGFO-Router-Connect.exe (uygulama ici SESSIZ guncelleme bunu indirir)
 # Her surume SHA256SUMS.txt eklenir; uygulamalar indirdikleri dosyayi bununla / GitHub ozetiyle dogrular.
 on:
   push:
@@ -588,6 +588,8 @@ jobs:
           if ($LASTEXITCODE) { throw 'ortak modul testi basarisiz' }
           python -X utf8 -I router-connect/tests/test_core.py router-connect
           if ($LASTEXITCODE) { throw 'cekirdek testleri basarisiz' }
+          python -X utf8 -I router-connect/tests/test_update.py router-connect
+          if ($LASTEXITCODE) { throw "guncelleme testi basarisiz" }
           python -X utf8 -I router-connect/tests/test_gui.py router-connect
           if ($LASTEXITCODE) { throw 'arayuz testi basarisiz' }
       - name: Paketle
@@ -627,6 +629,27 @@ jobs:
           Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue | Stop-Process -Force
           if (-not $alive) { throw ('EXE acilista kapandi, cikis kodu ' + $p2.ExitCode) }
           Write-Host 'Yerel derleme yolu dogrulandi.'
+      - name: Hazir EXE (sessiz guncelleme) - guncelleyici kipi testi ve SHA-256
+        run: |
+          $zip = (Get-ChildItem out -Filter '*-Kurulum.zip' | Select-Object -First 1).FullName
+          $dir = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'rc-local') -Directory | Select-Object -First 1).FullName
+          $exe = Join-Path $dir 'dist\AGFO-Router-Connect.exe'
+          # Guncelleyici kipi: yeni EXE, kapanmis bir surecin yerine hedefi degistirip acar (calisan eski surumun yerine gecme).
+          $tgt = Join-Path $env:RUNNER_TEMP 'rc-target\AGFO-Router-Connect.exe'
+          New-Item -ItemType Directory -Force (Split-Path $tgt) | Out-Null
+          Set-Content -Path $tgt -Value 'eski surum' -Encoding ascii
+          $p = Start-Process -FilePath $exe -ArgumentList @('--apply-update', ('"' + $tgt + '"'), '--wait-pid', '999999') -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'guncelleyici zaman asimi' }
+          if ($p.ExitCode -ne 0) { throw ('guncelleyici basarisiz, cikis ' + $p.ExitCode) }
+          if ((Get-FileHash $tgt).Hash -ne (Get-FileHash $exe).Hash) { throw 'hedef EXE yeni surumle degismedi' }
+          Start-Sleep -Seconds 6
+          $alive = @(Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue).Count
+          Get-Process -Name 'AGFO-Router-Connect' -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $alive) { throw 'guncelleme sonrasi uygulama acilmadi' }
+          Copy-Item $exe out/AGFO-Router-Connect.exe
+          Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content out/SHA256SUMS.txt -Encoding ascii
+          Get-Content out/SHA256SUMS.txt
       - name: Yayinla
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |

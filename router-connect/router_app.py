@@ -54,6 +54,7 @@ class App(tk.Tk):
         self.configure(bg=BG)
         self.store = Store()
         self.busy = False
+        self._updating = False
         self.nets, self.cur, self.decision = [], None, None
         self._auto_job = None
         self._ui_q = queue.Queue()      # arka plan is parcaciklari arayuze yalniz bu kuyruk uzerinden dokunur
@@ -400,30 +401,47 @@ class App(tk.Tk):
     def _update_result(self, res, manual):
         st = res.get("status")
         if st == "update":
-            self._offer_update(res)
+            self._apply_silent(res, manual)
         elif manual and st in ("current", "none", "throttled", "skipped"):
             messagebox.showinfo(APP_NAME, f"Güncelsin (v{VERSION}).")
         elif manual and st == "error":
             messagebox.showwarning(APP_NAME, f"Güncelleme denetlenemedi:\n{res.get('message', '')}")
 
-    def _offer_update(self, res):
+    def _apply_silent(self, res, manual=False):
+        """Yeni surumu sessizce indirir, dogrular, uygulamayi kapatip yerine koyar ve (kucukse kucuk) yeniden acar."""
         v = res["version"]
-        notes = (res["release"].get("notes") or "")[:600]
-        if not messagebox.askyesno(APP_NAME, f"Yeni sürüm var: v{v} (kurulu: v{VERSION}).\n\n{notes}\n\n"
-                                             f"İndirilip kurulsun mu? Paket SHA-256 ile doğrulanır; uygulama "
-                                             f"kapanır, bu bilgisayarda yeniden derlenip açılır. Router listen korunur."):
+        if not updater.is_frozen():
+            if manual:
+                messagebox.showinfo(APP_NAME, f"Yeni sürüm var: v{v}. Kaynaktan çalıştığın için kendiliğinden güncellenmez; "
+                                              f"GitHub'dan Kurulum ZIP'ini indirip Derle-ve-Kur.cmd çalıştır.")
             return
+        if self.busy or self._updating:
+            if not self._updating:
+                self.after(5000, lambda: self._apply_silent(res, manual))      # tarama/baglanma bitsin
+            return
+        self._updating = True
+        minimized = self.state() == "iconic"
+        self.log(f"Yeni sürüm v{v} indiriliyor; uygulama kısa süre kapanıp yeniden açılacak…")
 
         def work():
             try:
-                z = updater.download(res)
-                folder = updater.extract(z)
-                updater.run_installer(folder)
+                new_exe = updater.download(res)
+                proc = updater.apply_update(new_exe, minimized=minimized)
+                import time
+                time.sleep(2)
+                if proc.poll() is not None:      # guvenlik yazilimi guncelleyiciyi hemen kapattiysa
+                    raise OSError("Güncelleyici başlatılamadı (güvenlik yazılımı engellemiş olabilir).")
                 self.post(self.destroy)
             except Exception as e:
-                msg = str(e)
-                self.post(lambda: messagebox.showerror(APP_NAME, f"Güncelleme başarısız:\n{msg}"))
+                msg = str(e) or e.__class__.__name__
+                self.post(lambda: self._update_failed(msg, manual))
         threading.Thread(target=work, daemon=True).start()
+
+    def _update_failed(self, msg, manual):
+        self._updating = False
+        self.log("✖ Güncelleme başarısız, kurulu sürüm değişmedi: " + msg)
+        if manual:
+            messagebox.showerror(APP_NAME, f"Güncelleme tamamlanamadı; kurulu sürüm değişmedi.\n\n{msg}")
 
 
 # ======================================================================
