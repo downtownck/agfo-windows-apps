@@ -54,10 +54,13 @@ class VpnPage:
         tsb = tk.Frame(tsf, bg=PANEL); tsb.pack(fill='x', pady=(0, 6))
         self.btn(tsb, 'Tailscale\'e giriş yap', self.ts_login, 'ghost', action=False)
         self.ts_adv_btn = self.btn(tsb, 'Bu bilgisayarı çıkış noktası yap', self.ts_toggle_advertise, 'ghost', action=False)
-        self.btn(tsb, 'UGREEN ayarını kopyala (Türk IP)', self.ts_copy_ugreen, 'ghost', action=False)
-        self.btn(tsb, 'Hetzner komutunu kopyala (yabancı IP)', lambda: self.ts_copy_script('hetzner'), 'ghost', action=False)
-        self.btn(tsb, 'netcup komutunu kopyala (yabancı IP)', lambda: self.ts_copy_script('netcup'), 'ghost', action=False)
         self.btn(tsb, 'Yönetim panelini aç', lambda: self._open_url(vpn.TS_ADMIN_URL), 'ghost', action=False)
+        tsb2 = tk.Frame(tsf, bg=PANEL); tsb2.pack(fill='x', pady=(0, 6))     # sunucu kurulum/onarim: ayri satir (dar pencerede kesilmesin)
+        tk.Label(tsb2, text='Çıkış sunucuları:', fg=FG, bg=PANEL, font=('Segoe UI', 9, 'bold')).pack(side='left', padx=(0, 6))
+        self.btn(tsb2, 'UGREEN (Türk IP)', self.ts_copy_ugreen, 'ghost', action=False)
+        self.btn(tsb2, 'Hetzner kur/onar', lambda: self.ts_copy_script('hetzner'), 'ghost', action=False)
+        self.btn(tsb2, 'netcup kur/onar', lambda: self.ts_copy_script('netcup'), 'ghost', action=False)
+        self.btn(tsb2, 'Sunucuyu tanıla', self.ts_diag_server, 'ghost', action=False)
         self.ts_info = tk.StringVar(value='')
         tk.Label(tsf, textvariable=self.ts_info, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left',
                  wraplength=int(1080 * self.scale)).pack(fill='x', pady=(0, 6))
@@ -373,7 +376,13 @@ class VpnPage:
                     ip, code, cname = val
                     self.vpn_ip.set('Görünen IP: %s — %s' % (ip, cname or code or 'ülke bilinmiyor'))
                 elif kind == 'ip-err':
-                    self.vpn_ip.set('Görünen IP denetlenemedi: %s' % val[:120])
+                    cur = ((self.ts_status or {}).get('current') or {}).get('name') if self.vpn_src.get() == 'ts' else None
+                    if cur:
+                        self.vpn_ip.set('İnternete çıkılamıyor: %s çıkış noktası trafiği iletmiyor. "Sunucuyu tanıla" ile denetleyin '
+                                        'ya da o sunucunun "kur/onar" komutunu yeniden çalıştırın.' % cur)
+                        self.write('Tailscale: %s üzerinden internete çıkılamadı (%s). Sunucu tarafında iletim/güvenlik duvarı sorunu olabilir.\n' % (cur, val[:120]))
+                    else:
+                        self.vpn_ip.set('Görünen IP denetlenemedi: %s' % val[:120])
         except queue.Empty:
             pass
         try:
@@ -472,8 +481,8 @@ class VpnPage:
             self.ts_info.set('Tailscale kurulu değil. "Bağlan"a basınca kurulur. Kurulum sonrası "Tailscale\'e giriş yap" ile Google/Microsoft hesabınızla '
                              'giriş yapın (kişisel kullanım ücretsiz).')
         else:
-            how = ('Yurt dışında Türk IP\'si: "UGREEN ayarını kopyala" ile aldığınız Docker projesini NAS\'ta oluşturun (çıkış adı ugreen-turkiye). '
-                   'Türkiye\'de yabancı IP: "Hetzner / netcup komutunu kopyala" ile aldığınız komutu ilgili sunucuda (AGFO Root Terminal / SSH) çalıştırın '
+            how = ('Yurt dışında Türk IP\'si: "UGREEN (Türk IP)" ile aldığınız Docker projesini NAS\'ta oluşturun (çıkış adı ugreen-turkiye). '
+                   'Türkiye\'de yabancı IP: "Hetzner / netcup kur/onar" ile aldığınız komutu ilgili sunucuda (AGFO Root Terminal / SSH) çalıştırın '
                    '(çıkış adları hetzner-cikis, netcup-cikis). '
                    'Her yeni çıkış noktasını bir kez "Yönetim panelini aç" > makine > Edit route settings > "Use as exit node" ile onaylayın.')
             oth = [o for o in (st.get('others') or []) if o['os'] in ('linux', '')]
@@ -593,6 +602,7 @@ class VpnPage:
     def ts_copy_script(self, key='hetzner'):
         name, host, what = vpn.EXIT_NODE_SERVERS[key]
         script = vpn.linux_exit_node_script(host)
+        body = vpn.linux_exit_node_body(host)
         title = '%s — %s çıkışı' % (name, what)
         self.clipboard_clear()
         self.clipboard_append(script)
@@ -608,8 +618,22 @@ class VpnPage:
                             '2) Tailscale sunucuda yeni kuruluyorsa ekranda çıkan login.tailscale.com bağlantısını açıp aynı hesapla giriş yapın '
                             '(zaten bağlıysa komut yalnızca çıkış noktalığını açar; ad ve DNS ayarı değişmez).\n'
                             '3) "Yönetim panelini aç" > sunucu (%s ya da mevcut adı) > Edit route settings > "Use as exit node" işaretleyin.\n\n'
-                            'CyberPanel sunucularında firewalld çalışıyorsa komut, Tailscale belgesindeki gibi maskelemeyi (masquerade) de açar; '
-                            'web siteleri ve DNS ayarı etkilenmez.\n\nKomut:\n%s' % (name, host, script))
+                            'Komut tekrar çalıştırılabilir (onarım için de kullanılır). firewalld / CSF / ufw varsa Tailscale trafiğinin iletilmesine izin verir, '
+                            'gerekirse Tailscale\'i yeniden başlatır ve sonunda TAMAM / SORUN satırlarıyla tanı gösterir. Web siteleri ve DNS ayarı etkilenmez.\n\n'
+                            'Tek satırlık komut sıkıştırılmış betiktir; betiğin okunur hali System Care günlüğüne yazıldı.' % (name, host))
+        self.write('--- %s çıkış noktası betiği (okunur hali) ---\n%s\n---\n' % (name, body))
+
+    def ts_diag_server(self):
+        """Linux cikis sunucusunda (netcup / Hetzner) neyin eksik oldugunu gosterir; hicbir seyi degistirmez."""
+        self.clipboard_clear()
+        self.clipboard_append(vpn.EXIT_NODE_DIAG_CMD)
+        self.write('--- Çıkış sunucusu tanısı (okunur hali, yalnız okur) ---\n%s\n---\n' % vpn.EXIT_NODE_DIAG_BODY)
+        if self.net.run_on_server(vpn.EXIT_NODE_DIAG_CMD, 'Çıkış sunucusu tanısı',
+                                  'Bağlanınca çalışmayan çıkış sunucusunu seçin. Komut yalnız okur. SORUN satırı çıkarsa o sunucunun '
+                                  '"kur/onar" komutunu yeniden çalıştırın.'):
+            return
+        messagebox.showinfo('Çıkış sunucusu tanısı', 'Tanı komutu panoya kopyalandı. Sunucuda (AGFO Root Terminal / SSH) çalıştırın; '
+                                                   'SORUN satırları neyin eksik olduğunu gösterir. Betiğin okunur hali günlüğe yazıldı.')
 
     def ts_copy_ugreen(self):
         if messagebox.askyesno('UGREEN NAS — Türk IP çıkışı', 'UGREEN NAS Tailscale yönetim panelinde zaten görünüyor mu?\n\n'

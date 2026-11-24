@@ -1165,18 +1165,30 @@ def tailscale_exit_nodes():
     assert es['mullvad'] and es['cc'] == 'ES' and es['country'] == 'İspanya' and es['city'] == 'Madrid'
     assert [o['name'] for o in r['others']] == ['telefon']
     assert 'set --advertise-exit-node' in c_vpn.NAS_EXIT_NODE_CMD and 'ip_forward = 1' in c_vpn.NAS_EXIT_NODE_CMD
-    assert 'tailscale set --advertise-exit-node' in c_vpn.LINUX_EXIT_NODE_SCRIPT and '--accept-dns=false' in c_vpn.LINUX_EXIT_NODE_SCRIPT
+    import base64 as _b, gzip as _gz
+
+    def _unpack(cmd):
+        assert cmd.startswith('echo ') and cmd.endswith(' | base64 -d | gunzip | sudo bash') and len(cmd) < 4000, cmd[-60:]
+        return _gz.decompress(_b.b64decode(cmd.split()[1])).decode('utf-8')
+    hz = _unpack(c_vpn.LINUX_EXIT_NODE_SCRIPT)
+    assert hz == c_vpn.linux_exit_node_body('hetzner-cikis')
+    assert 'tailscale set --advertise-exit-node' in hz and '--accept-dns=false' in hz
     assert c_vpn.parse_ts_status({})['nodes'] == [] and c_vpn.parse_ts_status({'Self': {'PrimaryRoutes': ['0.0.0.0/0', '::/0']}})['advertising']
     assert c_vpn.ts_use_cmd('ts', '100.64.0.2') == ['ts', 'set', '--exit-node=100.64.0.2', '--exit-node-allow-lan-access=true']
     assert c_vpn.ts_clear_cmd('ts') == ['ts', 'set', '--exit-node='] and c_vpn.ts_advertise_cmd('ts', True)[-1] == '--advertise-exit-node=true'
     assert 'advertise-exit-node' in c_vpn.UGREEN_COMPOSE and 'hostname: ugreen-turkiye' in c_vpn.UGREEN_COMPOSE and '/dev/net/tun' in c_vpn.UGREEN_COMPOSE
     assert 'network_mode: host' in c_vpn.UGREEN_COMPOSE and 'restart: unless-stopped' in c_vpn.UGREEN_COMPOSE
-    assert '--advertise-exit-node' in c_vpn.LINUX_EXIT_NODE_SCRIPT and 'hetzner-cikis' in c_vpn.LINUX_EXIT_NODE_SCRIPT and 'ip_forward = 1' in c_vpn.LINUX_EXIT_NODE_SCRIPT
-    # 4.3.2: netcup (CyberPanel) icin ayni kurulum, kendi adiyla; firewalld varsa maskeleme, yoksa dokunmaz
-    nc = c_vpn.NETCUP_EXIT_NODE_SCRIPT
-    assert '--hostname=netcup-cikis' in nc and 'hetzner' not in nc and '--accept-dns=false' in nc and 'tailscale set --advertise-exit-node' in nc
-    assert 'firewall-cmd --state' in nc and nc.index('firewall-cmd --state') < nc.index('--add-masquerade') and '--add-masquerade' in c_vpn.LINUX_EXIT_NODE_SCRIPT
-    assert c_vpn.linux_exit_node_script('netcup-cikis') == nc and set(c_vpn.EXIT_NODE_SERVERS) == {'hetzner', 'netcup'}
+    assert '--advertise-exit-node' in hz and 'H=hetzner-cikis' in hz and 'ip_forward = 1' in hz
+    # 4.3.2/4.3.3: netcup (CyberPanel) icin ayni kurulum; firewalld: maskeleme + tailscale0 guvenilir bolge; CSF/ufw iletimi;
+    # guvenlik duvari yeniden yuklenince tailscaled yeniden baslatilir; sonda tani
+    nc = _unpack(c_vpn.NETCUP_EXIT_NODE_SCRIPT)
+    assert 'H=netcup-cikis' in nc and 'hetzner' not in nc and '--accept-dns=false' in nc and 'tailscale set --advertise-exit-node' in nc
+    assert nc.index('firewall-cmd --state') < nc.index('--add-masquerade') < nc.index('--zone=trusted --change-interface=tailscale0')
+    assert nc.index('FW=1') < nc.index('systemctl restart tailscaled') < nc.index('tailscale set --advertise-exit-node')
+    assert 'AGFO-TAILSCALE' in nc and 'csf -r' in nc and 'ufw route allow in on tailscale0' in nc and '== Tani' in nc and 'SORUN:' in nc
+    assert c_vpn.linux_exit_node_script('netcup-cikis') == c_vpn.NETCUP_EXIT_NODE_SCRIPT and set(c_vpn.EXIT_NODE_SERVERS) == {'hetzner', 'netcup'}
+    dg = _unpack(c_vpn.EXIT_NODE_DIAG_CMD)
+    assert '== Tani' in dg and 'restart' not in dg and '--add-masquerade' not in dg and 'tailscale set' not in dg and 'tailscale up' not in dg
     for bad in ('a b', 'x;rm -rf /', '', 'Netcup'):
         try:
             c_vpn.linux_exit_node_script(bad); raise AssertionError(bad)

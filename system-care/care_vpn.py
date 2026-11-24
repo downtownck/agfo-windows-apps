@@ -267,7 +267,10 @@ TS_PKG = 'Tailscale.Tailscale'
 TS_ADMIN_URL = 'https://login.tailscale.com/admin/machines'
 # Linux sunucuyu (Hetzner, netcup ... CyberPanel olanlar dahil) Tailscale cikis noktasi yapan tek satir.
 # - Tailscale zaten bagliysa yalniz cikis noktaligini acar (ad/DNS degismez); degilse kurar ve verilen adla giris baglantisi verir.
-# - firewalld calisiyorsa (CyberPanel'in varsayilani) Tailscale belgesindeki bilinen sorun icin maskelemeyi acar; calismiyorsa dokunmaz.
+# - firewalld calisiyorsa (CyberPanel'in varsayilani) maskelemeyi acar ve tailscale0'i guvenilir bolgeye alir (Tailscale belgesindeki bilinen
+#   sorun: firewalld iletilen trafigi dusurur); CSF / ufw varsa onlarda da iletime izin verir; hicbiri yoksa guvenlik duvarina dokunmaz.
+# - Guvenlik duvari yeniden yuklendiyse tailscaled yeniden baslatilir (kendi kurallari silinmis olabilir) - 4.3.2'deki netcup sorunu.
+# - Sonunda tani calisir: TAMAM / SORUN satirlari ve sunucunun dis IP'si.
 # - --accept-dns=false: sunucunun DNS ayari (web siteleri, e-posta) degismez.
 EXIT_NODE_SERVERS = {
     # anahtar: (gorunen ad, Tailscale makine adi, aciklama)
@@ -277,20 +280,115 @@ EXIT_NODE_SERVERS = {
 _HOST_RX = re.compile(r'^[a-z0-9][a-z0-9-]{0,62}$')
 
 
-def linux_exit_node_script(hostname='hetzner-cikis'):
+# Sunucuda ne oldugunu gosteren tani (yalniz okur). Kurulumun sonunda da calisir.
+_EXIT_DIAG = r"""
+P=0
+ok() { echo "  TAMAM: $*"; }
+bad() { echo "  SORUN: $*"; P=1; }
+echo
+echo "== Tani"
+if command -v tailscale >/dev/null 2>&1; then
+  tailscale status --self --peers=false 2>&1 | head -n 2
+  if tailscale debug prefs 2>/dev/null | grep -q '"0.0.0.0/0"'; then ok "cikis noktasi olarak duyuruluyor"; else bad "cikis noktasi duyurulmuyor"; fi
+else
+  bad "Tailscale kurulu degil"
+fi
+if [ "$(sysctl -n net.ipv4.ip_forward 2>/dev/null)" = "1" ]; then ok "IPv4 yonlendirme acik"; else bad "IPv4 yonlendirme kapali"; fi
+if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+  if firewall-cmd --query-masquerade >/dev/null 2>&1; then ok "firewalld maskeleme acik"; else bad "firewalld maskeleme kapali"; fi
+  Z=$(firewall-cmd --get-zone-of-interface=tailscale0 2>/dev/null)
+  if [ "$Z" = "trusted" ]; then ok "tailscale0 guvenilir bolgede"; else bad "firewalld tailscale0 trafigini iletmiyor (bolge: ${Z:-yok})"; fi
+fi
+if command -v csf >/dev/null 2>&1; then
+  if grep -q AGFO-TAILSCALE /etc/csf/csfpost.sh 2>/dev/null; then ok "CSF Tailscale iletimine izin veriyor"; else bad "CSF Tailscale iletimini engelliyor"; fi
+fi
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+  if ufw status 2>/dev/null | grep -qi "tailscale0"; then ok "ufw tailscale0 iletimine izin veriyor"; else bad "ufw tailscale0 iletimini engelliyor"; fi
+fi
+if iptables -S ts-forward >/dev/null 2>&1 || nft list chain ip filter ts-forward >/dev/null 2>&1; then ok "Tailscale guvenlik duvari kurallari yerinde"; else bad "Tailscale kurallari yok (tailscaled yeniden baslatilmali)"; fi
+echo "  FORWARD politikasi: $(iptables -S FORWARD 2>/dev/null | head -n 1)"
+IP=$(curl -4 -s --max-time 6 https://ifconfig.co/ip 2>/dev/null)
+echo "  Sunucunun dis IP adresi: ${IP:-alinamadi}"
+if [ "$P" = "0" ]; then
+  echo "SONUC: sunucu tarafi hazir. Hala calismiyorsa yonetim panelinde makine > Edit route settings > Use as exit node onayli mi bakin."
+else
+  echo "SONUC: SORUN satirlari var. System Care > VPN > Tailscale > sunucu komutunu yeniden calistirmak bunlari duzeltir."
+fi
+"""
+
+
+def linux_exit_node_body(hostname='hetzner-cikis'):
+    """Okunur kurulum betigi (root olarak calisir; tekrar calistirmak guvenli)."""
     if not _HOST_RX.match(hostname or ''):
         raise ValueError('Geçersiz makine adı: %r' % hostname)
-    return (
-        "curl -fsSL https://tailscale.com/install.sh | sh && "
-        "echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf && "
-        "echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf && "
-        "sudo sysctl -p /etc/sysctl.d/99-tailscale.conf && "
-        "{ if command -v firewall-cmd >/dev/null 2>&1 && sudo firewall-cmd --state >/dev/null 2>&1; then "
-        "sudo firewall-cmd --permanent --add-masquerade && sudo firewall-cmd --reload; fi; } && "
-        "if sudo tailscale status >/dev/null 2>&1; then sudo tailscale set --advertise-exit-node; "
-        "else sudo tailscale up --advertise-exit-node --hostname=%s --accept-dns=false; fi" % hostname)
+    return r"""# AGFO System Care - Tailscale cikis noktasi kurulumu / onarimi
+H=%s
+FW=0
+echo "== Tailscale"
+if ! command -v tailscale >/dev/null 2>&1; then
+  curl -fsSL https://tailscale.com/install.sh | sh || { echo "HATA: Tailscale kurulamadi"; exit 1; }
+fi
+echo "== IP yonlendirme"
+printf 'net.ipv4.ip_forward = 1\nnet.ipv6.conf.all.forwarding = 1\n' > /etc/sysctl.d/99-tailscale.conf
+sysctl -p /etc/sysctl.d/99-tailscale.conf
+if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+  echo "== firewalld: maskeleme + tailscale0 guvenilir bolge"
+  firewall-cmd --permanent --add-masquerade
+  firewall-cmd --permanent --zone=trusted --change-interface=tailscale0 || firewall-cmd --permanent --zone=trusted --add-interface=tailscale0
+  firewall-cmd --reload
+  FW=1
+fi
+if command -v csf >/dev/null 2>&1; then
+  echo "== CSF: Tailscale iletimi"
+  F=/etc/csf/csfpost.sh
+  if ! grep -q AGFO-TAILSCALE "$F" 2>/dev/null; then
+    [ -f "$F" ] || printf '#!/bin/sh\n' > "$F"
+    cat >> "$F" <<'AGFOEOF'
+# AGFO-TAILSCALE: Tailscale cikis noktasi iletimi (AGFO System Care)
+iptables -I FORWARD -i tailscale0 -j ACCEPT
+iptables -I FORWARD -o tailscale0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -t nat -A POSTROUTING -s 100.64.0.0/10 ! -o tailscale0 -j MASQUERADE
+AGFOEOF
+    chmod +x "$F"
+  fi
+  csf -r >/dev/null 2>&1
+  FW=1
+fi
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+  echo "== ufw: tailscale0 iletimi"
+  ufw route allow in on tailscale0
+  FW=1
+fi
+echo "== Tailscale cikis noktasi"
+if tailscale status >/dev/null 2>&1; then
+  if [ "$FW" = "1" ]; then
+    # guvenlik duvari yeniden yuklenince Tailscale'in kendi kurallari silinebilir: yeniden kurdur
+    systemctl restart tailscaled
+    sleep 4
+  fi
+  tailscale set --advertise-exit-node
+else
+  systemctl enable --now tailscaled >/dev/null 2>&1
+  tailscale up --advertise-exit-node --hostname=$H --accept-dns=false
+fi
+""" % hostname + _EXIT_DIAG
 
 
+def _as_root_oneliner(body: str) -> str:
+    """Betigi SSH oturumuna / AGFO Root Terminal'e tek satir olarak gonderilebilir hale getirir (tirnak sorunu yok)."""
+    import base64
+    import gzip
+    # gzip: tek satir kisa kalsin (terminal satir siniri 4096); mtime=0: ayni betik hep ayni satiri uretir
+    b64 = base64.b64encode(gzip.compress(body.encode('utf-8'), 9, mtime=0)).decode('ascii')
+    return 'echo %s | base64 -d | gunzip | sudo bash' % b64
+
+
+def linux_exit_node_script(hostname='hetzner-cikis'):
+    return _as_root_oneliner(linux_exit_node_body(hostname))
+
+
+EXIT_NODE_DIAG_BODY = '# AGFO System Care - Tailscale cikis noktasi tanisi (yalniz okur)\n' + _EXIT_DIAG
+EXIT_NODE_DIAG_CMD = _as_root_oneliner(EXIT_NODE_DIAG_BODY)
 LINUX_EXIT_NODE_SCRIPT = linux_exit_node_script('hetzner-cikis')
 NETCUP_EXIT_NODE_SCRIPT = linux_exit_node_script('netcup-cikis')
 
