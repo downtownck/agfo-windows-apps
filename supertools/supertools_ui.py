@@ -462,9 +462,7 @@ class SuperToolsMixin:
         win.title("AGFO · Güvenli SSH Girişi")
         win.configure(bg=colors["panel"])
         win.resizable(False, False)
-        win.geometry("435x315")
         win.transient(self)
-        win.grab_set()
         win.columnconfigure(0, weight=1)
         tk.Label(win, text=profile.name, font=("Segoe UI Semibold", 15),
                  fg=colors["text"], bg=colors["panel"]).grid(row=0, column=0, sticky="w", padx=24, pady=(17, 2))
@@ -491,7 +489,7 @@ class SuperToolsMixin:
                  fg=colors["muted"], bg=colors["panel"], font=("Segoe UI", 8)).grid(
                      row=7, column=0, padx=24, pady=(8, 2), sticky="w")
         buttons = ttk.Frame(win)
-        buttons.grid(row=8, column=0, sticky="e", padx=24, pady=(12, 8))
+        buttons.grid(row=8, column=0, sticky="e", padx=24, pady=(12, 16))
         outcome = {"result": None}
 
         def accept():
@@ -512,6 +510,19 @@ class SuperToolsMixin:
         ttk.Button(buttons, text="Güvenli bağlan", style="Blue.TButton", command=accept).pack(side="right", padx=(0, 7))
         win.protocol("WM_DELETE_WINDOW", cancel)
         field.bind("<Return>", lambda _e: accept())
+        win.bind("<Escape>", lambda _e: cancel())
+        # Boyut icerikten: yuksek DPI / buyuk yazi tipinde dugmeler kesilmesin (sabit 435x315 kesiyordu)
+        win.update_idletasks()
+        w, h = max(460, win.winfo_reqwidth()), win.winfo_reqheight()
+        try:
+            top = self.winfo_toplevel()
+            x = top.winfo_rootx() + max(0, (top.winfo_width() - w) // 2)
+            y = top.winfo_rooty() + max(0, (top.winfo_height() - h) // 3)
+            win.geometry("%dx%d+%d+%d" % (w, h, x, y))
+        except tk.TclError:
+            win.geometry("%dx%d" % (w, h))
+        win.minsize(w, h)
+        win.grab_set()
         win.after(50, field.focus_set)
         self.wait_window(win)
         return outcome["result"]

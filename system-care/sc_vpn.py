@@ -599,41 +599,86 @@ class VpnPage:
             self.ts_refresh()
         self.start([Job('Tailscale çıkış noktası ' + ('aç' if on else 'kapat'), cmd=vpn.ts_advertise_cmd(self.ts_exe, on), on_done=done, cancel_ok=False)])
 
+    def _server_cmd_dialog(self, title, intro, command, readable, run_title, run_hint):
+        """Sunucu komutu penceresi: tek satiri kopyala (sunucunun kendi SSH'inde / AGFO Root Terminal'de yapistirmak icin),
+        okunur betigi goster, ya da System Care'in kayitli SSH baglantisiyla calistir."""
+        self.clipboard_clear()
+        self.clipboard_append(command)
+        old = getattr(self, 'srv_dialog', None)
+        if old and old.get('win') is not None:
+            try:
+                old['win'].destroy()
+            except tk.TclError:
+                pass
+        win = tk.Toplevel(self)
+        win.title(title)
+        win.configure(bg=PANEL)
+        win.transient(self)
+        tk.Label(win, text=title, fg=FG, bg=PANEL, font=('Segoe UI', 12, 'bold')).pack(anchor='w', padx=16, pady=(14, 4))
+        tk.Label(win, text=intro, fg=MUTED, bg=PANEL, font=('Segoe UI', 9), justify='left', anchor='w',
+                 wraplength=int(720 * self.scale)).pack(fill='x', padx=16)
+        box = tk.Frame(win, bg=PANEL); box.pack(fill='both', expand=True, padx=16, pady=8)
+        txt = tk.Text(box, bg=LOG_BG, fg=LOG_FG, insertbackground=FG, relief='flat', font=('Consolas', 9), wrap='char', height=9, padx=8, pady=6)
+        ys = ttk.Scrollbar(box, orient='vertical', command=txt.yview)
+        txt.configure(yscrollcommand=ys.set)
+        txt.pack(side='left', fill='both', expand=True); ys.pack(side='right', fill='y')
+        state = {'readable': False}
+
+        def show():
+            txt.configure(state='normal'); txt.delete('1.0', 'end')
+            txt.insert('1.0', readable if state['readable'] else command)
+            txt.configure(state='disabled', wrap='none' if state['readable'] else 'char')
+            view_btn.configure(text='Tek satırı göster' if state['readable'] else 'Okunur betiği göster')
+        status = tk.StringVar(value='Tek satırlık komut panoya kopyalandı. Sunucunun SSH\'ine (root) ya da AGFO Root Terminal\'e yapıştırıp Enter\'a basın.')
+        tk.Label(win, textvariable=status, fg=ACCENT, bg=PANEL, font=('Segoe UI', 9, 'bold'), anchor='w', justify='left',
+                 wraplength=int(720 * self.scale)).pack(fill='x', padx=16)
+        bar = tk.Frame(win, bg=PANEL); bar.pack(fill='x', padx=16, pady=(8, 14))
+
+        def copy():
+            self.clipboard_clear(); self.clipboard_append(command)
+            status.set('Kopyalandı. Sunucunun SSH\'ine (root) ya da AGFO Root Terminal\'e yapıştırın.')
+
+        def toggle():
+            state['readable'] = not state['readable']; show()
+
+        def run():
+            win.destroy()
+            self.net.run_on_server(command, run_title, run_hint)
+
+        def close():
+            win.destroy()
+        self.mkbtn(bar, 'Kapat', close, 'ghost').pack(side='right')
+        self.mkbtn(bar, 'System Care SSH ile çalıştır', run, 'ghost').pack(side='right', padx=(0, 8))
+        view_btn = self.mkbtn(bar, 'Okunur betiği göster', toggle, 'ghost')
+        view_btn.pack(side='right', padx=(0, 8))
+        self.mkbtn(bar, 'Komutu kopyala', copy, 'go').pack(side='right', padx=(0, 8))
+        show()
+        win.protocol('WM_DELETE_WINDOW', close)
+        win.bind('<Escape>', lambda _e: close())
+        win.update_idletasks()
+        win.minsize(max(560, win.winfo_reqwidth()), win.winfo_reqheight())
+        self.srv_dialog = {'win': win, 'copy': copy, 'run': run, 'toggle': toggle, 'text': txt, 'status': status}
+        return self.srv_dialog
+
     def ts_copy_script(self, key='hetzner'):
         name, host, what = vpn.EXIT_NODE_SERVERS[key]
-        script = vpn.linux_exit_node_script(host)
-        body = vpn.linux_exit_node_body(host)
-        title = '%s — %s çıkışı' % (name, what)
-        self.clipboard_clear()
-        self.clipboard_append(script)
-        if messagebox.askyesno(title, 'Komut panoya kopyalandı.\n\nKayıtlı bir SSH sunucusunda (%s) System Care\'den şimdi çalıştırılsın mı?\n\n'
-                               'Hayır: komutu kendiniz (AGFO Root Terminal / SSH) çalıştırırsınız.' % name):
-            if self.net.run_on_server(script, '%s — çıkış noktası' % name,
-                                      'Listeden %s sunucusunu seçin. Bittikten sonra "Yönetim panelini aç" > sunucu > Edit route settings > '
-                                      '"Use as exit node" işaretleyin.' % name):
-                return
-        self.write('%s (Linux) sunucusu için komut panoya kopyalandı. Sunucuda root olarak çalıştırın; çıkan bağlantıyla giriş yapın, '
-                   'sonra yönetim panelinde "%s" makinesini çıkış noktası olarak onaylayın.\n' % (name, host))
-        messagebox.showinfo(title, '1) %s sunucusunda root olarak (AGFO Root Terminal ya da SSH) panodaki komutu çalıştırın.\n'
-                            '2) Tailscale sunucuda yeni kuruluyorsa ekranda çıkan login.tailscale.com bağlantısını açıp aynı hesapla giriş yapın '
-                            '(zaten bağlıysa komut yalnızca çıkış noktalığını açar; ad ve DNS ayarı değişmez).\n'
-                            '3) "Yönetim panelini aç" > sunucu (%s ya da mevcut adı) > Edit route settings > "Use as exit node" işaretleyin.\n\n'
-                            'Komut tekrar çalıştırılabilir (onarım için de kullanılır). firewalld / CSF / ufw varsa Tailscale trafiğinin iletilmesine izin verir, '
-                            'gerekirse Tailscale\'i yeniden başlatır ve sonunda TAMAM / SORUN satırlarıyla tanı gösterir. Web siteleri ve DNS ayarı etkilenmez.\n\n'
-                            'Tek satırlık komut sıkıştırılmış betiktir; betiğin okunur hali System Care günlüğüne yazıldı.' % (name, host))
-        self.write('--- %s çıkış noktası betiği (okunur hali) ---\n%s\n---\n' % (name, body))
+        self.write('%s çıkış noktası kur/onar komutu hazırlandı (makine adı %s). Okunur betik pencerede.\n' % (name, host))
+        return self._server_cmd_dialog(
+            '%s — kur / onar (%s)' % (name, what),
+            '%s sunucusunda root olarak çalıştırın. Tailscale yoksa kurar (ekrandaki login.tailscale.com bağlantısıyla aynı hesapla giriş '
+            'yapın), varsa yalnız çıkış noktalığını açar; ad ve DNS ayarı değişmez. firewalld / CSF / ufw varsa Tailscale trafiğinin '
+            'iletilmesine izin verir, gerekirse Tailscale\'i yeniden başlatır ve sonunda TAMAM / SORUN satırlarıyla tanı gösterir. '
+            'Tekrar çalıştırmak güvenlidir. Yeni kurulumda: Yönetim panelini aç > %s > Edit route settings > Use as exit node.' % (name, host),
+            vpn.linux_exit_node_script(host), vpn.linux_exit_node_body(host), '%s — çıkış noktası' % name,
+            'Listeden %s sunucusunu seçin. Bittikten sonra çıktının sonundaki TAMAM / SORUN satırlarına bakın.' % name)
 
     def ts_diag_server(self):
         """Linux cikis sunucusunda (netcup / Hetzner) neyin eksik oldugunu gosterir; hicbir seyi degistirmez."""
-        self.clipboard_clear()
-        self.clipboard_append(vpn.EXIT_NODE_DIAG_CMD)
-        self.write('--- Çıkış sunucusu tanısı (okunur hali, yalnız okur) ---\n%s\n---\n' % vpn.EXIT_NODE_DIAG_BODY)
-        if self.net.run_on_server(vpn.EXIT_NODE_DIAG_CMD, 'Çıkış sunucusu tanısı',
-                                  'Bağlanınca çalışmayan çıkış sunucusunu seçin. Komut yalnız okur. SORUN satırı çıkarsa o sunucunun '
-                                  '"kur/onar" komutunu yeniden çalıştırın.'):
-            return
-        messagebox.showinfo('Çıkış sunucusu tanısı', 'Tanı komutu panoya kopyalandı. Sunucuda (AGFO Root Terminal / SSH) çalıştırın; '
-                                                   'SORUN satırları neyin eksik olduğunu gösterir. Betiğin okunur hali günlüğe yazıldı.')
+        return self._server_cmd_dialog(
+            'Çıkış sunucusu tanısı (yalnız okur)',
+            'Bağlanınca internete çıkılamayan sunucuda root olarak çalıştırın. Hiçbir şeyi değiştirmez; SORUN satırları neyin eksik olduğunu '
+            'gösterir. Sonra o sunucunun "kur/onar" komutunu çalıştırmak bunları düzeltir.',
+            vpn.EXIT_NODE_DIAG_CMD, vpn.EXIT_NODE_DIAG_BODY, 'Çıkış sunucusu tanısı', 'Bağlanınca çalışmayan çıkış sunucusunu seçin.')
 
     def ts_copy_ugreen(self):
         if messagebox.askyesno('UGREEN NAS — Türk IP çıkışı', 'UGREEN NAS Tailscale yönetim panelinde zaten görünüyor mu?\n\n'
