@@ -22,6 +22,7 @@ jobs:
           cmp shared/agfo_github_update.py mic-monitor/agfo_github_update.py
           cmp shared/agfo_github_update.py subscription-manager/agfo_github_update.py
           cmp shared/agfo_github_update.py router-connect/agfo_github_update.py
+          cmp shared/agfo_github_update.py mihenk/agfo_github_update.py
           for f in scanner_core.py supertools_core.py supertools_ui.py ssh_profiles.py ssh_password_vault.py ssh_password_transport.py ssh_workspace.py; do
             cmp supertools/$f system-care/$f
           done
@@ -54,7 +55,10 @@ jobs:
           xvfb-run -a python -I router-connect/tests/test_core.py router-connect
           xvfb-run -a python -I router-connect/tests/test_gui.py router-connect
           python -I router-connect/tests/test_update.py router-connect
-          python -m compileall -q supertools system-care backupsync/src phantom-shot mic-monitor subscription-manager router-connect
+          python -I mihenk/tests/test_core.py mihenk
+          python -I mihenk/tests/test_update.py mihenk
+          xvfb-run -a python -I mihenk/tests/test_gui.py mihenk
+          python -m compileall -q supertools system-care backupsync/src phantom-shot mic-monitor subscription-manager router-connect mihenk
           mkdir -p /tmp/st && xvfb-run -a python -I supertools/tests/test_github_update_gui.py supertools /tmp/st
           python -m unittest discover -s backupsync/tests
           python -m pip install --quiet 'pypdf>=6,<7' 'pypdfium2>=4.30,<6' 'Pillow>=11,<13' 'cryptography>=42,<47' 'fonttools>=4.50,<5' 'lxml>=5.2,<7'

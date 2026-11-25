@@ -1,0 +1,202 @@
+{
+	"app": "mihenk",
+	"version": "1.0.0",
+	"contract_version": 1,
+	"generated_at": "2026-11-25",
+	"runner": {
+		"core": "python -I tests/test_core.py mihenk",
+		"update": "python -I tests/test_update.py mihenk",
+		"gui": "xvfb-run -a python -I tests/test_gui.py mihenk",
+		"selftest": "AGFO-Mihenk.exe --selftest <dosya>"
+	},
+	"environment": {
+		"python": "3.12.3",
+		"tcl_tk": "8.6.14",
+		"sqlite": "3.45.1",
+		"display": "xvfb",
+		"windows_runtime": "unavailable in this build environment"
+	},
+	"package_gate": {
+		"required_for_package": true,
+		"satisfied": true,
+		"note": "Cekirdek, guncelleme ve arayuz testleri gercekten calistirildi ve gecti. Windows'a ozgu adimlar (EXE derlemesi, sessiz guncelleyici, kisayol kurulumu) release.yml icinde windows-latest uzerinde kosar ve burada kosulmadi."
+	},
+	"surfaces": {
+		"settings": [
+			{"key": "operator", "consumer": "mihenk_audit._actor", "verified": "pass"},
+			{"key": "default_lead_days", "consumer": "ScheduleRepo.sanitize", "verified": "pass"},
+			{"key": "date_format", "consumer": "mihenk_validate.human", "verified": "pass"},
+			{"key": "theme", "consumer": "mihenk_theme.apply", "verified": "pass"},
+			{"key": "scan_on_start", "consumer": "MihenkApp._startup_scan", "verified": "pass"},
+			{"key": "last_screen", "consumer": "MihenkApp.go", "verified": "pass"},
+			{"key": "window", "consumer": "MihenkApp._restore_geometry", "verified": "skip"}
+		],
+		"screens": [
+			{"name": "dashboard", "verified": "pass"},
+			{"name": "assets", "verified": "pass"},
+			{"name": "plans", "verified": "pass"},
+			{"name": "requests", "verified": "pass"},
+			{"name": "work_orders", "verified": "pass"},
+			{"name": "calibrations", "verified": "pass"},
+			{"name": "impacts", "verified": "pass"},
+			{"name": "settings", "verified": "pass"}
+		],
+		"dialogs": [
+			{"name": "AssetDialog", "verified": "pass"},
+			{"name": "PlanDialog", "verified": "pass"},
+			{"name": "RequestDialog", "verified": "skip", "note": "ekran dugmesinden aciliyor, testte ayrica acilmadi"},
+			{"name": "WorkOrderDialog", "verified": "pass"},
+			{"name": "CalibrationDialog", "verified": "pass"},
+			{"name": "ImpactDialog", "verified": "pass"}
+		]
+	},
+	"scenarios": [
+		{
+			"id": "mihenk-schema",
+			"title": "Sekiz tablo kuruluyor ve kurulum tekrarlanabilir",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.schema_installs_all_tables, install_is_idempotent"
+		},
+		{
+			"id": "mihenk-asset-crud",
+			"title": "Varlik olusturma, kod tekrari, hiyerarsi dongusu ve silme korumasi",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.asset_create_and_guards, asset_with_history_cannot_be_deleted"
+		},
+		{
+			"id": "mihenk-wo-lifecycle",
+			"title": "Is emri yeni'den kapali'ya gidiyor ve plani ileri sariyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.work_order_lifecycle_and_plan_roll_forward, hold_needs_a_reason"
+		},
+		{
+			"id": "mihenk-request-convert",
+			"title": "Talep once degerlendirilmeden is emrine donusemiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.request_must_be_triaged_before_conversion, rejecting_a_request_needs_a_reason"
+		},
+		{
+			"id": "mihenk-cal-pass",
+			"title": "Uygun kalibrasyon kapaniyor ve planini ileri sariyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.passing_calibration_closes_and_rolls_the_plan"
+		},
+		{
+			"id": "mihenk-cal-fail-quarantine",
+			"title": "Uygunsuz kalibrasyon varligi karantinaya aliyor ve etki degerlendirmesi aciyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.failing_calibration_quarantines_and_opens_impact, impact_window_falls_back_to_commissioning"
+		},
+		{
+			"id": "mihenk-quarantine-lock",
+			"title": "Negatif test: acik etki degerlendirmesi varken karantina kalkmiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.quarantine_cannot_be_lifted_while_an_impact_is_open"
+		},
+		{
+			"id": "mihenk-conditional-usage-limit",
+			"title": "Negatif test: sartli sonuc kullanim sinirlamasi olmadan kapanmiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.conditional_result_needs_a_usage_limit"
+		},
+		{
+			"id": "mihenk-counter-plan",
+			"title": "Sayac okumasi hedefi gecince kayit uretiliyor, geri sayim reddediliyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.counter_plan_fires_when_the_reading_passes_the_target, counter_readings_never_go_backwards"
+		},
+		{
+			"id": "mihenk-scan-idempotent",
+			"title": "Tarama tekrarlanabilir: ikinci kosu yeni kayit uretmiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.scan_is_idempotent, scan_skips_future_and_paused_plans, retired_assets_generate_nothing"
+		},
+		{
+			"id": "mihenk-audit-log",
+			"title": "Her degisiklik niyet ve sonuc birakiyor, reddedilen gecis birakmiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.every_change_leaves_intent_and_result, a_refused_change_leaves_no_result_row"
+		},
+		{
+			"id": "mihenk-gui-screens",
+			"title": "Sekiz ekranin hepsi aciliyor ve tazeleniyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.every_screen_opens_and_refreshes, dashboard_counts_match_the_data"
+		},
+		{
+			"id": "mihenk-gui-points",
+			"title": "Olcum tablosu sapmayi canli hesapliyor ve tolerans disini kirmiziya cekiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.points_grid_computes_and_colours_the_deviation"
+		},
+		{
+			"id": "mihenk-gui-readonly",
+			"title": "Kapali is emri ve kapali kalibrasyon penceresi salt okunur aciliyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.closed_work_order_is_read_only, closed_calibration_is_read_only"
+		},
+		{
+			"id": "mihenk-gui-impact-close",
+			"title": "Bos kapatma uyari veriyor, dolu kapatma varligi serbest birakiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.impact_dialog_carries_the_window_and_refuses_an_empty_close, impact_can_be_closed_and_releases_the_asset"
+		},
+		{
+			"id": "mihenk-backup-restore",
+			"title": "Yedek alinip geri yuklenebiliyor, yabanci dosya reddediliyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.backup_and_restore_round_trip"
+		},
+		{
+			"id": "mihenk-demo-seed",
+			"title": "Demo seti kuruluyor ve temizlik yalnizca demo satirlarini siliyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.demo_seed_builds_the_whole_story, demo_purge_removes_only_demo_rows"
+		},
+		{
+			"id": "mihenk-update-module",
+			"title": "Guncelleyici hedefi degistiriyor, guvensiz ZIP yolunu reddediyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_update.py"
+		},
+		{
+			"id": "mihenk-exe-selftest",
+			"title": "EXE oz-denetimi: tkinter ve sqlite pakette, veritabanina yazilabiliyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "mihenk_selftest.run -> OK 1.0.0 tcl=8.6.14 sqlite=3.45.1 (kaynaktan; EXE icinde release.yml kosar)"
+		},
+		{
+			"id": "mihenk-windows-build",
+			"title": "Kurulum ZIP'i acilip EXE kullanicinin makinesinde derleniyor ve aciliyor",
+			"required_for_package": true,
+			"status": "skip",
+			"note": "Yalnizca windows-latest uzerinde kosar; release.yml bu adimi icerir ve basarisiz olursa yayin durur."
+		},
+		{
+			"id": "mihenk-silent-update",
+			"title": "Yeni EXE calisan surumun yerine gecip uygulamayi yeniden aciyor",
+			"required_for_package": true,
+			"status": "skip",
+			"note": "Yalnizca windows-latest uzerinde kosar; release.yml bu adimi icerir."
+		}
+	]
+}

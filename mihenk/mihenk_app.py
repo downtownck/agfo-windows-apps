@@ -1,0 +1,476 @@
+# -*- coding: utf-8 -*-
+"""AGFO Mihenk - ana pencere, kenar cubugu ve ayarlar ekrani."""
+from __future__ import annotations
+
+import os
+import pathlib
+import subprocess
+import sys
+import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+
+import mihenk_core as core
+import mihenk_db as db
+import mihenk_scheduler as scheduler
+import mihenk_seed as seed
+import mihenk_store as store
+import mihenk_theme as theme
+import mihenk_validate as v
+import mihenk_widgets as w
+from mihenk_repo import AssetRepo, CalibrationRepo, ImpactRepo, WorkOrderRepo
+from mihenk_screens import (AssetsScreen, CalibrationsScreen, DashboardScreen, ImpactsScreen,
+                            PlansScreen, RequestsScreen, Screen, WorkOrdersScreen)
+
+NAV = (
+    ('dashboard', 'Pano'),
+    ('assets', 'Varlıklar'),
+    ('plans', 'Planlar'),
+    ('requests', 'Talepler'),
+    ('work_orders', 'İş emirleri'),
+    ('calibrations', 'Kalibrasyon'),
+    ('impacts', 'Etki değerlendirmeleri'),
+    ('settings', 'Ayarlar'),
+)
+
+VERSIONS = (
+    {'version': '1.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
+     'summary': 'İlk sürüm. Hiyerarşik varlık kütüğü ve tipe göre özellikler, önleyici bakım ile '
+                'kalibrasyon ve doğrulamayı tek tabloda toplayan plan yapısı, talep ve iş emri '
+                'akışları, ölçüm noktası tablosundan tolerans değerlendirmesi, uygunsuz sonuçta '
+                'otomatik karantina ve etki değerlendirmesi, niyet ve sonuç çiftiyle denetim '
+                'günlüğü, SQLite yedekleme ve demo veri seti.'},
+)
+
+
+class SettingsScreen(Screen):
+    """Ayarlar, veri bakimi, demo veri ve surum."""
+
+    title = 'Ayarlar'
+
+    def build(self) -> None:
+        area = w.ScrollArea(self.body)
+        area.pack(fill='both', expand=True)
+        host = area.body
+
+        form = w.FormGrid(host)
+        form.pack(fill='x', pady=(0, 10))
+        values = store.load_settings()
+
+        self.operator = form.add('Operatör adı', ttk.Entry(form, width=32),
+                                 'Denetim günlüğüne bu ad yazılır.')
+        self.operator.insert(0, values['operator'])
+        self.lead_days = form.add('Varsayılan ön uyarı günü', ttk.Entry(form, width=8))
+        self.lead_days.insert(0, str(values['default_lead_days']))
+        self.date_format = form.add('Tarih biçimi', ttk.Entry(form, width=16),
+                                    'Python biçimi, örneğin %Y-%m-%d ya da %d.%m.%Y')
+        self.date_format.insert(0, values['date_format'])
+        self.theme_choice = form.add('Tema', w.Combo(form, [('light', 'Açık'), ('dark', 'Koyu')],
+                                                     width=16, value=values['theme']))
+        self.scan_on_start = tk.BooleanVar(value=bool(values['scan_on_start']))
+        form.add('Açılışta tarama',
+                 ttk.Checkbutton(form, text='Uygulama açılırken vadesi gelen kayıtları üret',
+                                 variable=self.scan_on_start))
+        ttk.Button(host, text='Ayarları kaydet', style='Accent.TButton',
+                   command=self.save).pack(anchor='w', pady=(0, 16))
+
+        ttk.Separator(host).pack(fill='x', pady=8)
+        ttk.Label(host, text='Veri', style='Heading.TLabel').pack(anchor='w', pady=(6, 4))
+        self.path_label = ttk.Label(host, text='', style='Muted.TLabel')
+        self.path_label.pack(anchor='w')
+        bar = ttk.Frame(host)
+        bar.pack(anchor='w', pady=(8, 4))
+        ttk.Button(bar, text='Klasörü aç', command=self.open_folder).pack(side='left')
+        ttk.Button(bar, text='Yedek al', command=self.backup).pack(side='left', padx=6)
+        ttk.Button(bar, text='Yedeği geri yükle', command=self.restore).pack(side='left')
+        self.health = ttk.Label(host, text='', style='Muted.TLabel', justify='left')
+        self.health.pack(anchor='w', pady=(8, 0))
+
+        ttk.Separator(host).pack(fill='x', pady=12)
+        ttk.Label(host, text='Demo veri', style='Heading.TLabel').pack(anchor='w', pady=(4, 2))
+        ttk.Label(host, text='Birbirine bağlı örnek bir set kurar: sekiz varlık, yedi plan, dört '
+                             'talep, iş emirleri ve biri uygunsuz üç kalibrasyon kaydı. Temizlik '
+                             'yalnızca kodu DEMO- ile başlayan varlıkları ve onlara bağlı '
+                             'kayıtları siler.',
+                  style='Muted.TLabel', wraplength=700, justify='left').pack(anchor='w')
+        demo_bar = ttk.Frame(host)
+        demo_bar.pack(anchor='w', pady=(8, 0))
+        self.seed_button = ttk.Button(demo_bar, text='Demo veriyi kur', command=self.seed_demo)
+        self.seed_button.pack(side='left')
+        ttk.Button(demo_bar, text='Demo veriyi temizle', style='Danger.TButton',
+                   command=self.purge_demo).pack(side='left', padx=6)
+
+        ttk.Separator(host).pack(fill='x', pady=12)
+        ttk.Label(host, text='Sürüm', style='Heading.TLabel').pack(anchor='w', pady=(4, 2))
+        self.update_label = ttk.Label(host, text='', style='Muted.TLabel')
+        self.update_label.pack(anchor='w')
+        ttk.Button(host, text='Güncellemeleri denetle', command=self.check_updates).pack(
+            anchor='w', pady=(6, 10))
+
+        for entry in VERSIONS:
+            card = ttk.Frame(host, style='Card.TFrame', padding=(14, 12))
+            card.pack(fill='x', pady=4)
+            head = ttk.Frame(card, style='Surface.TFrame')
+            head.pack(fill='x')
+            ttk.Label(head, text=entry['version'], style='SurfaceHeading.TLabel').pack(side='left')
+            w.Badge(head, entry['kind'], 'in_progress').pack(side='left', padx=8)
+            ttk.Label(head, text=entry['date'], style='SurfaceMuted.TLabel').pack(side='right')
+            ttk.Label(card, text=entry['summary'], style='SurfaceMuted.TLabel',
+                      wraplength=720, justify='left').pack(anchor='w', pady=(6, 0))
+
+        ttk.Label(host, text='Mihenk v%s · AGFO' % core.VERSION,
+                  style='Footer.TLabel').pack(anchor='w', pady=(18, 10))
+
+    def refresh(self) -> None:
+        self.path_label.configure(text=str(store.data_dir()))
+        counts = db.counts(self.app.conn)
+        self.health.configure(text='Kayıtlar: %d varlık · %d plan · %d talep · %d iş emri · '
+                                   '%d kalibrasyon · %d etki · %d günlük satırı'
+                                   % (counts['asset'], counts['schedule'], counts['request'],
+                                      counts['work_order'], counts['calibration'],
+                                      counts['impact'], counts['log']))
+        self.seed_button.configure(state='disabled' if seed.exists(self.app.conn) else 'normal')
+        self.update_label.configure(text='Kurulu sürüm: %s' % core.VERSION)
+
+    # ------------------------------------------------------------------ islemler
+    def save(self) -> None:
+        store.save_settings({
+            'operator': self.operator.get().strip(),
+            'default_lead_days': v.integer(self.lead_days.get(), 0, None, 14),
+            'date_format': self.date_format.get().strip() or '%Y-%m-%d',
+            'theme': self.theme_choice.key(),
+            'scan_on_start': self.scan_on_start.get(),
+        })
+        self.app.apply_theme()
+        self.app.refresh()
+        self.app.toast('Ayarlar kaydedildi.')
+
+    def open_folder(self) -> None:
+        path = str(store.data_dir())
+        try:
+            if sys.platform == 'win32':
+                os.startfile(path)                                  # noqa: S606
+            elif sys.platform == 'darwin':
+                subprocess.Popen(['open', path])
+            else:
+                subprocess.Popen(['xdg-open', path])
+        except Exception as exc:
+            messagebox.showinfo('Klasör', '%s\n\n(%s)' % (path, exc), parent=self)
+
+    def backup(self) -> None:
+        default = 'mihenk-yedek-%s.sqlite3' % v.parse(v.now()).strftime('%Y%m%d-%H%M')
+        target = filedialog.asksaveasfilename(
+            parent=self, title='Yedek al', initialfile=default,
+            initialdir=str(store.backups_dir()), defaultextension='.sqlite3',
+            filetypes=[('Mihenk yedeği', '*.sqlite3')])
+        if not target:
+            return
+        try:
+            db.backup(self.app.conn, target)
+        except Exception as exc:
+            messagebox.showerror('Yedek alınamadı', str(exc), parent=self)
+            return
+        self.app.toast('Yedek alındı: %s' % pathlib.Path(target).name)
+
+    def restore(self) -> None:
+        source = filedialog.askopenfilename(parent=self, title='Yedeği geri yükle',
+                                            initialdir=str(store.backups_dir()),
+                                            filetypes=[('Mihenk yedeği', '*.sqlite3'),
+                                                       ('Tüm dosyalar', '*.*')])
+        if not source:
+            return
+        if not messagebox.askyesno(
+                'Onay', 'Mevcut kayıtların yerine bu yedek konacak.\n\nŞu anki veritabanının bir '
+                        'kopyası .pre-restore uzantısıyla yanında bırakılır. Devam edilsin mi?',
+                parent=self):
+            return
+        try:
+            self.app.restore_from(source)
+        except Exception as exc:
+            messagebox.showerror('Geri yüklenemedi', str(exc), parent=self)
+            return
+        self.app.refresh()
+        self.app.toast('Yedek geri yüklendi.')
+
+    def seed_demo(self) -> None:
+        report = {}
+
+        def run():
+            report.update(seed.seed(self.app.conn))
+        if not self.run(run, ''):
+            return
+        self.app.refresh()
+        if report.get('ok'):
+            messagebox.showinfo('Demo veri kuruldu', '\n\n'.join(report['lines']), parent=self)
+        else:
+            messagebox.showinfo('Demo veri', '\n'.join(report.get('lines', [])), parent=self)
+
+    def purge_demo(self) -> None:
+        if not messagebox.askyesno('Onay', 'Kodu DEMO- ile başlayan bütün varlıklar ve onlara '
+                                           'bağlı kayıtlar silinsin mi?', parent=self):
+            return
+        report = {}
+
+        def run():
+            report.update(seed.purge(self.app.conn))
+        if not self.run(run, ''):
+            return
+        self.app.refresh()
+        messagebox.showinfo('Demo veri', '\n'.join(report.get('lines', [])), parent=self)
+
+    def check_updates(self) -> None:
+        """Guncelleme denetimi arka planda; sonuc ana is parcaciginda gosterilir."""
+        self.update_label.configure(text='Denetleniyor…')
+
+        def worker():
+            try:
+                import mihenk_update as updater
+                result = updater.check(force=True)
+            except Exception as exc:
+                result = {'status': 'error', 'message': str(exc)}
+            self.after(0, lambda: self._update_result(result))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _update_result(self, result: dict) -> None:
+        status = result.get('status')
+        if status == 'update':
+            self.update_label.configure(text='Yeni sürüm var: %s' % result.get('version'))
+            if messagebox.askyesno('Güncelleme', 'v%s yayınlanmış. Şimdi indirilip kurulsun mu?'
+                                   % result.get('version'), parent=self):
+                self._install_update(result)
+        elif status == 'current':
+            self.update_label.configure(text='Kurulu sürüm güncel: %s' % core.VERSION)
+        else:
+            self.update_label.configure(text='Denetlenemedi: %s'
+                                             % result.get('message', 'bilinmeyen hata'))
+
+    def _install_update(self, result: dict) -> None:
+        self.update_label.configure(text='İndiriliyor…')
+
+        def worker():
+            try:
+                import mihenk_update as updater
+                path = updater.download(result)
+                if updater.is_frozen():
+                    updater.apply_update(path)
+                    message = 'Yeni sürüm uygulanıyor, uygulama birazdan yeniden açılacak.'
+                else:
+                    folder = updater.extract(path)
+                    updater.run_installer(folder)
+                    message = 'Kurulum penceresi açıldı.'
+            except Exception as exc:
+                message = 'Güncelleme uygulanamadı: %s' % exc
+            self.after(0, lambda: self.update_label.configure(text=message))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+
+SCREENS = {
+    'dashboard': DashboardScreen,
+    'assets': AssetsScreen,
+    'plans': PlansScreen,
+    'requests': RequestsScreen,
+    'work_orders': WorkOrdersScreen,
+    'calibrations': CalibrationsScreen,
+    'impacts': ImpactsScreen,
+    'settings': SettingsScreen,
+}
+
+
+class MihenkApp:
+    """Pencere kabugu: kenar cubugu, ekranlar ve durum serigi."""
+
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        self.settings = store.load_settings()
+        self.conn = db.connect(store.db_path())
+        self.screens = {}
+        self.current = None
+        self._toast_job = None
+
+        theme.apply(root, self.settings['theme'])
+        root.title('%s %s' % (core.APP_NAME, core.VERSION))
+        self._set_icon()
+        root.minsize(1060, 680)
+        self._restore_geometry()
+        root.protocol('WM_DELETE_WINDOW', self.close)
+
+        container = ttk.Frame(root)
+        container.pack(fill='both', expand=True)
+
+        self.sidebar = ttk.Frame(container, style='Sidebar.TFrame', width=214)
+        self.sidebar.pack(side='left', fill='y')
+        self.sidebar.pack_propagate(False)
+        self._build_sidebar()
+
+        right = ttk.Frame(container)
+        right.pack(side='left', fill='both', expand=True)
+        self.content = ttk.Frame(right)
+        self.content.pack(fill='both', expand=True)
+
+        status = ttk.Frame(right, style='Status.TFrame', padding=(16, 7))
+        status.pack(fill='x')
+        self.status_label = ttk.Label(status, text='', style='Status.TLabel')
+        self.status_label.pack(side='left')
+        self.counts_label = ttk.Label(status, text='', style='Status.TLabel')
+        self.counts_label.pack(side='right')
+
+        for name, cls in SCREENS.items():
+            screen = cls(self.content, self)
+            self.screens[name] = screen
+
+        self.go(self.settings.get('last_screen') or 'dashboard')
+        self.root.after(200, self._startup_scan)
+
+    # ------------------------------------------------------------------ kabuk
+    def _set_icon(self) -> None:
+        path = pathlib.Path(__file__).resolve().parent / 'assets' / 'agfo-mihenk.ico'
+        if sys.platform == 'win32' and path.exists():
+            try:
+                self.root.iconbitmap(default=str(path))
+            except tk.TclError:
+                pass
+
+    def _restore_geometry(self) -> None:
+        saved = str(self.settings.get('window') or '')
+        if saved and saved.count('+') >= 1 and 'x' in saved:
+            try:
+                self.root.geometry(saved)
+                return
+            except tk.TclError:
+                pass
+        self.root.geometry('1240x780')
+
+    def _build_sidebar(self) -> None:
+        for child in self.sidebar.winfo_children():
+            child.destroy()
+        brand = ttk.Frame(self.sidebar, style='Sidebar.TFrame', padding=(18, 20, 18, 16))
+        brand.pack(fill='x')
+        ttk.Label(brand, text='Mihenk', style='SidebarBrand.TLabel').pack(anchor='w')
+        ttk.Label(brand, text='Ekipman bakımı ve kalibrasyon', style='SidebarVersion.TLabel',
+                  wraplength=170, justify='left').pack(anchor='w', pady=(2, 0))
+
+        self.nav_buttons = {}
+        for name, label in NAV:
+            button = ttk.Button(self.sidebar, text=label, style='Nav.TButton',
+                                command=lambda n=name: self.go(n))
+            button.pack(fill='x')
+            self.nav_buttons[name] = button
+
+        footer = ttk.Frame(self.sidebar, style='Sidebar.TFrame', padding=(18, 10))
+        footer.pack(side='bottom', fill='x')
+        ttk.Label(footer, text='v%s' % core.VERSION, style='SidebarVersion.TLabel').pack(anchor='w')
+
+    def go(self, name: str) -> None:
+        """Ekran degistirir."""
+        if name not in self.screens:
+            name = 'dashboard'
+        if self.current:
+            self.screens[self.current].pack_forget()
+        self.current = name
+        for key, button in self.nav_buttons.items():
+            button.configure(style='NavActive.TButton' if key == name else 'Nav.TButton')
+        screen = self.screens[name]
+        screen.pack(fill='both', expand=True)
+        screen.refresh()
+        store.save_settings({'last_screen': name})
+
+    def refresh(self) -> None:
+        """Acik ekrani ve durum serigini tazeler."""
+        if self.current:
+            self.screens[self.current].refresh()
+        open_impacts = ImpactRepo.count(self.conn, 'open')
+        parts = ['%d varlık' % AssetRepo.count(self.conn),
+                 '%d açık iş emri' % WorkOrderRepo.count(self.conn, open_only=True),
+                 '%d açık kalibrasyon' % CalibrationRepo.count(self.conn, open_only=True)]
+        if open_impacts:
+            parts.append('%d açık etki' % open_impacts)
+        self.counts_label.configure(text='  ·  '.join(parts))
+
+    def toast(self, message: str) -> None:
+        """Durum serigine gecici bir not yazar."""
+        self.status_label.configure(text=message)
+        if self._toast_job:
+            self.root.after_cancel(self._toast_job)
+        self._toast_job = self.root.after(8000, lambda: self.status_label.configure(text=''))
+
+    def run(self, action, success: str = '') -> bool:
+        """Depo cagrisini calistirir, reddi anlasilir bicimde gosterir."""
+        try:
+            action()
+        except v.MihenkError as exc:
+            messagebox.showwarning('Kabul edilmedi', str(exc), parent=self.root)
+            return False
+        except Exception as exc:
+            messagebox.showerror('Hata', str(exc), parent=self.root)
+            return False
+        if success:
+            self.toast(success)
+        return True
+
+    def apply_theme(self) -> None:
+        """Tema degisince butun bicemleri ve tablolari yeniler."""
+        self.settings = store.load_settings()
+        theme.apply(self.root, self.settings['theme'])
+        self._build_sidebar()
+        for name, screen in self.screens.items():
+            for child in screen.winfo_children():
+                _refresh_tables(child)
+            if name == self.current:
+                self.nav_buttons[name].configure(style='NavActive.TButton')
+
+    def restore_from(self, source) -> None:
+        """Yedegi geri yukler ve baglantiyi yeniden acar."""
+        path = store.db_path()
+        db.restore(self.conn, source, path)
+        self.conn = db.connect(path)
+        for screen in self.screens.values():
+            screen.conn = self.conn
+
+    def _startup_scan(self) -> None:
+        if not self.settings.get('scan_on_start'):
+            self.refresh()
+            return
+        try:
+            made = scheduler.scan(self.conn)
+        except Exception as exc:
+            self.toast('Açılış taraması yapılamadı: %s' % exc)
+            self.refresh()
+            return
+        self.refresh()
+        total = made['work_orders'] + made['calibrations']
+        if total:
+            self.toast('Açılış taraması: %d iş emri, %d kalibrasyon kaydı üretildi.'
+                       % (made['work_orders'], made['calibrations']))
+
+    def close(self) -> None:
+        try:
+            store.save_settings({'window': self.root.winfo_geometry()})
+            self.conn.close()
+        except Exception:
+            pass
+        self.root.destroy()
+
+
+def _refresh_tables(widget) -> None:
+    """Tema degisiminden sonra tablolarin satir renklerini tazeler."""
+    if isinstance(widget, w.DataTable):
+        widget.refresh_tags()
+    for child in widget.winfo_children():
+        _refresh_tables(child)
+
+
+def main() -> int:
+    theme.enable_dpi_awareness()
+    root = tk.Tk()
+    app = MihenkApp(root)
+    if '--minimized' in sys.argv:
+        root.iconify()
+    root.mainloop()
+    del app
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
