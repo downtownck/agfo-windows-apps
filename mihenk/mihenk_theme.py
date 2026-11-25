@@ -275,6 +275,30 @@ def apply(root: tk.Misc, requested: str = 'light', lib_dir=None, use_bootstrap=T
         except tk.TclError:
             pass
 
+    # Cizim motoru ne olursa olsun stiller bir kez kuruluyor. ttkbootstrap'in
+    # configure cagrisi kendi PNG varliklarini okumaya calisir; bunlar pakete
+    # girmemisse ya da surum farkliysa burada patlar. Gorunum yuzunden uygulama
+    # acilmasin diye hata yakalanip klasik cizimle bastan kuruluyor.
+    try:
+        _apply_styles(root, style, p, f)
+    except Exception as exc:
+        if _ENGINE != 'classic':
+            _ENGINE = 'classic'
+            _STATUS = t('yüklendi ama uygulanamadı: %s') % exc
+            style = ttk.Style(root)
+            try:
+                style.theme_use('clam')
+            except tk.TclError:
+                pass
+            _apply_styles(root, style, p, f)
+        else:
+            raise
+
+    return p
+
+
+def _apply_styles(root, style, p: dict, f: dict) -> None:
+    """Butun ttk stillerini kurar. Cagiran, hatada klasige dusmekten sorumlu."""
     root.configure(background=p['bg'])
     root.option_add('*Font', f['body'])
 
@@ -378,8 +402,6 @@ def apply(root: tk.Misc, requested: str = 'light', lib_dir=None, use_bootstrap=T
     style.configure('Status.TFrame', background=p['surface'])
     style.configure('Status.TLabel', background=p['surface'], foreground=p['muted'], font=f['small'])
     style.configure('Footer.TLabel', background=p['bg'], foreground=p['muted'], font=f['tiny'])
-
-    return p
 
 
 def _apply_bootstrap(root, bootstrap, palette: dict):

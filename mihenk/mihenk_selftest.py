@@ -25,6 +25,8 @@ def run(argv) -> int:
         ttk.Style(root)
         root.destroy()
 
+        import mihenk_theme as theme
+
         import mihenk_core
         import mihenk_db as db
         import mihenk_app  # noqa: F401
@@ -52,14 +54,28 @@ def run(argv) -> int:
         finally:
             conn.close()
 
-        # Modern gorunum pakete girdi mi: EXE'de eksikse sessizce klasige dusulur,
-        # bu yuzden yayindan once burada acikca yazilir.
+        # Modern gorunum pakete girdi mi. Modulu ice aktarmak yetmiyor:
+        # ttkbootstrap cizimi kendi PNG varliklarini okur ve bunlar pakete
+        # girmemisse hata ancak stiller kurulurken, yani kullanici uygulamayi
+        # ilk actiginda cikar. Bu yuzden burada tema gercekten uygulaniyor.
         try:
             import ttkbootstrap
-            ui = 'modern'
             tb = getattr(ttkbootstrap, '__version__', '?')
         except ImportError:
-            ui, tb = 'classic', '-'
+            tb = '-'
+
+        probe = tkinter.Tk()
+        probe.withdraw()
+        try:
+            theme.apply(probe, 'light', None, tb != '-')
+            ui = 'modern' if theme.engine() == 'ttkbootstrap' else 'classic'
+            drawing = theme.engine_status()
+        finally:
+            probe.destroy()
+        if tb != '-' and ui != 'modern':
+            # Bileşen kurulu ama cizim yapilamiyor: bozuk paket. Sessizce
+            # klasige dusup gecer not vermek yerine derleme burada durur.
+            raise RuntimeError('ttkbootstrap %s kurulu ama cizim uygulanamadi: %s' % (tb, drawing))
 
         # Ceviri EXE'ye girdi mi: sozluk bosalirsa uygulama sessizce Turkce
         # calisir, bu yuzden sayi burada acikca yaziliyor.

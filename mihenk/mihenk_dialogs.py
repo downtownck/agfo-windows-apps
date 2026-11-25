@@ -23,6 +23,7 @@ from mihenk_parts import UNITS as PART_UNITS
 from mihenk_parts import PartRepo
 from mihenk_repo import (AssetRepo, AssetTypes, CalibrationRepo, ImpactRepo, RequestRepo,
                          ScheduleRepo, WorkOrderRepo)
+import mihenk_i18n as i18n
 import mihenk_legal as legal
 from mihenk_i18n import t
 
@@ -1298,6 +1299,61 @@ class WelcomeDialog(tk.Toplevel):
         store.save_settings({'first_run_done': True})
         self.destroy()
         self.app.refresh()
+
+
+class LanguageDialog(tk.Toplevel):
+    """Ilk acilista cikan dil secimi.
+
+    Sorumluluk reddinden once geliyor: kullanici neyi kabul ettigini kendi
+    dilinde okumali. Secim kaydedilip uygulama yeniden baslatiliyor, cunku
+    menu ve tablo basliklari moduller yuklenirken kuruluyor.
+
+    Iki dil adi da kendi dilinde yaziliyor ("Türkçe", "English") ve pencerenin
+    basligi iki dilde; secimi yapacak kisi henuz hangi dili gordugunu secmedi.
+    """
+
+    def __init__(self, app):
+        super().__init__(app.root)
+        self.app = app
+        self.chosen = None
+        p = theme.palette()
+        self.title('Dil / Language')
+        self.configure(background=p['bg'])
+        self.transient(app.root)
+        self.resizable(False, False)
+
+        head = ttk.Frame(self, padding=(28, 24, 28, 4))
+        head.pack(fill='x')
+        ttk.Label(head, text='Mihenk', style='Title.TLabel').pack(anchor='w')
+        ttk.Label(head, text='Dil / Language', style='Muted.TLabel').pack(anchor='w', pady=(2, 0))
+
+        body = ttk.Frame(self, padding=(28, 10, 28, 4))
+        body.pack(fill='both', expand=True)
+        for code, label in i18n.LANGUAGES.items():
+            ttk.Button(body, text=label, width=26,
+                       style='Accent.TButton' if code == i18n.language() else 'TButton',
+                       command=lambda c=code: self._pick(c)).pack(anchor='w', pady=4)
+
+        foot = ttk.Frame(self, padding=(28, 10, 28, 20))
+        foot.pack(fill='x')
+        ttk.Label(foot, text='Sonradan Ayarlar ekranından değiştirilebilir.\n'
+                             'You can change this later on the Settings screen.',
+                  style='Muted.TLabel', justify='left').pack(anchor='w')
+
+        self.bind('<Escape>', lambda _e: self._pick(i18n.language()))
+        self.protocol('WM_DELETE_WINDOW', lambda: self._pick(i18n.language()))
+        self.update_idletasks()
+        parent = app.root
+        x = parent.winfo_rootx() + max(0, (parent.winfo_width() - self.winfo_width()) // 2)
+        y = parent.winfo_rooty() + 120
+        self.geometry('+%d+%d' % (x, y))
+        self.grab_set()
+        self.focus_set()
+
+    def _pick(self, code: str) -> None:
+        self.chosen = code
+        store.save_settings({'language': code, 'language_asked': True})
+        self.destroy()
 
 
 class DisclaimerDialog(tk.Toplevel):

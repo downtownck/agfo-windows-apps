@@ -63,6 +63,17 @@ try {
         $tbArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '--upgrade', 'ttkbootstrap==2.2.7')
         if ((Invoke-Native $vpy $tbArgs) -ne 0) { Write-Host 'ttkbootstrap could not be installed; the EXE will use the classic drawing.' }
 
+        # ttkbootstrap draws its check boxes and radio buttons from PNG files inside
+        # the package. --collect-all should pick them up, but a stale PyInstaller hook
+        # can narrow the collection and leave them out; the app then only fails when
+        # the user opens it. The folder is therefore added explicitly as well.
+        $tbExtra = @()
+        $tbAssets = (& $vpy -c "import pathlib,ttkbootstrap;p=pathlib.Path(ttkbootstrap.__file__).parent/'assets';print(p if p.is_dir() else '')" 2>$null)
+        if ($tbAssets) {
+            $tbExtra = @('--add-data', ($tbAssets.Trim() + ';ttkbootstrap/assets'))
+            Write-Host ('ttkbootstrap assets: ' + $tbAssets.Trim())
+        }
+
         Write-Host 'Building the EXE (1-2 minutes)...'
         if (Test-Path -LiteralPath $exe) { Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue }
         $pyiArgs = @('-m', 'PyInstaller', '--noconfirm', '--clean', '--onefile', '--windowed', '--name', $appName,
@@ -80,8 +91,8 @@ try {
                      '--hidden-import', 'mihenk_export', '--hidden-import', 'mihenk_xlsx',
                      '--hidden-import', 'mihenk_i18n', '--hidden-import', 'mihenk_legal',
                      '--hidden-import', 'sqlite3', '--hidden-import', 'csv', '--hidden-import', 'zipfile',
-                     '--collect-all', 'ttkbootstrap',
-                     '--hidden-import', 'agfo_github_update',
+                     '--collect-all', 'ttkbootstrap', '--collect-data', 'ttkbootstrap',
+                     '--hidden-import', 'agfo_github_update') + $tbExtra + @(
                      (Join-Path $root 'app.pyw'))
         if ((Invoke-Native $vpy $pyiArgs) -ne 0) { Write-Host 'PyInstaller build failed, trying the next Python.'; continue }
         if (-not (Test-Path -LiteralPath $exe)) { Write-Host 'Build finished but the EXE was not found, trying the next Python.'; continue }

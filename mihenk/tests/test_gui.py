@@ -48,11 +48,13 @@ def test(fn):
     return fn
 
 
-# Sorumluluk reddi ilk acilista modal bir pencere aciyor ve onay bekliyor;
-# bu dosyadaki testler onun arkasindaki ekranlara bakiyor. Onay pesinen
-# veriliyor, pencerenin kendisi asagida ayrica deneniyor.
+# Ilk acilista once dil, sonra sorumluluk reddi modal pencere aciyor ve
+# yanit bekliyor; bu dosyadaki testler onlarin arkasindaki ekranlara bakiyor.
+# Ikisi de pesinen yanitlanmis sayiliyor, pencereler asagida ayrica deneniyor.
 import mihenk_legal as legal  # noqa: E402
+import mihenk_store as _store  # noqa: E402
 
+_store.save_settings({'language_asked': True})
 legal.accept()
 
 root = tk.Tk()
@@ -541,6 +543,83 @@ def export_dialog_writes_a_workbook():
     assert target.exists() and target.stat().st_size > 2000
     dialog.destroy()
     pump()
+
+
+@test
+def a_broken_drawing_engine_does_not_stop_the_application():
+    """3.0.0'da gercekten olan hata: ttkbootstrap'in PNG varliklari EXE'ye
+    girmemisti ve uygulama acilirken cokuyordu. Gorunum bileseni ne yaparsa
+    yapsin uygulama ayakta kalmali ve klasik cizime dusmeli.
+    """
+    bootstrap, _status = theme.load_ttkbootstrap(None, True)
+    if bootstrap is None:
+        print('   not: ttkbootstrap yok, cizim coku testi atlandi')
+        return
+
+    original = bootstrap.Style.configure
+
+    def explode(self, *args, **kwargs):
+        if args and args[0] == 'TCheckbutton':
+            raise FileNotFoundError('ttkbootstrap/assets/elements/checkbox-checked.png')
+        return original(self, *args, **kwargs)
+
+    probe = tk.Toplevel(root)
+    probe.withdraw()
+    bootstrap.Style.configure = explode
+    try:
+        palette = theme.apply(probe, 'light', None, True)
+    finally:
+        bootstrap.Style.configure = original
+        probe.destroy()
+
+    assert palette.get('bg'), 'palet donmedi'
+    assert theme.engine() == 'classic', theme.engine()
+    assert 'checkbox-checked.png' in theme.engine_status(), theme.engine_status()
+
+    # Ana pencerenin stilleri geri gelsin, sonraki testler bunlara bakiyor.
+    theme.apply(root, 'light', None, True)
+    pump()
+
+
+@test
+def the_language_dialog_comes_before_the_disclaimer():
+    """Kullanici kabul ettigi metni kendi dilinde okumali."""
+    import mihenk_store as store
+
+    store.save_settings({'language_asked': False, 'disclaimer_accepted': 0})
+    assert app.should_ask_language(), 'dil sorulmaliydi'
+
+    # Dil sorulmadan sorumluluk reddi penceresi acilmamali.
+    app._disclaimer()
+    pump()
+    assert not legal.accepted(), 'dil penceresi atlanmis'
+
+    dialog = dialogs.LanguageDialog(app)
+    pump()
+    # Her dil adi kendi dilinde yaziyor: secimi yapacak kisi henuz hangi dili
+    # gordugunu secmedi.
+    labels = _button_texts(dialog)
+    assert 'Türkçe' in labels and 'English' in labels, labels
+
+    dialog._pick('tr')
+    pump()
+    assert dialog.chosen == 'tr'
+    assert store.setting('language_asked') is True, 'secim kaydedilmedi'
+    assert not app.should_ask_language(), 'pencere bir daha cikmamali'
+
+
+@test
+def closing_the_language_dialog_keeps_the_current_language():
+    import mihenk_i18n as i18n
+    import mihenk_store as store
+
+    store.save_settings({'language_asked': False})
+    dialog = dialogs.LanguageDialog(app)
+    pump()
+    dialog._pick(i18n.language())               # kapatma dugmesinin yaptigi
+    pump()
+    assert dialog.chosen == i18n.language()
+    assert store.setting('language') == i18n.language()
 
 
 @test

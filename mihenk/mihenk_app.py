@@ -44,6 +44,12 @@ NAV = (
 UPDATE_POLL_MS = 60 * 60 * 1000
 
 VERSIONS = (
+    {'version': '3.1.0', 'date': '2026-11-25', 'kind': 'MINOR',
+     'summary': t('Dil seçimi artık ilk açılışta, sorumluluk reddinden önce soruluyor: '
+                'kabul edilen metin kendi dilinizde okunuyor. Ayrıca bir çökme giderildi: '
+                'modern görünüm bileşeninin çizim dosyaları pakete girmediğinde uygulama '
+                'açılırken kapanıyordu; artık sessizce klasik çizime düşüyor ve derleme '
+                'sırasındaki öz-denetim bozuk paketi yakalayıp durduruyor.')},
     {'version': '3.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
      'summary': t('İngilizce arayüz: menü, ekranlar, pencereler, hata iletileri, demo veri ve '
                 'yazdırılabilir rapor iki dilde. Dil, Ayarlar ekranından seçilir ve uygulama '
@@ -359,6 +365,7 @@ class MihenkApp:
         self.current = None
         self._toast_job = None
         self._update_poll = None
+        self._language_switching = False
 
         theme.apply(root, self.settings['theme'], store.ui_lib_dir(),
                     self.settings.get('modern_ui', True))
@@ -398,6 +405,9 @@ class MihenkApp:
 
         self.go(self.settings.get('last_screen') or 'dashboard')
         self.root.after(200, self._startup_scan)
+        # Sira onemli: once dil, sonra sorumluluk reddi, sonra karsilama.
+        # Kullanici kabul ettigi metni kendi dilinde okumali.
+        self.root.after(250, self._choose_language)
         self.root.after(300, self._disclaimer)
         self.root.after(400, self._first_run)
         self.root.after(2500, lambda: self.check_updates(force=False))
@@ -666,8 +676,28 @@ class MihenkApp:
             return False
         return True
 
+    def should_ask_language(self) -> bool:
+        """Dil ilk acilista bir kez soruluyor; sonrasi Ayarlar ekraninin isi."""
+        return not store.setting('language_asked')
+
+    def _choose_language(self) -> None:
+        """Dil secimi. Varsayilandan baska bir dil secilirse uygulama yeniden acilir."""
+        if not self.should_ask_language():
+            return
+        from mihenk_dialogs import LanguageDialog
+        dialog = LanguageDialog(self)
+        self.root.wait_window(dialog)
+        self.settings = store.load_settings()
+        if dialog.chosen and dialog.chosen != i18n.language():
+            self._language_switching = True
+            self.relaunch()
+
     def _disclaimer(self) -> None:
         """Sorumluluk reddi onaylanmadiysa sorar; kabul edilmezse uygulama kapanir."""
+        if getattr(self, '_language_switching', False):
+            return                      # dil degisti: metin yeni dilde sorulacak
+        if self.should_ask_language():
+            return                      # dil penceresi kapanmadan sorulmaz
         if legal.accepted():
             return
         from mihenk_dialogs import DisclaimerDialog
@@ -679,6 +709,8 @@ class MihenkApp:
 
     def _first_run(self) -> None:
         """Kutuk bosken ve daha once sorulmamissa karsilama penceresini acar."""
+        if getattr(self, '_language_switching', False):
+            return                      # uygulama yeniden aciliyor
         if not legal.accepted():
             return                      # reddedildi: uygulama zaten kapaniyor
         if not self.should_offer_first_run():

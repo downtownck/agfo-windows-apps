@@ -26,6 +26,7 @@ DEFAULT_SETTINGS = {
     'window': '',
     'first_run_done': False,
     'disclaimer_accepted': 0,
+    'language_asked': False,
     'modern_ui': True,
     'report_period': '365',
 }

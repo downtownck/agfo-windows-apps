@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """AGFO Mihenk - surum ve ortak sabitler."""
-VERSION = '3.0.0'
+VERSION = '3.1.0'
 APP_NAME = 'AGFO Mihenk'
 APP_ID = 'mihenk'
 DATA_FOLDER = 'Mihenk'

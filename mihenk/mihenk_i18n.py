@@ -83,9 +83,17 @@ def weekdays() -> tuple:
     return WEEKDAYS.get(_LANGUAGE, WEEKDAYS[DEFAULT])
 
 
+# Dil secilmeden once gosterilen metinler zaten iki dilde yazilmis durumda;
+# cevrilecek bir karsiliklari yok.
+BILINGUAL = (
+    'Sonradan Ayarlar ekranından değiştirilebilir.\n'
+    'You can change this later on the Settings screen.',
+)
+
 # Metin degil: cevrilmeyecek sabitler. Testteki kapsam olcumu bunlari sayar
 # ki eksik ceviri listesi gercek acigi gostersin.
-_NOT_TEXT = {'Derle-ve-Kur.cmd'} | set(MONTHS['tr']) | set(WEEKDAYS['tr'])
+_NOT_TEXT = ({'Derle-ve-Kur.cmd'} | set(MONTHS['tr']) | set(WEEKDAYS['tr'])
+             | set(BILINGUAL))
 
 
 def _startup_language() -> str:
@@ -105,6 +113,8 @@ def _startup_language() -> str:
 
 # Turkce kaynak metin -> Ingilizce karsiligi.
 EN = {
+    'Dil seçimi artık ilk açılışta, sorumluluk reddinden önce soruluyor: kabul edilen metin kendi dilinizde okunuyor. Ayrıca bir çökme giderildi: modern görünüm bileşeninin çizim dosyaları pakete girmediğinde uygulama açılırken kapanıyordu; artık sessizce klasik çizime düşüyor ve derleme sırasındaki öz-denetim bozuk paketi yakalayıp durduruyor.':
+        "The language is now chosen on the first run, before the disclaimer, so the text you accept is the text in your own language. A crash is also fixed: when the modern look component's drawing files were missing from the package the application closed while opening; it now falls back quietly to the classic drawing, and the self-test during the build catches a broken package and stops.",
     'İngilizce arayüz: menü, ekranlar, pencereler, hata iletileri, demo veri ve yazdırılabilir rapor iki dilde. Dil, Ayarlar ekranından seçilir ve uygulama yeniden açıldığında geçerli olur; veritabanına yazılan durum ve birim anahtarları her iki dilde de aynı kalır, böylece dil değiştirmek kayıtları bozmaz. Uygulama ücretsiz yayınlandığı için ilk kurulumda ve ilk açılışta sorumluluk reddi gösterilip onaylanıyor.':
         'An English interface: menu, screens, dialogs, error messages, demo data and the printable report in both languages. The language is chosen on the Settings screen and takes effect when the application is reopened; the state and unit keys written to the database stay the same in both languages, so changing language cannot corrupt records. Because the application is published free of charge, a disclaimer is shown and acknowledged at the first installation and on the first run.',
     'Güncelleyici başlatıldıktan sonra uygulama artık kapanıyor. Önceki sürümde kapanmadığı için güncelleyici boşuna bekliyor, indirilen dosyayı kilitli tutuyor ve ikinci deneme "erişim engellendi" ile düşüyordu.':

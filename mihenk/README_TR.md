@@ -56,9 +56,10 @@ Gereken: Windows 10/11 ve tkinter'lı Python 3.10+ (derleme için).
 
 ## Dil
 
-Arayüz Türkçe ve İngilizce. Dil **Ayarlar** ekranından seçilir ve uygulama yeniden
-açıldığında geçerli olur; seçim kaydedilince uygulama kendini yeniden başlatmayı teklif
-eder. Menü, tablo başlıkları ve durum etiketleri modül yüklenirken kurulduğu için dil
+Arayüz Türkçe ve İngilizce. İlk açılışta dil sorulur — sorumluluk reddinden **önce**,
+böylece kabul ettiğiniz metni kendi dilinizde okursunuz. Sonrasında dil **Ayarlar**
+ekranından değiştirilir ve uygulama yeniden açıldığında geçerli olur; seçim kaydedilince
+uygulama kendini yeniden başlatmayı teklif eder. Menü, tablo başlıkları ve durum etiketleri modül yüklenirken kurulduğu için dil
 çalışırken değiştirilmiyor: yarısı bir dilde yarısı ötekinde bir ekran, yeniden
 başlatmaktan kötüdür.
 
@@ -76,6 +77,11 @@ yazıldı. Tek isteğe bağlı bileşen **ttkbootstrap**: modern düğme, liste 
 sağlar, derleme sırasında pakete gömülür. Yoksa uygulama klasik çizimle sorunsuz çalışır ve
 renkler iki yolda da aynıdır. Ayarlar ekranı hangi yolun kullanıldığını yazar ve gerekirse
 bileşeni uygulamanın kendi klasörüne kurar — Python kurulumunuza dokunmaz.
+
+Bu bileşen çizim yapamazsa uygulama açılmaya devam eder ve klasik çizime düşer; görünüm
+yüzünden kayıtlara erişim kesilmez. Derleme sırasındaki öz-denetim bileşeni yalnızca içe
+aktarmakla yetinmez, temayı gerçekten uygular — bozuk bir paket kullanıcının eline geçmeden
+derlemede yakalanır.
 
 ## Veri nerede
 
@@ -203,7 +209,7 @@ etkilenmez.
     python -I tests/test_update.py .            güncelleme modülü
     python -I tests/test_xlsx.py .              5 test, üretilen .xlsx'i openpyxl ile okur
     python -I tests/test_i18n.py .              13 dil testi, çeviri açığını ölçer
-    xvfb-run -a python -I tests/test_gui.py .   32 arayüz duman testi
+    xvfb-run -a python -I tests/test_gui.py .   35 arayüz duman testi
 
 Arayüz testleri hem klasik hem modern çizimle koşar; CI ikisini de çalıştırır.
 

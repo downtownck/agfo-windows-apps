@@ -1,6 +1,6 @@
 {
   "app": "mihenk",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "contract_version": 1,
   "generated_at": "2026-11-25",
   "runner": {
@@ -23,7 +23,7 @@
   "package_gate": {
     "required_for_package": true,
     "satisfied": true,
-    "note": "Cekirdek (59), guncelleme, xlsx (5), dil (13) ve arayuz (32) testleri gercekten calistirildi ve gecti; arayuz hem klasik hem modern cizimle kosuldu. Oz-denetim xvfb altinda kosuldu: OK 3.0.0 ... ui=modern i18n=691/en,tr. Windows adimlari (EXE derlemesi, sessiz guncelleyici, kurulum betiginin sorumluluk reddi istemi) release.yml icinde windows-latest uzerinde kosar ve burada kosulmadi."
+    "note": "Cekirdek (59), guncelleme, xlsx (5), dil (13) ve arayuz (35) testleri gercekten calistirildi ve gecti; arayuz hem klasik hem modern cizimle kosuldu. Oz-denetim xvfb altinda kosuldu: OK 3.1.0 ... ui=modern i18n=692/en,tr, ve bozuk varlik taklit edildiginde FAIL verdigi dogrulandi. Windows adimlari (EXE derlemesi, sessiz guncelleyici, kurulum betiginin sorumluluk reddi istemi) release.yml icinde windows-latest uzerinde kosar ve burada kosulmadi."
   },
   "surfaces": {
     "settings": [
@@ -85,6 +85,11 @@
       {
         "key": "disclaimer_accepted",
         "consumer": "mihenk_legal.accepted",
+        "verified": "pass"
+      },
+      {
+        "key": "language_asked",
+        "consumer": "MihenkApp.should_ask_language",
         "verified": "pass"
       }
     ],
@@ -272,6 +277,11 @@
     ],
     "legal": [
       {
+        "check": "dil secimi sorumluluk reddinden once soruluyor; secilmeden metin gosterilmiyor",
+        "consumer": "mihenk_dialogs.LanguageDialog / MihenkApp._choose_language",
+        "verified": "pass"
+      },
+      {
         "check": "ilk acilista sorumluluk reddi soruluyor, kutu isaretlenmeden onay kapali",
         "consumer": "mihenk_dialogs.DisclaimerDialog",
         "verified": "pass"
@@ -296,6 +306,25 @@
         "consumer": "Derle-ve-Kur.cmd",
         "verified": "skip",
         "note": "cmd betigi; yalnizca Windows kosusunda calisir"
+      }
+    ],
+    "theme": [
+      {
+        "check": "cizim motoru patlarsa uygulama acilmaya devam eder ve klasige duser",
+        "consumer": "mihenk_theme.apply / _apply_styles",
+        "verified": "pass",
+        "note": "3.0.0 hatasi: ttkbootstrap PNG varliklari EXE icinde yoktu"
+      },
+      {
+        "check": "oz-denetim temayi gercekten uyguluyor; bozuk paketi derlemede yakaliyor",
+        "consumer": "mihenk_selftest.run",
+        "verified": "pass"
+      },
+      {
+        "check": "ttkbootstrap varliklari pakete acikca ekleniyor",
+        "consumer": "packaging/build_local.ps1",
+        "verified": "skip",
+        "note": "PyInstaller adimi; yalnizca Windows kosusunda calisir"
       }
     ]
   },
