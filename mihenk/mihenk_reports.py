@@ -12,13 +12,14 @@ import datetime
 import mihenk_validate as v
 from mihenk_parts import PartRepo
 from mihenk_repo import AssetRepo, CalibrationRepo, ImpactRepo, ScheduleRepo, WorkOrderRepo
+from mihenk_i18n import t
 
 PERIODS = {
-    '30': 'Son 30 gün',
-    '90': 'Son 90 gün',
-    '180': 'Son 6 ay',
-    '365': 'Son 12 ay',
-    '0': 'Tümü',
+    '30': t('Son 30 gün'),
+    '90': t('Son 90 gün'),
+    '180': t('Son 6 ay'),
+    '365': t('Son 12 ay'),
+    '0': t('Tümü'),
 }
 
 
@@ -188,7 +189,7 @@ def summary(conn, days=365) -> dict:
     labour = labour_by_month(conn, days)
     return {
         'period_days': int(days or 0),
-        'period_label': PERIODS.get(str(days), '%s gün' % days),
+        'period_label': PERIODS.get(str(days), t('%s gün') % days),
         'assets_total': AssetRepo.count(conn),
         'assets_active': AssetRepo.count(conn, 'active'),
         'assets_quarantined': AssetRepo.count(conn, 'quarantined'),

@@ -19,6 +19,7 @@ import zipfile
 import agfo_github_update as ghu
 import mihenk_core as core
 from mihenk_store import data_dir
+from mihenk_i18n import t
 
 GH_PREFIX = 'mihenk-v'
 GH_ASSET = r'AGFO-Mihenk-v[0-9.]+-Kurulum\.zip'      # kaynaktan calisirken (eski yol)
@@ -81,7 +82,7 @@ def check(force=False, releases=None) -> dict:
                                interval=CHECK_INTERVAL, releases=releases, user_agent=USER_AGENT)
     if res.get('status') == 'update' and not package_ready(res.get('release') or {}, res.get('asset') or {}):
         return {'status': 'error', 'version': res.get('version'),
-                'message': 'v%s yayınlanmış ama paket henüz doğrulanamıyor (SHA-256 özeti yok).' % res.get('version')}
+                'message': t('v%s yayınlanmış ama paket henüz doğrulanamıyor (SHA-256 özeti yok).') % res.get('version')}
     return res
 
 
@@ -112,7 +113,7 @@ def _free_target(name: str) -> pathlib.Path:
             return candidate
         except OSError:
             continue
-    raise ghu.GHUpdateError('İndirme klasörü kilitli dosyalarla dolu: %s' % folder)
+    raise ghu.GHUpdateError(t('İndirme klasörü kilitli dosyalarla dolu: %s') % folder)
 
 
 def download(result: dict, progress=None, should_stop=None) -> pathlib.Path:
@@ -137,16 +138,16 @@ def extract(zip_path) -> pathlib.Path:
         for m in z.infolist():
             target = (out / m.filename).resolve()
             if root != target and root not in target.parents:
-                raise ghu.GHUpdateError('Pakette güvensiz yol: %s' % m.filename)
+                raise ghu.GHUpdateError(t('Pakette güvensiz yol: %s') % m.filename)
         z.extractall(out)
-    for p in out.rglob('Derle-ve-Kur.cmd'):
+    for p in out.rglob(t('Derle-ve-Kur.cmd')):
         return p.parent
-    raise ghu.GHUpdateError('Pakette Derle-ve-Kur.cmd yok.')
+    raise ghu.GHUpdateError(t('Pakette Derle-ve-Kur.cmd yok.'))
 
 
 def run_installer(folder, popen=subprocess.Popen):
     """Derle-ve-Kur.cmd /update'i yeni bir konsolda baslatir (kullanici ilerlemeyi gorur)."""
-    cmd = pathlib.Path(folder) / 'Derle-ve-Kur.cmd'
+    cmd = pathlib.Path(folder) / t('Derle-ve-Kur.cmd')
     comspec = os.environ.get('ComSpec') or 'cmd.exe'
     return popen([comspec, '/c', str(cmd), '/update'], cwd=str(folder), env=scrub_env(), close_fds=True,
                  creationflags=CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP)
@@ -207,7 +208,7 @@ def replace_target(source, target, attempts: int = 80, delay: float = 0.5, sleep
         tmp.unlink()
     except OSError:
         pass
-    raise OSError('Eski sürüm dosyası serbest kalmadı: %s' % last)
+    raise OSError(t('Eski sürüm dosyası serbest kalmadı: %s') % last)
 
 
 def launch(exe, minimized=False, popen=subprocess.Popen):
@@ -220,7 +221,7 @@ def apply_update(new_exe, minimized=False, popen=subprocess.Popen, pid=None, tar
     """Yeni EXE'yi guncelleyici kipinde baslatir: eski surum kapaninca kendini hedefe kopyalar ve hedefi acar.
     Cagiran, donen surecin ayakta kaldigini dogrulamali (guvenlik yazilimi engellediyse hemen kapanir)."""
     if not is_frozen() and target is None:
-        raise OSError('Sessiz güncelleme yalnızca derlenmiş EXE için uygulanabilir.')
+        raise OSError(t('Sessiz güncelleme yalnızca derlenmiş EXE için uygulanabilir.'))
     target = pathlib.Path(target or sys.executable)
     pid = os.getpid() if pid is None else pid
     log_line('Starting updater %s -> %s (pid %s)' % (new_exe, target, pid))
@@ -233,7 +234,7 @@ def apply_update_main(target, pid, minimized=False) -> int:
     """Guncelleyici kipi (penceresiz): eski surum kapaninca kendini hedefe kopyalar ve hedefi acar."""
     try:
         if not wait_for_pid(pid, 90):
-            raise OSError('Eski sürüm 90 saniyede kapanmadı.')
+            raise OSError(t('Eski sürüm 90 saniyede kapanmadı.'))
         replace_target(sys.executable, target)
         launch(target, minimized)
         log_line('Update applied: %s' % target)
@@ -243,7 +244,7 @@ def apply_update_main(target, pid, minimized=False) -> int:
         if sys.platform == 'win32':
             try:
                 import ctypes
-                ctypes.windll.user32.MessageBoxW(0, 'Güncelleme uygulanamadı: %s\n\nYeni sürüm şu dosyada, doğrudan açabilirsin:\n%s'
+                ctypes.windll.user32.MessageBoxW(0, t('Güncelleme uygulanamadı: %s\n\nYeni sürüm şu dosyada, doğrudan açabilirsin:\n%s')
                                                  % (e, sys.executable), 'AGFO Mihenk', 0x10)
             except Exception:
                 pass

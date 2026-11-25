@@ -14,6 +14,9 @@ import tempfile
 ROOT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(ROOT))
 os.environ['MIHENK_DATA_DIR'] = tempfile.mkdtemp()
+# Bu dosyadaki beklentiler Turkce metinlere bakiyor; dil testin konusu
+# degil. Ingilizce kapsami tests/test_i18n.py'de olculuyor.
+os.environ['MIHENK_LANG'] = 'tr'
 os.environ.setdefault('APPDATA', tempfile.mkdtemp())
 os.environ.setdefault('LOCALAPPDATA', tempfile.mkdtemp())
 
@@ -44,6 +47,13 @@ def test(fn):
     PASSED.append(fn.__name__)
     return fn
 
+
+# Sorumluluk reddi ilk acilista modal bir pencere aciyor ve onay bekliyor;
+# bu dosyadaki testler onun arkasindaki ekranlara bakiyor. Onay pesinen
+# veriliyor, pencerenin kendisi asagida ayrica deneniyor.
+import mihenk_legal as legal  # noqa: E402
+
+legal.accept()
 
 root = tk.Tk()
 root.withdraw()
@@ -531,6 +541,51 @@ def export_dialog_writes_a_workbook():
     assert target.exists() and target.stat().st_size > 2000
     dialog.destroy()
     pump()
+
+
+@test
+def the_disclaimer_dialog_cannot_be_accepted_without_ticking_the_box():
+    import mihenk_store as store
+
+    store.save_settings({'disclaimer_accepted': 0})
+    dialog = dialogs.DisclaimerDialog(app)
+    pump()
+    assert str(dialog.ok['state']) == 'disabled', 'kutu isaretlenmeden onay acik olmamali'
+
+    dialog.ticked.set(True)
+    dialog._sync()
+    pump()
+    assert str(dialog.ok['state']) == 'normal'
+
+    dialog._accept()
+    pump()
+    assert dialog.agreed and legal.accepted(), 'onay kaydedilmedi'
+
+
+@test
+def declining_the_disclaimer_leaves_it_unaccepted():
+    import mihenk_store as store
+
+    store.save_settings({'disclaimer_accepted': 0})
+    dialog = dialogs.DisclaimerDialog(app)
+    pump()
+    dialog._decline()
+    pump()
+    assert not dialog.agreed
+    assert not legal.accepted(), 'reddedildigi halde onay yazilmis'
+    legal.accept()                       # sonraki testler icin geri al
+
+
+@test
+def the_settings_screen_offers_both_languages():
+    import mihenk_i18n as i18n
+
+    screen = app.screens['settings']
+    app.go('settings')
+    pump()
+    assert screen.language.key() == i18n.language()
+    labels = [label for _key, label in screen.language._pairs]
+    assert set(labels) == set(i18n.LANGUAGES.values()), labels
 
 
 app.close()

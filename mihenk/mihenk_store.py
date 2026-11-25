@@ -15,6 +15,7 @@ import tempfile
 import mihenk_core as core
 
 DEFAULT_SETTINGS = {
+    'language': 'tr',
     'theme': 'light',
     'default_lead_days': 14,
     'date_format': '%Y-%m-%d',
@@ -24,6 +25,7 @@ DEFAULT_SETTINGS = {
     'scan_on_start': True,
     'window': '',
     'first_run_done': False,
+    'disclaimer_accepted': 0,
     'modern_ui': True,
     'report_period': '365',
 }

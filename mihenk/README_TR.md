@@ -25,10 +25,20 @@ tutar:
 Bu kurallar ekranda değil `mihenk_states.py` içindeki tek geçit fonksiyonunda uygulanır.
 Depolar `status` alanını doğrudan yazmaz; karantina kilidi bu yüzden gerçek bir kilittir.
 
+## Sorumluluk reddi
+
+Mihenk ücretsiz dağıtılır ve "olduğu gibi" sunulur; hiçbir garanti verilmez ve
+kullanımından doğan zarardan sorumluluk kabul edilmez. Bir kalite yönetim sisteminin,
+akredite bir kalibrasyonun ya da yasal bir uygunluk değerlendirmesinin yerine geçmez.
+Tam metin [DISCLAIMER.txt](DISCLAIMER.txt) dosyasındadır; kurulumda ve ilk açılışta
+gösterilir ve onaylanmadan uygulama kullanılmaz. Metin tek kaynaktan,
+`mihenk_legal.py` içinden üretilir.
+
 ## Kurulum
 
 1. Sürüm sayfasından `AGFO-Mihenk-vX.Y.Z-Kurulum.zip` dosyasını indirin ve açın.
-2. **Derle-ve-Kur.cmd** dosyasını çalıştırın. EXE sizin bilgisayarınızda derlenir, bu yüzden
+2. **Derle-ve-Kur.cmd** dosyasını çalıştırın. Önce sorumluluk reddi yazılır ve onayınız
+   istenir. EXE sizin bilgisayarınızda derlenir, bu yüzden
    "internetten indirildi" işareti taşımaz ve SmartScreen takılmaz. İlk çalıştırma derleme
    araçlarını indirdiği için birkaç dakika sürebilir.
 3. Kısayollar: Başlat menüsü > AGFO ve Masaüstü.
@@ -43,6 +53,23 @@ Yalnızca derlemek için `Sadece-Derle.cmd`, kaynaktan çalıştırmak için `Ba
 kaldırmak için `Kaldir.cmd`. Kaldırma kayıtlarınıza dokunmaz.
 
 Gereken: Windows 10/11 ve tkinter'lı Python 3.10+ (derleme için).
+
+## Dil
+
+Arayüz Türkçe ve İngilizce. Dil **Ayarlar** ekranından seçilir ve uygulama yeniden
+açıldığında geçerli olur; seçim kaydedilince uygulama kendini yeniden başlatmayı teklif
+eder. Menü, tablo başlıkları ve durum etiketleri modül yüklenirken kurulduğu için dil
+çalışırken değiştirilmiyor: yarısı bir dilde yarısı ötekinde bir ekran, yeniden
+başlatmaktan kötüdür.
+
+Çevrilen şey yalnızca ekranda görünen metinlerdir. Veritabanına yazılan durum anahtarları
+(`quarantined`, `result_entered`), birim kodları (`hour`, `adet`) ve stok hareket
+gerekçeleri (`consume`, `scrap`) her iki dilde aynıdır; bu yüzden dil değiştirmek
+kayıtları bozmaz ve Türkçe girilmiş bir kayıt İngilizce arayüzde doğru okunur. Demo veri
+ise kurulduğu dilde yazılır.
+
+`MIHENK_LANG=en` ortam değişkeni ayarı geçersiz kılar; testler ve taşınabilir kullanım
+içindir.
 
 Uygulamanın zorunlu dış bağımlılığı yoktur; Excel yazıcısı dahil her şey standart kütüphaneyle
 yazıldı. Tek isteğe bağlı bileşen **ttkbootstrap**: modern düğme, liste ve onay kutusu çizimi
@@ -175,8 +202,10 @@ etkilenmez.
     python -I tests/test_core.py .              59 çekirdek testi
     python -I tests/test_update.py .            güncelleme modülü
     python -I tests/test_xlsx.py .              5 test, üretilen .xlsx'i openpyxl ile okur
-    xvfb-run -a python -I tests/test_gui.py .   29 arayüz duman testi
+    python -I tests/test_i18n.py .              13 dil testi, çeviri açığını ölçer
+    xvfb-run -a python -I tests/test_gui.py .   32 arayüz duman testi
 
 Arayüz testleri hem klasik hem modern çizimle koşar; CI ikisini de çalıştırır.
 
 Simgeyi yeniden üretmek için: `python packaging/make_icon.py`
+Sorumluluk reddi metnini yeniden üretmek için: `python packaging/make_disclaimer.py`

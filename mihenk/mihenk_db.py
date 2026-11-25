@@ -11,6 +11,7 @@ from __future__ import annotations
 import pathlib
 import shutil
 import sqlite3
+from mihenk_i18n import t
 
 SCHEMA_VERSION = 2
 
@@ -319,7 +320,7 @@ def restore(conn: sqlite3.Connection, source, db_file) -> None:
     """Yedegi geri yukler. Once mevcut dosyanin yanina .pre-restore kopyasi birakir."""
     source, db_file = pathlib.Path(source), pathlib.Path(db_file)
     if not source.exists():
-        raise OSError('Yedek dosyası bulunamadı: %s' % source)
+        raise OSError(t('Yedek dosyası bulunamadı: %s') % source)
     probe = sqlite3.connect(str(source))
     try:
         names = {r[0] for r in probe.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -327,7 +328,7 @@ def restore(conn: sqlite3.Connection, source, db_file) -> None:
         probe.close()
     missing = [t for t in TABLES if t not in names]
     if missing:
-        raise OSError('Bu dosya bir Mihenk yedeği değil (eksik tablolar: %s)' % ', '.join(missing))
+        raise OSError(t('Bu dosya bir Mihenk yedeği değil (eksik tablolar: %s)') % ', '.join(missing))
     conn.close()
     shutil.copyfile(db_file, str(db_file) + '.pre-restore')
     shutil.copyfile(source, db_file)

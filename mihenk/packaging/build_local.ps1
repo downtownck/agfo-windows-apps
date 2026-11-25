@@ -78,6 +78,7 @@ try {
                      '--hidden-import', 'mihenk_selftest', '--hidden-import', 'mihenk_checklist',
                      '--hidden-import', 'mihenk_parts', '--hidden-import', 'mihenk_reports',
                      '--hidden-import', 'mihenk_export', '--hidden-import', 'mihenk_xlsx',
+                     '--hidden-import', 'mihenk_i18n', '--hidden-import', 'mihenk_legal',
                      '--hidden-import', 'sqlite3', '--hidden-import', 'csv', '--hidden-import', 'zipfile',
                      '--collect-all', 'ttkbootstrap',
                      '--hidden-import', 'agfo_github_update',

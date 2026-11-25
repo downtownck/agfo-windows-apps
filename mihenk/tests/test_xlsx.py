@@ -15,6 +15,9 @@ import tempfile
 ROOT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(ROOT))
 os.environ['MIHENK_DATA_DIR'] = tempfile.mkdtemp()
+# Bu dosyadaki beklentiler Turkce metinlere bakiyor; dil testin konusu
+# degil. Ingilizce kapsami tests/test_i18n.py'de olculuyor.
+os.environ['MIHENK_LANG'] = 'tr'
 os.environ.setdefault('APPDATA', tempfile.mkdtemp())
 os.environ.setdefault('LOCALAPPDATA', tempfile.mkdtemp())
 

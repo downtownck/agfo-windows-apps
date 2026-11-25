@@ -9,6 +9,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
+from mihenk_i18n import t
 
 LIGHT = {
     'bg': '#f4f5f7',
@@ -143,9 +144,9 @@ def load_ttkbootstrap(lib_dir=None, enabled=True):
     import os as _os
     import sys as _sys
     if not enabled:
-        return None, 'kapalı (ayarlardan kapatıldı)'
+        return None, t('kapalı (ayarlardan kapatıldı)')
     if not python_ok():
-        return None, 'Python %d.%d+ gerekir (bu Python %d.%d)' % (
+        return None, t('Python %d.%d+ gerekir (bu Python %d.%d)') % (
             TB_MIN_PYTHON + tuple(_sys.version_info[:2]))
     if lib_dir:
         lib = str(lib_dir)
@@ -156,7 +157,7 @@ def load_ttkbootstrap(lib_dir=None, enabled=True):
         from ttkbootstrap.themes.legacy import theme_from_legacy_dict    # noqa: F401
         return ttkbootstrap, 'etkin (ttkbootstrap %s)' % getattr(ttkbootstrap, '__version__', '?')
     except Exception as exc:
-        return None, 'kurulu değil' if isinstance(exc, ImportError) else 'yüklenemedi: %s' % exc
+        return None, t('kurulu değil') if isinstance(exc, ImportError) else t('yüklenemedi: %s') % exc
 
 
 def pip_install_cmd(python_exe, lib_dir) -> list:
@@ -263,7 +264,7 @@ def apply(root: tk.Misc, requested: str = 'light', lib_dir=None, use_bootstrap=T
             _ENGINE = 'ttkbootstrap'
         except Exception as exc:                 # beklenmeyen surum farki: klasige dus
             style, _ENGINE = None, 'classic'
-            _STATUS = 'yüklendi ama uygulanamadı: %s' % exc
+            _STATUS = t('yüklendi ama uygulanamadı: %s') % exc
     else:
         _ENGINE = 'classic'
 

@@ -18,8 +18,9 @@ from mihenk_dialogs import (AssetDialog, CalibrationDialog, ExportDialog, Impact
 from mihenk_parts import PartRepo
 from mihenk_repo import (AssetRepo, AssetTypes, CalibrationRepo, ImpactRepo, RequestRepo,
                          ScheduleRepo, WorkOrderRepo)
+from mihenk_i18n import t
 
-ALL = ('', '- hepsi -')
+ALL = ('', t('- hepsi -'))
 
 
 class Screen(ttk.Frame):
@@ -78,21 +79,21 @@ class Screen(ttk.Frame):
 
 # ====================================================================== pano
 class DashboardScreen(Screen):
-    title = 'Pano'
+    title = t('Pano')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='Taramayı çalıştır', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('Taramayı çalıştır'), style='Accent.TButton',
                    command=self.run_scan).pack(side='right')
 
         cards = ttk.Frame(self.body)
         cards.pack(fill='x', pady=(0, 14))
         self.cards = {}
         definitions = (
-            ('assets', 'Aktif varlık', lambda: self.app.go('assets')),
-            ('work_orders', 'Açık iş emri', lambda: self.app.go('work_orders')),
-            ('calibrations', 'Açık kalibrasyon kaydı', lambda: self.app.go('calibrations')),
-            ('impacts', 'Açık etki değerlendirmesi', lambda: self.app.go('impacts')),
-            ('overdue', 'Geciken plan', lambda: self.app.go('plans')),
+            ('assets', t('Aktif varlık'), lambda: self.app.go('assets')),
+            ('work_orders', t('Açık iş emri'), lambda: self.app.go('work_orders')),
+            ('calibrations', t('Açık kalibrasyon kaydı'), lambda: self.app.go('calibrations')),
+            ('impacts', t('Açık etki değerlendirmesi'), lambda: self.app.go('impacts')),
+            ('overdue', t('Geciken plan'), lambda: self.app.go('plans')),
         )
         for index, (key, label, jump) in enumerate(definitions):
             card = w.Card(cards, label, '0', on_click=jump)
@@ -106,19 +107,19 @@ class DashboardScreen(Screen):
         panes.columnconfigure(1, weight=2)
         panes.rowconfigure(1, weight=1)
 
-        ttk.Label(panes, text='Açık etki değerlendirmeleri', style='Heading.TLabel').grid(
+        ttk.Label(panes, text=t('Açık etki değerlendirmeleri'), style='Heading.TLabel').grid(
             row=0, column=0, sticky='w', pady=(0, 6))
         self.impact_table = w.DataTable(
-            panes, [('asset', 'Varlık', 190), ('window', 'Etkilenen aralık', 230),
-                    ('opened', 'Açılma', 90)],
+            panes, [('asset', t('Varlık'), 190), ('window', t('Etkilenen aralık'), 230),
+                    ('opened', t('Açılma'), 90)],
             on_open=lambda row: self.open_dialog(lambda: ImpactDialog(self.app, row['id'])),
             height=6, autosize=True)
         self.impact_table.grid(row=1, column=0, sticky='nsew', padx=(0, 12))
 
-        ttk.Label(panes, text='Sayaç baskısı', style='Heading.TLabel').grid(
+        ttk.Label(panes, text=t('Sayaç baskısı'), style='Heading.TLabel').grid(
             row=0, column=1, sticky='w', pady=(0, 6))
         self.counter_table = w.DataTable(
-            panes, [('asset', 'Varlık', 130), ('plan', 'Plan', 170), ('remaining', 'Kalan', 70, 'e')],
+            panes, [('asset', t('Varlık'), 130), ('plan', t('Plan'), 170), ('remaining', t('Kalan'), 70, 'e')],
             height=6, autosize=True)
         self.counter_table.grid(row=1, column=1, sticky='nsew')
 
@@ -128,18 +129,18 @@ class DashboardScreen(Screen):
         lower.columnconfigure(1, weight=1)
         lower.rowconfigure(1, weight=1)
 
-        ttk.Label(lower, text='Geciken planlar', style='Heading.TLabel').grid(
+        ttk.Label(lower, text=t('Geciken planlar'), style='Heading.TLabel').grid(
             row=0, column=0, sticky='w', pady=(0, 6))
         self.overdue_table = w.DataTable(
-            lower, [('asset', 'Varlık', 165), ('plan', 'Plan', 175), ('type', 'Tip', 100),
-                    ('due', 'Vade', 95)],
+            lower, [('asset', t('Varlık'), 165), ('plan', t('Plan'), 175), ('type', t('Tip'), 100),
+                    ('due', t('Vade'), 95)],
             on_open=lambda row: self.open_dialog(lambda: PlanDialog(self.app, row['id'])), height=7)
         self.overdue_table.grid(row=1, column=0, sticky='nsew', padx=(0, 12))
 
-        ttk.Label(lower, text='Yaklaşanlar', style='Heading.TLabel').grid(
+        ttk.Label(lower, text=t('Yaklaşanlar'), style='Heading.TLabel').grid(
             row=0, column=1, sticky='w', pady=(0, 6))
         self.upcoming_table = w.DataTable(
-            lower, [('asset', 'Varlık', 160), ('plan', 'Plan', 185), ('due', 'Vade', 95)],
+            lower, [('asset', t('Varlık'), 160), ('plan', t('Plan'), 185), ('due', t('Vade'), 95)],
             on_open=lambda row: self.open_dialog(lambda: PlanDialog(self.app, row['id'])), height=7)
         self.upcoming_table.grid(row=1, column=1, sticky='nsew')
 
@@ -182,11 +183,11 @@ class DashboardScreen(Screen):
         last = scheduler.last_scan()
         if last:
             self.scan_label.configure(
-                text='Son tarama: %s — %d iş emri, %d kalibrasyon kaydı, %d plan atlandı.'
+                text=t('Son tarama: %s — %d iş emri, %d kalibrasyon kaydı, %d plan atlandı.')
                      % (v.human(last['at'], with_time=True), last['work_orders'],
                         last['calibrations'], last['skipped']))
         else:
-            self.scan_label.configure(text='Tarama henüz çalışmadı.')
+            self.scan_label.configure(text=t('Tarama henüz çalışmadı.'))
 
     def run_scan(self) -> None:
         made = {}
@@ -195,23 +196,23 @@ class DashboardScreen(Screen):
             made.update(scheduler.scan(self.app.conn))
         if self.run(scan, ''):
             self.app.refresh()
-            self.app.toast('Tarama bitti: %d iş emri, %d kalibrasyon kaydı, %d plan atlandı.'
+            self.app.toast(t('Tarama bitti: %d iş emri, %d kalibrasyon kaydı, %d plan atlandı.')
                            % (made['work_orders'], made['calibrations'], made['skipped']))
 
 
 # ====================================================================== varliklar
 class AssetsScreen(Screen):
-    title = 'Varlıklar'
+    title = t('Varlıklar')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='Varlık ekle', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('Varlık ekle'), style='Accent.TButton',
                    command=lambda: self.open_dialog(lambda: AssetDialog(self.app))).pack(side='right')
 
         self.search = tk.StringVar()
         entry = ttk.Entry(self.toolbar, textvariable=self.search, width=28)
         entry.pack(side='left')
         entry.bind('<KeyRelease>', lambda _e: self.refresh())
-        ttk.Label(self.toolbar, text='Ara', style='Muted.TLabel').pack(side='left', padx=(6, 16))
+        ttk.Label(self.toolbar, text=t('Ara'), style='Muted.TLabel').pack(side='left', padx=(6, 16))
 
         self.status = w.Combo(self.toolbar, [ALL] + list(AssetTypes.STATUSES.items()), width=18)
         self.status.pack(side='left', padx=(0, 8))
@@ -225,9 +226,9 @@ class AssetsScreen(Screen):
 
         self.table = w.DataTable(
             self.body,
-            [('code', 'Kod', 125), ('name', 'Ad', 220), ('type', 'Tip', 120),
-             ('location', 'Konum', 170), ('status', 'Durum', 175), ('plans', 'Plan', 55, 'e'),
-             ('next_due', 'Sıradaki vade', 115)],
+            [('code', t('Kod'), 125), ('name', t('Ad'), 220), ('type', t('Tip'), 120),
+             ('location', t('Konum'), 170), ('status', t('Durum'), 175), ('plans', t('Plan'), 55, 'e'),
+             ('next_due', t('Sıradaki vade'), 115)],
             on_open=lambda row: self.open_dialog(lambda: AssetDialog(self.app, row['id'])))
         self.table.pack(fill='both', expand=True)
 
@@ -247,7 +248,7 @@ class AssetsScreen(Screen):
             open_impacts = ImpactRepo.open_count_for_asset(conn, int(row['id']))
             status = states.label('asset', row['status'])
             if open_impacts:
-                status += '  · %d açık etki' % open_impacts
+                status += t('  · %d açık etki') % open_impacts
             return (row['code'], row['name'], AssetTypes.label(row['asset_type']),
                     row['location_text'], status, len(plans), v.human(due))
 
@@ -259,36 +260,36 @@ class AssetsScreen(Screen):
             return None
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
-        self.count_label.configure(text='%d varlık' % len(rows))
-        self.set_hint('Kütük boş. Sağ üstteki Varlık ekle ile başlayın; ölçüm cihazları için '
+        self.count_label.configure(text=t('%d varlık') % len(rows))
+        self.set_hint(t('Kütük boş. Sağ üstteki Varlık ekle ile başlayın; ölçüm cihazları için '
                       '"Ölçüm cihazı" kutusunu işaretleyin, kalibrasyon planı ancak öyle '
-                      'bağlanabilir.' if not rows and not self.search.get().strip() else '')
+                      'bağlanabilir.') if not rows and not self.search.get().strip() else '')
 
 
 # ====================================================================== planlar
 class PlansScreen(Screen):
-    title = 'Planlar'
+    title = t('Planlar')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='Plan ekle', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('Plan ekle'), style='Accent.TButton',
                    command=lambda: self.open_dialog(lambda: PlanDialog(self.app))).pack(side='right')
 
         self.kind = w.Combo(self.toolbar, [ALL] + list(ScheduleRepo.PLAN_TYPES.items()), width=22)
         self.kind.pack(side='left', padx=(0, 8))
         self.kind.bind('<<ComboboxSelected>>', lambda _e: self.refresh())
         self.only_active = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.toolbar, text='Yalnızca aktif', variable=self.only_active,
+        ttk.Checkbutton(self.toolbar, text=t('Yalnızca aktif'), variable=self.only_active,
                         command=self.refresh).pack(side='left', padx=(0, 12))
 
-        ttk.Button(self.toolbar, text='Duraklat / etkinleştir', command=self.toggle).pack(side='left')
+        ttk.Button(self.toolbar, text=t('Duraklat / etkinleştir'), command=self.toggle).pack(side='left')
         self.count_label = ttk.Label(self.toolbar, text='', style='Muted.TLabel')
         self.count_label.pack(side='right')
 
         self.table = w.DataTable(
             self.body,
-            [('title', 'Plan', 240), ('asset', 'Varlık', 220), ('type', 'Tip', 130),
-             ('interval', 'Aralık', 130), ('last', 'Son yapılma', 110),
-             ('due', 'Sıradaki vade', 120), ('active', 'Aktif', 60, 'center')],
+            [('title', t('Plan'), 240), ('asset', t('Varlık'), 220), ('type', t('Tip'), 130),
+             ('interval', t('Aralık'), 130), ('last', t('Son yapılma'), 110),
+             ('due', t('Sıradaki vade'), 120), ('active', t('Aktif'), 60, 'center')],
             on_open=lambda row: self.open_dialog(lambda: PlanDialog(self.app, row['id'])))
         self.table.pack(fill='both', expand=True)
 
@@ -300,15 +301,15 @@ class PlansScreen(Screen):
 
         def cells(row):
             if row['basis'] == 'counter':
-                interval = 'her %d birim' % int(row['counter_interval'])
-                due = '%d değerinde' % int(row['next_due_counter'])
+                interval = t('her %d birim') % int(row['counter_interval'])
+                due = t('%d değerinde') % int(row['next_due_counter'])
             else:
                 interval = '%d %s' % (int(row['interval_value']),
                                       ScheduleRepo.UNITS.get(row['interval_unit'], ''))
                 due = v.human(row['next_due_at'])
             return (row['title'], AssetRepo.label(conn, int(row['asset_id'])),
                     ScheduleRepo.PLAN_TYPES.get(row['plan_type'], row['plan_type']), interval,
-                    v.human(row['last_done_at']) or '—', due, 'evet' if row['is_active'] else 'hayır')
+                    v.human(row['last_done_at']) or '—', due, t('evet') if row['is_active'] else t('hayır'))
 
         def tag(row):
             if not row['is_active']:
@@ -319,47 +320,47 @@ class PlansScreen(Screen):
             return None
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
-        self.count_label.configure(text='%d plan' % len(rows))
-        self.set_hint('Henüz plan yok. Bir varlığa plan bağlayın: önleyici plan iş emri, '
-                      'kalibrasyon ve doğrulama planı kalibrasyon kaydı üretir.'
+        self.count_label.configure(text=t('%d plan') % len(rows))
+        self.set_hint(t('Henüz plan yok. Bir varlığa plan bağlayın: önleyici plan iş emri, '
+                      'kalibrasyon ve doğrulama planı kalibrasyon kaydı üretir.')
                       if not rows else '')
 
     def toggle(self) -> None:
         row = self.table.selected_row()
         if not row:
-            messagebox.showinfo('Seçim yok', 'Önce bir plan seçin.', parent=self)
+            messagebox.showinfo(t('Seçim yok'), t('Önce bir plan seçin.'), parent=self)
             return
         target = not bool(row['is_active'])
         if self.run(lambda: ScheduleRepo.set_active(self.app.conn, row['id'], target),
-                    'Plan %s.' % ('etkinleştirildi' if target else 'duraklatıldı')):
+                    t('Plan %s.') % (t('etkinleştirildi') if target else t('duraklatıldı'))):
             self.app.refresh()
 
 
 # ====================================================================== talepler
 class RequestsScreen(Screen):
-    title = 'Talepler'
+    title = t('Talepler')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='Arıza bildir', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('Arıza bildir'), style='Accent.TButton',
                    command=lambda: self.open_dialog(lambda: RequestDialog(self.app))).pack(side='right')
 
         self.status = w.Combo(self.toolbar, [ALL] + list(states.states('request').items()), width=20)
         self.status.pack(side='left', padx=(0, 12))
         self.status.bind('<<ComboboxSelected>>', lambda _e: self.refresh())
 
-        ttk.Button(self.toolbar, text='Değerlendir', command=lambda: self.move('triaged')).pack(side='left')
-        ttk.Button(self.toolbar, text='Reddet', command=self.reject).pack(side='left', padx=6)
-        ttk.Button(self.toolbar, text='İş emri oluştur', style='Accent.TButton',
+        ttk.Button(self.toolbar, text=t('Değerlendir'), command=lambda: self.move('triaged')).pack(side='left')
+        ttk.Button(self.toolbar, text=t('Reddet'), command=self.reject).pack(side='left', padx=6)
+        ttk.Button(self.toolbar, text=t('İş emri oluştur'), style='Accent.TButton',
                    command=self.convert).pack(side='left')
-        ttk.Button(self.toolbar, text='Kapat', command=lambda: self.move('closed')).pack(side='left', padx=6)
+        ttk.Button(self.toolbar, text=t('Kapat'), command=lambda: self.move('closed')).pack(side='left', padx=6)
 
         self.count_label = ttk.Label(self.toolbar, text='', style='Muted.TLabel')
         self.count_label.pack(side='right')
 
         self.table = w.DataTable(
             self.body,
-            [('reported', 'Bildirim', 130), ('asset', 'Varlık', 200), ('summary', 'Özet', 300),
-             ('severity', 'Önem', 130), ('status', 'Durum', 130), ('wo', 'İş emri', 80, 'e')],
+            [('reported', t('Bildirim'), 130), ('asset', t('Varlık'), 200), ('summary', t('Özet'), 300),
+             ('severity', t('Önem'), 130), ('status', t('Durum'), 130), ('wo', t('İş emri'), 80, 'e')],
             on_open=self.open_row)
         self.table.pack(fill='both', expand=True)
 
@@ -373,24 +374,24 @@ class RequestsScreen(Screen):
             ('#%d' % int(r['work_order_id'])) if int(r['work_order_id']) else ''),
             tag_of=lambda r: 'alert' if r['severity'] == 'stops_production' and r['status'] == 'open'
             else ('muted' if r['status'] in ('closed', 'rejected') else None))
-        self.count_label.configure(text='%d talep' % len(rows))
-        self.set_hint('Talep yok. Sahadan gelen bir arızayı buraya bildirin; değerlendirildikten '
-                      'sonra iş emrine dönüştürülür.' if not rows else '')
+        self.count_label.configure(text=t('%d talep') % len(rows))
+        self.set_hint(t('Talep yok. Sahadan gelen bir arızayı buraya bildirin; değerlendirildikten '
+                      'sonra iş emrine dönüştürülür.') if not rows else '')
 
     def selected(self):
         row = self.table.selected_row()
         if not row:
-            messagebox.showinfo('Seçim yok', 'Önce bir talep seçin.', parent=self)
+            messagebox.showinfo(t('Seçim yok'), t('Önce bir talep seçin.'), parent=self)
         return row
 
     def open_row(self, row) -> None:
         if int(row['work_order_id']):
             self.open_dialog(lambda: WorkOrderDialog(self.app, int(row['work_order_id'])))
             return
-        detail = row['description'] or '(açıklama yok)'
+        detail = row['description'] or t('(açıklama yok)')
         extra = ''
         if row['rejection_reason']:
-            extra = '\n\nRet gerekçesi: %s' % row['rejection_reason']
+            extra = t('\n\nRet gerekçesi: %s') % row['rejection_reason']
         messagebox.showinfo(row['summary'], detail + extra, parent=self)
 
     def move(self, target: str) -> None:
@@ -398,7 +399,7 @@ class RequestsScreen(Screen):
         if not row:
             return
         if self.run(lambda: RequestRepo.transition(self.app.conn, row['id'], target),
-                    'Talep güncellendi.'):
+                    t('Talep güncellendi.')):
             self.app.refresh()
 
     def reject(self) -> None:
@@ -406,12 +407,12 @@ class RequestsScreen(Screen):
         if not row:
             return
         from mihenk_dialogs import _ask_text
-        reason = _ask_text(self.app.root, 'Ret gerekçesi', 'Talep neden reddediliyor?')
+        reason = _ask_text(self.app.root, t('Ret gerekçesi'), 'Talep neden reddediliyor?')
         if not reason:
             return
         if self.run(lambda: RequestRepo.transition(self.app.conn, row['id'], 'rejected',
                                                    {'rejection_reason': reason}),
-                    'Talep reddedildi.'):
+                    t('Talep reddedildi.')):
             self.app.refresh()
 
     def convert(self) -> None:
@@ -422,20 +423,20 @@ class RequestsScreen(Screen):
 
         def convert():
             made['id'] = RequestRepo.convert(self.app.conn, row['id'])
-        if self.run(convert, 'Talepten iş emri oluşturuldu.'):
+        if self.run(convert, t('Talepten iş emri oluşturuldu.')):
             self.app.refresh()
             self.open_dialog(lambda: WorkOrderDialog(self.app, made['id']))
 
 
 # ====================================================================== is emirleri
 class WorkOrdersScreen(Screen):
-    title = 'İş emirleri'
+    title = t('İş emirleri')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='İş emri ekle', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('İş emri ekle'), style='Accent.TButton',
                    command=lambda: self.open_dialog(lambda: WorkOrderDialog(self.app))).pack(side='right')
 
-        self.status = w.Combo(self.toolbar, [('', '- açık olanlar -')] +
+        self.status = w.Combo(self.toolbar, [('', t('- açık olanlar -'))] +
                               list(states.states('work_order').items()), width=20)
         self.status.pack(side='left', padx=(0, 8))
         self.status.bind('<<ComboboxSelected>>', lambda _e: self.refresh())
@@ -443,7 +444,7 @@ class WorkOrdersScreen(Screen):
         self.kind.pack(side='left', padx=(0, 8))
         self.kind.bind('<<ComboboxSelected>>', lambda _e: self.refresh())
         self.show_all = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.toolbar, text='Kapananları da göster', variable=self.show_all,
+        ttk.Checkbutton(self.toolbar, text=t('Kapananları da göster'), variable=self.show_all,
                         command=self.refresh).pack(side='left')
 
         self.count_label = ttk.Label(self.toolbar, text='', style='Muted.TLabel')
@@ -451,9 +452,9 @@ class WorkOrdersScreen(Screen):
 
         self.table = w.DataTable(
             self.body,
-            [('id', '#', 50, 'e'), ('title', 'İş emri', 260), ('asset', 'Varlık', 200),
-             ('type', 'Tip', 110), ('priority', 'Öncelik', 90), ('assigned', 'Sorumlu', 140),
-             ('planned', 'Planlanan', 110), ('status', 'Durum', 120)],
+            [('id', '#', 50, 'e'), ('title', t('İş emri'), 260), ('asset', t('Varlık'), 200),
+             ('type', t('Tip'), 110), ('priority', t('Öncelik'), 90), ('assigned', t('Sorumlu'), 140),
+             ('planned', t('Planlanan'), 110), ('status', t('Durum'), 120)],
             on_open=lambda row: self.open_dialog(lambda: WorkOrderDialog(self.app, row['id'])))
         self.table.pack(fill='both', expand=True)
 
@@ -480,21 +481,21 @@ class WorkOrdersScreen(Screen):
             return None
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
-        self.count_label.configure(text='%d iş emri' % len(rows))
-        self.set_hint('Açık iş emri yok. Planlar vadesi geldiğinde kendiliğinden üretir; '
-                      'Pano\'daki Taramayı çalıştır düğmesi bunu elle tetikler.'
+        self.count_label.configure(text=t('%d iş emri') % len(rows))
+        self.set_hint(t('Açık iş emri yok. Planlar vadesi geldiğinde kendiliğinden üretir; '
+                      'Pano\'daki Taramayı çalıştır düğmesi bunu elle tetikler.')
                       if not rows else '')
 
 
 # ====================================================================== kalibrasyon
 class CalibrationsScreen(Screen):
-    title = 'Kalibrasyon ve doğrulama'
+    title = t('Kalibrasyon ve doğrulama')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='Kayıt oluştur', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('Kayıt oluştur'), style='Accent.TButton',
                    command=self.create_record).pack(side='right')
 
-        self.status = w.Combo(self.toolbar, [('', '- açık olanlar -')] +
+        self.status = w.Combo(self.toolbar, [('', t('- açık olanlar -'))] +
                               list(states.states('calibration').items()), width=20)
         self.status.pack(side='left', padx=(0, 8))
         self.status.bind('<<ComboboxSelected>>', lambda _e: self.refresh())
@@ -505,7 +506,7 @@ class CalibrationsScreen(Screen):
         self.result.pack(side='left', padx=(0, 8))
         self.result.bind('<<ComboboxSelected>>', lambda _e: self.refresh())
         self.show_all = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.toolbar, text='Kapananları da göster', variable=self.show_all,
+        ttk.Checkbutton(self.toolbar, text=t('Kapananları da göster'), variable=self.show_all,
                         command=self.refresh).pack(side='left')
 
         self.count_label = ttk.Label(self.toolbar, text='', style='Muted.TLabel')
@@ -513,10 +514,10 @@ class CalibrationsScreen(Screen):
 
         self.table = w.DataTable(
             self.body,
-            [('id', '#', 50, 'e'), ('asset', 'Varlık', 230), ('type', 'Tip', 110),
-             ('performed', 'Yapılma', 110), ('result', 'Sonuç', 100),
-             ('deviation', 'En büyük sapma', 120, 'e'), ('certificate', 'Sertifika', 150),
-             ('status', 'Durum', 120)],
+            [('id', '#', 50, 'e'), ('asset', t('Varlık'), 230), ('type', t('Tip'), 110),
+             ('performed', t('Yapılma'), 110), ('result', t('Sonuç'), 100),
+             ('deviation', t('En büyük sapma'), 120, 'e'), ('certificate', t('Sertifika'), 150),
+             ('status', t('Durum'), 120)],
             on_open=lambda row: self.open_dialog(lambda: CalibrationDialog(self.app, row['id'])))
         self.table.pack(fill='both', expand=True)
 
@@ -543,28 +544,28 @@ class CalibrationsScreen(Screen):
             return None
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
-        self.count_label.configure(text='%d kayıt' % len(rows))
-        self.set_hint('Açık kalibrasyon kaydı yok. Kalibrasyon planı vadesi gelince kayıt üretir; '
-                      'plan dışı bir ölçüm için Kayıt oluştur düğmesini kullanın.'
+        self.count_label.configure(text=t('%d kayıt') % len(rows))
+        self.set_hint(t('Açık kalibrasyon kaydı yok. Kalibrasyon planı vadesi gelince kayıt üretir; '
+                      'plan dışı bir ölçüm için Kayıt oluştur düğmesini kullanın.')
                       if not rows else '')
 
     def create_record(self) -> None:
         """Plan disi kalibrasyon kaydi acar."""
         options = AssetRepo.options(self.app.conn)
         if not options:
-            messagebox.showinfo('Varlık yok', 'Önce bir varlık ekleyin.', parent=self)
+            messagebox.showinfo(t('Varlık yok'), t('Önce bir varlık ekleyin.'), parent=self)
             return
         picker = tk.Toplevel(self.app.root)
-        picker.title('Kayıt oluştur')
+        picker.title(t('Kayıt oluştur'))
         picker.transient(self.app.root)
         picker.configure(background=theme.color('bg'))
         picker.resizable(False, False)
 
         form = w.FormGrid(picker, label_width=18)
         form.pack(fill='x', padx=18, pady=(16, 6))
-        asset = form.add('Varlık', w.Combo(form, options, width=40))
-        kind = form.add('Kayıt tipi', w.Combo(form, CalibrationRepo.RECORD_TYPES, width=24))
-        spec = form.add('Tolerans şartnamesi', ttk.Entry(form, width=40))
+        asset = form.add(t('Varlık'), w.Combo(form, options, width=40))
+        kind = form.add(t('Kayıt tipi'), w.Combo(form, CalibrationRepo.RECORD_TYPES, width=24))
+        spec = form.add(t('Tolerans şartnamesi'), ttk.Entry(form, width=40))
 
         made = {}
 
@@ -574,13 +575,13 @@ class CalibrationsScreen(Screen):
 
             def action():
                 made['id'] = CalibrationRepo.create(self.app.conn, data)
-            if self.run(action, 'Kayıt oluşturuldu.'):
+            if self.run(action, t('Kayıt oluşturuldu.')):
                 picker.destroy()
 
         bar = ttk.Frame(picker, padding=(18, 10))
         bar.pack(fill='x')
-        ttk.Button(bar, text='Oluştur', style='Accent.TButton', command=create).pack(side='right')
-        ttk.Button(bar, text='Vazgeç', command=picker.destroy).pack(side='right', padx=6)
+        ttk.Button(bar, text=t('Oluştur'), style='Accent.TButton', command=create).pack(side='right')
+        ttk.Button(bar, text=t('Vazgeç'), command=picker.destroy).pack(side='right', padx=6)
         picker.grab_set()
         self.wait_window(picker)
         self.app.refresh()
@@ -590,12 +591,12 @@ class CalibrationsScreen(Screen):
 
 # ====================================================================== etki
 class ImpactsScreen(Screen):
-    title = 'Etki değerlendirmeleri'
-    subtitle = ('Açık her değerlendirme, ilgili varlığı hizmet dışında tutar. '
-                'Kapatma bir karar gerektirir.')
+    title = t('Etki değerlendirmeleri')
+    subtitle = (t('Açık her değerlendirme, ilgili varlığı hizmet dışında tutar. '
+                'Kapatma bir karar gerektirir.'))
 
     def build(self) -> None:
-        self.status = w.Combo(self.toolbar, [('open', 'Açık'), ('closed', 'Kapalı'), ALL], width=18)
+        self.status = w.Combo(self.toolbar, [('open', t('Açık')), ('closed', t('Kapalı')), ALL], width=18)
         self.status.pack(side='left')
         self.status.bind('<<ComboboxSelected>>', lambda _e: self.refresh())
         self.count_label = ttk.Label(self.toolbar, text='', style='Muted.TLabel')
@@ -603,8 +604,8 @@ class ImpactsScreen(Screen):
 
         self.table = w.DataTable(
             self.body,
-            [('id', '#', 50, 'e'), ('asset', 'Varlık', 230), ('window', 'Etkilenen aralık', 280),
-             ('decision', 'Karar', 180), ('opened', 'Açılma', 110), ('status', 'Durum', 100)],
+            [('id', '#', 50, 'e'), ('asset', t('Varlık'), 230), ('window', t('Etkilenen aralık'), 280),
+             ('decision', t('Karar'), 180), ('opened', t('Açılma'), 110), ('status', t('Durum'), 100)],
             on_open=lambda row: self.open_dialog(lambda: ImpactDialog(self.app, row['id'])))
         self.table.pack(fill='both', expand=True)
 
@@ -618,30 +619,30 @@ class ImpactsScreen(Screen):
             ImpactRepo.DECISIONS.get(r['decision'], '—'), v.human(r['opened_at']),
             states.label('impact', r['status'])),
             tag_of=lambda r: 'alert' if r['status'] == 'open' else 'muted')
-        self.count_label.configure(text='%d değerlendirme' % len(rows))
-        self.set_hint('Etki değerlendirmesi yok. Bu kayıtlar elle açılmaz: bir kalibrasyon '
-                      'uygunsuz çıktığında kendiliğinden açılır.' if not rows else '')
+        self.count_label.configure(text=t('%d değerlendirme') % len(rows))
+        self.set_hint(t('Etki değerlendirmesi yok. Bu kayıtlar elle açılmaz: bir kalibrasyon '
+                      'uygunsuz çıktığında kendiliğinden açılır.') if not rows else '')
 
 
 # ====================================================================== yedek parcalar
 class PartsScreen(Screen):
-    title = 'Yedek parçalar'
+    title = t('Yedek parçalar')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='Parça ekle', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('Parça ekle'), style='Accent.TButton',
                    command=lambda: self.open_dialog(lambda: PartDialog(self.app))).pack(side='right')
 
         self.search = tk.StringVar()
         entry = ttk.Entry(self.toolbar, textvariable=self.search, width=26)
         entry.pack(side='left')
         entry.bind('<KeyRelease>', lambda _e: self.refresh())
-        ttk.Label(self.toolbar, text='Ara', style='Muted.TLabel').pack(side='left', padx=(6, 16))
+        ttk.Label(self.toolbar, text=t('Ara'), style='Muted.TLabel').pack(side='left', padx=(6, 16))
 
         self.low_only = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.toolbar, text='Yalnızca düşük stok', variable=self.low_only,
+        ttk.Checkbutton(self.toolbar, text=t('Yalnızca düşük stok'), variable=self.low_only,
                         command=self.refresh).pack(side='left')
         self.show_passive = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.toolbar, text='Pasifleri de göster', variable=self.show_passive,
+        ttk.Checkbutton(self.toolbar, text=t('Pasifleri de göster'), variable=self.show_passive,
                         command=self.refresh).pack(side='left', padx=(12, 0))
 
         self.count_label = ttk.Label(self.toolbar, text='', style='Muted.TLabel')
@@ -649,9 +650,9 @@ class PartsScreen(Screen):
 
         self.table = w.DataTable(
             self.body,
-            [('code', 'Kod', 130), ('name', 'Ad', 250), ('stock', 'Stok', 100, 'e'),
-             ('min', 'Asgari', 90, 'e'), ('unit', 'Birim', 80), ('location', 'Konum', 160),
-             ('supplier', 'Tedarikçi', 170), ('value', 'Stok değeri', 110, 'e')],
+            [('code', t('Kod'), 130), ('name', t('Ad'), 250), ('stock', t('Stok'), 100, 'e'),
+             ('min', t('Asgari'), 90, 'e'), ('unit', t('Birim'), 80), ('location', t('Konum'), 160),
+             ('supplier', t('Tedarikçi'), 170), ('value', t('Stok değeri'), 110, 'e')],
             on_open=lambda row: self.open_dialog(lambda: PartDialog(self.app, row['id'])))
         self.table.pack(fill='both', expand=True)
 
@@ -675,28 +676,28 @@ class PartsScreen(Screen):
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
         low = PartRepo.count(conn, low_only=True)
-        text = '%d parça' % len(rows)
+        text = t('%d parça') % len(rows)
         if low:
-            text += '  ·  %d düşük stok' % low
-        text += '  ·  stok değeri %s' % _num(PartRepo.stock_value(conn))
+            text += t('  ·  %d düşük stok') % low
+        text += t('  ·  stok değeri %s') % _num(PartRepo.stock_value(conn))
         self.count_label.configure(text=text)
-        self.set_hint('Yedek parça kütüğü boş. Parça ekleyin; iş emri penceresinden kullanım '
-                      'işlediğinizde stok kendiliğinden düşer.'
+        self.set_hint(t('Yedek parça kütüğü boş. Parça ekleyin; iş emri penceresinden kullanım '
+                      'işlediğinizde stok kendiliğinden düşer.')
                       if not rows and not self.search.get().strip() else '')
 
 
 # ====================================================================== raporlar
 class ReportsScreen(Screen):
-    title = 'Raporlar'
-    subtitle = 'Göstergeler seçilen dönemdeki kayıtlardan hesaplanır; tahmin ya da örnekleme yok.'
+    title = t('Raporlar')
+    subtitle = t('Göstergeler seçilen dönemdeki kayıtlardan hesaplanır; tahmin ya da örnekleme yok.')
 
     def build(self) -> None:
-        ttk.Button(self.actions, text='Dışa aktar', style='Accent.TButton',
+        ttk.Button(self.actions, text=t('Dışa aktar'), style='Accent.TButton',
                    command=self.export).pack(side='right')
-        ttk.Button(self.actions, text='Yazdırılabilir rapor',
+        ttk.Button(self.actions, text=t('Yazdırılabilir rapor'),
                    command=self.print_report).pack(side='right', padx=6)
 
-        ttk.Label(self.toolbar, text='Dönem', style='Muted.TLabel').pack(side='left', padx=(0, 6))
+        ttk.Label(self.toolbar, text=t('Dönem'), style='Muted.TLabel').pack(side='left', padx=(0, 6))
         self.period = w.Combo(self.toolbar, reports.PERIODS, width=16,
                               value=store.setting('report_period', '365'))
         self.period.pack(side='left')
@@ -710,9 +711,9 @@ class ReportsScreen(Screen):
         cards.pack(fill='x', pady=(0, 14))
         self.cards = {}
         for index, (key, label) in enumerate((
-                ('compliance', 'Plan uyumu'), ('conformity', 'Kalibrasyon uygunluğu'),
-                ('downtime', 'Toplam duruş (saat)'), ('labour', 'Toplam işçilik (saat)'),
-                ('parts', 'Düşük stok kalemi'))):
+                ('compliance', t('Plan uyumu')), ('conformity', t('Kalibrasyon uygunluğu')),
+                ('downtime', t('Toplam duruş (saat)')), ('labour', t('Toplam işçilik (saat)')),
+                ('parts', t('Düşük stok kalemi')))):
             card = w.Card(cards, label, '—')
             card.grid(row=0, column=index, sticky='nsew', padx=(0 if index == 0 else 8, 0))
             cards.columnconfigure(index, weight=1)
@@ -722,43 +723,43 @@ class ReportsScreen(Screen):
                                 justify='left')
         self.detail.pack(anchor='w', pady=(0, 14))
 
-        ttk.Label(host, text='Varlık güvenilirliği', style='Heading.TLabel').pack(anchor='w')
-        ttk.Label(host, text='MTBF iki arızası olmayan varlıkta hesaplanamaz; o satırda boş kalır. '
-                             'Sıfır yazmak yanıltıcı olurdu.',
+        ttk.Label(host, text=t('Varlık güvenilirliği'), style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(host, text=t('MTBF iki arızası olmayan varlıkta hesaplanamaz; o satırda boş kalır. '
+                             'Sıfır yazmak yanıltıcı olurdu.'),
                   style='Muted.TLabel').pack(anchor='w', pady=(2, 6))
         self.reliability = w.DataTable(
-            host, [('code', 'Kod', 120), ('name', 'Varlık', 230), ('failures', 'Arıza', 70, 'e'),
-                   ('mtbf', 'MTBF (saat)', 110, 'e'), ('mttr', 'MTTR (saat)', 110, 'e'),
-                   ('downtime', 'Duruş (dk)', 100, 'e')], height=10, autosize=True)
+            host, [('code', t('Kod'), 120), ('name', t('Varlık'), 230), ('failures', t('Arıza'), 70, 'e'),
+                   ('mtbf', t('MTBF (saat)'), 110, 'e'), ('mttr', t('MTTR (saat)'), 110, 'e'),
+                   ('downtime', t('Duruş (dk)'), 100, 'e')], height=10, autosize=True)
         self.reliability.pack(fill='x')
 
-        ttk.Label(host, text='Aya göre duruş ve işçilik', style='Heading.TLabel').pack(
+        ttk.Label(host, text=t('Aya göre duruş ve işçilik'), style='Heading.TLabel').pack(
             anchor='w', pady=(16, 6))
         self.monthly = w.DataTable(
-            host, [('month', 'Ay', 110), ('downtime', 'Duruş (dk)', 110, 'e'),
-                   ('labour', 'İşçilik (dk)', 110, 'e'), ('orders', 'İş emri', 90, 'e'),
+            host, [('month', t('Ay'), 110), ('downtime', t('Duruş (dk)'), 110, 'e'),
+                   ('labour', t('İşçilik (dk)'), 110, 'e'), ('orders', t('İş emri'), 90, 'e'),
                    ('bar', '', 300)], height=12, autosize=True)
         self.monthly.pack(fill='x')
 
-        ttk.Label(host, text='Geciken planlar', style='Heading.TLabel').pack(
+        ttk.Label(host, text=t('Geciken planlar'), style='Heading.TLabel').pack(
             anchor='w', pady=(16, 6))
         self.ageing = w.DataTable(
-            host, [('asset', 'Varlık', 220), ('plan', 'Plan', 250), ('due', 'Vade', 110),
-                   ('days', 'Gecikme (gün)', 120, 'e')], height=10, autosize=True)
+            host, [('asset', t('Varlık'), 220), ('plan', t('Plan'), 250), ('due', t('Vade'), 110),
+                   ('days', t('Gecikme (gün)'), 120, 'e')], height=10, autosize=True)
         self.ageing.pack(fill='x')
 
-        ttk.Label(host, text='Sapma geçmişi', style='Heading.TLabel').pack(
+        ttk.Label(host, text=t('Sapma geçmişi'), style='Heading.TLabel').pack(
             anchor='w', pady=(16, 6))
         picker = ttk.Frame(host)
         picker.pack(fill='x', pady=(0, 6))
-        ttk.Label(picker, text='Ölçüm cihazı', style='Muted.TLabel').pack(side='left',
+        ttk.Label(picker, text=t('Ölçüm cihazı'), style='Muted.TLabel').pack(side='left',
                                                                           padx=(0, 6))
-        self.device = w.Combo(picker, [(0, '- seçin -')], width=40)
+        self.device = w.Combo(picker, [(0, t('- seçin -'))], width=40)
         self.device.pack(side='left')
         self.device.bind('<<ComboboxSelected>>', lambda _e: self.refresh_deviation())
         self.deviation = w.DataTable(
-            host, [('at', 'Tarih', 150), ('deviation', 'En büyük sapma', 140, 'e'),
-                   ('result', 'Sonuç', 120), ('bar', '', 300)], height=10, autosize=True)
+            host, [('at', t('Tarih'), 150), ('deviation', t('En büyük sapma'), 140, 'e'),
+                   ('result', t('Sonuç'), 120), ('bar', '', 300)], height=10, autosize=True)
         self.deviation.pack(fill='x', pady=(0, 16))
 
     def period_changed(self) -> None:
@@ -786,9 +787,9 @@ class ReportsScreen(Screen):
         self.cards['parts'].set_value(data['parts_low'], alert=bool(data['parts_low']))
 
         self.detail.configure(
-            text='Plan uyumu: %d iş emrinden %d tanesi zamanında kapandı, %d tanesi geç kaldı, '
+            text=t('Plan uyumu: %d iş emrinden %d tanesi zamanında kapandı, %d tanesi geç kaldı, '
                  '%d tanesi hâlâ açık.    Kalibrasyon: %d kayıttan %d uygun, %d şartlı, '
-                 '%d uygunsuz.'
+                 '%d uygunsuz.')
                  % (compliance['total'], compliance['on_time'], compliance['late'],
                     compliance['open'], conformity['total'], conformity['counts']['pass'],
                     conformity['counts']['conditional'], conformity['counts']['fail']))
@@ -825,7 +826,7 @@ class ReportsScreen(Screen):
         devices = [(int(a['id']), AssetRepo.label(conn, int(a['id'])))
                    for a in AssetRepo.query(conn, measuring=True)]
         current = self.device.key()
-        self.device.set_pairs(devices or [(0, '- ölçüm cihazı yok -')], current)
+        self.device.set_pairs(devices or [(0, t('- ölçüm cihazı yok -'))], current)
         self.refresh_deviation()
 
     def refresh_deviation(self) -> None:
@@ -858,7 +859,7 @@ class ReportsScreen(Screen):
         if not self.run(build, ''):
             return
         _open_path(made['path'], self)
-        self.app.toast('Rapor hazırlandı: %s' % made['path'].name)
+        self.app.toast(t('Rapor hazırlandı: %s') % made['path'].name)
 
 
 def _bar(value, peak, width=24) -> str:

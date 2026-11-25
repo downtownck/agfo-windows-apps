@@ -698,6 +698,8 @@ jobs:
           if ($LASTEXITCODE) { throw 'modern gorunumle arayuz testi basarisiz' }
           python -X utf8 -I mihenk/tests/test_xlsx.py mihenk
           if ($LASTEXITCODE) { throw 'xlsx dogrulamasi basarisiz' }
+          python -X utf8 -I mihenk/tests/test_i18n.py mihenk
+          if ($LASTEXITCODE) { throw 'dil testi basarisiz' }
       - name: Paketle
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
@@ -706,6 +708,7 @@ jobs:
           Get-ChildItem mihenk -Force | Where-Object { $_.Name -notin @('dist', '__pycache__', 'tests') } | Copy-Item -Destination "pkg/$src/" -Recurse -Force
           Get-ChildItem "pkg/$src" -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force
           if (-not (Test-Path "pkg/$src/Derle-ve-Kur.cmd")) { throw 'Derle-ve-Kur.cmd pakette yok' }
+          if (-not (Test-Path "pkg/$src/DISCLAIMER.txt")) { throw 'DISCLAIMER.txt pakette yok' }
           if (-not (Test-Path "pkg/$src/assets/agfo-mihenk.ico")) { throw 'Simge pakette yok' }
           Compress-Archive -Path "pkg/$src" -DestinationPath "out/$src-Kurulum.zip"
           Get-ChildItem out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
@@ -727,7 +730,7 @@ jobs:
           if (-not $p.WaitForExit(180000)) { $p.Kill(); throw 'EXE oz-denetimi zaman asimi' }
           $res = if (Test-Path $st) { Get-Content $st -Raw } else { '(sonuc dosyasi yok)' }
           Write-Host $res
-          if ($p.ExitCode -ne 0 -or $res -notmatch '^OK ') { throw ('EXE oz-denetimi basarisiz, cikis ' + $p.ExitCode) }
+          if ($p.ExitCode -ne 0 -or $res -notmatch '^OK ' -or $res -notmatch 'i18n=\d+/en,tr') { throw ('EXE oz-denetimi basarisiz, cikis ' + $p.ExitCode) }
           # Normal acilis: bos veritabaniyla da ayakta kalmali.
           $p2 = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 10

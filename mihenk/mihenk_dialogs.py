@@ -23,6 +23,8 @@ from mihenk_parts import UNITS as PART_UNITS
 from mihenk_parts import PartRepo
 from mihenk_repo import (AssetRepo, AssetTypes, CalibrationRepo, ImpactRepo, RequestRepo,
                          ScheduleRepo, WorkOrderRepo)
+import mihenk_legal as legal
+from mihenk_i18n import t
 
 
 class BaseDialog(tk.Toplevel):
@@ -100,10 +102,10 @@ class BaseDialog(tk.Toplevel):
         try:
             action()
         except v.MihenkError as exc:
-            messagebox.showwarning('Kabul edilmedi', str(exc), parent=self)
+            messagebox.showwarning(t('Kabul edilmedi'), str(exc), parent=self)
             return False
         except Exception as exc:                     # beklenmeyen hata sessizce yutulmaz
-            messagebox.showerror('Hata', '%s' % exc, parent=self)
+            messagebox.showerror(t('Hata'), '%s' % exc, parent=self)
             return False
         self.saved = True
         if success:
@@ -120,12 +122,12 @@ class BaseDialog(tk.Toplevel):
         rows = audit.for_entity(self.conn, entity, entity_id, limit=30)
         frame = ttk.Frame(self.body)
         frame.pack(fill='both', expand=True, pady=(16, 20))
-        ttk.Label(frame, text='Geçmiş', style='Heading.TLabel').pack(anchor='w', pady=(0, 6))
+        ttk.Label(frame, text=t('Geçmiş'), style='Heading.TLabel').pack(anchor='w', pady=(0, 6))
         if not rows:
-            ttk.Label(frame, text='Henüz kayıt yok.', style='Muted.TLabel').pack(anchor='w')
+            ttk.Label(frame, text=t('Henüz kayıt yok.'), style='Muted.TLabel').pack(anchor='w')
             return
-        table = w.DataTable(frame, [('created_at', 'Zaman', 140), ('action', 'İşlem', 150),
-                                    ('move', 'Geçiş', 200), ('actor', 'Kullanıcı', 120)],
+        table = w.DataTable(frame, [('created_at', t('Zaman'), 140), ('action', t('İşlem'), 150),
+                                    ('move', t('Geçiş'), 200), ('actor', t('Kullanıcı'), 120)],
                             height=min(8, len(rows)))
         table.pack(fill='both', expand=True)
         table.set_rows(rows, values=lambda r: (
@@ -141,24 +143,24 @@ class AssetDialog(BaseDialog):
     def __init__(self, app, asset_id=None):
         self.asset_id = int(asset_id) if asset_id else 0
         self.row = AssetRepo.get(app.conn, self.asset_id) if self.asset_id else None
-        super().__init__(app, 'Varlığı düzenle' if self.row else 'Varlık ekle')
+        super().__init__(app, t('Varlığı düzenle') if self.row else t('Varlık ekle'))
         self.attr_widgets = {}
 
         if self.row:
             self.set_badge(states.label('asset', self.row['status']), self.row['status'])
             if self.row['status'] == 'quarantined':
-                self.warn('Bu varlık başarısız bir kalibrasyon sonrası karantinada. Açık her etki '
-                          'değerlendirmesi kapanmadan hizmete dönemez.')
+                self.warn(t('Bu varlık başarısız bir kalibrasyon sonrası karantinada. Açık her etki '
+                          'değerlendirmesi kapanmadan hizmete dönemez.'))
 
         notebook = ttk.Notebook(self.body)
         notebook.pack(fill='both', expand=True, pady=(4, 8))
         general = ttk.Frame(notebook, padding=14)
         attributes = ttk.Frame(notebook, padding=14)
         notebook.add(general, text='Genel')
-        notebook.add(attributes, text='Tip özellikleri')
+        notebook.add(attributes, text=t('Tip özellikleri'))
         if self.row:
             lifecycle = ttk.Frame(notebook, padding=14)
-            notebook.add(lifecycle, text='Durum ve sayaç')
+            notebook.add(lifecycle, text=t('Durum ve sayaç'))
             self._build_lifecycle(lifecycle)
 
         self._build_general(general)
@@ -166,9 +168,9 @@ class AssetDialog(BaseDialog):
 
         if self.row:
             self.history('asset', self.asset_id)
-            self.button('Sil', self.delete, style='Danger.TButton', side='left')
-        self.button('Kaydet', self.save, style='Accent.TButton')
-        self.button('Kapat', self.destroy)
+            self.button(t('Sil'), self.delete, style='Danger.TButton', side='left')
+        self.button(t('Kaydet'), self.save, style='Accent.TButton')
+        self.button(t('Kapat'), self.destroy)
         self.show()
 
     def _build_general(self, parent) -> None:
@@ -176,44 +178,44 @@ class AssetDialog(BaseDialog):
         form.pack(fill='both', expand=True)
         row = self.row or {}
 
-        self.code = form.add('Kod', ttk.Entry(form, width=28),
-                             'Varlık etiketinde yazan benzersiz tanımlayıcı.')
+        self.code = form.add(t('Kod'), ttk.Entry(form, width=28),
+                             t('Varlık etiketinde yazan benzersiz tanımlayıcı.'))
         self.code.insert(0, row.get('code', ''))
-        self.name = form.add('Ad', ttk.Entry(form, width=46))
+        self.name = form.add(t('Ad'), ttk.Entry(form, width=46))
         self.name.insert(0, row.get('name', ''))
 
-        self.asset_type = form.add('Tip', w.Combo(form, AssetTypes.TYPES,
+        self.asset_type = form.add(t('Tip'), w.Combo(form, AssetTypes.TYPES,
                                                   value=row.get('asset_type', 'machine')))
         self.asset_type.bind('<<ComboboxSelected>>', lambda _e: self._rebuild_attributes())
 
         self.measuring = tk.BooleanVar(value=bool(row.get('is_measuring_device', 0)))
-        form.add('', ttk.Checkbutton(form, text='Ölçüm cihazı', variable=self.measuring),
-                 'Ölçüm cihazları kalibrasyon planı taşır ve etki değerlendirmesi tetikleyebilir.')
+        form.add('', ttk.Checkbutton(form, text=t('Ölçüm cihazı'), variable=self.measuring),
+                 t('Ölçüm cihazları kalibrasyon planı taşır ve etki değerlendirmesi tetikleyebilir.'))
 
-        options = [(0, '- yok -')] + AssetRepo.options(self.conn, exclude=self.asset_id)
-        self.parent_id = form.add('Üst varlık', w.Combo(form, options, width=40,
+        options = [(0, t('- yok -'))] + AssetRepo.options(self.conn, exclude=self.asset_id)
+        self.parent_id = form.add(t('Üst varlık'), w.Combo(form, options, width=40,
                                                         value=row.get('parent_id', 0)))
-        self.location = form.add('Konum', ttk.Entry(form, width=46))
+        self.location = form.add(t('Konum'), ttk.Entry(form, width=46))
         self.location.insert(0, row.get('location_text', ''))
 
-        form.separator('Tanım bilgileri')
-        self.manufacturer = form.add('Üretici', ttk.Entry(form, width=36))
+        form.separator(t('Tanım bilgileri'))
+        self.manufacturer = form.add(t('Üretici'), ttk.Entry(form, width=36))
         self.manufacturer.insert(0, row.get('manufacturer', ''))
-        self.model = form.add('Model', ttk.Entry(form, width=36))
+        self.model = form.add(t('Model'), ttk.Entry(form, width=36))
         self.model.insert(0, row.get('model', ''))
-        self.serial = form.add('Seri numarası', ttk.Entry(form, width=36))
+        self.serial = form.add(t('Seri numarası'), ttk.Entry(form, width=36))
         self.serial.insert(0, row.get('serial_no', ''))
-        self.criticality = form.add('Kritiklik', w.Combo(form, AssetTypes.CRITICALITY, width=20,
+        self.criticality = form.add(t('Kritiklik'), w.Combo(form, AssetTypes.CRITICALITY, width=20,
                                                          value=row.get('criticality', 2)))
-        self.commissioned = form.add('Devreye alma', w.DateEntry(form))
+        self.commissioned = form.add(t('Devreye alma'), w.DateEntry(form))
         self.commissioned.set(row.get('commissioned_on'))
 
-        form.separator('Sayaç')
-        self.counter_unit = form.add('Sayaç birimi', w.Combo(form, AssetTypes.COUNTER_UNITS, width=22,
+        form.separator(t('Sayaç'))
+        self.counter_unit = form.add(t('Sayaç birimi'), w.Combo(form, AssetTypes.COUNTER_UNITS, width=22,
                                                              value=row.get('counter_unit', '')),
-                                     'Sayaç tabanlı plan bağlayabilmek için gereklidir.')
+                                     t('Sayaç tabanlı plan bağlayabilmek için gereklidir.'))
 
-        form.separator('Notlar')
+        form.separator(t('Notlar'))
         self.notes = w.text_box(form, height=4)
         form.add_full(self.notes)
         w.write_text(self.notes, row.get('notes', ''))
@@ -231,11 +233,11 @@ class AssetDialog(BaseDialog):
         stored = AssetRepo.attributes(self.conn, self.asset_id) if self.asset_id else {}
 
         if not definitions:
-            ttk.Label(self.attributes_host, text='Bu tipin ek özelliği yok.',
+            ttk.Label(self.attributes_host, text=t('Bu tipin ek özelliği yok.'),
                       style='Muted.TLabel').pack(anchor='w')
             return
         ttk.Label(self.attributes_host,
-                  text='%s tipinin özellikleri' % AssetTypes.label(asset_type),
+                  text=t('%s tipinin özellikleri') % AssetTypes.label(asset_type),
                   style='Heading.TLabel').pack(anchor='w', pady=(0, 8))
         form = w.FormGrid(self.attributes_host)
         form.pack(fill='x')
@@ -252,10 +254,10 @@ class AssetDialog(BaseDialog):
 
     def _build_lifecycle(self, parent) -> None:
         row = self.row
-        ttk.Label(parent, text='Durum', style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(parent, text=t('Durum'), style='Heading.TLabel').pack(anchor='w')
         open_impacts = ImpactRepo.open_count_for_asset(self.conn, self.asset_id)
         if open_impacts:
-            ttk.Label(parent, text='%d etki değerlendirmesi açık.' % open_impacts,
+            ttk.Label(parent, text=t('%d etki değerlendirmesi açık.') % open_impacts,
                       style='Alert.TLabel').pack(anchor='w', pady=(4, 0))
 
         targets = states.next_states('asset', row['status'])
@@ -265,17 +267,17 @@ class AssetDialog(BaseDialog):
             self.transition_choice = w.Combo(bar, [(t, states.label('asset', t)) for t in targets],
                                              width=22)
             self.transition_choice.pack(side='left')
-            ttk.Label(bar, text='Gerekçe', style='Muted.TLabel').pack(side='left', padx=(10, 4))
+            ttk.Label(bar, text=t('Gerekçe'), style='Muted.TLabel').pack(side='left', padx=(10, 4))
             self.transition_reason = ttk.Entry(bar, width=36)
             self.transition_reason.pack(side='left')
-            ttk.Button(bar, text='Durumu değiştir', command=self.change_status).pack(side='left', padx=8)
+            ttk.Button(bar, text=t('Durumu değiştir'), command=self.change_status).pack(side='left', padx=8)
         else:
-            ttk.Label(parent, text='Bu durumdan ileri gidilemez.', style='Muted.TLabel').pack(anchor='w')
+            ttk.Label(parent, text=t('Bu durumdan ileri gidilemez.'), style='Muted.TLabel').pack(anchor='w')
 
         ttk.Separator(parent).pack(fill='x', pady=12)
-        ttk.Label(parent, text='Sayaç', style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(parent, text=t('Sayaç'), style='Heading.TLabel').pack(anchor='w')
         if not row['counter_unit']:
-            ttk.Label(parent, text='Bu varlıkta sayaç birimi tanımlı değil.',
+            ttk.Label(parent, text=t('Bu varlıkta sayaç birimi tanımlı değil.'),
                       style='Muted.TLabel').pack(anchor='w', pady=(4, 0))
             return
         line = ttk.Frame(parent)
@@ -285,9 +287,9 @@ class AssetDialog(BaseDialog):
         self.counter_value.pack(side='left')
         ttk.Label(line, text=AssetTypes.COUNTER_UNITS.get(row['counter_unit'], ''),
                   style='Muted.TLabel').pack(side='left', padx=6)
-        ttk.Button(line, text='Okumayı kaydet', command=self.record_counter).pack(side='left', padx=8)
-        last = v.human(row['counter_read_at'], with_time=True) or 'hiç'
-        ttk.Label(parent, text='Son okuma: %s' % last, style='Muted.TLabel').pack(anchor='w', pady=(6, 0))
+        ttk.Button(line, text=t('Okumayı kaydet'), command=self.record_counter).pack(side='left', padx=8)
+        last = v.human(row['counter_read_at'], with_time=True) or t('hiç')
+        ttk.Label(parent, text=t('Son okuma: %s') % last, style='Muted.TLabel').pack(anchor='w', pady=(6, 0))
 
     def collect(self) -> dict:
         attrs = {}
@@ -314,24 +316,24 @@ class AssetDialog(BaseDialog):
         data = self.collect()
         if self.asset_id:
             if self.run(lambda: AssetRepo.update(self.conn, self.asset_id, data)):
-                self.finish('Varlık kaydedildi.')
+                self.finish(t('Varlık kaydedildi.'))
         else:
             holder = {}
 
             def create():
                 holder['id'] = AssetRepo.create(self.conn, data)
             if self.run(create):
-                self.finish('Varlık oluşturuldu.')
+                self.finish(t('Varlık oluşturuldu.'))
 
     def change_status(self) -> None:
         target = self.transition_choice.key()
         reason = self.transition_reason.get()
         if target == 'retired' and not messagebox.askyesno(
-                'Onay', 'Bu varlık hurdaya ayrılsın mı? Hurdaya ayrılan varlık geri alınamaz.',
+                t('Onay'), t('Bu varlık hurdaya ayrılsın mı? Hurdaya ayrılan varlık geri alınamaz.'),
                 parent=self):
             return
         if self.run(lambda: AssetRepo.transition(self.conn, self.asset_id, target, reason)):
-            self.finish('Varlık durumu değiştirildi.')
+            self.finish(t('Varlık durumu değiştirildi.'))
 
     def record_counter(self) -> None:
         value = self.counter_value.get()
@@ -342,15 +344,15 @@ class AssetDialog(BaseDialog):
         if self.run(record):
             extra = ''
             if made.get('work_orders') or made.get('calibrations'):
-                extra = ' %d kayıt üretildi.' % (made['work_orders'] + made['calibrations'])
-            self.finish('Sayaç okuması kaydedildi.' + extra)
+                extra = t(' %d kayıt üretildi.') % (made['work_orders'] + made['calibrations'])
+            self.finish(t('Sayaç okuması kaydedildi.') + extra)
 
     def delete(self) -> None:
-        if not messagebox.askyesno('Onay', 'Bu varlık silinsin mi? Bu işlem geri alınamaz.',
+        if not messagebox.askyesno(t('Onay'), t('Bu varlık silinsin mi? Bu işlem geri alınamaz.'),
                                    parent=self):
             return
         if self.run(lambda: AssetRepo.delete(self.conn, self.asset_id)):
-            self.finish('Varlık silindi.')
+            self.finish(t('Varlık silindi.'))
 
 
 # ====================================================================== plan
@@ -363,21 +365,21 @@ class PlanDialog(BaseDialog):
     def __init__(self, app, plan_id=None, asset_id=0):
         self.plan_id = int(plan_id) if plan_id else 0
         self.row = ScheduleRepo.get(app.conn, self.plan_id) if self.plan_id else None
-        super().__init__(app, 'Planı düzenle' if self.row else 'Plan ekle')
+        super().__init__(app, t('Planı düzenle') if self.row else t('Plan ekle'))
         row = self.row or {}
 
         notebook = ttk.Notebook(self.body)
         notebook.pack(fill='both', expand=True, pady=(4, 8))
         general = ttk.Frame(notebook, padding=14)
         checklist = ttk.Frame(notebook, padding=14)
-        notebook.add(general, text='Plan')
-        notebook.add(checklist, text='Kontrol listesi')
+        notebook.add(general, text=t('Plan'))
+        notebook.add(checklist, text=t('Kontrol listesi'))
 
-        ttk.Label(checklist, text='Bu plandan üretilen her iş emri bu listeyi taşır. Liste sonradan '
-                                  'değişirse eski iş emirleri değişmez; her biri kendi anını tutar.',
+        ttk.Label(checklist, text=t('Bu plandan üretilen her iş emri bu listeyi taşır. Liste sonradan '
+                                  'değişirse eski iş emirleri değişmez; her biri kendi anını tutar.'),
                   style='Muted.TLabel', wraplength=700, justify='left').pack(anchor='w',
                                                                               pady=(0, 10))
-        ttk.Label(checklist, text='Kritik işaretli bir adım tamamlanmadan iş emri kapatılamaz.',
+        ttk.Label(checklist, text=t('Kritik işaretli bir adım tamamlanmadan iş emri kapatılamaz.'),
                   style='Muted.TLabel', wraplength=700, justify='left').pack(anchor='w',
                                                                               pady=(0, 10))
         existing = ChecklistTemplate.items(self.conn, self.plan_id) if self.plan_id else []
@@ -388,16 +390,16 @@ class PlanDialog(BaseDialog):
         form.pack(fill='both', expand=True)
 
         options = AssetRepo.options(self.conn)
-        self.asset = form.add('Varlık', w.Combo(form, options or [(0, '- varlık yok -')], width=44,
+        self.asset = form.add(t('Varlık'), w.Combo(form, options or [(0, t('- varlık yok -'))], width=44,
                                                 value=row.get('asset_id', asset_id)))
-        self.plan_type = form.add('Plan tipi', w.Combo(form, ScheduleRepo.PLAN_TYPES, width=26,
+        self.plan_type = form.add(t('Plan tipi'), w.Combo(form, ScheduleRepo.PLAN_TYPES, width=26,
                                                        value=row.get('plan_type', 'pm')),
-                                  'Önleyici plan iş emri üretir. Kalibrasyon ve doğrulama planı '
-                                  'kalibrasyon kaydı üretir.')
-        self.title_entry = form.add('Başlık', ttk.Entry(form, width=46))
+                                  t('Önleyici plan iş emri üretir. Kalibrasyon ve doğrulama planı '
+                                  'kalibrasyon kaydı üretir.'))
+        self.title_entry = form.add(t('Başlık'), ttk.Entry(form, width=46))
         self.title_entry.insert(0, row.get('title', ''))
 
-        self.basis = form.add('Esas', w.Combo(form, ScheduleRepo.BASES, width=20,
+        self.basis = form.add(t('Esas'), w.Combo(form, ScheduleRepo.BASES, width=20,
                                               value=row.get('basis', 'time')))
         self.basis.bind('<<ComboboxSelected>>', lambda _e: self._sync_basis())
 
@@ -408,37 +410,37 @@ class PlanDialog(BaseDialog):
         self.interval_unit = w.Combo(interval, ScheduleRepo.UNITS, width=10,
                                      value=row.get('interval_unit', 'month'))
         self.interval_unit.pack(side='left', padx=6)
-        self.interval_row = form.add('Aralık', interval)
+        self.interval_row = form.add(t('Aralık'), interval)
 
-        self.counter_interval = form.add('Sayaç aralığı', ttk.Entry(form, width=10),
-                                         'Varlıkta sayaç birimi tanımlı olmalıdır.')
+        self.counter_interval = form.add(t('Sayaç aralığı'), ttk.Entry(form, width=10),
+                                         t('Varlıkta sayaç birimi tanımlı olmalıdır.'))
         self.counter_interval.insert(0, str(row.get('counter_interval', 0)))
 
         window = ttk.Frame(form)
         self.lead_days = ttk.Entry(window, width=6)
         self.lead_days.insert(0, str(row.get('lead_days', 14)))
         self.lead_days.pack(side='left')
-        ttk.Label(window, text='gün önce üret', style='Muted.TLabel').pack(side='left', padx=(6, 16))
+        ttk.Label(window, text=t('gün önce üret'), style='Muted.TLabel').pack(side='left', padx=(6, 16))
         self.tolerance_days = ttk.Entry(window, width=6)
         self.tolerance_days.insert(0, str(row.get('tolerance_days', 0)))
         self.tolerance_days.pack(side='left')
-        ttk.Label(window, text='gün gecikme tolere edilir', style='Muted.TLabel').pack(side='left', padx=6)
-        form.add('Uyarı aralığı', window,
-                 'Tolere edilen gecikme yalnızca gecikme raporunu etkiler, vadeyi değiştirmez.')
+        ttk.Label(window, text=t('gün gecikme tolere edilir'), style='Muted.TLabel').pack(side='left', padx=6)
+        form.add(t('Uyarı aralığı'), window,
+                 t('Tolere edilen gecikme yalnızca gecikme raporunu etkiler, vadeyi değiştirmez.'))
 
-        self.last_done = form.add('Son yapılma', w.DateEntry(form, with_time=True))
+        self.last_done = form.add(t('Son yapılma'), w.DateEntry(form, with_time=True))
         self.last_done.set(row.get('last_done_at'))
-        self.next_due = form.add('Sıradaki vade', w.DateEntry(form, with_time=True),
-                                 'Boş bırakılırsa aralıktan hesaplanır.')
+        self.next_due = form.add(t('Sıradaki vade'), w.DateEntry(form, with_time=True),
+                                 t('Boş bırakılırsa aralıktan hesaplanır.'))
         self.next_due.set(row.get('next_due_at'))
 
-        self.assignee = form.add('Varsayılan sorumlu', ttk.Entry(form, width=32))
+        self.assignee = form.add(t('Varsayılan sorumlu'), ttk.Entry(form, width=32))
         self.assignee.insert(0, row.get('assignee', ''))
 
         self.active = tk.BooleanVar(value=bool(row.get('is_active', 1)))
-        form.add('Aktif', ttk.Checkbutton(form, text='Bu plandan kayıt üret', variable=self.active))
+        form.add(t('Aktif'), ttk.Checkbutton(form, text=t('Bu plandan kayıt üret'), variable=self.active))
 
-        form.separator('Talimatlar')
+        form.separator(t('Talimatlar'))
         self.instructions = w.text_box(form, height=6)
         form.add_full(self.instructions)
         w.write_text(self.instructions, row.get('instructions', ''))
@@ -447,9 +449,9 @@ class PlanDialog(BaseDialog):
 
         if self.row:
             self.history('schedule', self.plan_id)
-            self.button('Sil', self.delete, style='Danger.TButton', side='left')
-        self.button('Kaydet', self.save, style='Accent.TButton')
-        self.button('Kapat', self.destroy)
+            self.button(t('Sil'), self.delete, style='Danger.TButton', side='left')
+        self.button(t('Kaydet'), self.save, style='Accent.TButton')
+        self.button(t('Kapat'), self.destroy)
         self.show()
 
     def _sync_basis(self) -> None:
@@ -487,7 +489,7 @@ class PlanDialog(BaseDialog):
                 ScheduleRepo.update(self.conn, self.plan_id, data)
                 ChecklistTemplate.save(self.conn, self.plan_id, items)
             if self.run(update):
-                self.finish('Plan kaydedildi.')
+                self.finish(t('Plan kaydedildi.'))
             return
         made = {}
 
@@ -495,14 +497,14 @@ class PlanDialog(BaseDialog):
             made['id'] = ScheduleRepo.create(self.conn, data)
             ChecklistTemplate.save(self.conn, made['id'], items)
         if self.run(create):
-            self.finish('Plan oluşturuldu.')
+            self.finish(t('Plan oluşturuldu.'))
 
     def delete(self) -> None:
-        if not messagebox.askyesno('Onay', 'Bu plan silinsin mi? Üretilmiş kayıtlar kalır.',
+        if not messagebox.askyesno(t('Onay'), t('Bu plan silinsin mi? Üretilmiş kayıtlar kalır.'),
                                    parent=self):
             return
         if self.run(lambda: ScheduleRepo.delete(self.conn, self.plan_id)):
-            self.finish('Plan silindi.')
+            self.finish(t('Plan silindi.'))
 
 
 # ====================================================================== talep
@@ -513,22 +515,22 @@ class RequestDialog(BaseDialog):
     height = 480
 
     def __init__(self, app, asset_id=0):
-        super().__init__(app, 'Arıza bildir')
+        super().__init__(app, t('Arıza bildir'))
         form = w.FormGrid(self.body)
         form.pack(fill='both', expand=True, pady=(4, 10))
 
         options = AssetRepo.options(self.conn)
-        self.asset = form.add('Varlık', w.Combo(form, options or [(0, '- varlık yok -')], width=44,
+        self.asset = form.add(t('Varlık'), w.Combo(form, options or [(0, t('- varlık yok -'))], width=44,
                                                 value=asset_id))
-        self.summary = form.add('Özet', ttk.Entry(form, width=46), 'Sorun nedir?')
-        self.severity = form.add('Önem', w.Combo(form, RequestRepo.SEVERITIES, width=26,
+        self.summary = form.add(t('Özet'), ttk.Entry(form, width=46), 'Sorun nedir?')
+        self.severity = form.add(t('Önem'), w.Combo(form, RequestRepo.SEVERITIES, width=26,
                                                  value='normal'))
-        form.separator('Açıklama')
+        form.separator(t('Açıklama'))
         self.description = w.text_box(form, height=7)
         form.add_full(self.description)
 
-        self.button('Kaydet', self.save, style='Accent.TButton')
-        self.button('Kapat', self.destroy)
+        self.button(t('Kaydet'), self.save, style='Accent.TButton')
+        self.button(t('Kapat'), self.destroy)
         self.show()
 
     def save(self) -> None:
@@ -539,7 +541,7 @@ class RequestDialog(BaseDialog):
             'description': w.read_text(self.description),
         }
         if self.run(lambda: RequestRepo.create(self.conn, data)):
-            self.finish('Talep kaydedildi.')
+            self.finish(t('Talep kaydedildi.'))
 
 
 # ====================================================================== is emri
@@ -552,7 +554,7 @@ class WorkOrderDialog(BaseDialog):
     def __init__(self, app, work_order_id=None, asset_id=0):
         self.work_order_id = int(work_order_id) if work_order_id else 0
         self.row = WorkOrderRepo.get(app.conn, self.work_order_id) if self.work_order_id else None
-        super().__init__(app, ('İş emri #%d' % self.work_order_id) if self.row else 'İş emri ekle')
+        super().__init__(app, (t('İş emri #%d') % self.work_order_id) if self.row else t('İş emri ekle'))
         row = self.row or {}
         self.is_new = not bool(self.row)
         self.locked = bool(row) and row['status'] in ('closed', 'cancelled')
@@ -562,15 +564,15 @@ class WorkOrderDialog(BaseDialog):
             if int(row['schedule_id']):
                 plan = ScheduleRepo.get(self.conn, int(row['schedule_id']))
                 if plan:
-                    ttk.Label(self.body, text='Plandan üretildi: %s' % plan['title'],
+                    ttk.Label(self.body, text=t('Plandan üretildi: %s') % plan['title'],
                               style='Muted.TLabel').pack(anchor='w', pady=(4, 0))
 
         form = w.FormGrid(self.body)
         form.pack(fill='x', pady=(6, 10))
         options = AssetRepo.options(self.conn)
-        self.asset = form.add('Varlık', w.Combo(form, options or [(0, '- varlık yok -')], width=44,
+        self.asset = form.add(t('Varlık'), w.Combo(form, options or [(0, t('- varlık yok -'))], width=44,
                                                 value=row.get('asset_id', asset_id)))
-        self.title_entry = form.add('Başlık', ttk.Entry(form, width=46))
+        self.title_entry = form.add(t('Başlık'), ttk.Entry(form, width=46))
         self.title_entry.insert(0, row.get('title', ''))
 
         classification = ttk.Frame(form)
@@ -583,14 +585,14 @@ class WorkOrderDialog(BaseDialog):
         self.assigned_to = ttk.Entry(classification, width=20)
         self.assigned_to.insert(0, row.get('assigned_to', ''))
         self.assigned_to.pack(side='left', padx=6)
-        form.add('Sınıflandırma', classification)
+        form.add(t('Sınıflandırma'), classification)
 
         planned = ttk.Frame(form)
         self.planned_start = w.DateEntry(planned, with_time=True, width=16)
         self.planned_start.pack(side='left')
         self.planned_end = w.DateEntry(planned, with_time=True, width=16)
         self.planned_end.pack(side='left', padx=(10, 0))
-        form.add('Planlanan', planned)
+        form.add(t('Planlanan'), planned)
         self.planned_start.set(row.get('planned_start'))
         self.planned_end.set(row.get('planned_end'))
 
@@ -599,7 +601,7 @@ class WorkOrderDialog(BaseDialog):
         self.actual_start.pack(side='left')
         self.actual_end = w.DateEntry(actual, with_time=True, width=16)
         self.actual_end.pack(side='left', padx=(10, 0))
-        form.add('Gerçekleşen', actual)
+        form.add(t('Gerçekleşen'), actual)
         self.actual_start.set(row.get('actual_start'))
         self.actual_end.set(row.get('actual_end'))
 
@@ -607,24 +609,24 @@ class WorkOrderDialog(BaseDialog):
         self.labor = ttk.Entry(effort, width=7)
         self.labor.insert(0, str(row.get('labor_minutes', 0)))
         self.labor.pack(side='left')
-        ttk.Label(effort, text='dk işçilik', style='Muted.TLabel').pack(side='left', padx=(5, 14))
+        ttk.Label(effort, text=t('dk işçilik'), style='Muted.TLabel').pack(side='left', padx=(5, 14))
         self.downtime = ttk.Entry(effort, width=7)
         self.downtime.insert(0, str(row.get('downtime_minutes', 0)))
         self.downtime.pack(side='left')
-        ttk.Label(effort, text='dk duruş', style='Muted.TLabel').pack(side='left', padx=5)
-        form.add('Efor', effort)
+        ttk.Label(effort, text=t('dk duruş'), style='Muted.TLabel').pack(side='left', padx=5)
+        form.add(t('Efor'), effort)
 
-        form.separator('Yapılan iş')
+        form.separator(t('Yapılan iş'))
         self.work_done = w.text_box(form, height=5)
         form.add_full(self.work_done)
         w.write_text(self.work_done, row.get('work_done', ''))
-        form.separator('Kök neden')
+        form.separator(t('Kök neden'))
         self.root_cause = w.text_box(form, height=3)
         form.add_full(self.root_cause)
         w.write_text(self.root_cause, row.get('root_cause', ''))
 
         if row.get('hold_reason'):
-            ttk.Label(self.body, text='Bekletme gerekçesi: %s' % row['hold_reason'],
+            ttk.Label(self.body, text=t('Bekletme gerekçesi: %s') % row['hold_reason'],
                       style='Muted.TLabel', wraplength=700, justify='left').pack(anchor='w')
 
         if not self.is_new:
@@ -637,15 +639,15 @@ class WorkOrderDialog(BaseDialog):
                 widget.configure(state='disabled')
             self.work_done.configure(state='disabled')
             self.root_cause.configure(state='disabled')
-            ttk.Label(self.body, text='Bu iş emri kapalı ve artık düzenlenemez.',
+            ttk.Label(self.body, text=t('Bu iş emri kapalı ve artık düzenlenemez.'),
                       style='Muted.TLabel').pack(anchor='w', pady=(6, 0))
 
         if self.row:
             self._build_transitions()
             self.history('work_order', self.work_order_id)
         if not self.locked:
-            self.button('Kaydet', self.save, style='Accent.TButton')
-        self.button('Kapat', self.destroy)
+            self.button(t('Kaydet'), self.save, style='Accent.TButton')
+        self.button(t('Kapat'), self.destroy)
         self.show()
 
     def _build_checklist(self) -> None:
@@ -653,9 +655,9 @@ class WorkOrderDialog(BaseDialog):
         ttk.Separator(self.body).pack(fill='x', pady=12)
         head = ttk.Frame(self.body)
         head.pack(fill='x')
-        ttk.Label(head, text='Kontrol listesi', style='Heading.TLabel').pack(side='left')
+        ttk.Label(head, text=t('Kontrol listesi'), style='Heading.TLabel').pack(side='left')
         if progress['total']:
-            text = '%d adımdan %d tamamlandı' % (progress['total'], progress['done'])
+            text = t('%d adımdan %d tamamlandı') % (progress['total'], progress['done'])
             if progress['failed']:
                 text += ', %d uygunsuz' % progress['failed']
             ttk.Label(head, text='   ' + text,
@@ -667,12 +669,12 @@ class WorkOrderDialog(BaseDialog):
 
     def _build_parts(self) -> None:
         ttk.Separator(self.body).pack(fill='x', pady=12)
-        ttk.Label(self.body, text='Kullanılan parçalar', style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(self.body, text=t('Kullanılan parçalar'), style='Heading.TLabel').pack(anchor='w')
         used = PartRepo.used_on_work_order(self.conn, self.work_order_id)
         if used:
-            table = w.DataTable(self.body, [('code', 'Kod', 120), ('name', 'Parça', 240),
-                                            ('qty', 'Miktar', 90, 'e'), ('cost', 'Tutar', 90, 'e'),
-                                            ('at', 'Zaman', 140)],
+            table = w.DataTable(self.body, [('code', t('Kod'), 120), ('name', t('Parça'), 240),
+                                            ('qty', t('Miktar'), 90, 'e'), ('cost', 'Tutar', 90, 'e'),
+                                            ('at', t('Zaman'), 140)],
                                 height=min(6, len(used)))
             table.pack(fill='x', pady=(8, 4))
             table.set_rows(used, values=lambda r: (
@@ -680,11 +682,11 @@ class WorkOrderDialog(BaseDialog):
                 '%s %s' % (_num(abs(float(r['delta']))), r['unit']),
                 _num(abs(float(r['delta'])) * float(r['unit_cost'])),
                 v.human(r['created_at'], with_time=True)))
-            ttk.Label(self.body, text='Toplam parça maliyeti: %s'
+            ttk.Label(self.body, text=t('Toplam parça maliyeti: %s')
                       % _num(PartRepo.work_order_cost(self.conn, self.work_order_id)),
                       style='Muted.TLabel').pack(anchor='w')
         else:
-            ttk.Label(self.body, text='Henüz parça kullanılmadı.',
+            ttk.Label(self.body, text=t('Henüz parça kullanılmadı.'),
                       style='Muted.TLabel').pack(anchor='w', pady=(6, 0))
 
         if self.locked:
@@ -693,7 +695,7 @@ class WorkOrderDialog(BaseDialog):
         bar = ttk.Frame(self.body)
         bar.pack(fill='x', pady=(8, 0))
         if not options:
-            ttk.Label(bar, text='Kütükte aktif parça yok. Yedek parçalar ekranından ekleyin.',
+            ttk.Label(bar, text=t('Kütükte aktif parça yok. Yedek parçalar ekranından ekleyin.'),
                       style='Muted.TLabel').pack(side='left')
             return
         self.part_choice = w.Combo(bar, options, width=40)
@@ -701,12 +703,12 @@ class WorkOrderDialog(BaseDialog):
         self.part_qty = ttk.Entry(bar, width=8)
         self.part_qty.insert(0, '1')
         self.part_qty.pack(side='left', padx=6)
-        ttk.Button(bar, text='Parça kullan', command=self.consume_part).pack(side='left')
+        ttk.Button(bar, text=t('Parça kullan'), command=self.consume_part).pack(side='left')
 
     def consume_part(self) -> None:
         part_id, quantity = self.part_choice.key(), self.part_qty.get()
         if self.run(lambda: PartRepo.consume(self.conn, part_id, quantity, self.work_order_id)):
-            self.finish('Parça kullanımı kaydedildi.')
+            self.finish(t('Parça kullanımı kaydedildi.'))
 
     def _build_transitions(self) -> None:
         targets = states.next_states('work_order', self.row['status'])
@@ -714,9 +716,9 @@ class WorkOrderDialog(BaseDialog):
             return
         frame = ttk.Frame(self.body)
         frame.pack(fill='x', pady=(14, 4))
-        ttk.Label(frame, text='Sonraki duruma geç', style='Heading.TLabel').pack(anchor='w')
-        ttk.Label(frame, text='Bir plandan gelen iş emrini tamamlamak, o planı sıradaki vadesine '
-                             'ilerletir.', style='Muted.TLabel', wraplength=720,
+        ttk.Label(frame, text=t('Sonraki duruma geç'), style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(frame, text=t('Bir plandan gelen iş emrini tamamlamak, o planı sıradaki vadesine '
+                             'ilerletir.'), style='Muted.TLabel', wraplength=720,
                   justify='left').pack(anchor='w', pady=(2, 8))
         bar = ttk.Frame(frame)
         bar.pack(fill='x')
@@ -752,15 +754,15 @@ class WorkOrderDialog(BaseDialog):
         data = self.collect()
         if self.work_order_id:
             if self.run(lambda: WorkOrderRepo.update(self.conn, self.work_order_id, data)):
-                self.finish('İş emri kaydedildi.')
+                self.finish(t('İş emri kaydedildi.'))
         elif self.run(lambda: WorkOrderRepo.create(self.conn, data)):
-            self.finish('İş emri oluşturuldu.')
+            self.finish(t('İş emri oluşturuldu.'))
 
     def transition(self, target: str) -> None:
         """Gecis once formdaki degerlerle denenir; eksik alan varsa sorulur."""
         data = self.collect()
         if target == 'on_hold':
-            reason = _ask_text(self, 'Bekletme gerekçesi', 'Neden bekletiliyor?')
+            reason = _ask_text(self, t('Bekletme gerekçesi'), 'Neden bekletiliyor?')
             if reason is None:
                 return
             data['hold_reason'] = reason
@@ -777,14 +779,14 @@ class WorkOrderDialog(BaseDialog):
                     data['work_done'] = ((data.get('work_done') or '').rstrip() + '\n\n'
                                          + 'Kontrol listesi:\n' + summary).strip()
         if self.run(lambda: WorkOrderRepo.transition(self.conn, self.work_order_id, target, data)):
-            self.finish('İş emri %s durumuna alındı.' % states.label('work_order', target).lower())
+            self.finish(t('İş emri %s durumuna alındı.') % states.label('work_order', target).lower())
 
 
 # ====================================================================== kalibrasyon
 class PointsGrid(ttk.Frame):
     """Olcum noktasi tablosu: sapma canli hesaplanir ve renklenir."""
 
-    COLUMNS = ('Etiket', 'Nominal', 'Ölçülen', 'Tolerans (±)', 'Birim', 'Sapma', '')
+    COLUMNS = ('Etiket', t('Nominal'), t('Ölçülen'), t('Tolerans (±)'), t('Birim'), t('Sapma'), '')
 
     def __init__(self, parent, points=None, readonly=False):
         super().__init__(parent)
@@ -796,7 +798,7 @@ class PointsGrid(ttk.Frame):
         for point in (points or [{}]):
             self.add_row(point)
         if not readonly:
-            self.add_button = ttk.Button(self, text='Nokta ekle', style='Ghost.TButton',
+            self.add_button = ttk.Button(self, text=t('Nokta ekle'), style='Ghost.TButton',
                                          command=lambda: self.add_row({}))
             self._place_add_button()
 
@@ -827,7 +829,7 @@ class PointsGrid(ttk.Frame):
         entry = {'label': label, 'nominal': nominal, 'measured': measured,
                  'tolerance': tolerance, 'unit': unit, 'deviation': deviation, 'index': index}
         if not self.readonly:
-            remove = ttk.Button(self, text='Kaldır', style='Ghost.TButton', width=7,
+            remove = ttk.Button(self, text=t('Kaldır'), style='Ghost.TButton', width=7,
                                 command=lambda e=entry: self.remove_row(e))
             remove.grid(row=index, column=6, padx=3)
             entry['remove'] = remove
@@ -892,8 +894,8 @@ class CalibrationDialog(BaseDialog):
     def __init__(self, app, record_id):
         self.record_id = int(record_id)
         self.row = CalibrationRepo.get(app.conn, self.record_id)
-        kind = CalibrationRepo.RECORD_TYPES.get(self.row['record_type'], 'Kalibrasyon')
-        super().__init__(app, '%s kaydı #%d' % (kind, self.record_id))
+        kind = CalibrationRepo.RECORD_TYPES.get(self.row['record_type'], t('Kalibrasyon'))
+        super().__init__(app, t('%s kaydı #%d') % (kind, self.record_id))
         row = self.row
         self.locked = row['status'] in ('closed', 'cancelled')
         self.set_badge(states.label('calibration', row['status']), row['status'])
@@ -902,14 +904,14 @@ class CalibrationDialog(BaseDialog):
                   style='Muted.TLabel').pack(anchor='w', pady=(4, 0))
 
         if row['result'] == 'fail':
-            self.warn('Bu kayıt uygunsuz. Varlık otomatik karantinaya alındı ve bir etki '
-                      'değerlendirmesi açıldı.')
+            self.warn(t('Bu kayıt uygunsuz. Varlık otomatik karantinaya alındı ve bir etki '
+                      'değerlendirmesi açıldı.'))
 
         form = w.FormGrid(self.body)
         form.pack(fill='x', pady=(8, 6))
-        self.performed_at = form.add('Yapılma zamanı', w.DateEntry(form, with_time=True))
+        self.performed_at = form.add(t('Yapılma zamanı'), w.DateEntry(form, with_time=True))
         self.performed_at.set(row['performed_at'])
-        self.performed_by = form.add('Yapan', ttk.Entry(form, width=32))
+        self.performed_by = form.add(t('Yapan'), ttk.Entry(form, width=32))
         self.performed_by.insert(0, row['performed_by'])
 
         external = ttk.Frame(form)
@@ -919,7 +921,7 @@ class CalibrationDialog(BaseDialog):
         self.accreditation = ttk.Entry(external, width=30)
         self.accreditation.insert(0, row['accreditation_scope'])
         self.accreditation.pack(side='left', padx=6)
-        form.add('Dış kuruluş / kapsam', external)
+        form.add(t('Dış kuruluş / kapsam'), external)
 
         certificate = ttk.Frame(form)
         self.certificate_no = ttk.Entry(certificate, width=22)
@@ -931,16 +933,16 @@ class CalibrationDialog(BaseDialog):
         ttk.Button(certificate, text='Dosya…', style='Ghost.TButton',
                    command=self.pick_certificate).pack(side='left')
         if export.certificate_exists(row['certificate_path']):
-            ttk.Button(certificate, text='Aç', style='Ghost.TButton', width=4,
+            ttk.Button(certificate, text=t('Aç'), style='Ghost.TButton', width=4,
                        command=self.open_certificate).pack(side='left')
-        form.add('Sertifika', certificate,
-                 'Seçilen dosya Mihenk veri klasörüne kopyalanır; özgün dosya taşınsa bile '
-                 'kayıt boşa düşmez.')
+        form.add(t('Sertifika'), certificate,
+                 t('Seçilen dosya Mihenk veri klasörüne kopyalanır; özgün dosya taşınsa bile '
+                 'kayıt boşa düşmez.'))
         if row['certificate_path'] and not export.certificate_exists(row['certificate_path']):
-            ttk.Label(self.body, text='Sertifika dosyası bulunamıyor: %s' % row['certificate_path'],
+            ttk.Label(self.body, text=t('Sertifika dosyası bulunamıyor: %s') % row['certificate_path'],
                       style='Alert.TLabel', wraplength=800, justify='left').pack(anchor='w')
 
-        self.traceability = form.add('İzlenebilirlik referansı', ttk.Entry(form, width=46))
+        self.traceability = form.add(t('İzlenebilirlik referansı'), ttk.Entry(form, width=46))
         self.traceability.insert(0, row['traceability_ref'])
 
         spec = ttk.Frame(form)
@@ -950,12 +952,12 @@ class CalibrationDialog(BaseDialog):
         self.uncertainty = ttk.Entry(spec, width=20)
         self.uncertainty.insert(0, row['uncertainty'])
         self.uncertainty.pack(side='left', padx=6)
-        form.add('Tolerans / belirsizlik', spec)
+        form.add(t('Tolerans / belirsizlik'), spec)
 
-        ttk.Label(self.body, text='Ölçüm noktaları', style='Heading.TLabel').pack(anchor='w',
+        ttk.Label(self.body, text=t('Ölçüm noktaları'), style='Heading.TLabel').pack(anchor='w',
                                                                                    pady=(10, 2))
-        ttk.Label(self.body, text='Toleransı girilmemiş bir nokta tek başına uygunluğu kanıtlamaz. '
-                                 'Tolerans dışındaki tek bir nokta kaydın tamamını uygunsuz yapar.',
+        ttk.Label(self.body, text=t('Toleransı girilmemiş bir nokta tek başına uygunluğu kanıtlamaz. '
+                                 'Tolerans dışındaki tek bir nokta kaydın tamamını uygunsuz yapar.'),
                   style='Muted.TLabel', wraplength=820, justify='left').pack(anchor='w', pady=(0, 6))
         self.points = PointsGrid(self.body, CalibrationRepo.points(row), readonly=self.locked)
         self.points.pack(anchor='w', pady=(0, 10))
@@ -963,17 +965,17 @@ class CalibrationDialog(BaseDialog):
         result_form = w.FormGrid(self.body)
         result_form.pack(fill='x')
         self.result = result_form.add(
-            'Sonuç', w.Combo(result_form, [('', '- noktalardan türet -')] +
+            t('Sonuç'), w.Combo(result_form, [('', t('- noktalardan türet -'))] +
                              list(CalibrationRepo.RESULTS.items()), width=26, value=row['result']),
-            'Uygunsuz seçmek varlığı karantinaya alır ve etki değerlendirmesi açar.')
-        result_form.separator('Kullanım sınırlaması')
+            t('Uygunsuz seçmek varlığı karantinaya alır ve etki değerlendirmesi açar.'))
+        result_form.separator(t('Kullanım sınırlaması'))
         self.usage_limit = w.text_box(result_form, height=3)
         result_form.add_full(self.usage_limit)
         w.write_text(self.usage_limit, row['usage_limit'])
         result_form.add_full(ttk.Label(result_form,
-                                       text='Şartlı bir sonucun kapatılabilmesi için zorunludur.',
+                                       text=t('Şartlı bir sonucun kapatılabilmesi için zorunludur.'),
                                        style='Muted.TLabel'))
-        result_form.separator('Notlar')
+        result_form.separator(t('Notlar'))
         self.notes = w.text_box(result_form, height=4)
         result_form.add_full(self.notes)
         w.write_text(self.notes, row['notes'])
@@ -990,10 +992,10 @@ class CalibrationDialog(BaseDialog):
         self.history('calibration', self.record_id)
 
         if int(row['impact_id']):
-            self.button('Etki değerlendirmesi', self.open_impact, side='left')
+            self.button(t('Etki değerlendirmesi'), self.open_impact, side='left')
         if not self.locked:
             self.button('Sonucu kaydet', self.save, style='Accent.TButton')
-        self.button('Kapat', self.destroy)
+        self.button(t('Kapat'), self.destroy)
         self.show()
 
     def _build_transitions(self) -> None:
@@ -1002,19 +1004,19 @@ class CalibrationDialog(BaseDialog):
             return
         frame = ttk.Frame(self.body)
         frame.pack(fill='x', pady=(14, 4))
-        ttk.Label(frame, text='Sonraki duruma geç', style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(frame, text=t('Sonraki duruma geç'), style='Heading.TLabel').pack(anchor='w')
         bar = ttk.Frame(frame)
         bar.pack(fill='x', pady=(6, 0))
         for target in targets:
             ttk.Button(bar, text=states.label('calibration', target),
                        command=lambda t=target: self.transition(t)).pack(side='left', padx=(0, 6))
         if 'closed' in targets and self.row['result'] == 'fail':
-            ttk.Label(frame, text='Kapatma, etki değerlendirmesi kapanana kadar engelli.',
+            ttk.Label(frame, text=t('Kapatma, etki değerlendirmesi kapanana kadar engelli.'),
                       style='Muted.TLabel').pack(anchor='w', pady=(6, 0))
 
     def pick_certificate(self) -> None:
-        path = filedialog.askopenfilename(parent=self, title='Sertifika dosyası',
-                                          filetypes=[('PDF', '*.pdf'), ('Tüm dosyalar', '*.*')])
+        path = filedialog.askopenfilename(parent=self, title=t('Sertifika dosyası'),
+                                          filetypes=[('PDF', '*.pdf'), (t('Tüm dosyalar'), '*.*')])
         if path:
             self.certificate_path.delete(0, 'end')
             self.certificate_path.insert(0, path)
@@ -1029,7 +1031,7 @@ class CalibrationDialog(BaseDialog):
             else:
                 subprocess.Popen(['xdg-open', str(target)])
         except Exception as exc:
-            messagebox.showinfo('Sertifika', '%s\n\n(%s)' % (target, exc), parent=self)
+            messagebox.showinfo(t('Sertifika'), '%s\n\n(%s)' % (target, exc), parent=self)
 
     def collect(self) -> dict:
         return {
@@ -1052,16 +1054,16 @@ class CalibrationDialog(BaseDialog):
         data = self.collect()
         derived = v.evaluate_points(v.measurement_points(data['points']))
         if (data['result'] or derived['verdict']) == 'fail' and not messagebox.askyesno(
-                'Uygunsuz sonuç',
-                'Bu sonuç uygunsuz. Varlık karantinaya alınacak ve etki değerlendirmesi açılacak.\n\n'
-                'Devam edilsin mi?', parent=self):
+                t('Uygunsuz sonuç'),
+                t('Bu sonuç uygunsuz. Varlık karantinaya alınacak ve etki değerlendirmesi açılacak.\n\n'
+                'Devam edilsin mi?'), parent=self):
             return
         if self.run(lambda: CalibrationRepo.save_result(self.conn, self.record_id, data)):
-            self.finish('Sonuç kaydedildi.')
+            self.finish(t('Sonuç kaydedildi.'))
 
     def transition(self, target: str) -> None:
         if self.run(lambda: CalibrationRepo.transition(self.conn, self.record_id, target)):
-            self.finish('Kayıt %s durumuna alındı.' % states.label('calibration', target).lower())
+            self.finish(t('Kayıt %s durumuna alındı.') % states.label('calibration', target).lower())
 
     def open_impact(self) -> None:
         impact_id = int(self.row['impact_id'])
@@ -1079,14 +1081,14 @@ class ImpactDialog(BaseDialog):
     def __init__(self, app, impact_id):
         self.impact_id = int(impact_id)
         self.row = ImpactRepo.get(app.conn, self.impact_id)
-        super().__init__(app, 'Etki değerlendirmesi #%d' % self.impact_id)
+        super().__init__(app, t('Etki değerlendirmesi #%d') % self.impact_id)
         row = self.row
         self.closed = row['status'] == 'closed'
         self.set_badge(states.label('impact', row['status']), row['status'])
 
         asset_label = AssetRepo.label(self.conn, int(row['asset_id']))
-        self.warn('%s tolerans dışında ölçüm yaptı. %s ile %s arasında ölçtüğü her şey, bu '
-                  'değerlendirme bir karara bağlanana kadar şüphelidir.'
+        self.warn(t('%s tolerans dışında ölçüm yaptı. %s ile %s arasında ölçtüğü her şey, bu '
+                  'değerlendirme bir karara bağlanana kadar şüphelidir.')
                   % (asset_label, v.human(row['affected_from'], with_time=True) or '?',
                      v.human(row['affected_to'], with_time=True) or '?'))
 
@@ -1094,9 +1096,9 @@ class ImpactDialog(BaseDialog):
         if record:
             line = ttk.Frame(self.body)
             line.pack(fill='x', pady=(4, 0))
-            ttk.Label(line, text='Kaynak kayıt #%d' % record['id'], style='Muted.TLabel').pack(side='left')
+            ttk.Label(line, text=t('Kaynak kayıt #%d') % record['id'], style='Muted.TLabel').pack(side='left')
             if record['max_deviation'] is not None:
-                ttk.Label(line, text='   En büyük sapma: %g' % record['max_deviation'],
+                ttk.Label(line, text=t('   En büyük sapma: %g') % record['max_deviation'],
                           style='Muted.TLabel').pack(side='left')
 
         form = w.FormGrid(self.body)
@@ -1106,28 +1108,28 @@ class ImpactDialog(BaseDialog):
         self.affected_from.pack(side='left')
         self.affected_to = w.DateEntry(window, with_time=True, width=16)
         self.affected_to.pack(side='left', padx=(10, 0))
-        form.add('Etkilenen aralık', window,
-                 'Uygunluğu gerçekten kanıtlayan son kayda göre dolduruldu. Yalnızca kanıtla daraltın.')
+        form.add(t('Etkilenen aralık'), window,
+                 t('Uygunluğu gerçekten kanıtlayan son kayda göre dolduruldu. Yalnızca kanıtla daraltın.'))
         self.affected_from.set(row['affected_from'])
         self.affected_to.set(row['affected_to'])
 
-        form.separator('Etkilenen kapsam')
+        form.separator(t('Etkilenen kapsam'))
         self.scope = w.text_box(form, height=4)
         form.add_full(self.scope)
         w.write_text(self.scope, row['affected_scope'])
-        ttk.Label(self.body, text='Bu aralıkta hangi hatlar, ürünler ve partiler bu cihazdan geçti.',
+        ttk.Label(self.body, text=t('Bu aralıkta hangi hatlar, ürünler ve partiler bu cihazdan geçti.'),
                   style='Muted.TLabel').pack(anchor='w')
 
         form2 = w.FormGrid(self.body)
         form2.pack(fill='x')
-        form2.separator('Değerlendirme')
+        form2.separator(t('Değerlendirme'))
         self.evaluation = w.text_box(form2, height=6)
         form2.add_full(self.evaluation)
         w.write_text(self.evaluation, row['evaluation'])
-        self.decision = form2.add('Karar', w.Combo(form2, [('', '- seçin -')] +
+        self.decision = form2.add(t('Karar'), w.Combo(form2, [('', t('- seçin -'))] +
                                                    list(ImpactRepo.DECISIONS.items()), width=30,
                                                    value=row['decision']))
-        form2.separator('Düzeltici faaliyet')
+        form2.separator(t('Düzeltici faaliyet'))
         self.corrective = w.text_box(form2, height=4)
         form2.add_full(self.corrective)
         w.write_text(self.corrective, row['corrective_action'])
@@ -1137,16 +1139,16 @@ class ImpactDialog(BaseDialog):
                 widget.configure(state='disabled')
             for box in (self.scope, self.evaluation, self.corrective):
                 box.configure(state='disabled')
-            ttk.Label(self.body, text='%s tarihinde %s tarafından kapatıldı.'
+            ttk.Label(self.body, text=t('%s tarihinde %s tarafından kapatıldı.')
                       % (v.human(row['closed_at'], with_time=True), row['closed_by'] or '—'),
                       style='Muted.TLabel').pack(anchor='w', pady=(8, 0))
 
         self.history('impact', self.impact_id)
 
         if not self.closed:
-            self.button('Değerlendirmeyi kapat', self.close_assessment, style='Accent.TButton')
-            self.button('Taslağı kaydet', self.save_draft)
-        self.button('Kapat', self.destroy)
+            self.button(t('Değerlendirmeyi kapat'), self.close_assessment, style='Accent.TButton')
+            self.button(t('Taslağı kaydet'), self.save_draft)
+        self.button(t('Kapat'), self.destroy)
         self.show()
 
     def collect(self) -> dict:
@@ -1161,15 +1163,15 @@ class ImpactDialog(BaseDialog):
 
     def save_draft(self) -> None:
         if self.run(lambda: ImpactRepo.save(self.conn, self.impact_id, self.collect())):
-            self.finish('Etki değerlendirmesi kaydedildi.')
+            self.finish(t('Etki değerlendirmesi kaydedildi.'))
 
     def close_assessment(self) -> None:
-        if not messagebox.askyesno('Onay', 'Değerlendirme kapatılsın mı? Kapatma varlığı '
-                                           'karantinadan çıkarır ve kayıt düzenlenemez olur.',
+        if not messagebox.askyesno(t('Onay'), t('Değerlendirme kapatılsın mı? Kapatma varlığı '
+                                           'karantinadan çıkarır ve kayıt düzenlenemez olur.'),
                                    parent=self):
             return
         if self.run(lambda: ImpactRepo.close(self.conn, self.impact_id, self.collect())):
-            self.finish('Etki değerlendirmesi kapatıldı.')
+            self.finish(t('Etki değerlendirmesi kapatıldı.'))
 
 
 # ====================================================================== yardimci
@@ -1194,7 +1196,7 @@ def _ask_text(parent, title: str, prompt: str):
     bar = ttk.Frame(box, padding=(16, 12))
     bar.pack(fill='x')
     ttk.Button(bar, text='Tamam', style='Accent.TButton', command=accept).pack(side='right')
-    ttk.Button(bar, text='Vazgeç', command=box.destroy).pack(side='right', padx=6)
+    ttk.Button(bar, text=t('Vazgeç'), command=box.destroy).pack(side='right', padx=6)
     box.bind('<Return>', lambda _e: accept())
     box.bind('<Escape>', lambda _e: box.destroy())
     box.update_idletasks()
@@ -1219,7 +1221,7 @@ class WelcomeDialog(tk.Toplevel):
         self.app = app
         self.choice = None
         p = theme.palette()
-        self.title('Mihenk\'e hoş geldiniz')
+        self.title(t('Mihenk\'e hoş geldiniz'))
         self.configure(background=p['bg'])
         self.transient(app.root)
         self.resizable(False, False)
@@ -1227,41 +1229,41 @@ class WelcomeDialog(tk.Toplevel):
         head = ttk.Frame(self, padding=(28, 24, 28, 6))
         head.pack(fill='x')
         ttk.Label(head, text='Mihenk', style='Title.TLabel').pack(anchor='w')
-        ttk.Label(head, text='Ekipman bakımı, kalibrasyon ve doğrulama takibi',
+        ttk.Label(head, text=t('Ekipman bakımı, kalibrasyon ve doğrulama takibi'),
                   style='Muted.TLabel').pack(anchor='w', pady=(2, 0))
 
         body = ttk.Frame(self, padding=(28, 6, 28, 10))
         body.pack(fill='both', expand=True)
-        ttk.Label(body, text='Kütük şu anda boş. İki şekilde başlayabilirsiniz.',
+        ttk.Label(body, text=t('Kütük şu anda boş. İki şekilde başlayabilirsiniz.'),
                   style='TLabel').pack(anchor='w', pady=(0, 14))
 
         demo = ttk.Frame(body, style='Card.TFrame', padding=(16, 14))
         demo.pack(fill='x', pady=(0, 10))
-        ttk.Label(demo, text='Demo veriyle başla', style='SurfaceHeading.TLabel').pack(anchor='w')
-        ttk.Label(demo, text='Bir dolum hattının sekiz varlığı, yedi planı, dört talebi ve üç '
+        ttk.Label(demo, text=t('Demo veriyle başla'), style='SurfaceHeading.TLabel').pack(anchor='w')
+        ttk.Label(demo, text=t('Bir dolum hattının sekiz varlığı, yedi planı, dört talebi ve üç '
                              'kalibrasyon kaydı kurulur. Kayıtlardan biri bilerek uygunsuzdur: '
                              'varlığı karantinaya almış ve bir etki değerlendirmesi açmıştır, '
                              'böylece uygulamanın asıl kuralını çalışırken görürsünüz.\n\n'
                              'Bütün demo varlıklarının kodu DEMO- ile başlar ve Ayarlar '
-                             'ekranından tek tıkla temizlenir; kendi kayıtlarınıza dokunmaz.',
+                             'ekranından tek tıkla temizlenir; kendi kayıtlarınıza dokunmaz.'),
                   style='SurfaceMuted.TLabel', wraplength=520, justify='left').pack(anchor='w',
                                                                                      pady=(6, 0))
 
         empty = ttk.Frame(body, style='Card.TFrame', padding=(16, 14))
         empty.pack(fill='x')
-        ttk.Label(empty, text='Boş başla', style='SurfaceHeading.TLabel').pack(anchor='w')
-        ttk.Label(empty, text='Doğrudan kendi ekipmanınızı girersiniz. Önce Varlıklar ekranından '
+        ttk.Label(empty, text=t('Boş başla'), style='SurfaceHeading.TLabel').pack(anchor='w')
+        ttk.Label(empty, text=t('Doğrudan kendi ekipmanınızı girersiniz. Önce Varlıklar ekranından '
                               'bir varlık, sonra ona bir plan ekleyin; planlar vadesi geldiğinde '
-                              'iş emri ya da kalibrasyon kaydı üretir.',
+                              'iş emri ya da kalibrasyon kaydı üretir.'),
                   style='SurfaceMuted.TLabel', wraplength=520, justify='left').pack(anchor='w',
                                                                                      pady=(6, 0))
 
         foot = ttk.Frame(self, padding=(28, 14, 28, 20))
         foot.pack(fill='x')
-        ttk.Button(foot, text='Demo veriyle başla', style='Accent.TButton',
+        ttk.Button(foot, text=t('Demo veriyle başla'), style='Accent.TButton',
                    command=self.start_demo).pack(side='right')
-        ttk.Button(foot, text='Boş başla', command=self.start_empty).pack(side='right', padx=8)
-        ttk.Label(foot, text='Bu pencere yalnızca ilk açılışta çıkar.',
+        ttk.Button(foot, text=t('Boş başla'), command=self.start_empty).pack(side='right', padx=8)
+        ttk.Label(foot, text=t('Bu pencere yalnızca ilk açılışta çıkar.'),
                   style='Muted.TLabel').pack(side='left')
 
         self.bind('<Escape>', lambda _e: self.start_empty())
@@ -1280,12 +1282,12 @@ class WelcomeDialog(tk.Toplevel):
         try:
             report = seed.seed(self.app.conn)
         except Exception as exc:
-            messagebox.showerror('Demo veri kurulamadı', str(exc), parent=self)
+            messagebox.showerror(t('Demo veri kurulamadı'), str(exc), parent=self)
             self._finish('error')
             return
         self._finish('demo')
         if report.get('ok'):
-            messagebox.showinfo('Demo veri kuruldu', '\n\n'.join(report['lines']),
+            messagebox.showinfo(t('Demo veri kuruldu'), '\n\n'.join(report['lines']),
                                 parent=self.app.root)
 
     def start_empty(self) -> None:
@@ -1298,6 +1300,77 @@ class WelcomeDialog(tk.Toplevel):
         self.app.refresh()
 
 
+class DisclaimerDialog(tk.Toplevel):
+    """Ilk acilista cikan sorumluluk reddi.
+
+    Karsilama penceresinden once gelir ve onaylanmadan kapanmaz: kapatma
+    dugmesi ve Escape uygulamadan cikar. Ucretsiz dagitilan bir yazilimda
+    kullanicinin neyi kabul ettigini bir kez gormesi, sonradan "yazmiyordu"
+    demesinden iyidir.
+
+    Kurulum betigi de ayni metni yaziyor, ama EXE elden ele de gecebilir;
+    o yuzden onay burada da soruluyor.
+    """
+
+    def __init__(self, app):
+        super().__init__(app.root)
+        self.app = app
+        self.agreed = False
+        p = theme.palette()
+        self.title(legal.heading())
+        self.configure(background=p['bg'])
+        self.transient(app.root)
+        self.resizable(False, False)
+
+        head = ttk.Frame(self, padding=(28, 24, 28, 6))
+        head.pack(fill='x')
+        ttk.Label(head, text=legal.heading(), style='Title.TLabel').pack(anchor='w')
+        ttk.Label(head, text=t('Mihenk ücretsizdir. Kullanmadan önce lütfen okuyun.'),
+                  style='Muted.TLabel').pack(anchor='w', pady=(2, 0))
+
+        body = ttk.Frame(self, padding=(28, 6, 28, 10))
+        body.pack(fill='both', expand=True)
+        card = ttk.Frame(body, style='Card.TFrame', padding=(16, 14))
+        card.pack(fill='both', expand=True)
+        ttk.Label(card, text=legal.text(), style='SurfaceMuted.TLabel',
+                  wraplength=560, justify='left').pack(anchor='w')
+
+        self.ticked = tk.BooleanVar(value=False)
+        check = ttk.Checkbutton(body, variable=self.ticked, command=self._sync,
+                                text=t('Okudum, kabul ediyorum.'))
+        check.pack(anchor='w', pady=(14, 0))
+
+        foot = ttk.Frame(self, padding=(28, 14, 28, 20))
+        foot.pack(fill='x')
+        self.ok = ttk.Button(foot, text=t('Kabul ediyorum'), style='Accent.TButton',
+                             state='disabled', command=self._accept)
+        self.ok.pack(side='right')
+        ttk.Button(foot, text=t('Kabul etmiyorum, çık'),
+                   command=self._decline).pack(side='right', padx=8)
+
+        self.bind('<Escape>', lambda _e: self._decline())
+        self.protocol('WM_DELETE_WINDOW', self._decline)
+        self.update_idletasks()
+        parent = app.root
+        x = parent.winfo_rootx() + max(0, (parent.winfo_width() - self.winfo_width()) // 2)
+        y = parent.winfo_rooty() + 70
+        self.geometry('+%d+%d' % (x, y))
+        self.grab_set()
+        self.focus_set()
+
+    def _sync(self) -> None:
+        self.ok.configure(state='normal' if self.ticked.get() else 'disabled')
+
+    def _accept(self) -> None:
+        legal.accept()
+        self.agreed = True
+        self.destroy()
+
+    def _decline(self) -> None:
+        self.agreed = False
+        self.destroy()
+
+
 # ====================================================================== kontrol listesi
 class ChecklistEditor(ttk.Frame):
     """Plan sablonunun adim listesi: satir ekle, kaldir, sirala."""
@@ -1305,13 +1378,13 @@ class ChecklistEditor(ttk.Frame):
     def __init__(self, parent, items=None):
         super().__init__(parent)
         self.rows = []
-        headers = ('Sıra', 'Adım', 'Ölçüm ister', 'Birim', 'Kritik', '')
+        headers = (t('Sıra'), t('Adım'), t('Ölçüm ister'), t('Birim'), t('Kritik'), '')
         for index, text in enumerate(headers):
             ttk.Label(self, text=text, style='Muted.TLabel').grid(
                 row=0, column=index, sticky='w', padx=3, pady=(0, 4))
         for item in (items or []):
             self.add_row(item)
-        self.add_button = ttk.Button(self, text='Adım ekle', style='Ghost.TButton',
+        self.add_button = ttk.Button(self, text=t('Adım ekle'), style='Ghost.TButton',
                                      command=lambda: self.add_row({}))
         self._place_button()
 
@@ -1335,7 +1408,7 @@ class ChecklistEditor(ttk.Frame):
 
         entry = {'order': order, 'text': text, 'needs': needs, 'needs_box': needs_box,
                  'unit': unit, 'critical': critical, 'critical_box': critical_box}
-        remove = ttk.Button(self, text='Kaldır', style='Ghost.TButton', width=7,
+        remove = ttk.Button(self, text=t('Kaldır'), style='Ghost.TButton', width=7,
                             command=lambda e=entry: self.remove_row(e))
         entry['remove'] = remove
         for column, widget in enumerate((order, text, needs_box, unit, critical_box, remove)):
@@ -1377,16 +1450,16 @@ class ChecklistPanel(ttk.Frame):
         self.rows = []
         items = WorkOrderChecklist.items(self.conn, self.work_order_id)
         if not items:
-            ttk.Label(self, text='Bu iş emrinde kontrol listesi yok. Plana bir şablon '
-                                 'tanımlarsanız sonraki iş emirleri onu taşır.',
+            ttk.Label(self, text=t('Bu iş emrinde kontrol listesi yok. Plana bir şablon '
+                                 'tanımlarsanız sonraki iş emirleri onu taşır.'),
                       style='Muted.TLabel', wraplength=700, justify='left').grid(
                 row=0, column=0, columnspan=6, sticky='w')
             if not self.readonly:
-                ttk.Button(self, text='Adım ekle', style='Ghost.TButton',
+                ttk.Button(self, text=t('Adım ekle'), style='Ghost.TButton',
                            command=self.add_item).grid(row=1, column=0, sticky='w', pady=(8, 0))
             return
 
-        headers = ('Adım', 'Durum', 'Değer', 'Birim', 'Not', '')
+        headers = (t('Adım'), t('Durum'), t('Değer'), t('Birim'), t('Not'), '')
         for index, text in enumerate(headers):
             ttk.Label(self, text=text, style='Muted.TLabel').grid(
                 row=0, column=index, sticky='w', padx=3, pady=(0, 4))
@@ -1415,10 +1488,10 @@ class ChecklistPanel(ttk.Frame):
         if not self.readonly:
             bar = ttk.Frame(self)
             bar.grid(row=len(items) + 1, column=0, columnspan=6, sticky='w', pady=(8, 0))
-            ttk.Button(bar, text='Listeyi kaydet', command=self.save).pack(side='left')
-            ttk.Button(bar, text='Tümünü uygun işaretle', style='Ghost.TButton',
+            ttk.Button(bar, text=t('Listeyi kaydet'), command=self.save).pack(side='left')
+            ttk.Button(bar, text=t('Tümünü uygun işaretle'), style='Ghost.TButton',
                        command=self.mark_all).pack(side='left', padx=6)
-            ttk.Button(bar, text='Adım ekle', style='Ghost.TButton',
+            ttk.Button(bar, text=t('Adım ekle'), style='Ghost.TButton',
                        command=self.add_item).pack(side='left')
 
     def collect(self) -> list:
@@ -1429,7 +1502,7 @@ class ChecklistPanel(ttk.Frame):
         try:
             WorkOrderChecklist.save_all(self.conn, self.work_order_id, self.collect())
         except v.MihenkError as exc:
-            messagebox.showwarning('Kabul edilmedi', str(exc), parent=self)
+            messagebox.showwarning(t('Kabul edilmedi'), str(exc), parent=self)
             return False
         self.build()
         return True
@@ -1440,13 +1513,13 @@ class ChecklistPanel(ttk.Frame):
                 row['state'].set_key('ok')
 
     def add_item(self) -> None:
-        text = _ask_text(self.winfo_toplevel(), 'Adım ekle', 'Sahada çıkan adımı yazın:')
+        text = _ask_text(self.winfo_toplevel(), t('Adım ekle'), t('Sahada çıkan adımı yazın:'))
         if not text:
             return
         try:
             WorkOrderChecklist.add_item(self.conn, self.work_order_id, text)
         except v.MihenkError as exc:
-            messagebox.showwarning('Kabul edilmedi', str(exc), parent=self)
+            messagebox.showwarning(t('Kabul edilmedi'), str(exc), parent=self)
             return
         self.build()
 
@@ -1469,59 +1542,59 @@ class PartDialog(BaseDialog):
     def __init__(self, app, part_id=None):
         self.part_id = int(part_id) if part_id else 0
         self.row = PartRepo.get(app.conn, self.part_id) if self.part_id else None
-        super().__init__(app, 'Parçayı düzenle' if self.row else 'Parça ekle')
+        super().__init__(app, t('Parçayı düzenle') if self.row else t('Parça ekle'))
         row = self.row or {}
 
         form = w.FormGrid(self.body)
         form.pack(fill='x', pady=(4, 10))
-        self.code = form.add('Kod', ttk.Entry(form, width=26))
+        self.code = form.add(t('Kod'), ttk.Entry(form, width=26))
         self.code.insert(0, row.get('code', ''))
-        self.name = form.add('Ad', ttk.Entry(form, width=46))
+        self.name = form.add(t('Ad'), ttk.Entry(form, width=46))
         self.name.insert(0, row.get('name', ''))
-        self.unit = form.add('Birim', w.Combo(form, [(u, u) for u in PART_UNITS], width=14,
+        self.unit = form.add(t('Birim'), w.Combo(form, [(u, u) for u in PART_UNITS], width=14,
                                               value=row.get('unit', 'adet')))
 
         stock_line = ttk.Frame(form)
         if self.row:
             ttk.Label(stock_line, text='%s %s' % (_num(row.get('stock')), row.get('unit', '')),
                       style='Heading.TLabel').pack(side='left')
-            ttk.Label(stock_line, text='  (stok yalnızca hareketle değişir)',
+            ttk.Label(stock_line, text=t('  (stok yalnızca hareketle değişir)'),
                       style='Muted.TLabel').pack(side='left')
             self.opening = None
         else:
             self.opening = ttk.Entry(stock_line, width=10)
             self.opening.insert(0, '0')
             self.opening.pack(side='left')
-            ttk.Label(stock_line, text='  açılış stoğu', style='Muted.TLabel').pack(side='left')
-        form.add('Stok', stock_line)
+            ttk.Label(stock_line, text=t('  açılış stoğu'), style='Muted.TLabel').pack(side='left')
+        form.add(t('Stok'), stock_line)
 
-        self.min_stock = form.add('Asgari stok', ttk.Entry(form, width=10),
-                                  'Bu seviyenin altına düşünce panoda uyarı çıkar. '
-                                  '0 yazarsanız uyarı verilmez.')
+        self.min_stock = form.add(t('Asgari stok'), ttk.Entry(form, width=10),
+                                  t('Bu seviyenin altına düşünce panoda uyarı çıkar. '
+                                  '0 yazarsanız uyarı verilmez.'))
         self.min_stock.insert(0, _num(row.get('min_stock', 0)))
-        self.location = form.add('Konum', ttk.Entry(form, width=36))
+        self.location = form.add(t('Konum'), ttk.Entry(form, width=36))
         self.location.insert(0, row.get('location_text', ''))
-        self.supplier = form.add('Tedarikçi', ttk.Entry(form, width=36))
+        self.supplier = form.add(t('Tedarikçi'), ttk.Entry(form, width=36))
         self.supplier.insert(0, row.get('supplier', ''))
-        self.unit_cost = form.add('Birim maliyet', ttk.Entry(form, width=12))
+        self.unit_cost = form.add(t('Birim maliyet'), ttk.Entry(form, width=12))
         self.unit_cost.insert(0, _num(row.get('unit_cost', 0)))
         self.active = tk.BooleanVar(value=bool(row.get('is_active', 1)))
-        form.add('Aktif', ttk.Checkbutton(form, text='Listelerde görünsün', variable=self.active))
-        form.separator('Notlar')
+        form.add(t('Aktif'), ttk.Checkbutton(form, text=t('Listelerde görünsün'), variable=self.active))
+        form.separator(t('Notlar'))
         self.notes = w.text_box(form, height=3)
         form.add_full(self.notes)
         w.write_text(self.notes, row.get('notes', ''))
 
         if self.row:
             self._build_movements()
-            self.button('Sil', self.delete, style='Danger.TButton', side='left')
-        self.button('Kaydet', self.save, style='Accent.TButton')
-        self.button('Kapat', self.destroy)
+            self.button(t('Sil'), self.delete, style='Danger.TButton', side='left')
+        self.button(t('Kaydet'), self.save, style='Accent.TButton')
+        self.button(t('Kapat'), self.destroy)
         self.show()
 
     def _build_movements(self) -> None:
         ttk.Separator(self.body).pack(fill='x', pady=12)
-        ttk.Label(self.body, text='Stok hareketi', style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(self.body, text=t('Stok hareketi'), style='Heading.TLabel').pack(anchor='w')
         bar = ttk.Frame(self.body)
         bar.pack(fill='x', pady=(8, 4))
         self.move_amount = ttk.Entry(bar, width=10)
@@ -1531,16 +1604,16 @@ class PartDialog(BaseDialog):
         self.move_reason.pack(side='left', padx=6)
         self.move_note = ttk.Entry(bar, width=24)
         self.move_note.pack(side='left', padx=(0, 6))
-        ttk.Button(bar, text='Hareketi kaydet', command=self.record_movement).pack(side='left')
-        ttk.Label(self.body, text='Giriş için artı, çıkış için eksi bir sayı yazın. '
-                                  'İş emrinde kullanım, iş emri penceresinden işlenir.',
+        ttk.Button(bar, text=t('Hareketi kaydet'), command=self.record_movement).pack(side='left')
+        ttk.Label(self.body, text=t('Giriş için artı, çıkış için eksi bir sayı yazın. '
+                                  'İş emrinde kullanım, iş emri penceresinden işlenir.'),
                   style='Muted.TLabel').pack(anchor='w')
 
         rows = PartRepo.movements(self.conn, part_id=self.part_id, limit=40)
         if rows:
-            table = w.DataTable(self.body, [('created_at', 'Zaman', 140), ('delta', 'Değişim', 90, 'e'),
-                                            ('balance', 'Bakiye', 90, 'e'), ('reason', 'Gerekçe', 220),
-                                            ('wo', 'İş emri', 80), ('actor', 'Kullanıcı', 120)],
+            table = w.DataTable(self.body, [('created_at', t('Zaman'), 140), ('delta', t('Değişim'), 90, 'e'),
+                                            ('balance', t('Bakiye'), 90, 'e'), ('reason', t('Gerekçe'), 220),
+                                            ('wo', t('İş emri'), 80), ('actor', t('Kullanıcı'), 120)],
                                 height=min(8, len(rows)))
             table.pack(fill='both', expand=True, pady=(8, 0))
             table.set_rows(rows, values=lambda r: (
@@ -1562,22 +1635,22 @@ class PartDialog(BaseDialog):
         data = self.collect()
         if self.part_id:
             if self.run(lambda: PartRepo.update(self.conn, self.part_id, data)):
-                self.finish('Parça kaydedildi.')
+                self.finish(t('Parça kaydedildi.'))
         elif self.run(lambda: PartRepo.create(self.conn, data)):
-            self.finish('Parça oluşturuldu.')
+            self.finish(t('Parça oluşturuldu.'))
 
     def record_movement(self) -> None:
         amount = self.move_amount.get()
         reason = self.move_reason.key()
         note = self.move_note.get()
         if self.run(lambda: PartRepo.move(self.conn, self.part_id, amount, reason, 0, note)):
-            self.finish('Stok hareketi kaydedildi.')
+            self.finish(t('Stok hareketi kaydedildi.'))
 
     def delete(self) -> None:
-        if not messagebox.askyesno('Onay', 'Bu parça silinsin mi?', parent=self):
+        if not messagebox.askyesno(t('Onay'), t('Bu parça silinsin mi?'), parent=self):
             return
         if self.run(lambda: PartRepo.delete(self.conn, self.part_id)):
-            self.finish('Parça silindi.')
+            self.finish(t('Parça silindi.'))
 
 
 def _num(value) -> str:
@@ -1595,13 +1668,13 @@ class ExportDialog(BaseDialog):
     height = 620
 
     def __init__(self, app, days=365):
-        super().__init__(app, 'Dışa aktar')
+        super().__init__(app, t('Dışa aktar'))
         self.days = int(days or 0)
 
-        ttk.Label(self.body, text='Hangi tablolar', style='Heading.TLabel').pack(anchor='w',
+        ttk.Label(self.body, text=t('Hangi tablolar'), style='Heading.TLabel').pack(anchor='w',
                                                                                   pady=(4, 2))
-        ttk.Label(self.body, text='Excel çıktısında her tablo ayrı bir sayfaya, CSV çıktısında '
-                                  'ayrı bir dosyaya gider.',
+        ttk.Label(self.body, text=t('Excel çıktısında her tablo ayrı bir sayfaya, CSV çıktısında '
+                                  'ayrı bir dosyaya gider.'),
                   style='Muted.TLabel', wraplength=620, justify='left').pack(anchor='w',
                                                                               pady=(0, 8))
         box = ttk.Frame(self.body)
@@ -1615,24 +1688,24 @@ class ExportDialog(BaseDialog):
 
         bar = ttk.Frame(self.body)
         bar.pack(fill='x', pady=(10, 0))
-        ttk.Button(bar, text='Hepsini seç', style='Ghost.TButton',
+        ttk.Button(bar, text=t('Hepsini seç'), style='Ghost.TButton',
                    command=lambda: self._set_all(True)).pack(side='left')
-        ttk.Button(bar, text='Hiçbirini seçme', style='Ghost.TButton',
+        ttk.Button(bar, text=t('Hiçbirini seçme'), style='Ghost.TButton',
                    command=lambda: self._set_all(False)).pack(side='left', padx=6)
 
         ttk.Separator(self.body).pack(fill='x', pady=14)
-        ttk.Label(self.body, text='Sertifika dosyaları', style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(self.body, text=t('Sertifika dosyaları'), style='Heading.TLabel').pack(anchor='w')
         stored = sum(1 for r in CalibrationRepo.query(self.conn)
                      if export.certificate_exists(r['certificate_path']))
         missing = sum(1 for r in CalibrationRepo.query(self.conn)
                       if r['certificate_path'] and not export.certificate_exists(r['certificate_path']))
-        text = 'Veri klasöründe %d sertifika dosyası duruyor.' % stored
+        text = t('Veri klasöründe %d sertifika dosyası duruyor.') % stored
         if missing:
-            text += '  %d kayıtta dosya yolu var ama dosya bulunamıyor.' % missing
+            text += t('  %d kayıtta dosya yolu var ama dosya bulunamıyor.') % missing
         ttk.Label(self.body, text=text,
                   style='Alert.TLabel' if missing else 'Muted.TLabel').pack(anchor='w', pady=(4, 0))
         self.copy_certificates = tk.BooleanVar(value=bool(stored))
-        ttk.Checkbutton(self.body, text='Sertifika dosyalarını da çıktı klasörüne kopyala',
+        ttk.Checkbutton(self.body, text=t('Sertifika dosyalarını da çıktı klasörüne kopyala'),
                         variable=self.copy_certificates).pack(anchor='w', pady=(6, 0))
 
         ttk.Separator(self.body).pack(fill='x', pady=14)
@@ -1640,10 +1713,10 @@ class ExportDialog(BaseDialog):
                                 justify='left')
         self.status.pack(anchor='w')
 
-        self.button('Excel kitabı', self.to_xlsx, style='Accent.TButton')
-        self.button('CSV klasörü', self.to_csv)
-        self.button('Yazdırılabilir rapor', self.to_html)
-        self.button('Kapat', self.destroy, side='left')
+        self.button(t('Excel kitabı'), self.to_xlsx, style='Accent.TButton')
+        self.button(t('CSV klasörü'), self.to_csv)
+        self.button(t('Yazdırılabilir rapor'), self.to_html)
+        self.button(t('Kapat'), self.destroy, side='left')
         self.show()
 
     def _set_all(self, value: bool) -> None:
@@ -1671,12 +1744,12 @@ class ExportDialog(BaseDialog):
     def to_xlsx(self) -> None:
         keys = self.keys()
         if not keys:
-            messagebox.showinfo('Seçim yok', 'En az bir tablo seçin.', parent=self)
+            messagebox.showinfo(t('Seçim yok'), t('En az bir tablo seçin.'), parent=self)
             return
         path = filedialog.asksaveasfilename(
-            parent=self, title='Excel kitabı', defaultextension='.xlsx',
+            parent=self, title=t('Excel kitabı'), defaultextension='.xlsx',
             initialfile=export.default_name('mihenk-kayitlar', '.xlsx'),
-            initialdir=str(store.exports_dir()), filetypes=[('Excel kitabı', '*.xlsx')])
+            initialdir=str(store.exports_dir()), filetypes=[(t('Excel kitabı'), '*.xlsx')])
         if not path:
             return
         made = {}
@@ -1691,9 +1764,9 @@ class ExportDialog(BaseDialog):
     def to_csv(self) -> None:
         keys = self.keys()
         if not keys:
-            messagebox.showinfo('Seçim yok', 'En az bir tablo seçin.', parent=self)
+            messagebox.showinfo(t('Seçim yok'), t('En az bir tablo seçin.'), parent=self)
             return
-        folder = filedialog.askdirectory(parent=self, title='CSV klasörü',
+        folder = filedialog.askdirectory(parent=self, title=t('CSV klasörü'),
                                          initialdir=str(store.exports_dir()))
         if not folder:
             return
@@ -1711,9 +1784,9 @@ class ExportDialog(BaseDialog):
 
     def to_html(self) -> None:
         path = filedialog.asksaveasfilename(
-            parent=self, title='Yazdırılabilir rapor', defaultextension='.html',
+            parent=self, title=t('Yazdırılabilir rapor'), defaultextension='.html',
             initialfile=export.default_name('mihenk-rapor', '.html'),
-            initialdir=str(store.exports_dir()), filetypes=[('HTML raporu', '*.html')])
+            initialdir=str(store.exports_dir()), filetypes=[(t('HTML raporu'), '*.html')])
         if not path:
             return
         made = {}
@@ -1727,13 +1800,13 @@ class ExportDialog(BaseDialog):
 
     def _done(self, made: dict, open_it=False) -> None:
         path = made.get('path')
-        text = 'Hazır: %s' % path
+        text = t('Hazır: %s') % path
         if made.get('files'):
             text += '  (%d dosya)' % made['files']
         if made.get('certificates'):
-            text += '  ·  %d sertifika kopyalandı' % made['certificates']
+            text += t('  ·  %d sertifika kopyalandı') % made['certificates']
         self.status.configure(text=text)
-        self.app.toast('Dışa aktarıldı: %s' % pathlib.Path(str(path)).name)
+        self.app.toast(t('Dışa aktarıldı: %s') % pathlib.Path(str(path)).name)
         if open_it and path:
             _open_path(path, self)
 
@@ -1748,4 +1821,4 @@ def _open_path(path, parent=None) -> None:
         else:
             subprocess.Popen(['xdg-open', str(path)])
     except Exception as exc:
-        messagebox.showinfo('Dosya', '%s\n\n(%s)' % (path, exc), parent=parent)
+        messagebox.showinfo(t('Dosya'), '%s\n\n(%s)' % (path, exc), parent=parent)

@@ -12,6 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import mihenk_core as core
 import mihenk_db as db
+import mihenk_legal as legal
 import mihenk_scheduler as scheduler
 import mihenk_seed as seed
 import mihenk_store as store
@@ -22,18 +23,20 @@ from mihenk_repo import AssetRepo, CalibrationRepo, ImpactRepo, WorkOrderRepo
 from mihenk_screens import (AssetsScreen, CalibrationsScreen, DashboardScreen, ImpactsScreen,
                             PartsScreen, PlansScreen, ReportsScreen, RequestsScreen, Screen,
                             WorkOrdersScreen)
+import mihenk_i18n as i18n
+from mihenk_i18n import t
 
 NAV = (
-    ('dashboard', 'Pano'),
-    ('assets', 'Varlıklar'),
-    ('plans', 'Planlar'),
-    ('requests', 'Talepler'),
-    ('work_orders', 'İş emirleri'),
-    ('calibrations', 'Kalibrasyon'),
-    ('impacts', 'Etki değerlendirmeleri'),
-    ('parts', 'Yedek parçalar'),
-    ('reports', 'Raporlar'),
-    ('settings', 'Ayarlar'),
+    ('dashboard', t('Pano')),
+    ('assets', t('Varlıklar')),
+    ('plans', t('Planlar')),
+    ('requests', t('Talepler')),
+    ('work_orders', t('İş emirleri')),
+    ('calibrations', t('Kalibrasyon')),
+    ('impacts', t('Etki değerlendirmeleri')),
+    ('parts', t('Yedek parçalar')),
+    ('reports', t('Raporlar')),
+    ('settings', t('Ayarlar')),
 )
 
 # Acik duran uygulamanin yeni surumu ne siklikta yoklayacagi. Agi yoran sey bu
@@ -41,34 +44,42 @@ NAV = (
 UPDATE_POLL_MS = 60 * 60 * 1000
 
 VERSIONS = (
+    {'version': '3.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
+     'summary': t('İngilizce arayüz: menü, ekranlar, pencereler, hata iletileri, demo veri ve '
+                'yazdırılabilir rapor iki dilde. Dil, Ayarlar ekranından seçilir ve uygulama '
+                'yeniden açıldığında geçerli olur; veritabanına yazılan durum ve birim '
+                'anahtarları her iki dilde de aynı kalır, böylece dil değiştirmek kayıtları '
+                'bozmaz. Uygulama ücretsiz yayınlandığı için ilk kurulumda ve ilk açılışta '
+                'sorumluluk reddi gösterilip onaylanıyor.')},
+    {'version': '2.2.0', 'date': '2026-11-25', 'kind': 'MINOR',
+     'summary': t('Güncelleyici başlatıldıktan sonra uygulama artık kapanıyor. Önceki sürümde '
+                'kapanmadığı için güncelleyici boşuna bekliyor, indirilen dosyayı kilitli '
+                'tutuyor ve ikinci deneme "erişim engellendi" ile düşüyordu.')},
     {'version': '2.1.0', 'date': '2026-11-25', 'kind': 'MINOR',
-     'summary': 'Güncelleme iki yerden kırıktı, ikisi de düzeldi: açık duran uygulama artık '
-                'yeni sürümü görüyor (denetim çalışırken de yineleniyor), ve güncelleyici '
-                'başlatıldıktan sonra uygulama kapanıyor. Önceki sürümde kapanmadığı için '
-                'güncelleyici boşuna bekliyor, indirilen dosyayı kilitli tutuyor ve ikinci '
-                'deneme "erişim engellendi" ile düşüyordu.'},
+     'summary': t('Açık duran uygulama yeni sürümü görüyor: güncelleme denetimi yalnızca '
+                'açılışta değil, uygulama çalışırken saatte bir yineleniyor.')},
     {'version': '2.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
-     'summary': 'Modern görünüm (ttkbootstrap) ve dört yeni yetenek: plana bağlı kontrol listesi '
+     'summary': t('Modern görünüm (ttkbootstrap) ve dört yeni yetenek: plana bağlı kontrol listesi '
                 'şablonları ve iş emrinde işaretleme, yedek parça kütüğü ile stok hareketleri, '
                 'plan uyumu / MTBF / MTTR / duruş eğilimi / sapma geçmişi göstergeleri, '
                 've denetime hazır çıktı (Excel, CSV, yazdırılabilir rapor, veri klasöründe '
-                'saklanan sertifika dosyaları).'},
+                'saklanan sertifika dosyaları).')},
     {'version': '1.1.0', 'date': '2026-11-25', 'kind': 'MINOR',
-     'summary': 'İlk açılışta demo veri ya da boş başlangıç soran karşılama penceresi, boş '
-                'listelerde yönlendirme ve açılışta sessiz güncelleme denetimi.'},
+     'summary': t('İlk açılışta demo veri ya da boş başlangıç soran karşılama penceresi, boş '
+                'listelerde yönlendirme ve açılışta sessiz güncelleme denetimi.')},
     {'version': '1.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
-     'summary': 'İlk sürüm. Hiyerarşik varlık kütüğü ve tipe göre özellikler, önleyici bakım ile '
+     'summary': t('İlk sürüm. Hiyerarşik varlık kütüğü ve tipe göre özellikler, önleyici bakım ile '
                 'kalibrasyon ve doğrulamayı tek tabloda toplayan plan yapısı, talep ve iş emri '
                 'akışları, ölçüm noktası tablosundan tolerans değerlendirmesi, uygunsuz sonuçta '
                 'otomatik karantina ve etki değerlendirmesi, niyet ve sonuç çiftiyle denetim '
-                'günlüğü, SQLite yedekleme ve demo veri seti.'},
+                'günlüğü, SQLite yedekleme ve demo veri seti.')},
 )
 
 
 class SettingsScreen(Screen):
     """Ayarlar, veri bakimi, demo veri ve surum."""
 
-    title = 'Ayarlar'
+    title = t('Ayarlar')
 
     def build(self) -> None:
         area = w.ScrollArea(self.body)
@@ -79,64 +90,69 @@ class SettingsScreen(Screen):
         form.pack(fill='x', pady=(0, 10))
         values = store.load_settings()
 
-        self.operator = form.add('Operatör adı', ttk.Entry(form, width=32),
-                                 'Denetim günlüğüne bu ad yazılır.')
+        self.language = form.add(
+            t('Dil'),
+            w.Combo(form, [(code, name) for code, name in i18n.LANGUAGES.items()],
+                    width=16, value=i18n.language()),
+            t('Dil değişikliği uygulama yeniden açıldığında geçerli olur.'))
+        self.operator = form.add(t('Operatör adı'), ttk.Entry(form, width=32),
+                                 t('Denetim günlüğüne bu ad yazılır.'))
         self.operator.insert(0, values['operator'])
-        self.lead_days = form.add('Varsayılan ön uyarı günü', ttk.Entry(form, width=8))
+        self.lead_days = form.add(t('Varsayılan ön uyarı günü'), ttk.Entry(form, width=8))
         self.lead_days.insert(0, str(values['default_lead_days']))
-        self.date_format = form.add('Tarih biçimi', ttk.Entry(form, width=16),
-                                    'Python biçimi, örneğin %Y-%m-%d ya da %d.%m.%Y')
+        self.date_format = form.add(t('Tarih biçimi'), ttk.Entry(form, width=16),
+                                    t('Python biçimi, örneğin %Y-%m-%d ya da %d.%m.%Y'))
         self.date_format.insert(0, values['date_format'])
-        self.theme_choice = form.add('Tema', w.Combo(form, [('light', 'Açık'), ('dark', 'Koyu')],
+        self.theme_choice = form.add(t('Tema'), w.Combo(form, [('light', t('Açık')), ('dark', t('Koyu'))],
                                                      width=16, value=values['theme']))
         self.scan_on_start = tk.BooleanVar(value=bool(values['scan_on_start']))
-        form.add('Açılışta tarama',
-                 ttk.Checkbutton(form, text='Uygulama açılırken vadesi gelen kayıtları üret',
+        form.add(t('Açılışta tarama'),
+                 ttk.Checkbutton(form, text=t('Uygulama açılırken vadesi gelen kayıtları üret'),
                                  variable=self.scan_on_start))
         self.modern_ui = tk.BooleanVar(value=bool(values['modern_ui']))
-        form.add('Modern görünüm',
-                 ttk.Checkbutton(form, text='ttkbootstrap çizimini kullan (varsa)',
+        form.add(t('Modern görünüm'),
+                 ttk.Checkbutton(form, text=t('ttkbootstrap çizimini kullan (varsa)'),
                                  variable=self.modern_ui))
         self.ui_status = ttk.Label(form, text='', style='Muted.TLabel', wraplength=520,
                                    justify='left')
         form.add_full(self.ui_status)
-        self.install_ui = ttk.Button(form, text='Modern görünümü kur',
+        self.install_ui = ttk.Button(form, text=t('Modern görünümü kur'),
                                      command=self.install_modern_ui)
         form.add_full(self.install_ui)
-        ttk.Button(host, text='Ayarları kaydet', style='Accent.TButton',
+        ttk.Button(host, text=t('Ayarları kaydet'), style='Accent.TButton',
                    command=self.save).pack(anchor='w', pady=(0, 16))
 
         ttk.Separator(host).pack(fill='x', pady=8)
-        ttk.Label(host, text='Veri', style='Heading.TLabel').pack(anchor='w', pady=(6, 4))
+        ttk.Label(host, text=t('Veri'), style='Heading.TLabel').pack(anchor='w', pady=(6, 4))
         self.path_label = ttk.Label(host, text='', style='Muted.TLabel')
         self.path_label.pack(anchor='w')
         bar = ttk.Frame(host)
         bar.pack(anchor='w', pady=(8, 4))
-        ttk.Button(bar, text='Klasörü aç', command=self.open_folder).pack(side='left')
-        ttk.Button(bar, text='Yedek al', command=self.backup).pack(side='left', padx=6)
-        ttk.Button(bar, text='Yedeği geri yükle', command=self.restore).pack(side='left')
+        ttk.Button(bar, text=t('Klasörü aç'), command=self.open_folder).pack(side='left')
+        ttk.Button(bar, text=t('Yedek al'), command=self.backup).pack(side='left', padx=6)
+        ttk.Button(bar, text=t('Yedeği geri yükle'), command=self.restore).pack(side='left')
         self.health = ttk.Label(host, text='', style='Muted.TLabel', justify='left')
         self.health.pack(anchor='w', pady=(8, 0))
 
         ttk.Separator(host).pack(fill='x', pady=12)
-        ttk.Label(host, text='Demo veri', style='Heading.TLabel').pack(anchor='w', pady=(4, 2))
-        ttk.Label(host, text='Birbirine bağlı örnek bir set kurar: sekiz varlık, yedi plan, dört '
+        ttk.Label(host, text=t('Demo veri'), style='Heading.TLabel').pack(anchor='w', pady=(4, 2))
+        ttk.Label(host, text=t('Birbirine bağlı örnek bir set kurar: sekiz varlık, yedi plan, dört '
                              'talep, iş emirleri ve biri uygunsuz üç kalibrasyon kaydı. Temizlik '
                              'yalnızca kodu DEMO- ile başlayan varlıkları ve onlara bağlı '
-                             'kayıtları siler.',
+                             'kayıtları siler.'),
                   style='Muted.TLabel', wraplength=700, justify='left').pack(anchor='w')
         demo_bar = ttk.Frame(host)
         demo_bar.pack(anchor='w', pady=(8, 0))
-        self.seed_button = ttk.Button(demo_bar, text='Demo veriyi kur', command=self.seed_demo)
+        self.seed_button = ttk.Button(demo_bar, text=t('Demo veriyi kur'), command=self.seed_demo)
         self.seed_button.pack(side='left')
-        ttk.Button(demo_bar, text='Demo veriyi temizle', style='Danger.TButton',
+        ttk.Button(demo_bar, text=t('Demo veriyi temizle'), style='Danger.TButton',
                    command=self.purge_demo).pack(side='left', padx=6)
 
         ttk.Separator(host).pack(fill='x', pady=12)
-        ttk.Label(host, text='Sürüm', style='Heading.TLabel').pack(anchor='w', pady=(4, 2))
+        ttk.Label(host, text=t('Sürüm'), style='Heading.TLabel').pack(anchor='w', pady=(4, 2))
         self.update_label = ttk.Label(host, text='', style='Muted.TLabel')
         self.update_label.pack(anchor='w')
-        ttk.Button(host, text='Güncellemeleri denetle', command=self.check_updates).pack(
+        ttk.Button(host, text=t('Güncellemeleri denetle'), command=self.check_updates).pack(
             anchor='w', pady=(6, 10))
 
         for entry in VERSIONS:
@@ -150,23 +166,28 @@ class SettingsScreen(Screen):
             ttk.Label(card, text=entry['summary'], style='SurfaceMuted.TLabel',
                       wraplength=720, justify='left').pack(anchor='w', pady=(6, 0))
 
+        ttk.Separator(host).pack(fill='x', pady=12)
+        ttk.Label(host, text=legal.heading(), style='Heading.TLabel').pack(anchor='w', pady=(4, 2))
+        ttk.Label(host, text=legal.text(), style='Muted.TLabel',
+                  wraplength=720, justify='left').pack(anchor='w')
+
         ttk.Label(host, text='Mihenk v%s · AGFO' % core.VERSION,
                   style='Footer.TLabel').pack(anchor='w', pady=(18, 10))
 
     def refresh(self) -> None:
         self.path_label.configure(text=str(store.data_dir()))
         counts = db.counts(self.app.conn)
-        self.health.configure(text='Kayıtlar: %d varlık · %d plan · %d talep · %d iş emri · '
-                                   '%d kalibrasyon · %d etki · %d günlük satırı'
+        self.health.configure(text=t('Kayıtlar: %d varlık · %d plan · %d talep · %d iş emri · '
+                                   '%d kalibrasyon · %d etki · %d günlük satırı')
                                    % (counts['asset'], counts['schedule'], counts['request'],
                                       counts['work_order'], counts['calibration'],
                                       counts['impact'], counts['log']))
         self.seed_button.configure(state='disabled' if seed.exists(self.app.conn) else 'normal')
-        self.update_label.configure(text='Kurulu sürüm: %s' % core.VERSION)
+        self.update_label.configure(text=t('Kurulu sürüm: %s') % core.VERSION)
         self.ui_status.configure(
-            text='Çizim: %s — %s. Bileşen yoksa uygulama klasik çizimle sorunsuz çalışır; '
-                 'renkler iki yolda da aynıdır.'
-                 % ('modern' if theme.engine() == 'ttkbootstrap' else 'klasik',
+            text=t('Çizim: %s — %s. Bileşen yoksa uygulama klasik çizimle sorunsuz çalışır; '
+                 'renkler iki yolda da aynıdır.')
+                 % (t('modern') if theme.engine() == 'ttkbootstrap' else t('klasik'),
                     theme.engine_status()))
         can_install = (theme.engine() != 'ttkbootstrap' and not getattr(sys, 'frozen', False)
                        and theme.python_ok())
@@ -174,7 +195,10 @@ class SettingsScreen(Screen):
 
     # ------------------------------------------------------------------ islemler
     def save(self) -> None:
+        chosen = self.language.key()
+        changed = chosen != i18n.language()
         store.save_settings({
+            'language': chosen,
             'operator': self.operator.get().strip(),
             'default_lead_days': v.integer(self.lead_days.get(), 0, None, 14),
             'date_format': self.date_format.get().strip() or '%Y-%m-%d',
@@ -184,11 +208,21 @@ class SettingsScreen(Screen):
         })
         self.app.apply_theme()
         self.app.refresh()
-        self.app.toast('Ayarlar kaydedildi.')
+        if changed:
+            # Menu, tablo basliklari ve durum etiketleri modul yuklenirken
+            # kuruluyor; yarisi bir dilde yarisi otekinde bir ekran yerine
+            # uygulamayi butunuyle yeniden aciyoruz.
+            if messagebox.askyesno(
+                    t('Dil'),
+                    t('Dil değişti. Uygulama şimdi yeniden açılsın mı?'),
+                    parent=self.app.root):
+                self.app.relaunch()
+                return
+        self.app.toast(t('Ayarlar kaydedildi.'))
 
     def install_modern_ui(self) -> None:
         """ttkbootstrap'i uygulamanin kendi klasorune kurar; Python kurulumuna dokunmaz."""
-        self.ui_status.configure(text='Modern görünüm bileşeni kuruluyor…')
+        self.ui_status.configure(text=t('Modern görünüm bileşeni kuruluyor…'))
         self.install_ui.configure(state='disabled')
         target = store.ui_lib_dir()
 
@@ -196,11 +230,11 @@ class SettingsScreen(Screen):
             command = theme.pip_install_cmd(theme.console_python(), target)
             try:
                 done = subprocess.run(command, capture_output=True, text=True, timeout=300)
-                message = ('Kuruldu. Değişiklik için uygulamayı yeniden açın.'
+                message = (t('Kuruldu. Değişiklik için uygulamayı yeniden açın.')
                            if done.returncode == 0
-                           else 'Kurulamadı: %s' % (done.stderr or done.stdout or '')[-300:])
+                           else t('Kurulamadı: %s') % (done.stderr or done.stdout or '')[-300:])
             except Exception as exc:
-                message = 'Kurulamadı: %s' % exc
+                message = t('Kurulamadı: %s') % exc
             try:
                 self.after(0, lambda: self.ui_status.configure(text=message))
             except tk.TclError:
@@ -218,42 +252,42 @@ class SettingsScreen(Screen):
             else:
                 subprocess.Popen(['xdg-open', path])
         except Exception as exc:
-            messagebox.showinfo('Klasör', '%s\n\n(%s)' % (path, exc), parent=self)
+            messagebox.showinfo(t('Klasör'), '%s\n\n(%s)' % (path, exc), parent=self)
 
     def backup(self) -> None:
         default = 'mihenk-yedek-%s.sqlite3' % v.parse(v.now()).strftime('%Y%m%d-%H%M')
         target = filedialog.asksaveasfilename(
-            parent=self, title='Yedek al', initialfile=default,
+            parent=self, title=t('Yedek al'), initialfile=default,
             initialdir=str(store.backups_dir()), defaultextension='.sqlite3',
-            filetypes=[('Mihenk yedeği', '*.sqlite3')])
+            filetypes=[(t('Mihenk yedeği'), '*.sqlite3')])
         if not target:
             return
         try:
             db.backup(self.app.conn, target)
         except Exception as exc:
-            messagebox.showerror('Yedek alınamadı', str(exc), parent=self)
+            messagebox.showerror(t('Yedek alınamadı'), str(exc), parent=self)
             return
-        self.app.toast('Yedek alındı: %s' % pathlib.Path(target).name)
+        self.app.toast(t('Yedek alındı: %s') % pathlib.Path(target).name)
 
     def restore(self) -> None:
-        source = filedialog.askopenfilename(parent=self, title='Yedeği geri yükle',
+        source = filedialog.askopenfilename(parent=self, title=t('Yedeği geri yükle'),
                                             initialdir=str(store.backups_dir()),
-                                            filetypes=[('Mihenk yedeği', '*.sqlite3'),
-                                                       ('Tüm dosyalar', '*.*')])
+                                            filetypes=[(t('Mihenk yedeği'), '*.sqlite3'),
+                                                       (t('Tüm dosyalar'), '*.*')])
         if not source:
             return
         if not messagebox.askyesno(
-                'Onay', 'Mevcut kayıtların yerine bu yedek konacak.\n\nŞu anki veritabanının bir '
-                        'kopyası .pre-restore uzantısıyla yanında bırakılır. Devam edilsin mi?',
+                t('Onay'), t('Mevcut kayıtların yerine bu yedek konacak.\n\nŞu anki veritabanının bir '
+                        'kopyası .pre-restore uzantısıyla yanında bırakılır. Devam edilsin mi?'),
                 parent=self):
             return
         try:
             self.app.restore_from(source)
         except Exception as exc:
-            messagebox.showerror('Geri yüklenemedi', str(exc), parent=self)
+            messagebox.showerror(t('Geri yüklenemedi'), str(exc), parent=self)
             return
         self.app.refresh()
-        self.app.toast('Yedek geri yüklendi.')
+        self.app.toast(t('Yedek geri yüklendi.'))
 
     def seed_demo(self) -> None:
         report = {}
@@ -264,13 +298,13 @@ class SettingsScreen(Screen):
             return
         self.app.refresh()
         if report.get('ok'):
-            messagebox.showinfo('Demo veri kuruldu', '\n\n'.join(report['lines']), parent=self)
+            messagebox.showinfo(t('Demo veri kuruldu'), '\n\n'.join(report['lines']), parent=self)
         else:
-            messagebox.showinfo('Demo veri', '\n'.join(report.get('lines', [])), parent=self)
+            messagebox.showinfo(t('Demo veri'), '\n'.join(report.get('lines', [])), parent=self)
 
     def purge_demo(self) -> None:
-        if not messagebox.askyesno('Onay', 'Kodu DEMO- ile başlayan bütün varlıklar ve onlara '
-                                           'bağlı kayıtlar silinsin mi?', parent=self):
+        if not messagebox.askyesno(t('Onay'), t('Kodu DEMO- ile başlayan bütün varlıklar ve onlara '
+                                           'bağlı kayıtlar silinsin mi?'), parent=self):
             return
         report = {}
 
@@ -279,25 +313,25 @@ class SettingsScreen(Screen):
         if not self.run(run, ''):
             return
         self.app.refresh()
-        messagebox.showinfo('Demo veri', '\n'.join(report.get('lines', [])), parent=self)
+        messagebox.showinfo(t('Demo veri'), '\n'.join(report.get('lines', [])), parent=self)
 
     def check_updates(self) -> None:
         """Elle denetim. Isi uygulama kabugu yapar, ekran yalnizca sonucu yazar."""
-        self.update_label.configure(text='Denetleniyor…')
+        self.update_label.configure(text=t('Denetleniyor…'))
         self.app.check_updates(force=True, on_result=self._update_result)
 
     def _update_result(self, result: dict) -> None:
         status = result.get('status')
         if status == 'update':
             self.update_label.configure(
-                text='Yeni sürüm var: v%s — durum çubuğundaki Güncelle düğmesiyle kurulur.'
+                text=t('Yeni sürüm var: v%s — durum çubuğundaki Güncelle düğmesiyle kurulur.')
                      % result.get('version'))
             self.app.pending_update = result
         elif status == 'current':
-            self.update_label.configure(text='Kurulu sürüm güncel: %s' % core.VERSION)
+            self.update_label.configure(text=t('Kurulu sürüm güncel: %s') % core.VERSION)
         else:
-            self.update_label.configure(text='Denetlenemedi: %s'
-                                             % result.get('message', 'bilinmeyen hata'))
+            self.update_label.configure(text=t('Denetlenemedi: %s')
+                                             % result.get('message', t('bilinmeyen hata')))
 
 
 SCREENS = {
@@ -364,6 +398,7 @@ class MihenkApp:
 
         self.go(self.settings.get('last_screen') or 'dashboard')
         self.root.after(200, self._startup_scan)
+        self.root.after(300, self._disclaimer)
         self.root.after(400, self._first_run)
         self.root.after(2500, lambda: self.check_updates(force=False))
         self._schedule_update_poll()
@@ -393,7 +428,7 @@ class MihenkApp:
         brand = ttk.Frame(self.sidebar, style='Sidebar.TFrame', padding=(18, 20, 18, 16))
         brand.pack(fill='x')
         ttk.Label(brand, text='Mihenk', style='SidebarBrand.TLabel').pack(anchor='w')
-        ttk.Label(brand, text='Ekipman bakımı ve kalibrasyon', style='SidebarVersion.TLabel',
+        ttk.Label(brand, text=t('Ekipman bakımı ve kalibrasyon'), style='SidebarVersion.TLabel',
                   wraplength=170, justify='left').pack(anchor='w', pady=(2, 0))
 
         self.nav_buttons = {}
@@ -426,11 +461,11 @@ class MihenkApp:
         if self.current:
             self.screens[self.current].refresh()
         open_impacts = ImpactRepo.count(self.conn, 'open')
-        parts = ['%d varlık' % AssetRepo.count(self.conn),
-                 '%d açık iş emri' % WorkOrderRepo.count(self.conn, open_only=True),
-                 '%d açık kalibrasyon' % CalibrationRepo.count(self.conn, open_only=True)]
+        parts = [t('%d varlık') % AssetRepo.count(self.conn),
+                 t('%d açık iş emri') % WorkOrderRepo.count(self.conn, open_only=True),
+                 t('%d açık kalibrasyon') % CalibrationRepo.count(self.conn, open_only=True)]
         if open_impacts:
-            parts.append('%d açık etki' % open_impacts)
+            parts.append(t('%d açık etki') % open_impacts)
         self.counts_label.configure(text='  ·  '.join(parts))
 
     def toast(self, message: str) -> None:
@@ -445,10 +480,10 @@ class MihenkApp:
         try:
             action()
         except v.MihenkError as exc:
-            messagebox.showwarning('Kabul edilmedi', str(exc), parent=self.root)
+            messagebox.showwarning(t('Kabul edilmedi'), str(exc), parent=self.root)
             return False
         except Exception as exc:
-            messagebox.showerror('Hata', str(exc), parent=self.root)
+            messagebox.showerror(t('Hata'), str(exc), parent=self.root)
             return False
         if success:
             self.toast(success)
@@ -481,13 +516,13 @@ class MihenkApp:
         try:
             made = scheduler.scan(self.conn)
         except Exception as exc:
-            self.toast('Açılış taraması yapılamadı: %s' % exc)
+            self.toast(t('Açılış taraması yapılamadı: %s') % exc)
             self.refresh()
             return
         self.refresh()
         total = made['work_orders'] + made['calibrations']
         if total:
-            self.toast('Açılış taraması: %d iş emri, %d kalibrasyon kaydı üretildi.'
+            self.toast(t('Açılış taraması: %d iş emri, %d kalibrasyon kaydı üretildi.')
                        % (made['work_orders'], made['calibrations']))
 
     # ------------------------------------------------------------------ guncelleme
@@ -528,10 +563,10 @@ class MihenkApp:
     def _update_checked(self, result: dict, on_result=None) -> None:
         if result.get('status') == 'update':
             self.pending_update = result
-            self.update_button.configure(text='Güncelle: v%s' % result.get('version'))
+            self.update_button.configure(text=t('Güncelle: v%s') % result.get('version'))
             if not self.update_button.winfo_manager():
                 self.update_button.pack(side='right', padx=(0, 14))
-            self.toast('Yeni sürüm yayınlandı: v%s' % result.get('version'))
+            self.toast(t('Yeni sürüm yayınlandı: v%s') % result.get('version'))
         if on_result:
             on_result(result)
 
@@ -551,18 +586,18 @@ class MihenkApp:
         import mihenk_update as updater
         if not updater.is_frozen():
             messagebox.showinfo(
-                'Güncelleme',
-                'Yeni sürüm var: v%s.\n\nKaynaktan çalıştığın için uygulama kendi kendini '
+                t('Güncelleme'),
+                t('Yeni sürüm var: v%s.\n\nKaynaktan çalıştığın için uygulama kendi kendini '
                 'değiştiremez. GitHub\'dan Kurulum ZIP\'ini indirip Derle-ve-Kur.cmd '
-                'çalıştırman gerekiyor.' % result.get('version'), parent=self.root)
+                'çalıştırman gerekiyor.') % result.get('version'), parent=self.root)
             return
         if not messagebox.askyesno(
-                'Güncelleme',
-                'v%s indirilip kurulsun mu?\n\nUygulama kısa süre kapanıp yeniden açılacak. '
-                'Kayıtlarınıza dokunulmaz.' % result.get('version'), parent=self.root):
+                t('Güncelleme'),
+                t('v%s indirilip kurulsun mu?\n\nUygulama kısa süre kapanıp yeniden açılacak. '
+                'Kayıtlarınıza dokunulmaz.') % result.get('version'), parent=self.root):
             return
 
-        self.update_button.configure(state='disabled', text='İndiriliyor…')
+        self.update_button.configure(state='disabled', text=t('İndiriliyor…'))
         minimized = self.root.state() == 'iconic'
 
         def worker():
@@ -574,12 +609,12 @@ class MihenkApp:
                 time.sleep(2)
                 if process.poll() is not None:
                     # Guvenlik yazilimi guncelleyiciyi hemen kapattiysa buradan anlasilir.
-                    raise OSError('Güncelleyici başlatılamadı (güvenlik yazılımı engellemiş '
-                                  'olabilir). Kurulu sürüm değişmedi.')
+                    raise OSError(t('Güncelleyici başlatılamadı (güvenlik yazılımı engellemiş '
+                                  'olabilir). Kurulu sürüm değişmedi.'))
                 self.root.after(0, self.close)         # yerini alabilmesi icin cekiliyoruz
                 return
             except Exception as exc:
-                message = 'Güncelleme uygulanamadı: %s' % (exc or exc.__class__.__name__)
+                message = t('Güncelleme uygulanamadı: %s') % (exc or exc.__class__.__name__)
             try:
                 self.root.after(0, lambda: self._install_finished(message))
             except tk.TclError:
@@ -590,10 +625,37 @@ class MihenkApp:
     def _install_finished(self, message: str) -> None:
         """Yalnizca basarisizlikta cagrilir; basarili yolda uygulama kapanir."""
         self.update_button.configure(
-            state='normal', text='Güncelle: v%s' % (self.pending_update or {}).get('version', ''))
+            state='normal', text=t('Güncelle: v%s') % (self.pending_update or {}).get('version', ''))
         self.toast(message)
-        messagebox.showerror('Güncelleme', message + '\n\nKurulu sürüm değişmedi.',
+        messagebox.showerror(t('Güncelleme'), message + t('\n\nKurulu sürüm değişmedi.'),
                              parent=self.root)
+
+    def relaunch(self) -> None:
+        """Uygulamayi kapatip ayni yoldan yeniden baslatir.
+
+        Dil degisiminde gerekiyor. Donmus EXE'de kendi yolunu, kaynaktan
+        calisirken yorumlayici + betik yolunu kullanir. Yeni surec bagimsiz
+        baslar; bu surec normal yoldan kapanir, boylece pencere boyutu ve
+        veritabani duzgun kapanmis olur.
+        """
+        if getattr(sys, 'frozen', False):
+            command = [sys.executable]
+        else:
+            command = [sys.executable, str(pathlib.Path(__file__).resolve())]
+        try:
+            kwargs = {'close_fds': True}
+            if sys.platform == 'win32':
+                kwargs['creationflags'] = 0x00000008 | 0x00000200   # DETACHED | NEW_GROUP
+            else:
+                kwargs['start_new_session'] = True
+            subprocess.Popen(command, cwd=str(pathlib.Path(command[-1]).parent), **kwargs)
+        except Exception as exc:
+            messagebox.showwarning(
+                t('Dil'),
+                t('Uygulama yeniden açılamadı: %s\n\nElle kapatıp açtığınızda yeni dil '
+                  'geçerli olacak.') % exc, parent=self.root)
+            return
+        self.close()
 
     def should_offer_first_run(self) -> bool:
         """Karsilama penceresi gosterilmeli mi: daha once sorulmamis ve kutuk bos."""
@@ -604,8 +666,21 @@ class MihenkApp:
             return False
         return True
 
+    def _disclaimer(self) -> None:
+        """Sorumluluk reddi onaylanmadiysa sorar; kabul edilmezse uygulama kapanir."""
+        if legal.accepted():
+            return
+        from mihenk_dialogs import DisclaimerDialog
+        dialog = DisclaimerDialog(self)
+        self.root.wait_window(dialog)
+        self.settings = store.load_settings()
+        if not dialog.agreed:
+            self.close()
+
     def _first_run(self) -> None:
         """Kutuk bosken ve daha once sorulmamissa karsilama penceresini acar."""
+        if not legal.accepted():
+            return                      # reddedildi: uygulama zaten kapaniyor
         if not self.should_offer_first_run():
             return
         self.go('dashboard')
@@ -614,7 +689,7 @@ class MihenkApp:
         self.root.wait_window(dialog)
         self.settings = store.load_settings()
         if dialog.choice == 'demo':
-            self.toast('Demo veri kuruldu. Ayarlar ekranından tek tıkla temizlenir.')
+            self.toast(t('Demo veri kuruldu. Ayarlar ekranından tek tıkla temizlenir.'))
         self.refresh()
 
     def close(self) -> None:

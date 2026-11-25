@@ -12,8 +12,9 @@ import mihenk_audit as audit
 import mihenk_store as store
 import mihenk_validate as v
 from mihenk_validate import MihenkError
+from mihenk_i18n import t
 
-STATES = {'pending': 'Bekliyor', 'ok': 'Uygun', 'na': 'Uygulanmaz', 'fail': 'Uygunsuz'}
+STATES = {'pending': t('Bekliyor'), 'ok': t('Uygun'), 'na': t('Uygulanmaz'), 'fail': t('Uygunsuz')}
 
 
 def _operator() -> str:
@@ -104,7 +105,7 @@ class WorkOrderChecklist:
         work_order_id = int(work_order_id)
         text = v.text(text, 300)
         if not text:
-            raise MihenkError('Adım metni boş olamaz.')
+            raise MihenkError(t('Adım metni boş olamaz.'))
         row = conn.execute('SELECT COALESCE(MAX(position), 0) AS p FROM work_order_check'
                            ' WHERE work_order_id = ?', (work_order_id,)).fetchone()
         cur = conn.execute('INSERT INTO work_order_check (work_order_id, position, text,'
@@ -119,11 +120,11 @@ class WorkOrderChecklist:
         item_id = int(item_id)
         row = conn.execute('SELECT * FROM work_order_check WHERE id = ?', (item_id,)).fetchone()
         if not row:
-            raise MihenkError('Adım bulunamadı.')
+            raise MihenkError(t('Adım bulunamadı.'))
         state = v.enum(state, STATES, 'pending')
         value = v.text(value, 80)
         if state == 'ok' and int(row['needs_value']) and not value:
-            raise MihenkError('"%s" adımı bir ölçüm değeri istiyor.' % row['text'])
+            raise MihenkError(t('"%s" adımı bir ölçüm değeri istiyor.') % row['text'])
         conn.execute('UPDATE work_order_check SET state = ?, value = ?, note = ?, checked_by = ?,'
                      ' checked_at = ? WHERE id = ?',
                      (state, value, v.multiline(note, 500), _operator() if state != 'pending' else '',
@@ -159,7 +160,7 @@ class WorkOrderChecklist:
         """
         state = WorkOrderChecklist.progress(conn, work_order_id)
         if state['critical_open']:
-            return ('%d kritik kontrol adımı hâlâ bekliyor ya da uygunsuz.'
+            return (t('%d kritik kontrol adımı hâlâ bekliyor ya da uygunsuz.')
                     % state['critical_open'])
         return None
 

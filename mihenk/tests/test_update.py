@@ -10,6 +10,9 @@ import tempfile
 
 sys.path.insert(0, sys.argv[1] if len(sys.argv) > 1 else '.')
 os.environ['MIHENK_DATA_DIR'] = tempfile.mkdtemp()
+# Bu dosyadaki beklentiler Turkce metinlere bakiyor; dil testin konusu
+# degil. Ingilizce kapsami tests/test_i18n.py'de olculuyor.
+os.environ['MIHENK_LANG'] = 'tr'
 
 import mihenk_core as core  # noqa: E402
 import mihenk_update as u  # noqa: E402

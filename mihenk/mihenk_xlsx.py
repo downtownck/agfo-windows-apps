@@ -12,6 +12,7 @@ import datetime
 import pathlib
 import re
 import zipfile
+from mihenk_i18n import t
 
 CONTENT_TYPES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -78,7 +79,7 @@ def _cell(reference: str, value, style: int) -> str:
         return '<c r="%s" s="%d"><v>%s</v></c>' % (reference, style, repr(float(value))
                                                    if isinstance(value, float) else value)
     if isinstance(value, bool):
-        value = 'evet' if value else 'hayır'
+        value = t('evet') if value else t('hayır')
     if isinstance(value, (datetime.date, datetime.datetime)):
         value = value.isoformat(sep=' ')
     return ('<c r="%s" s="%d" t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>'
@@ -150,7 +151,7 @@ def write(path, sheets) -> pathlib.Path:
     """
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    sheets = [s for s in (sheets or []) if s is not None] or [{'title': 'Boş', 'headers': [], 'rows': []}]
+    sheets = [s for s in (sheets or []) if s is not None] or [{'title': t('Boş'), 'headers': [], 'rows': []}]
 
     used = set()
     for sheet in sheets:

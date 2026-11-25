@@ -26,6 +26,8 @@ from mihenk_repo import (AssetRepo, AssetTypes, CalibrationRepo, ImpactRepo, Req
                          ScheduleRepo, WorkOrderRepo)
 from mihenk_states import label as state_label
 from mihenk_validate import MihenkError
+import mihenk_i18n as i18n
+from mihenk_i18n import t
 
 MAX_CERTIFICATE_MB = 40
 
@@ -46,10 +48,10 @@ def store_certificate(source, record_id) -> str:
     """
     source = pathlib.Path(str(source).strip('" '))
     if not source.exists() or not source.is_file():
-        raise MihenkError('Sertifika dosyası bulunamadı: %s' % source)
+        raise MihenkError(t('Sertifika dosyası bulunamadı: %s') % source)
     size_mb = source.stat().st_size / (1024 * 1024)
     if size_mb > MAX_CERTIFICATE_MB:
-        raise MihenkError('Sertifika dosyası çok büyük (%.1f MB, sınır %d MB).'
+        raise MihenkError(t('Sertifika dosyası çok büyük (%.1f MB, sınır %d MB).')
                           % (size_mb, MAX_CERTIFICATE_MB))
 
     digest = hashlib.sha256()
@@ -97,16 +99,16 @@ def assets_table(conn) -> dict:
             row['code'], row['name'], AssetTypes.label(row['asset_type']),
             _asset_label(conn, int(row['parent_id'])) if int(row['parent_id']) else '',
             row['location_text'], row['manufacturer'], row['model'], row['serial_no'],
-            'evet' if int(row['is_measuring_device']) else 'hayır',
+            t('evet') if int(row['is_measuring_device']) else t('hayır'),
             int(row['criticality']), state_label('asset', row['status']),
             v.human(row['commissioned_on']), len(plans), v.human(due),
             ImpactRepo.open_count_for_asset(conn, int(row['id'])),
         ])
     return {
-        'title': 'Varlıklar',
-        'headers': ['Kod', 'Ad', 'Tip', 'Üst varlık', 'Konum', 'Üretici', 'Model', 'Seri no',
-                    'Ölçüm cihazı', 'Kritiklik', 'Durum', 'Devreye alma', 'Plan sayısı',
-                    'Sıradaki vade', 'Açık etki'],
+        'title': t('Varlıklar'),
+        'headers': [t('Kod'), t('Ad'), t('Tip'), t('Üst varlık'), t('Konum'), t('Üretici'), t('Model'), 'Seri no',
+                    t('Ölçüm cihazı'), t('Kritiklik'), t('Durum'), t('Devreye alma'), t('Plan sayısı'),
+                    t('Sıradaki vade'), t('Açık etki')],
         'widths': [14, 28, 14, 24, 18, 16, 16, 16, 12, 9, 14, 13, 11, 14, 10],
         'rows': rows,
     }
@@ -116,8 +118,8 @@ def plans_table(conn) -> dict:
     rows = []
     for plan in ScheduleRepo.query(conn):
         if plan['basis'] == 'counter':
-            interval = 'her %d birim' % int(plan['counter_interval'])
-            due = 'sayaç %d' % int(plan['next_due_counter'])
+            interval = t('her %d birim') % int(plan['counter_interval'])
+            due = t('sayaç %d') % int(plan['next_due_counter'])
         else:
             interval = '%d %s' % (int(plan['interval_value']),
                                   ScheduleRepo.UNITS.get(plan['interval_unit'], ''))
@@ -128,12 +130,12 @@ def plans_table(conn) -> dict:
             ScheduleRepo.BASES.get(plan['basis'], plan['basis']), interval,
             int(plan['lead_days']), int(plan['tolerance_days']), plan['assignee'],
             v.human(plan['last_done_at']), due,
-            'evet' if int(plan['is_active']) else 'hayır',
+            t('evet') if int(plan['is_active']) else t('hayır'),
         ])
     return {
-        'title': 'Planlar',
-        'headers': ['Plan', 'Varlık', 'Tip', 'Esas', 'Aralık', 'Ön uyarı (gün)',
-                    'Tolerans (gün)', 'Sorumlu', 'Son yapılma', 'Sıradaki vade', 'Aktif'],
+        'title': t('Planlar'),
+        'headers': [t('Plan'), t('Varlık'), t('Tip'), t('Esas'), t('Aralık'), t('Ön uyarı (gün)'),
+                    t('Tolerans (gün)'), t('Sorumlu'), t('Son yapılma'), t('Sıradaki vade'), t('Aktif')],
         'widths': [30, 26, 14, 10, 16, 13, 13, 16, 13, 16, 8],
         'rows': rows,
     }
@@ -157,10 +159,10 @@ def work_orders_table(conn) -> dict:
             row['work_done'], row['root_cause'], row['closed_by'],
         ])
     return {
-        'title': 'İş emirleri',
-        'headers': ['#', 'Başlık', 'Varlık', 'Tip', 'Öncelik', 'Sorumlu', 'Durum',
-                    'Planlanan', 'Başlangıç', 'Bitiş', 'İşçilik (dk)', 'Duruş (dk)',
-                    'Kontrol listesi', 'Parça maliyeti', 'Yapılan iş', 'Kök neden', 'Kapatan'],
+        'title': t('İş emirleri'),
+        'headers': ['#', t('Başlık'), t('Varlık'), t('Tip'), t('Öncelik'), t('Sorumlu'), t('Durum'),
+                    t('Planlanan'), t('Başlangıç'), t('Bitiş'), t('İşçilik (dk)'), t('Duruş (dk)'),
+                    t('Kontrol listesi'), t('Parça maliyeti'), t('Yapılan iş'), t('Kök neden'), t('Kapatan')],
         'widths': [6, 30, 24, 12, 10, 16, 13, 16, 16, 16, 12, 11, 13, 13, 50, 30, 14],
         'wrap_columns': (14, 15),
         'rows': rows,
@@ -179,7 +181,7 @@ def calibrations_table(conn) -> dict:
             CalibrationRepo.RECORD_TYPES.get(row['record_type'], row['record_type']),
             v.human(row['performed_at'], with_time=True), row['performed_by'],
             row['external_body'], row['accreditation_scope'], row['certificate_no'],
-            'evet' if certificate_exists(row['certificate_path']) else '',
+            t('evet') if certificate_exists(row['certificate_path']) else '',
             row['traceability_ref'], row['tolerance_spec'], row['uncertainty'],
             len(points), worst,
             CalibrationRepo.RESULTS.get(row['result'], ''),
@@ -188,11 +190,11 @@ def calibrations_table(conn) -> dict:
             row['notes'],
         ])
     return {
-        'title': 'Kalibrasyon',
-        'headers': ['#', 'Varlık', 'Tip', 'Yapılma', 'Yapan', 'Dış kuruluş', 'Akreditasyon',
-                    'Sertifika no', 'Dosya var', 'İzlenebilirlik', 'Tolerans', 'Belirsizlik',
-                    'Nokta', 'En büyük sapma', 'Sonuç', 'Durum', 'Kullanım sınırlaması',
-                    'Etki', 'Notlar'],
+        'title': t('Kalibrasyon'),
+        'headers': ['#', t('Varlık'), t('Tip'), t('Yapılma'), t('Yapan'), t('Dış kuruluş'), t('Akreditasyon'),
+                    t('Sertifika no'), t('Dosya var'), t('İzlenebilirlik'), t('Tolerans'), t('Belirsizlik'),
+                    t('Nokta'), t('En büyük sapma'), t('Sonuç'), t('Durum'), t('Kullanım sınırlaması'),
+                    t('Etki'), t('Notlar')],
         'widths': [6, 24, 12, 16, 16, 20, 22, 16, 9, 28, 22, 14, 7, 13, 11, 13, 30, 8, 40],
         'wrap_columns': (16, 18),
         'rows': rows,
@@ -209,13 +211,13 @@ def measurement_points_table(conn) -> dict:
                 v.human(record['performed_at'], with_time=True),
                 point.get('label', ''), point.get('nominal'), point.get('measured'),
                 point.get('tolerance'), point.get('unit', ''), point.get('deviation'),
-                {'pass': 'Uygun', 'fail': 'Uygunsuz', 'na': 'Değerlendirilmedi'}.get(
+                {'pass': t('Uygun'), 'fail': t('Uygunsuz'), 'na': t('Değerlendirilmedi')}.get(
                     point.get('verdict'), ''),
             ])
     return {
-        'title': 'Ölçüm noktaları',
-        'headers': ['Kayıt #', 'Varlık', 'Yapılma', 'Nokta', 'Nominal', 'Ölçülen',
-                    'Tolerans', 'Birim', 'Sapma', 'Karar'],
+        'title': t('Ölçüm noktaları'),
+        'headers': [t('Kayıt #'), t('Varlık'), t('Yapılma'), t('Nokta'), t('Nominal'), t('Ölçülen'),
+                    t('Tolerans'), t('Birim'), t('Sapma'), t('Karar')],
         'widths': [8, 24, 16, 20, 11, 11, 11, 8, 11, 15],
         'rows': rows,
     }
@@ -236,10 +238,10 @@ def impacts_table(conn) -> dict:
             v.human(row['closed_at'], with_time=True),
         ])
     return {
-        'title': 'Etki değerlendirmeleri',
-        'headers': ['#', 'Varlık', 'Kaynak kayıt', 'Açılma', 'Açan', 'Etkilenen başlangıç',
-                    'Etkilenen bitiş', 'Kapsam', 'Değerlendirme', 'Karar', 'Düzeltici faaliyet',
-                    'Durum', 'Kapatan', 'Kapanma'],
+        'title': t('Etki değerlendirmeleri'),
+        'headers': ['#', t('Varlık'), t('Kaynak kayıt'), t('Açılma'), t('Açan'), t('Etkilenen başlangıç'),
+                    t('Etkilenen bitiş'), t('Kapsam'), t('Değerlendirme'), t('Karar'), t('Düzeltici faaliyet'),
+                    t('Durum'), t('Kapatan'), t('Kapanma')],
         'widths': [6, 24, 12, 16, 14, 18, 18, 40, 50, 22, 40, 10, 14, 16],
         'wrap_columns': (7, 8, 10),
         'rows': rows,
@@ -257,9 +259,9 @@ def requests_table(conn) -> dict:
             ('#%d' % int(row['work_order_id'])) if int(row['work_order_id']) else '',
         ])
     return {
-        'title': 'Talepler',
-        'headers': ['#', 'Bildirim', 'Bildiren', 'Varlık', 'Özet', 'Açıklama', 'Önem',
-                    'Durum', 'Ret gerekçesi', 'İş emri'],
+        'title': t('Talepler'),
+        'headers': ['#', t('Bildirim'), t('Bildiren'), t('Varlık'), t('Özet'), t('Açıklama'), t('Önem'),
+                    t('Durum'), t('Ret gerekçesi'), t('İş emri')],
         'widths': [6, 16, 14, 24, 34, 44, 14, 13, 30, 9],
         'wrap_columns': (5, 8),
         'rows': rows,
@@ -275,15 +277,15 @@ def checklists_table(conn) -> dict:
                 int(work_order['id']), work_order['title'],
                 _asset_label(conn, int(work_order['asset_id'])),
                 int(item['position']), item['text'],
-                'evet' if int(item['is_critical']) else '',
+                t('evet') if int(item['is_critical']) else '',
                 CHECK_STATES.get(item['state'], item['state']),
                 item['value'], item['unit'], item['note'], item['checked_by'],
                 v.human(item['checked_at'], with_time=True),
             ])
     return {
-        'title': 'Kontrol listeleri',
-        'headers': ['İş emri', 'Başlık', 'Varlık', 'Sıra', 'Adım', 'Kritik', 'Durum',
-                    'Değer', 'Birim', 'Not', 'İşaretleyen', 'Zaman'],
+        'title': t('Kontrol listeleri'),
+        'headers': [t('İş emri'), t('Başlık'), t('Varlık'), t('Sıra'), t('Adım'), t('Kritik'), t('Durum'),
+                    t('Değer'), t('Birim'), t('Not'), t('İşaretleyen'), t('Zaman')],
         'widths': [9, 26, 22, 6, 44, 8, 13, 12, 8, 30, 14, 16],
         'wrap_columns': (4, 9),
         'rows': rows,
@@ -295,16 +297,16 @@ def parts_table(conn) -> dict:
     for row in PartRepo.query(conn, active_only=False):
         rows.append([
             row['code'], row['name'], row['unit'], float(row['stock']), float(row['min_stock']),
-            'evet' if float(row['min_stock']) > 0 and float(row['stock']) <= float(row['min_stock'])
+            t('evet') if float(row['min_stock']) > 0 and float(row['stock']) <= float(row['min_stock'])
             else '',
             row['location_text'], row['supplier'], float(row['unit_cost']),
             round(float(row['stock']) * float(row['unit_cost']), 2),
-            'evet' if int(row['is_active']) else 'hayır', row['notes'],
+            t('evet') if int(row['is_active']) else t('hayır'), row['notes'],
         ])
     return {
-        'title': 'Yedek parçalar',
-        'headers': ['Kod', 'Ad', 'Birim', 'Stok', 'Asgari', 'Düşük stok', 'Konum', 'Tedarikçi',
-                    'Birim maliyet', 'Stok değeri', 'Aktif', 'Notlar'],
+        'title': t('Yedek parçalar'),
+        'headers': [t('Kod'), t('Ad'), t('Birim'), t('Stok'), t('Asgari'), t('Düşük stok'), t('Konum'), t('Tedarikçi'),
+                    t('Birim maliyet'), t('Stok değeri'), t('Aktif'), t('Notlar')],
         'widths': [14, 30, 9, 10, 10, 11, 18, 20, 13, 12, 8, 30],
         'wrap_columns': (11,),
         'rows': rows,
@@ -323,9 +325,9 @@ def part_movements_table(conn) -> dict:
             row['actor'],
         ])
     return {
-        'title': 'Stok hareketleri',
-        'headers': ['Zaman', 'Parça kodu', 'Parça', 'Değişim', 'Bakiye', 'Gerekçe',
-                    'İş emri', 'Kullanıcı'],
+        'title': t('Stok hareketleri'),
+        'headers': [t('Zaman'), t('Parça kodu'), t('Parça'), t('Değişim'), t('Bakiye'), t('Gerekçe'),
+                    t('İş emri'), t('Kullanıcı')],
         'widths': [16, 14, 28, 10, 10, 26, 9, 16],
         'rows': rows,
     }
@@ -341,9 +343,9 @@ def audit_log_table(conn) -> dict:
             row['payload'],
         ])
     return {
-        'title': 'Denetim günlüğü',
-        'headers': ['Zaman', 'Kayıt tipi', 'Kayıt #', 'İşlem', 'Aşama', 'Önceki durum',
-                    'Yeni durum', 'Kullanıcı', 'Ayrıntı'],
+        'title': t('Denetim günlüğü'),
+        'headers': [t('Zaman'), t('Kayıt tipi'), t('Kayıt #'), t('İşlem'), t('Aşama'), t('Önceki durum'),
+                    t('Yeni durum'), t('Kullanıcı'), t('Ayrıntı')],
         'widths': [16, 13, 9, 18, 8, 14, 14, 16, 50],
         'wrap_columns': (8,),
         'rows': rows,
@@ -362,26 +364,26 @@ def reliability_table(conn, days=365) -> dict:
             item['downtime_minutes'],
         ])
     return {
-        'title': 'Güvenilirlik',
-        'headers': ['Kod', 'Varlık', 'Arıza sayısı', 'MTBF (saat)', 'MTTR (saat)', 'Duruş (dk)'],
+        'title': t('Güvenilirlik'),
+        'headers': [t('Kod'), t('Varlık'), t('Arıza sayısı'), t('MTBF (saat)'), t('MTTR (saat)'), t('Duruş (dk)')],
         'widths': [14, 30, 12, 13, 13, 12],
         'rows': rows,
     }
 
 
 ALL_TABLES = (
-    ('assets', 'Varlıklar', assets_table),
-    ('plans', 'Planlar', plans_table),
-    ('requests', 'Talepler', requests_table),
-    ('work_orders', 'İş emirleri', work_orders_table),
-    ('checklists', 'Kontrol listeleri', checklists_table),
-    ('calibrations', 'Kalibrasyon', calibrations_table),
-    ('points', 'Ölçüm noktaları', measurement_points_table),
-    ('impacts', 'Etki değerlendirmeleri', impacts_table),
-    ('parts', 'Yedek parçalar', parts_table),
-    ('movements', 'Stok hareketleri', part_movements_table),
-    ('reliability', 'Güvenilirlik', reliability_table),
-    ('audit', 'Denetim günlüğü', audit_log_table),
+    ('assets', t('Varlıklar'), assets_table),
+    ('plans', t('Planlar'), plans_table),
+    ('requests', t('Talepler'), requests_table),
+    ('work_orders', t('İş emirleri'), work_orders_table),
+    ('checklists', t('Kontrol listeleri'), checklists_table),
+    ('calibrations', t('Kalibrasyon'), calibrations_table),
+    ('points', t('Ölçüm noktaları'), measurement_points_table),
+    ('impacts', t('Etki değerlendirmeleri'), impacts_table),
+    ('parts', t('Yedek parçalar'), parts_table),
+    ('movements', t('Stok hareketleri'), part_movements_table),
+    ('reliability', t('Güvenilirlik'), reliability_table),
+    ('audit', t('Denetim günlüğü'), audit_log_table),
 )
 
 
@@ -424,7 +426,7 @@ def to_csv(conn, folder, keys=None, days=365) -> list:
 
 
 HTML_HEAD = """<!doctype html>
-<html lang="tr"><head><meta charset="utf-8">
+<html lang="%(lang)s"><head><meta charset="utf-8">
 <title>%(title)s</title>
 <style>
  :root { --ink:#1b2027; --muted:#6b7480; --line:#d7dce2; --alert:#b3261e; --ok:#1f7a3d; }
@@ -459,7 +461,7 @@ HTML_HEAD = """<!doctype html>
  .noprint { background:#eef1f5; border:1px solid var(--line); border-radius:4px;
             padding:8px 12px; margin-bottom:18px; font-size:11px; }
 </style></head><body>
-<div class="noprint">Yazdırmak ya da PDF olarak kaydetmek için Ctrl+P.</div>
+<div class="noprint">%(print_hint)s</div>
 <h1>%(title)s</h1>
 <div class="meta">%(meta)s</div>
 """
@@ -475,10 +477,10 @@ def _cell_html(value) -> str:
 
 def _table_html(table: dict, limit=4000) -> str:
     rows = table['rows'][:limit]
-    parts = ['<h2>%s <span class="note">(%d satır)</span></h2>'
+    parts = [t('<h2>%s <span class="note">(%d satır)</span></h2>')
              % (html.escape(table['title']), len(table['rows']))]
     if not rows:
-        parts.append('<p class="note">Kayıt yok.</p>')
+        parts.append(t('<p class="note">Kayıt yok.</p>'))
         return ''.join(parts)
     parts.append('<table><thead><tr>')
     parts.extend('<th>%s</th>' % html.escape(str(h)) for h in table['headers'])
@@ -489,48 +491,51 @@ def _table_html(table: dict, limit=4000) -> str:
         parts.append('</tr>')
     parts.append('</tbody></table>')
     if len(table['rows']) > limit:
-        parts.append('<p class="note">İlk %d satır gösterildi; tamamı Excel çıktısındadır.</p>'
+        parts.append(t('<p class="note">İlk %d satır gösterildi; tamamı Excel çıktısındadır.</p>')
                      % limit)
     return ''.join(parts)
 
 
-def to_html(conn, path, keys=None, days=365, title='Mihenk denetim raporu') -> pathlib.Path:
+def to_html(conn, path, keys=None, days=365, title=t('Mihenk denetim raporu')) -> pathlib.Path:
     """Yazdirmaya gore duzenlenmis tek dosyalik rapor."""
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     data = reports.summary(conn, days)
     operator = store.setting('operator', '') or ''
-    meta = 'Oluşturma: %s · Dönem: %s · Mihenk v%s' % (
+    meta = t('Oluşturma: %s · Dönem: %s · Mihenk v%s') % (
         v.human(v.now(), with_time=True), data['period_label'], core.VERSION)
     if operator:
-        meta += ' · Hazırlayan: %s' % html.escape(operator)
+        meta += t(' · Hazırlayan: %s') % html.escape(operator)
 
     cards = [
-        ('Aktif varlık', data['assets_active'], False),
-        ('Karantinada', data['assets_quarantined'], bool(data['assets_quarantined'])),
-        ('Açık iş emri', data['work_orders_open'], False),
-        ('Açık kalibrasyon', data['calibrations_open'], False),
-        ('Açık etki değerlendirmesi', data['impacts_open'], bool(data['impacts_open'])),
-        ('Geciken plan', data['plans_overdue'], bool(data['plans_overdue'])),
-        ('Plan uyumu',
+        (t('Aktif varlık'), data['assets_active'], False),
+        (t('Karantinada'), data['assets_quarantined'], bool(data['assets_quarantined'])),
+        (t('Açık iş emri'), data['work_orders_open'], False),
+        (t('Açık kalibrasyon'), data['calibrations_open'], False),
+        (t('Açık etki değerlendirmesi'), data['impacts_open'], bool(data['impacts_open'])),
+        (t('Geciken plan'), data['plans_overdue'], bool(data['plans_overdue'])),
+        (t('Plan uyumu'),
          ('%%%s' % data['compliance']['rate']) if data['compliance']['rate'] is not None else '—',
          False),
-        ('Kalibrasyon uygunluğu',
+        (t('Kalibrasyon uygunluğu'),
          ('%%%s' % data['conformity']['rate']) if data['conformity']['rate'] is not None else '—',
          False),
-        ('Düşük stok', data['parts_low'], bool(data['parts_low'])),
+        (t('Düşük stok'), data['parts_low'], bool(data['parts_low'])),
     ]
 
-    body = [HTML_HEAD % {'title': html.escape(title), 'meta': meta}, '<div class="cards">']
+    body = [HTML_HEAD % {'title': html.escape(title), 'meta': meta,
+                         'lang': i18n.language(),
+                         'print_hint': t('Yazdırmak ya da PDF olarak kaydetmek için Ctrl+P.')},
+            '<div class="cards">']
     for label, value, alert in cards:
         body.append('<div class="card%s"><div class="v">%s</div><div class="l">%s</div></div>'
                     % (' alert' if alert else '', html.escape(str(value)), html.escape(label)))
     body.append('</div>')
 
     compliance = data['compliance']
-    body.append('<p class="note">Plan uyumu: %d iş emrinden %d tanesi zamanında kapandı, '
+    body.append(t('<p class="note">Plan uyumu: %d iş emrinden %d tanesi zamanında kapandı, '
                 '%d tanesi geç kaldı. Kalibrasyon: %d kayıttan %d uygun, %d şartlı, '
-                '%d uygunsuz.</p>'
+                '%d uygunsuz.</p>')
                 % (compliance['total'], compliance['on_time'], compliance['late'],
                    data['conformity']['total'], data['conformity']['counts']['pass'],
                    data['conformity']['counts']['conditional'],
@@ -539,8 +544,8 @@ def to_html(conn, path, keys=None, days=365, title='Mihenk denetim raporu') -> p
     for table in build_tables(conn, keys, days):
         body.append(_table_html(table))
 
-    body.append('<footer>Mihenk v%s · AGFO · Bu rapor %s tarihinde üretildi. '
-                'Kayıtların tamamı uygulamanın veritabanındadır.</footer></body></html>'
+    body.append(t('<footer>Mihenk v%s · AGFO · Bu rapor %s tarihinde üretildi. '
+                'Kayıtların tamamı uygulamanın veritabanındadır.</footer></body></html>')
                 % (core.VERSION, v.human(v.now(), with_time=True)))
 
     path.write_text(''.join(body), encoding='utf-8')

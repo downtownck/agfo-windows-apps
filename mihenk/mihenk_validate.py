@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import json
+from mihenk_i18n import t
 
 STAMP = '%Y-%m-%d %H:%M:%S'
 DAY = '%Y-%m-%d'
@@ -54,7 +55,7 @@ def require_stamp(value, label: str) -> str:
     """Zorunlu tarih alani: bos ya da gecersizse anlasilir hata verir."""
     out = stamp(value)
     if not out:
-        raise MihenkError('%s geçerli bir tarih olmalı (ör. 2026-11-25 09:30).' % label)
+        raise MihenkError(t('%s geçerli bir tarih olmalı (ör. 2026-11-25 09:30).') % label)
     return out
 
 

@@ -8,6 +8,7 @@ katmani uygular.
 from __future__ import annotations
 
 import mihenk_validate as v
+from mihenk_i18n import t
 
 MAP = {
     'asset': {
@@ -47,65 +48,65 @@ MAP = {
 
 LABELS = {
     'asset': {
-        'active': 'Aktif',
-        'out_of_service': 'Hizmet dışı',
-        'quarantined': 'Karantinada',
-        'retired': 'Hurdaya ayrıldı',
+        'active': t('Aktif'),
+        'out_of_service': t('Hizmet dışı'),
+        'quarantined': t('Karantinada'),
+        'retired': t('Hurdaya ayrıldı'),
     },
     'request': {
-        'open': 'Açık',
-        'triaged': 'Değerlendirildi',
-        'converted': 'Dönüştürüldü',
-        'rejected': 'Reddedildi',
-        'closed': 'Kapalı',
+        'open': t('Açık'),
+        'triaged': t('Değerlendirildi'),
+        'converted': t('Dönüştürüldü'),
+        'rejected': t('Reddedildi'),
+        'closed': t('Kapalı'),
     },
     'work_order': {
-        'new': 'Yeni',
-        'assigned': 'Atandı',
-        'in_progress': 'Sürüyor',
-        'on_hold': 'Beklemede',
-        'completed': 'Tamamlandı',
-        'closed': 'Kapalı',
-        'cancelled': 'İptal edildi',
+        'new': t('Yeni'),
+        'assigned': t('Atandı'),
+        'in_progress': t('Sürüyor'),
+        'on_hold': t('Beklemede'),
+        'completed': t('Tamamlandı'),
+        'closed': t('Kapalı'),
+        'cancelled': t('İptal edildi'),
     },
     'calibration': {
-        'planned': 'Planlandı',
-        'in_progress': 'Sürüyor',
-        'result_entered': 'Sonuç girildi',
-        'closed': 'Kapalı',
-        'cancelled': 'İptal edildi',
+        'planned': t('Planlandı'),
+        'in_progress': t('Sürüyor'),
+        'result_entered': t('Sonuç girildi'),
+        'closed': t('Kapalı'),
+        'cancelled': t('İptal edildi'),
     },
     'impact': {
-        'open': 'Açık',
-        'closed': 'Kapalı',
+        'open': t('Açık'),
+        'closed': t('Kapalı'),
     },
 }
 
 REQUIRED = {
     'work_order': {
-        'in_progress': {'actual_start': 'Gerçek başlangıç'},
-        'on_hold': {'hold_reason': 'Bekletme gerekçesi'},
+        'in_progress': {'actual_start': t('Gerçek başlangıç')},
+        'on_hold': {'hold_reason': t('Bekletme gerekçesi')},
         'completed': {
-            'work_done': 'Yapılan iş',
-            'actual_end': 'Gerçek bitiş',
-            'labor_minutes': 'İşçilik dakikası',
+            'work_done': t('Yapılan iş'),
+            'actual_end': t('Gerçek bitiş'),
+            'labor_minutes': t('İşçilik dakikası'),
         },
     },
     'request': {
-        'rejected': {'rejection_reason': 'Ret gerekçesi'},
+        'rejected': {'rejection_reason': t('Ret gerekçesi')},
     },
     'calibration': {
         'result_entered': {
-            'performed_at': 'Yapılma zamanı',
-            'result': 'Sonuç',
+            'performed_at': t('Yapılma zamanı'),
+            'result': t('Sonuç'),
         },
     },
     'impact': {
         'closed': {
-            'affected_from': 'Etkilenen başlangıç',
-            'affected_to': 'Etkilenen bitiş',
-            'evaluation': 'Değerlendirme',
-            'decision': 'Karar',
+            'affected_from': t('Etkilenen başlangıç'),
+            'affected_to': t('Etkilenen bitiş'),
+            'evaluation': t('Değerlendirme'),
+            'decision': t('Karar'),
         },
     },
 }
@@ -157,7 +158,7 @@ def check_required(entity: str, target: str, row: dict, data=None) -> dict:
         if value is None or str(value).strip() in ('', '0'):
             missing.append(field_label)
     if missing:
-        raise v.MihenkError('Önce şu alanlar doldurulmalı: %s' % ', '.join(missing))
+        raise v.MihenkError(t('Önce şu alanlar doldurulmalı: %s') % ', '.join(missing))
     return merged
 
 
@@ -166,9 +167,9 @@ def guard(conn, entity: str, row: dict, target: str, data=None) -> None:
     data = data or {}
     current = str(row.get('status') or '')
     if current == target:
-        raise v.MihenkError('Kayıt zaten bu durumda.')
+        raise v.MihenkError(t('Kayıt zaten bu durumda.'))
     if not can(entity, current, target):
-        raise v.MihenkError('%s durumundan %s durumuna geçişe izin verilmiyor.'
+        raise v.MihenkError(t('%s durumundan %s durumuna geçişe izin verilmiyor.')
                             % (label(entity, current), label(entity, target)))
 
     merged = check_required(entity, target, row, data)
@@ -177,7 +178,7 @@ def guard(conn, entity: str, row: dict, target: str, data=None) -> None:
         count = open_impact_count(conn, int(row['id']))
         if count:
             raise v.MihenkError(
-                '%d etki değerlendirmesi açıkken bu varlık hizmete dönemez.' % count)
+                t('%d etki değerlendirmesi açıkken bu varlık hizmete dönemez.') % count)
 
     if entity == 'calibration' and target == 'closed':
         result = merged.get('result') or ''
@@ -187,8 +188,8 @@ def guard(conn, entity: str, row: dict, target: str, data=None) -> None:
             if impact_id:
                 impact = conn.execute('SELECT * FROM impact WHERE id = ?', (impact_id,)).fetchone()
             if not impact or impact['status'] != 'closed':
-                raise v.MihenkError('Başarısız bir kalibrasyon ancak etki değerlendirmesi '
-                                    'kapandıktan sonra kapatılabilir.')
+                raise v.MihenkError(t('Başarısız bir kalibrasyon ancak etki değerlendirmesi '
+                                    'kapandıktan sonra kapatılabilir.'))
         if result == 'conditional' and not str(merged.get('usage_limit') or '').strip():
-            raise v.MihenkError('Şartlı bir sonuç kapatılmadan önce yazılı bir kullanım '
-                                'sınırlaması gerektirir.')
+            raise v.MihenkError(t('Şartlı bir sonuç kapatılmadan önce yazılı bir kullanım '
+                                'sınırlaması gerektirir.'))

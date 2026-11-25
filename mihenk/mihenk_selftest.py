@@ -30,6 +30,8 @@ def run(argv) -> int:
         import mihenk_app  # noqa: F401
         import mihenk_checklist  # noqa: F401
         import mihenk_export  # noqa: F401
+        import mihenk_i18n
+        import mihenk_legal  # noqa: F401
         import mihenk_parts  # noqa: F401
         import mihenk_reports  # noqa: F401
         import mihenk_seed  # noqa: F401
@@ -59,8 +61,12 @@ def run(argv) -> int:
         except ImportError:
             ui, tb = 'classic', '-'
 
-        msg = 'OK %s tcl=%s sqlite=%s ui=%s ttkbootstrap=%s frozen=%s python=%s' % (
-            mihenk_core.VERSION, tcl, __import__('sqlite3').sqlite_version, ui, tb,
+        # Ceviri EXE'ye girdi mi: sozluk bosalirsa uygulama sessizce Turkce
+        # calisir, bu yuzden sayi burada acikca yaziliyor.
+        langs = '%d/%s' % (len(mihenk_i18n.EN), ','.join(sorted(mihenk_i18n.LANGUAGES)))
+
+        msg = 'OK %s tcl=%s sqlite=%s ui=%s ttkbootstrap=%s i18n=%s frozen=%s python=%s' % (
+            mihenk_core.VERSION, tcl, __import__('sqlite3').sqlite_version, ui, tb, langs,
             bool(getattr(sys, 'frozen', False)), sys.version.split()[0])
         code = 0
     except BaseException:

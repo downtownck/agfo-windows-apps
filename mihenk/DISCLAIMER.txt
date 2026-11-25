@@ -1,0 +1,51 @@
+AGFO Mihenk v3.0.0
+==============================================================================
+
+SORUMLULUK REDDI
+----------------
+
+AGFO Mihenk ücretsiz bir yazılımdır ve "olduğu gibi" sunulur. Açık ya da
+örtülü hiçbir garanti verilmez; belirli bir amaca uygunluk, kesintisiz çalışma
+ve hatasızlık garantisi de buna dahildir.
+
+Bu yazılım bir kalite yönetim sisteminin, akredite bir kalibrasyonun ya da
+yasal bir uygunluk değerlendirmesinin yerine geçmez. Kayıtlarınızın doğruluğu,
+saklanması, yedeklenmesi ve ilgili standartlara uygunluğu sizin
+sorumluluğunuzdadır.
+
+AGFO Teknik Kontrol ve yazılımın yazarları, bu yazılımın kullanımından ya da
+kullanılamamasından doğan hiçbir doğrudan, dolaylı, arızi veya sonuçsal
+zarardan sorumlu tutulamaz. Veri kaybı, üretim kaybı, denetim bulgusu ve ürün
+geri çağırma da buna dahildir.
+
+Bu yazılımı kullanmak, AGFO ile bir belgelendirme ilişkisi kurmaz ve hiçbir
+denetimde, belgelendirme kararında ya da başvuruda avantaj sağlamaz. AGFO
+belgelendirme faaliyetlerini tarafsızlık kurallarına göre yürütür.
+
+Yazılımı kurarak ve kullanarak bu şartları kabul etmiş olursunuz.
+
+==============================================================================
+
+DISCLAIMER
+----------
+
+AGFO Mihenk is free software and is provided "as is". No warranty of any kind
+is given, express or implied, including any warranty of fitness for a
+particular purpose, uninterrupted operation or freedom from error.
+
+This software does not replace a quality management system, an accredited
+calibration or a statutory conformity assessment. The accuracy, retention,
+backup and standards compliance of your records remain your responsibility.
+
+AGFO Teknik Kontrol and the authors of this software accept no liability for
+any direct, indirect, incidental or consequential damage arising from the use
+of, or the inability to use, this software. That includes loss of data, loss
+of production, audit findings and product recall.
+
+Using this software creates no certification relationship with AGFO and
+confers no advantage in any audit, certification decision or application. AGFO
+conducts its certification activities under its impartiality rules.
+
+By installing and using this software you accept these terms.
+
+==============================================================================

@@ -11,15 +11,16 @@ import mihenk_audit as audit
 import mihenk_store as store
 import mihenk_validate as v
 from mihenk_validate import MihenkError
+from mihenk_i18n import t
 
 UNITS = ('adet', 'metre', 'kg', 'litre', 'paket', 'takım')
 
 REASONS = {
-    'consume': 'İş emrinde kullanıldı',
-    'receive': 'Giriş / satın alma',
-    'return': 'İade',
-    'count': 'Sayım düzeltmesi',
-    'scrap': 'Hurda',
+    'consume': t('İş emrinde kullanıldı'),
+    'receive': t('Giriş / satın alma'),
+    'return': t('İade'),
+    'count': t('Sayım düzeltmesi'),
+    'scrap': t('Hurda'),
 }
 
 
@@ -113,11 +114,11 @@ class PartRepo:
     def create(conn, data: dict) -> int:
         clean = PartRepo.sanitize(data)
         if not clean['code']:
-            raise MihenkError('Parça kodu zorunludur.')
+            raise MihenkError(t('Parça kodu zorunludur.'))
         if not clean['name']:
-            raise MihenkError('Parça adı zorunludur.')
+            raise MihenkError(t('Parça adı zorunludur.'))
         if PartRepo.by_code(conn, clean['code']):
-            raise MihenkError('Bu kodu başka bir parça kullanıyor.')
+            raise MihenkError(t('Bu kodu başka bir parça kullanıyor.'))
 
         opening = v.number(data.get('stock'))
         opening = max(0.0, opening if opening is not None else 0.0)
@@ -130,22 +131,22 @@ class PartRepo:
         part_id = int(cur.lastrowid)
         audit.result(conn, 'part', part_id, 'create', {'code': clean['code']})
         if opening:
-            PartRepo.move(conn, part_id, opening, 'count', note='Açılış stoğu')
+            PartRepo.move(conn, part_id, opening, 'count', note=t('Açılış stoğu'))
         return part_id
 
     @staticmethod
     def update(conn, part_id, data: dict) -> None:
         part_id = int(part_id)
         if not PartRepo.get(conn, part_id):
-            raise MihenkError('Parça bulunamadı.')
+            raise MihenkError(t('Parça bulunamadı.'))
         clean = PartRepo.sanitize(data)
         if not clean['code']:
-            raise MihenkError('Parça kodu zorunludur.')
+            raise MihenkError(t('Parça kodu zorunludur.'))
         if not clean['name']:
-            raise MihenkError('Parça adı zorunludur.')
+            raise MihenkError(t('Parça adı zorunludur.'))
         clash = PartRepo.by_code(conn, clean['code'])
         if clash and int(clash['id']) != part_id:
-            raise MihenkError('Bu kodu başka bir parça kullanıyor.')
+            raise MihenkError(t('Bu kodu başka bir parça kullanıyor.'))
         audit.intent(conn, 'part', part_id, 'update', {'code': clean['code']})
         assignments = ', '.join('%s = ?' % f for f in PartRepo.FIELDS)
         args = [clean[f] for f in PartRepo.FIELDS] + [v.now(), part_id]
@@ -162,14 +163,14 @@ class PartRepo:
         part_id = int(part_id)
         part = PartRepo.get(conn, part_id)
         if not part:
-            raise MihenkError('Parça bulunamadı.')
+            raise MihenkError(t('Parça bulunamadı.'))
         amount = v.number(delta)
         if amount is None or amount == 0:
-            raise MihenkError('Miktar sıfırdan farklı olmalı.')
+            raise MihenkError(t('Miktar sıfırdan farklı olmalı.'))
         reason = v.enum(reason, REASONS, 'count')
         balance = round(float(part['stock']) + amount, 4)
         if balance < 0:
-            raise MihenkError('Stok eksiye düşemez: elde %s %s var, %s %s çıkış isteniyor.'
+            raise MihenkError(t('Stok eksiye düşemez: elde %s %s var, %s %s çıkış isteniyor.')
                               % (_fmt(part['stock']), part['unit'], _fmt(abs(amount)), part['unit']))
 
         payload = {'delta': amount, 'reason': reason, 'work_order_id': int(work_order_id or 0)}
@@ -191,7 +192,7 @@ class PartRepo:
         """Is emrinde parca kullanimi."""
         amount = v.number(quantity)
         if amount is None or amount <= 0:
-            raise MihenkError('Kullanılan miktar sıfırdan büyük olmalı.')
+            raise MihenkError(t('Kullanılan miktar sıfırdan büyük olmalı.'))
         return PartRepo.move(conn, part_id, -abs(amount), 'consume', work_order_id, note)
 
     @staticmethod
@@ -239,8 +240,8 @@ class PartRepo:
         row = conn.execute('SELECT COUNT(*) AS c FROM part_movement WHERE part_id = ?',
                            (part_id,)).fetchone()
         if int(row['c']):
-            raise MihenkError('Bu parçanın stok hareketi var, silinemez. '
-                              'Bunun yerine pasife alın.')
+            raise MihenkError(t('Bu parçanın stok hareketi var, silinemez. '
+                              'Bunun yerine pasife alın.'))
         audit.intent(conn, 'part', part_id, 'delete')
         conn.execute('DELETE FROM part WHERE id = ?', (part_id,))
         audit.result(conn, 'part', part_id, 'delete')

@@ -11,6 +11,7 @@ import mihenk_states as states
 import mihenk_store as store
 import mihenk_validate as v
 from mihenk_validate import MihenkError
+from mihenk_i18n import t
 
 
 # ====================================================================== varlik tipleri
@@ -18,49 +19,49 @@ class AssetTypes:
     """Varlik tipleri ve her tipin tasidigi ek ozellikler."""
 
     TYPES = {
-        'location': 'Konum',
-        'line': 'Üretim hattı',
-        'machine': 'Makine',
-        'component': 'Bileşen',
-        'measuring_device': 'Ölçüm cihazı',
+        'location': t('Konum'),
+        'line': t('Üretim hattı'),
+        'machine': t('Makine'),
+        'component': t('Bileşen'),
+        'measuring_device': t('Ölçüm cihazı'),
     }
 
     STATUSES = {
-        'active': 'Aktif',
-        'out_of_service': 'Hizmet dışı',
-        'quarantined': 'Karantinada',
-        'retired': 'Hurdaya ayrıldı',
+        'active': t('Aktif'),
+        'out_of_service': t('Hizmet dışı'),
+        'quarantined': t('Karantinada'),
+        'retired': t('Hurdaya ayrıldı'),
     }
 
     COUNTER_UNITS = {
-        '': '- yok -',
-        'hour': 'Çalışma saati',
-        'cycle': 'Çevrim',
-        'km': 'Kilometre',
+        '': t('- yok -'),
+        'hour': t('Çalışma saati'),
+        'cycle': t('Çevrim'),
+        'km': t('Kilometre'),
     }
 
-    CRITICALITY = {1: '1 - düşük', 2: '2 - normal', 3: '3 - kritik'}
+    CRITICALITY = {1: t('1 - düşük'), 2: t('2 - normal'), 3: t('3 - kritik')}
 
     ATTRIBUTES = {
         'measuring_device': (
-            {'key': 'measuring_range', 'label': 'Ölçüm aralığı', 'type': 'text'},
-            {'key': 'resolution', 'label': 'Çözünürlük', 'type': 'text'},
-            {'key': 'accuracy_class', 'label': 'Doğruluk sınıfı', 'type': 'text'},
-            {'key': 'reference_standard', 'label': 'Referans standart', 'type': 'text'},
+            {'key': 'measuring_range', 'label': t('Ölçüm aralığı'), 'type': 'text'},
+            {'key': 'resolution', 'label': t('Çözünürlük'), 'type': 'text'},
+            {'key': 'accuracy_class', 'label': t('Doğruluk sınıfı'), 'type': 'text'},
+            {'key': 'reference_standard', 'label': t('Referans standart'), 'type': 'text'},
         ),
         'machine': (
-            {'key': 'power_kw', 'label': 'Güç (kW)', 'type': 'number'},
-            {'key': 'year_built', 'label': 'Üretim yılı', 'type': 'number'},
-            {'key': 'food_contact', 'label': 'Gıdaya temas eden yüzey', 'type': 'bool'},
+            {'key': 'power_kw', 'label': t('Güç (kW)'), 'type': 'number'},
+            {'key': 'year_built', 'label': t('Üretim yılı'), 'type': 'number'},
+            {'key': 'food_contact', 'label': t('Gıdaya temas eden yüzey'), 'type': 'bool'},
         ),
         'line': (
-            {'key': 'throughput', 'label': 'Nominal kapasite', 'type': 'text'},
+            {'key': 'throughput', 'label': t('Nominal kapasite'), 'type': 'text'},
         ),
         'component': (
-            {'key': 'part_no', 'label': 'Parça numarası', 'type': 'text'},
+            {'key': 'part_no', 'label': t('Parça numarası'), 'type': 'text'},
         ),
         'location': (
-            {'key': 'site_code', 'label': 'Saha kodu', 'type': 'text'},
+            {'key': 'site_code', 'label': t('Saha kodu'), 'type': 'text'},
         ),
     }
 
@@ -239,11 +240,11 @@ class AssetRepo:
     def create(conn, data: dict) -> int:
         clean = AssetRepo.sanitize(data)
         if not clean['name']:
-            raise MihenkError('Varlık adı zorunludur.')
+            raise MihenkError(t('Varlık adı zorunludur.'))
         if not clean['code']:
-            raise MihenkError('Varlık kodu zorunludur.')
+            raise MihenkError(t('Varlık kodu zorunludur.'))
         if AssetRepo.by_code(conn, clean['code']):
-            raise MihenkError('Bu kodu başka bir varlık kullanıyor.')
+            raise MihenkError(t('Bu kodu başka bir varlık kullanıyor.'))
 
         audit.intent(conn, 'asset', 0, 'create', {'code': clean['code']}, '', 'active')
         stamp = v.now()
@@ -261,19 +262,19 @@ class AssetRepo:
         asset_id = int(asset_id)
         current = AssetRepo.get(conn, asset_id)
         if not current:
-            raise MihenkError('Varlık bulunamadı.')
+            raise MihenkError(t('Varlık bulunamadı.'))
         clean = AssetRepo.sanitize(data)
         if not clean['name']:
-            raise MihenkError('Varlık adı zorunludur.')
+            raise MihenkError(t('Varlık adı zorunludur.'))
         if not clean['code']:
-            raise MihenkError('Varlık kodu zorunludur.')
+            raise MihenkError(t('Varlık kodu zorunludur.'))
         clash = AssetRepo.by_code(conn, clean['code'])
         if clash and int(clash['id']) != asset_id:
-            raise MihenkError('Bu kodu başka bir varlık kullanıyor.')
+            raise MihenkError(t('Bu kodu başka bir varlık kullanıyor.'))
         if clean['parent_id'] == asset_id:
-            raise MihenkError('Bir varlık kendi üst varlığı olamaz.')
+            raise MihenkError(t('Bir varlık kendi üst varlığı olamaz.'))
         if clean['parent_id'] and clean['parent_id'] in AssetRepo.descendant_ids(conn, asset_id):
-            raise MihenkError('Bu üst varlık hiyerarşide döngü oluşturur.')
+            raise MihenkError(t('Bu üst varlık hiyerarşide döngü oluşturur.'))
 
         audit.intent(conn, 'asset', asset_id, 'update', {'code': clean['code']})
         assignments = ', '.join('%s = ?' % f for f in AssetRepo.FIELDS)
@@ -287,7 +288,7 @@ class AssetRepo:
         asset_id = int(asset_id)
         row = AssetRepo.get(conn, asset_id)
         if not row:
-            raise MihenkError('Varlık bulunamadı.')
+            raise MihenkError(t('Varlık bulunamadı.'))
         states.guard(conn, 'asset', row, target)
         audit.intent(conn, 'asset', asset_id, 'transition', {'reason': reason}, row['status'], target)
         conn.execute('UPDATE asset SET status = ?, updated_at = ? WHERE id = ?',
@@ -300,12 +301,12 @@ class AssetRepo:
         asset_id = int(asset_id)
         row = AssetRepo.get(conn, asset_id)
         if not row:
-            raise MihenkError('Varlık bulunamadı.')
+            raise MihenkError(t('Varlık bulunamadı.'))
         if not row['counter_unit']:
-            raise MihenkError('Bu varlıkta sayaç birimi tanımlı değil.')
+            raise MihenkError(t('Bu varlıkta sayaç birimi tanımlı değil.'))
         reading = v.integer(value, 0, None, 0)
         if reading < int(row['counter_value']):
-            raise MihenkError('Sayaç okuması bir öncekinden düşük olamaz.')
+            raise MihenkError(t('Sayaç okuması bir öncekinden düşük olamaz.'))
         audit.intent(conn, 'asset', asset_id, 'counter', {'value': reading})
         stamp = v.now()
         conn.execute('UPDATE asset SET counter_value = ?, counter_read_at = ?, updated_at = ? WHERE id = ?',
@@ -321,13 +322,13 @@ class AssetRepo:
         """Gecmisi olan varlik silinmez; hurdaya ayrilir."""
         asset_id = int(asset_id)
         if AssetRepo.children(conn, asset_id):
-            raise MihenkError('Önce alt varlıkları taşıyın veya kaldırın.')
+            raise MihenkError(t('Önce alt varlıkları taşıyın veya kaldırın.'))
         for table in ('schedule', 'work_order', 'calibration'):
             row = conn.execute('SELECT COUNT(*) AS c FROM %s WHERE asset_id = ?' % table,
                                (asset_id,)).fetchone()
             if int(row['c']):
-                raise MihenkError('Bu varlığın bakım geçmişi var, silinemez. '
-                                  'Bunun yerine hurdaya ayırın.')
+                raise MihenkError(t('Bu varlığın bakım geçmişi var, silinemez. '
+                                  'Bunun yerine hurdaya ayırın.'))
         audit.intent(conn, 'asset', asset_id, 'delete')
         conn.execute('DELETE FROM asset_attr WHERE asset_id = ?', (asset_id,))
         conn.execute('DELETE FROM asset WHERE id = ?', (asset_id,))
@@ -338,9 +339,9 @@ class AssetRepo:
 class ScheduleRepo:
     """Bakim, kalibrasyon ve dogrulama planlari. Tek tablo, uc tip."""
 
-    PLAN_TYPES = {'pm': 'Önleyici bakım', 'calibration': 'Kalibrasyon', 'verification': 'Doğrulama'}
-    UNITS = {'day': 'gün', 'week': 'hafta', 'month': 'ay', 'year': 'yıl'}
-    BASES = {'time': 'Takvim', 'counter': 'Sayaç'}
+    PLAN_TYPES = {'pm': t('Önleyici bakım'), 'calibration': t('Kalibrasyon'), 'verification': t('Doğrulama')}
+    UNITS = {'day': t('gün'), 'week': t('hafta'), 'month': t('ay'), 'year': t('yıl')}
+    BASES = {'time': t('Takvim'), 'counter': t('Sayaç')}
 
     FIELDS = ('asset_id', 'plan_type', 'title', 'basis', 'interval_value', 'interval_unit',
               'counter_interval', 'lead_days', 'tolerance_days', 'assignee', 'is_active',
@@ -410,15 +411,15 @@ class ScheduleRepo:
     def validate(conn, clean: dict) -> None:
         asset = AssetRepo.get(conn, clean['asset_id'])
         if not asset:
-            raise MihenkError('Bu plan için mevcut bir varlık seçin.')
+            raise MihenkError(t('Bu plan için mevcut bir varlık seçin.'))
         if not clean['title']:
-            raise MihenkError('Plan başlığı zorunludur.')
+            raise MihenkError(t('Plan başlığı zorunludur.'))
         if clean['basis'] == 'counter':
             if clean['counter_interval'] < 1:
-                raise MihenkError('Sayaç tabanlı plan bir sayaç aralığı gerektirir.')
+                raise MihenkError(t('Sayaç tabanlı plan bir sayaç aralığı gerektirir.'))
             if not asset['counter_unit']:
-                raise MihenkError('Bu varlıkta sayaç birimi tanımlı değil, '
-                                  'bu yüzden sayaç tabanlı plan taşıyamaz.')
+                raise MihenkError(t('Bu varlıkta sayaç birimi tanımlı değil, '
+                                  'bu yüzden sayaç tabanlı plan taşıyamaz.'))
 
     @staticmethod
     def compute_next_due(plan: dict, base) -> str:
@@ -453,7 +454,7 @@ class ScheduleRepo:
     def update(conn, plan_id, data: dict) -> None:
         plan_id = int(plan_id)
         if not ScheduleRepo.get(conn, plan_id):
-            raise MihenkError('Plan bulunamadı.')
+            raise MihenkError(t('Plan bulunamadı.'))
         clean = ScheduleRepo.sanitize(data)
         ScheduleRepo.validate(conn, clean)
         if not clean['next_due_at']:
@@ -470,7 +471,7 @@ class ScheduleRepo:
         plan_id = int(plan_id)
         plan = ScheduleRepo.get(conn, plan_id)
         if not plan:
-            raise MihenkError('Plan bulunamadı.')
+            raise MihenkError(t('Plan bulunamadı.'))
         done_at = v.stamp(done_at) or v.now()
         next_due = ScheduleRepo.compute_next_due(plan, done_at)
         audit.intent(conn, 'schedule', plan_id, 'mark_done', {'done_at': done_at})
@@ -509,8 +510,8 @@ class ScheduleRepo:
 class RequestRepo:
     """Sahadan gelen bildirimler. Is emrinden ayri tutulur."""
 
-    SEVERITIES = {'low': 'Düşük', 'normal': 'Normal', 'high': 'Yüksek',
-                  'stops_production': 'Üretimi durduruyor'}
+    SEVERITIES = {'low': t('Düşük'), 'normal': t('Normal'), 'high': t('Yüksek'),
+                  'stops_production': t('Üretimi durduruyor')}
 
     @staticmethod
     def get(conn, request_id):
@@ -541,9 +542,9 @@ class RequestRepo:
         asset_id = v.integer(data.get('asset_id'), 0, None, 0)
         summary = v.text(data.get('summary'), 191)
         if not asset_id or not AssetRepo.get(conn, asset_id):
-            raise MihenkError('Mevcut bir varlık seçin.')
+            raise MihenkError(t('Mevcut bir varlık seçin.'))
         if not summary:
-            raise MihenkError('Kısa bir özet zorunludur.')
+            raise MihenkError(t('Kısa bir özet zorunludur.'))
         audit.intent(conn, 'request', 0, 'create', {'asset_id': asset_id}, '', 'open')
         cur = conn.execute(
             'INSERT INTO request (asset_id, reported_by, reported_at, summary, description, severity, status)'
@@ -559,7 +560,7 @@ class RequestRepo:
         request_id = int(request_id)
         row = RequestRepo.get(conn, request_id)
         if not row:
-            raise MihenkError('Talep bulunamadı.')
+            raise MihenkError(t('Talep bulunamadı.'))
         extra = {}
         if data and data.get('rejection_reason') is not None:
             extra['rejection_reason'] = v.multiline(data.get('rejection_reason'))
@@ -582,9 +583,9 @@ class RequestRepo:
         request_id = int(request_id)
         row = RequestRepo.get(conn, request_id)
         if not row:
-            raise MihenkError('Talep bulunamadı.')
+            raise MihenkError(t('Talep bulunamadı.'))
         if row['status'] != 'triaged':
-            raise MihenkError('Dönüştürmeden önce talebi değerlendirin.')
+            raise MihenkError(t('Dönüştürmeden önce talebi değerlendirin.'))
         data = data or {}
         work_order_id = WorkOrderRepo.create(conn, {
             'asset_id': int(row['asset_id']),
@@ -603,8 +604,8 @@ class RequestRepo:
 class WorkOrderRepo:
     """Is emirleri."""
 
-    TYPES = {'preventive': 'Önleyici', 'corrective': 'Düzeltici', 'improvement': 'İyileştirme'}
-    PRIORITIES = {'low': 'Düşük', 'normal': 'Normal', 'high': 'Yüksek'}
+    TYPES = {'preventive': t('Önleyici'), 'corrective': t('Düzeltici'), 'improvement': t('İyileştirme')}
+    PRIORITIES = {'low': t('Düşük'), 'normal': t('Normal'), 'high': t('Yüksek')}
 
     FIELDS = ('asset_id', 'schedule_id', 'request_id', 'wo_type', 'title', 'priority', 'assigned_to',
               'planned_start', 'planned_end', 'actual_start', 'actual_end', 'downtime_minutes',
@@ -670,9 +671,9 @@ class WorkOrderRepo:
     def create(conn, data: dict) -> int:
         clean = WorkOrderRepo.sanitize(data)
         if not clean['asset_id'] or not AssetRepo.get(conn, clean['asset_id']):
-            raise MihenkError('Mevcut bir varlık seçin.')
+            raise MihenkError(t('Mevcut bir varlık seçin.'))
         if not clean['title']:
-            raise MihenkError('İş emri başlığı zorunludur.')
+            raise MihenkError(t('İş emri başlığı zorunludur.'))
         audit.intent(conn, 'work_order', 0, 'create', {'asset_id': clean['asset_id']}, '', 'new')
         stamp = v.now()
         columns = list(WorkOrderRepo.FIELDS) + ['status', 'created_at', 'updated_at']
@@ -688,12 +689,12 @@ class WorkOrderRepo:
         work_order_id = int(work_order_id)
         current = WorkOrderRepo.get(conn, work_order_id)
         if not current:
-            raise MihenkError('İş emri bulunamadı.')
+            raise MihenkError(t('İş emri bulunamadı.'))
         if current['status'] in ('closed', 'cancelled'):
-            raise MihenkError('Kapatılmış veya iptal edilmiş bir iş emri artık düzenlenemez.')
+            raise MihenkError(t('Kapatılmış veya iptal edilmiş bir iş emri artık düzenlenemez.'))
         clean = WorkOrderRepo.sanitize(data)
         if not clean['title']:
-            raise MihenkError('İş emri başlığı zorunludur.')
+            raise MihenkError(t('İş emri başlığı zorunludur.'))
         audit.intent(conn, 'work_order', work_order_id, 'update', {'title': clean['title']})
         assignments = ', '.join('%s = ?' % f for f in WorkOrderRepo.FIELDS)
         args = [clean[f] for f in WorkOrderRepo.FIELDS] + [v.now(), work_order_id]
@@ -705,7 +706,7 @@ class WorkOrderRepo:
         work_order_id = int(work_order_id)
         row = WorkOrderRepo.get(conn, work_order_id)
         if not row:
-            raise MihenkError('İş emri bulunamadı.')
+            raise MihenkError(t('İş emri bulunamadı.'))
         data = data or {}
         extra = {}
         for field in ('work_done', 'root_cause', 'hold_reason'):
@@ -756,8 +757,8 @@ class WorkOrderRepo:
 class CalibrationRepo:
     """Kalibrasyon ve dogrulama kayitlari."""
 
-    RESULTS = {'pass': 'Uygun', 'conditional': 'Şartlı', 'fail': 'Uygunsuz'}
-    RECORD_TYPES = {'calibration': 'Kalibrasyon', 'verification': 'Doğrulama'}
+    RESULTS = {'pass': t('Uygun'), 'conditional': t('Şartlı'), 'fail': t('Uygunsuz')}
+    RECORD_TYPES = {'calibration': t('Kalibrasyon'), 'verification': t('Doğrulama')}
 
     RESULT_FIELDS = ('performed_at', 'performed_by', 'external_body', 'accreditation_scope',
                      'certificate_no', 'certificate_path', 'traceability_ref', 'measurement_points',
@@ -815,7 +816,7 @@ class CalibrationRepo:
     def create(conn, data: dict) -> int:
         asset_id = v.integer(data.get('asset_id'), 0, None, 0)
         if not asset_id or not AssetRepo.get(conn, asset_id):
-            raise MihenkError('Mevcut bir varlık seçin.')
+            raise MihenkError(t('Mevcut bir varlık seçin.'))
         audit.intent(conn, 'calibration', 0, 'create', {'asset_id': asset_id}, '', 'planned')
         stamp = v.now()
         cur = conn.execute(
@@ -875,9 +876,9 @@ class CalibrationRepo:
         record_id = int(record_id)
         row = CalibrationRepo.get(conn, record_id)
         if not row:
-            raise MihenkError('Kayıt bulunamadı.')
+            raise MihenkError(t('Kayıt bulunamadı.'))
         if row['status'] in ('closed', 'cancelled'):
-            raise MihenkError('Bu kayıt kapalı ve artık düzenlenemez.')
+            raise MihenkError(t('Bu kayıt kapalı ve artık düzenlenemez.'))
         data = dict(data or {})
         data['_record_id'] = record_id
         clean = CalibrationRepo.sanitize_result(data)
@@ -908,14 +909,14 @@ class CalibrationRepo:
             asset = AssetRepo.get(conn, int(row['asset_id']))
             if asset and asset['status'] not in ('quarantined', 'retired'):
                 AssetRepo.transition(conn, int(row['asset_id']), 'quarantined',
-                                     '#%d numaralı başarısız kayıt sonrası otomatik karantina' % record_id)
+                                     t('#%d numaralı başarısız kayıt sonrası otomatik karantina') % record_id)
 
     @staticmethod
     def transition(conn, record_id, target: str, data=None) -> None:
         record_id = int(record_id)
         row = CalibrationRepo.get(conn, record_id)
         if not row:
-            raise MihenkError('Kayıt bulunamadı.')
+            raise MihenkError(t('Kayıt bulunamadı.'))
         states.guard(conn, 'calibration', row, target, data or {})
         audit.intent(conn, 'calibration', record_id, 'transition', data or {}, row['status'], target)
 
@@ -947,10 +948,10 @@ class ImpactRepo:
     """
 
     DECISIONS = {
-        'no_impact': 'Etki yok',
-        'rework': 'Yeniden işleme',
-        'recall': 'Geri çağırma',
-        'release_with_justification': 'Gerekçeli serbest bırakma',
+        'no_impact': t('Etki yok'),
+        'rework': t('Yeniden işleme'),
+        'recall': t('Geri çağırma'),
+        'release_with_justification': t('Gerekçeli serbest bırakma'),
     }
 
     FIELDS = ('affected_from', 'affected_to', 'affected_scope', 'evaluation', 'decision',
@@ -1030,9 +1031,9 @@ class ImpactRepo:
         impact_id = int(impact_id)
         row = ImpactRepo.get(conn, impact_id)
         if not row:
-            raise MihenkError('Etki değerlendirmesi bulunamadı.')
+            raise MihenkError(t('Etki değerlendirmesi bulunamadı.'))
         if row['status'] == 'closed':
-            raise MihenkError('Kapatılmış bir etki değerlendirmesi artık düzenlenemez.')
+            raise MihenkError(t('Kapatılmış bir etki değerlendirmesi artık düzenlenemez.'))
         clean = ImpactRepo.sanitize(data)
         audit.intent(conn, 'impact', impact_id, 'save', {'decision': clean['decision']})
         assignments = ', '.join('%s = ?' % f for f in ImpactRepo.FIELDS)
@@ -1045,7 +1046,7 @@ class ImpactRepo:
         impact_id = int(impact_id)
         row = ImpactRepo.get(conn, impact_id)
         if not row:
-            raise MihenkError('Etki değerlendirmesi bulunamadı.')
+            raise MihenkError(t('Etki değerlendirmesi bulunamadı.'))
         clean = ImpactRepo.sanitize(data)
         states.guard(conn, 'impact', row, 'closed', clean)
         ImpactRepo.save(conn, impact_id, data)

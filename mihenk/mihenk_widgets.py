@@ -9,10 +9,11 @@ from tkinter import ttk
 
 import mihenk_theme as theme
 import mihenk_validate as v
+import mihenk_i18n as i18n
+from mihenk_i18n import t
 
-MONTHS = ('Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-          'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık')
-WEEKDAYS = ('Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz')
+MONTHS = i18n.months()
+WEEKDAYS = i18n.weekdays()
 
 
 class Card(ttk.Frame):
@@ -171,9 +172,9 @@ class DateEntry(ttk.Frame):
         self.var = tk.StringVar()
         self.entry = ttk.Entry(self, textvariable=self.var, width=width)
         self.entry.pack(side='left')
-        ttk.Button(self, text='Takvim', style='Ghost.TButton', width=7,
+        ttk.Button(self, text=t('Takvim'), style='Ghost.TButton', width=7,
                    command=self.open_calendar).pack(side='left', padx=(4, 0))
-        ttk.Button(self, text='Şimdi', style='Ghost.TButton', width=6,
+        ttk.Button(self, text=t('Şimdi'), style='Ghost.TButton', width=6,
                    command=self.set_now).pack(side='left')
 
     def get(self):
@@ -207,7 +208,7 @@ class CalendarPopup(tk.Toplevel):
         super().__init__(owner)
         self.owner = owner
         self.transient(owner.winfo_toplevel())
-        self.title('Tarih seç')
+        self.title(t('Tarih seç'))
         self.resizable(False, False)
         self.configure(background=theme.color('surface'))
 
