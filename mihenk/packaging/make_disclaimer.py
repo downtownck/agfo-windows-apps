@@ -11,6 +11,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 WIDTH = 78
@@ -29,7 +30,10 @@ def render(lang: str) -> str:
     script = ('import sys; sys.path.insert(0, %r)\n'
               'import mihenk_legal as legal\n'
               'sys.stdout.write(legal.heading() + "\\n\\n" + legal.text())\n' % str(ROOT))
-    env = dict(os.environ, MIHENK_LANG=lang, MIHENK_DATA_DIR=str(ROOT / 'build' / 'disclaimer'))
+    # PYTHONIOENCODING: Windows'ta alt surecin stdout'u cp1252'ye duser ve
+    # metindeki Turkce harfler yazilamaz.
+    env = dict(os.environ, MIHENK_LANG=lang, MIHENK_DATA_DIR=tempfile.mkdtemp(),
+               PYTHONIOENCODING='utf-8')
     done = subprocess.run([sys.executable, '-I', '-c', script], capture_output=True,
                           text=True, encoding='utf-8', env=env)
     if done.returncode:
