@@ -20,7 +20,8 @@ import mihenk_validate as v
 import mihenk_widgets as w
 from mihenk_repo import AssetRepo, CalibrationRepo, ImpactRepo, WorkOrderRepo
 from mihenk_screens import (AssetsScreen, CalibrationsScreen, DashboardScreen, ImpactsScreen,
-                            PlansScreen, RequestsScreen, Screen, WorkOrdersScreen)
+                            PartsScreen, PlansScreen, ReportsScreen, RequestsScreen, Screen,
+                            WorkOrdersScreen)
 
 NAV = (
     ('dashboard', 'Pano'),
@@ -30,10 +31,21 @@ NAV = (
     ('work_orders', 'İş emirleri'),
     ('calibrations', 'Kalibrasyon'),
     ('impacts', 'Etki değerlendirmeleri'),
+    ('parts', 'Yedek parçalar'),
+    ('reports', 'Raporlar'),
     ('settings', 'Ayarlar'),
 )
 
 VERSIONS = (
+    {'version': '2.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
+     'summary': 'Modern görünüm (ttkbootstrap) ve dört yeni yetenek: plana bağlı kontrol listesi '
+                'şablonları ve iş emrinde işaretleme, yedek parça kütüğü ile stok hareketleri, '
+                'plan uyumu / MTBF / MTTR / duruş eğilimi / sapma geçmişi göstergeleri, '
+                've denetime hazır çıktı (Excel, CSV, yazdırılabilir rapor, veri klasöründe '
+                'saklanan sertifika dosyaları).'},
+    {'version': '1.1.0', 'date': '2026-11-25', 'kind': 'MINOR',
+     'summary': 'İlk açılışta demo veri ya da boş başlangıç soran karşılama penceresi, boş '
+                'listelerde yönlendirme ve açılışta sessiz güncelleme denetimi.'},
     {'version': '1.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
      'summary': 'İlk sürüm. Hiyerarşik varlık kütüğü ve tipe göre özellikler, önleyici bakım ile '
                 'kalibrasyon ve doğrulamayı tek tabloda toplayan plan yapısı, talep ve iş emri '
@@ -71,6 +83,16 @@ class SettingsScreen(Screen):
         form.add('Açılışta tarama',
                  ttk.Checkbutton(form, text='Uygulama açılırken vadesi gelen kayıtları üret',
                                  variable=self.scan_on_start))
+        self.modern_ui = tk.BooleanVar(value=bool(values['modern_ui']))
+        form.add('Modern görünüm',
+                 ttk.Checkbutton(form, text='ttkbootstrap çizimini kullan (varsa)',
+                                 variable=self.modern_ui))
+        self.ui_status = ttk.Label(form, text='', style='Muted.TLabel', wraplength=520,
+                                   justify='left')
+        form.add_full(self.ui_status)
+        self.install_ui = ttk.Button(form, text='Modern görünümü kur',
+                                     command=self.install_modern_ui)
+        form.add_full(self.install_ui)
         ttk.Button(host, text='Ayarları kaydet', style='Accent.TButton',
                    command=self.save).pack(anchor='w', pady=(0, 16))
 
@@ -131,6 +153,14 @@ class SettingsScreen(Screen):
                                       counts['impact'], counts['log']))
         self.seed_button.configure(state='disabled' if seed.exists(self.app.conn) else 'normal')
         self.update_label.configure(text='Kurulu sürüm: %s' % core.VERSION)
+        self.ui_status.configure(
+            text='Çizim: %s — %s. Bileşen yoksa uygulama klasik çizimle sorunsuz çalışır; '
+                 'renkler iki yolda da aynıdır.'
+                 % ('modern' if theme.engine() == 'ttkbootstrap' else 'klasik',
+                    theme.engine_status()))
+        can_install = (theme.engine() != 'ttkbootstrap' and not getattr(sys, 'frozen', False)
+                       and theme.python_ok())
+        self.install_ui.configure(state='normal' if can_install else 'disabled')
 
     # ------------------------------------------------------------------ islemler
     def save(self) -> None:
@@ -140,10 +170,33 @@ class SettingsScreen(Screen):
             'date_format': self.date_format.get().strip() or '%Y-%m-%d',
             'theme': self.theme_choice.key(),
             'scan_on_start': self.scan_on_start.get(),
+            'modern_ui': self.modern_ui.get(),
         })
         self.app.apply_theme()
         self.app.refresh()
         self.app.toast('Ayarlar kaydedildi.')
+
+    def install_modern_ui(self) -> None:
+        """ttkbootstrap'i uygulamanin kendi klasorune kurar; Python kurulumuna dokunmaz."""
+        self.ui_status.configure(text='Modern görünüm bileşeni kuruluyor…')
+        self.install_ui.configure(state='disabled')
+        target = store.ui_lib_dir()
+
+        def worker():
+            command = theme.pip_install_cmd(theme.console_python(), target)
+            try:
+                done = subprocess.run(command, capture_output=True, text=True, timeout=300)
+                message = ('Kuruldu. Değişiklik için uygulamayı yeniden açın.'
+                           if done.returncode == 0
+                           else 'Kurulamadı: %s' % (done.stderr or done.stdout or '')[-300:])
+            except Exception as exc:
+                message = 'Kurulamadı: %s' % exc
+            try:
+                self.after(0, lambda: self.ui_status.configure(text=message))
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def open_folder(self) -> None:
         path = str(store.data_dir())
@@ -244,6 +297,8 @@ SCREENS = {
     'work_orders': WorkOrdersScreen,
     'calibrations': CalibrationsScreen,
     'impacts': ImpactsScreen,
+    'parts': PartsScreen,
+    'reports': ReportsScreen,
     'settings': SettingsScreen,
 }
 
@@ -259,7 +314,8 @@ class MihenkApp:
         self.current = None
         self._toast_job = None
 
-        theme.apply(root, self.settings['theme'])
+        theme.apply(root, self.settings['theme'], store.ui_lib_dir(),
+                    self.settings.get('modern_ui', True))
         root.title('%s %s' % (core.APP_NAME, core.VERSION))
         self._set_icon()
         root.minsize(1060, 680)
@@ -388,7 +444,8 @@ class MihenkApp:
     def apply_theme(self) -> None:
         """Tema degisince butun bicemleri ve tablolari yeniler."""
         self.settings = store.load_settings()
-        theme.apply(self.root, self.settings['theme'])
+        theme.apply(self.root, self.settings['theme'], store.ui_lib_dir(),
+                    self.settings.get('modern_ui', True))
         self._build_sidebar()
         for name, screen in self.screens.items():
             for child in screen.winfo_children():

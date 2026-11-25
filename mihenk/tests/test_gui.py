@@ -32,6 +32,8 @@ import mihenk_seed as seed  # noqa: E402
 import mihenk_states as states  # noqa: E402
 import mihenk_theme as theme  # noqa: E402
 import mihenk_widgets as w  # noqa: E402
+from mihenk_checklist import ChecklistTemplate, WorkOrderChecklist  # noqa: E402
+from mihenk_parts import PartRepo  # noqa: E402
 from mihenk_repo import AssetRepo, CalibrationRepo, ImpactRepo, ScheduleRepo, WorkOrderRepo  # noqa: E402
 
 PASSED = []
@@ -388,6 +390,122 @@ def settings_screen_saves_and_reports_health():
     assert 'varlık' in screen.health.cget('text')
     assert str(screen.seed_button.cget('state')) == 'disabled', 'demo varken kur dugmesi kapali olmali'
 
+
+
+@test
+def modern_drawing_engine_is_in_use_or_names_why_not():
+    assert theme.engine() in ('ttkbootstrap', 'classic')
+    assert theme.engine_status()
+    if theme.engine() == 'classic':
+        print('   not: ttkbootstrap yok, klasik cizimle kosuldu —', theme.engine_status())
+
+
+@test
+def plan_dialog_edits_the_checklist_template():
+    plan = [p for p in ScheduleRepo.query(app.conn)
+            if ChecklistTemplate.count(app.conn, p['id'])][0]
+    dialog = dialogs.PlanDialog(app, plan['id'])
+    pump()
+    assert len(dialog.checklist.rows) == ChecklistTemplate.count(app.conn, plan['id'])
+    before = len(dialog.checklist.rows)
+    dialog.checklist.add_row({'text': 'Yeni adım', 'is_critical': True})
+    pump()
+    assert len(dialog.checklist.rows) == before + 1
+    dialog.checklist.remove_row(dialog.checklist.rows[0])
+    pump()
+    assert len(dialog.checklist.rows) == before
+    assert dialog.checklist.rows[0]['order'].cget('text') == '1', 'sira yeniden numaralanmali'
+    dialog.destroy()
+    pump()
+
+
+@test
+def work_order_dialog_shows_and_saves_the_checklist():
+    plan = [p for p in ScheduleRepo.query(app.conn)
+            if ChecklistTemplate.count(app.conn, p['id']) and p['plan_type'] == 'pm'][0]
+    orders = [r for r in WorkOrderRepo.query(app.conn, open_only=True)
+              if int(r['schedule_id']) == int(plan['id'])]
+    assert orders, 'plandan uretilmis is emri bekleniyordu'
+    dialog = dialogs.WorkOrderDialog(app, orders[0]['id'])
+    pump()
+    assert dialog.checklist.rows, 'kontrol listesi gorunmeli'
+
+    # Olcum isteyen adim bos birakilirsa kaydetme reddedilir.
+    for row in dialog.checklist.rows:
+        row['state'].set_key('ok')
+    before = len(WARNINGS)
+    assert dialog.checklist.save() is False
+    assert len(WARNINGS) > before
+    dialog.destroy()
+    pump()
+
+
+@test
+def parts_screen_flags_low_stock():
+    app.go('parts')
+    pump()
+    screen = app.screens['parts']
+    assert screen.table.row_count() == 4, screen.table.row_count()
+    assert 'düşük stok' in screen.count_label.cget('text')
+    screen.low_only.set(True)
+    screen.refresh()
+    pump()
+    assert 0 < screen.table.row_count() < 4
+    screen.low_only.set(False)
+    screen.refresh()
+    pump()
+
+
+@test
+def part_dialog_records_a_movement():
+    part = PartRepo.by_code(app.conn, seed.PREFIX + 'PRT-003')
+    before = float(part['stock'])
+    dialog = dialogs.PartDialog(app, part['id'])
+    pump()
+    dialog.move_amount.insert(0, '3')
+    dialog.move_reason.set_key('receive')
+    dialog.record_movement()
+    pump()
+    assert float(PartRepo.get(app.conn, part['id'])['stock']) == before + 3
+
+
+@test
+def reports_screen_fills_every_panel():
+    app.go('reports')
+    pump()
+    screen = app.screens['reports']
+    assert screen.cards['parts'].value.cget('text') != '—'
+    assert screen.reliability.row_count() >= 0
+    assert screen.ageing.row_count() >= 1, 'geciken plan bekleniyordu'
+    screen.device.set_key(AssetRepo.by_code(app.conn, seed.PREFIX + 'THM-01')['id'])
+    screen.refresh_deviation()
+    pump()
+    assert screen.deviation.row_count() == 2, screen.deviation.row_count()
+    screen.period.set_key('30')
+    screen.period_changed()
+    pump()
+    screen.period.set_key('365')
+    screen.period_changed()
+    pump()
+
+
+@test
+def export_dialog_writes_a_workbook():
+    import mihenk_export as export
+    dialog = dialogs.ExportDialog(app, 365)
+    pump()
+    assert len(dialog.choices) == len(export.ALL_TABLES)
+    dialog._set_all(False)
+    pump()
+    assert dialog.keys() == []
+    dialog._set_all(True)
+    pump()
+
+    target = pathlib.Path(tempfile.mkdtemp()) / 'cikti.xlsx'
+    export.to_xlsx(app.conn, target, dialog.keys(), 365)
+    assert target.exists() and target.stat().st_size > 2000
+    dialog.destroy()
+    pump()
 
 
 app.close()

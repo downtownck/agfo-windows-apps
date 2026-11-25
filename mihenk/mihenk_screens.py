@@ -5,13 +5,17 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+import mihenk_export as export
+import mihenk_reports as reports
 import mihenk_scheduler as scheduler
 import mihenk_states as states
+import mihenk_store as store
 import mihenk_theme as theme
 import mihenk_validate as v
 import mihenk_widgets as w
-from mihenk_dialogs import (AssetDialog, CalibrationDialog, ImpactDialog, PlanDialog,
-                            RequestDialog, WorkOrderDialog)
+from mihenk_dialogs import (AssetDialog, CalibrationDialog, ExportDialog, ImpactDialog,
+                            PartDialog, PlanDialog, RequestDialog, WorkOrderDialog, _open_path)
+from mihenk_parts import PartRepo
 from mihenk_repo import (AssetRepo, AssetTypes, CalibrationRepo, ImpactRepo, RequestRepo,
                          ScheduleRepo, WorkOrderRepo)
 
@@ -107,14 +111,15 @@ class DashboardScreen(Screen):
         self.impact_table = w.DataTable(
             panes, [('asset', 'Varlık', 190), ('window', 'Etkilenen aralık', 230),
                     ('opened', 'Açılma', 90)],
-            on_open=lambda row: self.open_dialog(lambda: ImpactDialog(self.app, row['id'])), height=5)
+            on_open=lambda row: self.open_dialog(lambda: ImpactDialog(self.app, row['id'])),
+            height=6, autosize=True)
         self.impact_table.grid(row=1, column=0, sticky='nsew', padx=(0, 12))
 
         ttk.Label(panes, text='Sayaç baskısı', style='Heading.TLabel').grid(
             row=0, column=1, sticky='w', pady=(0, 6))
         self.counter_table = w.DataTable(
             panes, [('asset', 'Varlık', 130), ('plan', 'Plan', 170), ('remaining', 'Kalan', 70, 'e')],
-            height=5)
+            height=6, autosize=True)
         self.counter_table.grid(row=1, column=1, sticky='nsew')
 
         lower = ttk.Frame(self.body)
@@ -616,3 +621,259 @@ class ImpactsScreen(Screen):
         self.count_label.configure(text='%d değerlendirme' % len(rows))
         self.set_hint('Etki değerlendirmesi yok. Bu kayıtlar elle açılmaz: bir kalibrasyon '
                       'uygunsuz çıktığında kendiliğinden açılır.' if not rows else '')
+
+
+# ====================================================================== yedek parcalar
+class PartsScreen(Screen):
+    title = 'Yedek parçalar'
+
+    def build(self) -> None:
+        ttk.Button(self.actions, text='Parça ekle', style='Accent.TButton',
+                   command=lambda: self.open_dialog(lambda: PartDialog(self.app))).pack(side='right')
+
+        self.search = tk.StringVar()
+        entry = ttk.Entry(self.toolbar, textvariable=self.search, width=26)
+        entry.pack(side='left')
+        entry.bind('<KeyRelease>', lambda _e: self.refresh())
+        ttk.Label(self.toolbar, text='Ara', style='Muted.TLabel').pack(side='left', padx=(6, 16))
+
+        self.low_only = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self.toolbar, text='Yalnızca düşük stok', variable=self.low_only,
+                        command=self.refresh).pack(side='left')
+        self.show_passive = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self.toolbar, text='Pasifleri de göster', variable=self.show_passive,
+                        command=self.refresh).pack(side='left', padx=(12, 0))
+
+        self.count_label = ttk.Label(self.toolbar, text='', style='Muted.TLabel')
+        self.count_label.pack(side='right')
+
+        self.table = w.DataTable(
+            self.body,
+            [('code', 'Kod', 130), ('name', 'Ad', 250), ('stock', 'Stok', 100, 'e'),
+             ('min', 'Asgari', 90, 'e'), ('unit', 'Birim', 80), ('location', 'Konum', 160),
+             ('supplier', 'Tedarikçi', 170), ('value', 'Stok değeri', 110, 'e')],
+            on_open=lambda row: self.open_dialog(lambda: PartDialog(self.app, row['id'])))
+        self.table.pack(fill='both', expand=True)
+
+    def refresh(self) -> None:
+        conn = self.app.conn
+        rows = PartRepo.query(conn, search=self.search.get().strip(),
+                              low_only=self.low_only.get(),
+                              active_only=not self.show_passive.get())
+
+        def cells(row):
+            return (row['code'], row['name'], _num(row['stock']), _num(row['min_stock']),
+                    row['unit'], row['location_text'], row['supplier'],
+                    _num(float(row['stock']) * float(row['unit_cost'])))
+
+        def tag(row):
+            if not int(row['is_active']):
+                return 'muted'
+            if float(row['min_stock']) > 0 and float(row['stock']) <= float(row['min_stock']):
+                return 'alert'
+            return None
+
+        self.table.set_rows(rows, values=cells, tag_of=tag)
+        low = PartRepo.count(conn, low_only=True)
+        text = '%d parça' % len(rows)
+        if low:
+            text += '  ·  %d düşük stok' % low
+        text += '  ·  stok değeri %s' % _num(PartRepo.stock_value(conn))
+        self.count_label.configure(text=text)
+        self.set_hint('Yedek parça kütüğü boş. Parça ekleyin; iş emri penceresinden kullanım '
+                      'işlediğinizde stok kendiliğinden düşer.'
+                      if not rows and not self.search.get().strip() else '')
+
+
+# ====================================================================== raporlar
+class ReportsScreen(Screen):
+    title = 'Raporlar'
+    subtitle = 'Göstergeler seçilen dönemdeki kayıtlardan hesaplanır; tahmin ya da örnekleme yok.'
+
+    def build(self) -> None:
+        ttk.Button(self.actions, text='Dışa aktar', style='Accent.TButton',
+                   command=self.export).pack(side='right')
+        ttk.Button(self.actions, text='Yazdırılabilir rapor',
+                   command=self.print_report).pack(side='right', padx=6)
+
+        ttk.Label(self.toolbar, text='Dönem', style='Muted.TLabel').pack(side='left', padx=(0, 6))
+        self.period = w.Combo(self.toolbar, reports.PERIODS, width=16,
+                              value=store.setting('report_period', '365'))
+        self.period.pack(side='left')
+        self.period.bind('<<ComboboxSelected>>', lambda _e: self.period_changed())
+
+        area = w.ScrollArea(self.body)
+        area.pack(fill='both', expand=True)
+        host = area.body
+
+        cards = ttk.Frame(host)
+        cards.pack(fill='x', pady=(0, 14))
+        self.cards = {}
+        for index, (key, label) in enumerate((
+                ('compliance', 'Plan uyumu'), ('conformity', 'Kalibrasyon uygunluğu'),
+                ('downtime', 'Toplam duruş (saat)'), ('labour', 'Toplam işçilik (saat)'),
+                ('parts', 'Düşük stok kalemi'))):
+            card = w.Card(cards, label, '—')
+            card.grid(row=0, column=index, sticky='nsew', padx=(0 if index == 0 else 8, 0))
+            cards.columnconfigure(index, weight=1)
+            self.cards[key] = card
+
+        self.detail = ttk.Label(host, text='', style='Muted.TLabel', wraplength=900,
+                                justify='left')
+        self.detail.pack(anchor='w', pady=(0, 14))
+
+        ttk.Label(host, text='Varlık güvenilirliği', style='Heading.TLabel').pack(anchor='w')
+        ttk.Label(host, text='MTBF iki arızası olmayan varlıkta hesaplanamaz; o satırda boş kalır. '
+                             'Sıfır yazmak yanıltıcı olurdu.',
+                  style='Muted.TLabel').pack(anchor='w', pady=(2, 6))
+        self.reliability = w.DataTable(
+            host, [('code', 'Kod', 120), ('name', 'Varlık', 230), ('failures', 'Arıza', 70, 'e'),
+                   ('mtbf', 'MTBF (saat)', 110, 'e'), ('mttr', 'MTTR (saat)', 110, 'e'),
+                   ('downtime', 'Duruş (dk)', 100, 'e')], height=10, autosize=True)
+        self.reliability.pack(fill='x')
+
+        ttk.Label(host, text='Aya göre duruş ve işçilik', style='Heading.TLabel').pack(
+            anchor='w', pady=(16, 6))
+        self.monthly = w.DataTable(
+            host, [('month', 'Ay', 110), ('downtime', 'Duruş (dk)', 110, 'e'),
+                   ('labour', 'İşçilik (dk)', 110, 'e'), ('orders', 'İş emri', 90, 'e'),
+                   ('bar', '', 300)], height=12, autosize=True)
+        self.monthly.pack(fill='x')
+
+        ttk.Label(host, text='Geciken planlar', style='Heading.TLabel').pack(
+            anchor='w', pady=(16, 6))
+        self.ageing = w.DataTable(
+            host, [('asset', 'Varlık', 220), ('plan', 'Plan', 250), ('due', 'Vade', 110),
+                   ('days', 'Gecikme (gün)', 120, 'e')], height=10, autosize=True)
+        self.ageing.pack(fill='x')
+
+        ttk.Label(host, text='Sapma geçmişi', style='Heading.TLabel').pack(
+            anchor='w', pady=(16, 6))
+        picker = ttk.Frame(host)
+        picker.pack(fill='x', pady=(0, 6))
+        ttk.Label(picker, text='Ölçüm cihazı', style='Muted.TLabel').pack(side='left',
+                                                                          padx=(0, 6))
+        self.device = w.Combo(picker, [(0, '- seçin -')], width=40)
+        self.device.pack(side='left')
+        self.device.bind('<<ComboboxSelected>>', lambda _e: self.refresh_deviation())
+        self.deviation = w.DataTable(
+            host, [('at', 'Tarih', 150), ('deviation', 'En büyük sapma', 140, 'e'),
+                   ('result', 'Sonuç', 120), ('bar', '', 300)], height=10, autosize=True)
+        self.deviation.pack(fill='x', pady=(0, 16))
+
+    def period_changed(self) -> None:
+        store.save_settings({'report_period': self.period.key()})
+        self.refresh()
+
+    def days(self) -> int:
+        return int(self.period.key() or 0)
+
+    def refresh(self) -> None:
+        conn = self.app.conn
+        days = self.days()
+        data = reports.summary(conn, days)
+
+        compliance = data['compliance']
+        self.cards['compliance'].set_value(
+            ('%%%s' % compliance['rate']) if compliance['rate'] is not None else '—',
+            alert=compliance['rate'] is not None and compliance['rate'] < 80)
+        conformity = data['conformity']
+        self.cards['conformity'].set_value(
+            ('%%%s' % conformity['rate']) if conformity['rate'] is not None else '—',
+            alert=bool(conformity['counts']['fail']))
+        self.cards['downtime'].set_value(round(data['downtime_total'] / 60.0, 1))
+        self.cards['labour'].set_value(round(data['labour_total'] / 60.0, 1))
+        self.cards['parts'].set_value(data['parts_low'], alert=bool(data['parts_low']))
+
+        self.detail.configure(
+            text='Plan uyumu: %d iş emrinden %d tanesi zamanında kapandı, %d tanesi geç kaldı, '
+                 '%d tanesi hâlâ açık.    Kalibrasyon: %d kayıttan %d uygun, %d şartlı, '
+                 '%d uygunsuz.'
+                 % (compliance['total'], compliance['on_time'], compliance['late'],
+                    compliance['open'], conformity['total'], conformity['counts']['pass'],
+                    conformity['counts']['conditional'], conformity['counts']['fail']))
+
+        rows = [item for item in reports.asset_reliability(conn, days) if item['failures']]
+        self.reliability.set_rows(
+            [{'id': item['asset']['id'], **item} for item in rows],
+            values=lambda r: (r['asset']['code'], r['asset']['name'], r['failures'],
+                              r['mtbf_hours'] if r['mtbf_hours'] is not None else '—',
+                              r['mttr_hours'] if r['mttr_hours'] is not None else '—',
+                              r['downtime_minutes']),
+            tag_of=lambda r: 'alert' if r['failures'] >= 3 else None)
+
+        downtime = dict((month, (minutes, count))
+                        for month, minutes, count in reports.downtime_by_month(conn, days))
+        labour = dict((month, (minutes, count))
+                      for month, minutes, count in reports.labour_by_month(conn, days))
+        months = sorted(set(downtime) | set(labour))
+        peak = max([downtime.get(m, (0, 0))[0] for m in months] or [0]) or 1
+        self.monthly.set_rows(
+            [{'id': m, 'month': m} for m in months],
+            values=lambda r: (r['month'], downtime.get(r['month'], (0, 0))[0],
+                              labour.get(r['month'], (0, 0))[0],
+                              downtime.get(r['month'], (0, 0))[1] or labour.get(r['month'], (0, 0))[1],
+                              _bar(downtime.get(r['month'], (0, 0))[0], peak)))
+
+        ageing = reports.overdue_ageing(conn)
+        self.ageing.set_rows(
+            [{'id': item['plan']['id'], **item} for item in ageing],
+            values=lambda r: (AssetRepo.label(conn, int(r['plan']['asset_id'])),
+                              r['plan']['title'], v.human(r['plan']['next_due_at']), r['days']),
+            tag_of=lambda r: 'alert' if r['days'] > 30 else None)
+
+        devices = [(int(a['id']), AssetRepo.label(conn, int(a['id'])))
+                   for a in AssetRepo.query(conn, measuring=True)]
+        current = self.device.key()
+        self.device.set_pairs(devices or [(0, '- ölçüm cihazı yok -')], current)
+        self.refresh_deviation()
+
+    def refresh_deviation(self) -> None:
+        asset_id = self.device.key()
+        if not asset_id:
+            self.deviation.set_rows([])
+            return
+        history = reports.deviation_history(self.app.conn, asset_id)
+        peak = max([abs(d) for _at, d, _r in history] or [0]) or 1
+        rows = [{'id': '%s-%d' % (at, index), 'at': at, 'deviation': deviation, 'result': result}
+                for index, (at, deviation, result) in enumerate(history)]
+        self.deviation.set_rows(
+            rows,
+            values=lambda r: (v.human(r['at'], with_time=True), r['deviation'],
+                              CalibrationRepo.RESULTS.get(r['result'], ''),
+                              _bar(abs(r['deviation']), peak)),
+            tag_of=lambda r: 'alert' if r['result'] == 'fail' else None)
+
+    # ------------------------------------------------------------------ cikti
+    def export(self) -> None:
+        ExportDialog(self.app, self.days())
+        self.app.refresh()
+
+    def print_report(self) -> None:
+        target = store.exports_dir() / export.default_name('mihenk-rapor', '.html')
+        made = {}
+
+        def build():
+            made['path'] = export.to_html(self.app.conn, target, days=self.days())
+        if not self.run(build, ''):
+            return
+        _open_path(made['path'], self)
+        self.app.toast('Rapor hazırlandı: %s' % made['path'].name)
+
+
+def _bar(value, peak, width=24) -> str:
+    """Metin tabanli cubuk: tabloda ek bir cizim katmani gerektirmez."""
+    try:
+        filled = int(round(width * float(value) / float(peak)))
+    except (TypeError, ValueError, ZeroDivisionError):
+        return ''
+    filled = max(0, min(width, filled))
+    return '█' * filled
+
+
+def _num(value) -> str:
+    try:
+        return '%g' % float(value)
+    except (TypeError, ValueError):
+        return '0'
+

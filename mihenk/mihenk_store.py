@@ -24,7 +24,14 @@ DEFAULT_SETTINGS = {
     'scan_on_start': True,
     'window': '',
     'first_run_done': False,
+    'modern_ui': True,
+    'report_period': '365',
 }
+
+
+def ui_lib_dir():
+    """Modern gorunum bileseninin kuruldugu klasor."""
+    return data_dir() / 'ui-lib'
 
 
 def data_dir() -> pathlib.Path:

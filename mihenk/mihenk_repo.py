@@ -499,6 +499,8 @@ class ScheduleRepo:
         """Plani siler. Uretilmis kayitlar kendi gecmislerini korur."""
         plan_id = int(plan_id)
         audit.intent(conn, 'schedule', plan_id, 'delete')
+        from mihenk_checklist import ChecklistTemplate
+        ChecklistTemplate.delete_for_plan(conn, plan_id)
         conn.execute('DELETE FROM schedule WHERE id = ?', (plan_id,))
         audit.result(conn, 'schedule', plan_id, 'delete')
 
@@ -726,6 +728,14 @@ class WorkOrderRepo:
             extra['actual_end'] = v.now()
 
         states.guard(conn, 'work_order', row, target, extra)
+
+        if target == 'completed':
+            # Kritik kontrol adimlari isaretlenmeden is emri tamamlanamaz.
+            from mihenk_checklist import WorkOrderChecklist
+            blocking = WorkOrderChecklist.blocking_reason(conn, work_order_id)
+            if blocking:
+                raise MihenkError(blocking)
+
         audit.intent(conn, 'work_order', work_order_id, 'transition', extra, row['status'], target)
 
         sets = ['%s = ?' % f for f in extra] + ['status = ?', 'updated_at = ?']
@@ -819,6 +829,19 @@ class CalibrationRepo:
         return record_id
 
     @staticmethod
+    def _keep_certificate(data: dict) -> str:
+        """Sertifika dosyasini veri klasorune kopyalar; zaten kopyalanmissa dokunmaz.
+
+        Yalnizca disk yolu tutmak kirilgandir; denetim kaniti olacak dosya
+        kutugun yaninda durmali.
+        """
+        raw = v.text(data.get('certificate_path'), 500)
+        if not raw or raw.startswith('certificates/'):
+            return raw
+        import mihenk_export as export
+        return export.store_certificate(raw, int(data.get('_record_id') or 0))
+
+    @staticmethod
     def sanitize_result(data: dict) -> dict:
         points = v.measurement_points(data.get('points'))
         verdict = v.evaluate_points(points)
@@ -831,7 +854,7 @@ class CalibrationRepo:
             'external_body': v.text(data.get('external_body'), 191),
             'accreditation_scope': v.text(data.get('accreditation_scope'), 191),
             'certificate_no': v.text(data.get('certificate_no'), 128),
-            'certificate_path': v.text(data.get('certificate_path'), 500),
+            'certificate_path': CalibrationRepo._keep_certificate(data),
             'traceability_ref': v.text(data.get('traceability_ref'), 191),
             'measurement_points': v.dump_points(points),
             'tolerance_spec': v.text(data.get('tolerance_spec'), 191),
@@ -855,6 +878,8 @@ class CalibrationRepo:
             raise MihenkError('Kayıt bulunamadı.')
         if row['status'] in ('closed', 'cancelled'):
             raise MihenkError('Bu kayıt kapalı ve artık düzenlenemez.')
+        data = dict(data or {})
+        data['_record_id'] = record_id
         clean = CalibrationRepo.sanitize_result(data)
 
         if row['status'] == 'planned':

@@ -18,6 +18,9 @@ os.environ.setdefault('APPDATA', tempfile.mkdtemp())
 os.environ.setdefault('LOCALAPPDATA', tempfile.mkdtemp())
 
 import mihenk_audit as audit  # noqa: E402
+import mihenk_export as export  # noqa: E402
+import mihenk_reports as reports  # noqa: E402
+import mihenk_xlsx as xlsx  # noqa: E402
 import mihenk_core as core  # noqa: E402
 import mihenk_db as db  # noqa: E402
 import mihenk_scheduler as scheduler  # noqa: E402
@@ -25,6 +28,8 @@ import mihenk_seed as seed  # noqa: E402
 import mihenk_states as states  # noqa: E402
 import mihenk_store as store  # noqa: E402
 import mihenk_validate as v  # noqa: E402
+from mihenk_checklist import ChecklistTemplate, WorkOrderChecklist  # noqa: E402
+from mihenk_parts import PartRepo  # noqa: E402
 from mihenk_repo import (AssetRepo, AssetTypes, CalibrationRepo, ImpactRepo,  # noqa: E402
                          RequestRepo, ScheduleRepo, WorkOrderRepo)
 
@@ -70,7 +75,7 @@ def make_device(conn, code='THM-1'):
 def schema_installs_all_tables():
     conn = fresh()
     status = db.table_status(conn)
-    assert len(status) == 8, status
+    assert len(status) == 12, status
     assert all(status.values()), status
     assert db.table('asset') == 'asset'
     assert db.table('drop_me') == ''
@@ -633,6 +638,361 @@ def version_and_paths_are_sane():
     app = (ROOT / 'app.pyw').read_text(encoding='utf-8')
     assert "'--selftest' in sys.argv" in app
     assert app.index('--selftest') < app.index('from mihenk_app import main')
+
+
+# ====================================================================== kontrol listesi
+@test
+def checklist_template_copies_into_the_work_order():
+    conn = fresh()
+    asset = make_asset(conn)
+    plan_id = ScheduleRepo.create(conn, {'asset_id': asset, 'plan_type': 'pm', 'title': 'Aylik',
+                                         'is_active': 1, 'next_due_at': seed.when(-1)})
+    ChecklistTemplate.save(conn, plan_id, [
+        {'text': 'Enerjiyi kes', 'is_critical': 1},
+        {'text': 'Sicaklik olc', 'needs_value': 1, 'unit': 'C'},
+        {'text': '', 'is_critical': 1},                       # bos satir atilir
+    ])
+    assert ChecklistTemplate.count(conn, plan_id) == 2
+
+    scheduler.scan(conn)
+    work_order_id = WorkOrderRepo.query(conn, open_only=True)[0]['id']
+    items = WorkOrderChecklist.items(conn, work_order_id)
+    assert [i['text'] for i in items] == ['Enerjiyi kes', 'Sicaklik olc']
+
+    # Sablon sonradan degisirse uretilmis is emri degismez.
+    ChecklistTemplate.save(conn, plan_id, [{'text': 'Bambaska bir adim'}])
+    assert [i['text'] for i in WorkOrderChecklist.items(conn, work_order_id)] == \
+        ['Enerjiyi kes', 'Sicaklik olc']
+
+
+@test
+def critical_checklist_item_blocks_completion():
+    conn = fresh()
+    asset = make_asset(conn)
+    plan_id = ScheduleRepo.create(conn, {'asset_id': asset, 'plan_type': 'pm', 'title': 'Aylik',
+                                         'is_active': 1, 'next_due_at': seed.when(-1)})
+    ChecklistTemplate.save(conn, plan_id, [
+        {'text': 'Kritik adim', 'is_critical': 1},
+        {'text': 'Sira disi adim'},
+    ])
+    scheduler.scan(conn)
+    work_order_id = WorkOrderRepo.query(conn, open_only=True)[0]['id']
+    WorkOrderRepo.transition(conn, work_order_id, 'assigned')
+    WorkOrderRepo.transition(conn, work_order_id, 'in_progress')
+
+    done = {'work_done': 'Yapildi', 'labor_minutes': 30}
+    refuses(lambda: WorkOrderRepo.transition(conn, work_order_id, 'completed', done),
+            'kritik kontrol adımı')
+
+    items = WorkOrderChecklist.items(conn, work_order_id)
+    WorkOrderChecklist.set_state(conn, items[0]['id'], 'ok')
+    WorkOrderRepo.transition(conn, work_order_id, 'completed', done)
+    assert WorkOrderRepo.get(conn, work_order_id)['status'] == 'completed'
+
+
+@test
+def failed_critical_item_also_blocks():
+    conn = fresh()
+    asset = make_asset(conn)
+    work_order_id = WorkOrderRepo.create(conn, {'asset_id': asset, 'title': 'Is'})
+    WorkOrderChecklist.add_item(conn, work_order_id, 'Kritik', is_critical=True)
+    item = WorkOrderChecklist.items(conn, work_order_id)[0]
+    WorkOrderChecklist.set_state(conn, item['id'], 'fail', note='Parca yok')
+    WorkOrderRepo.transition(conn, work_order_id, 'assigned')
+    WorkOrderRepo.transition(conn, work_order_id, 'in_progress')
+    refuses(lambda: WorkOrderRepo.transition(conn, work_order_id, 'completed',
+                                             {'work_done': 'X', 'labor_minutes': 5}),
+            'kritik kontrol adımı')
+
+
+@test
+def measurement_step_needs_a_value():
+    conn = fresh()
+    asset = make_asset(conn)
+    work_order_id = WorkOrderRepo.create(conn, {'asset_id': asset, 'title': 'Is'})
+    WorkOrderChecklist.add_item(conn, work_order_id, 'Sicaklik', needs_value=True, unit='C')
+    item = WorkOrderChecklist.items(conn, work_order_id)[0]
+    refuses(lambda: WorkOrderChecklist.set_state(conn, item['id'], 'ok'), 'ölçüm değeri')
+    WorkOrderChecklist.set_state(conn, item['id'], 'ok', value='52')
+    assert WorkOrderChecklist.items(conn, work_order_id)[0]['value'] == '52'
+    # Uygulanmaz isaretlemek deger istemez.
+    WorkOrderChecklist.set_state(conn, item['id'], 'na')
+    assert WorkOrderChecklist.progress(conn, work_order_id)['done'] == 1
+
+
+@test
+def checklist_summary_lists_every_step():
+    conn = fresh()
+    asset = make_asset(conn)
+    work_order_id = WorkOrderRepo.create(conn, {'asset_id': asset, 'title': 'Is'})
+    WorkOrderChecklist.add_item(conn, work_order_id, 'Olc', needs_value=True, unit='C')
+    WorkOrderChecklist.add_item(conn, work_order_id, 'Temizle')
+    items = WorkOrderChecklist.items(conn, work_order_id)
+    WorkOrderChecklist.set_state(conn, items[0]['id'], 'ok', value='52')
+    WorkOrderChecklist.set_state(conn, items[1]['id'], 'fail', note='Hortum yirtik')
+    text = WorkOrderChecklist.summary_text(conn, work_order_id)
+    assert '52 C' in text and 'Hortum yirtik' in text and '[!]' in text
+
+
+@test
+def plan_delete_takes_its_template():
+    conn = fresh()
+    asset = make_asset(conn)
+    plan_id = ScheduleRepo.create(conn, {'asset_id': asset, 'plan_type': 'pm', 'title': 'P',
+                                         'is_active': 1})
+    ChecklistTemplate.save(conn, plan_id, [{'text': 'Adim'}])
+    ScheduleRepo.delete(conn, plan_id)
+    assert ChecklistTemplate.count(conn, plan_id) == 0
+
+
+# ====================================================================== yedek parca
+@test
+def part_stock_moves_only_through_movements():
+    conn = fresh()
+    part_id = PartRepo.create(conn, {'code': 'P-1', 'name': 'Conta', 'stock': 10,
+                                     'min_stock': 4, 'unit_cost': 100, 'is_active': 1})
+    part = PartRepo.get(conn, part_id)
+    assert float(part['stock']) == 10.0
+    assert len(PartRepo.movements(conn, part_id=part_id)) == 1, 'acilis stogu hareket birakmali'
+
+    PartRepo.move(conn, part_id, 5, 'receive')
+    assert float(PartRepo.get(conn, part_id)['stock']) == 15.0
+    assert float(PartRepo.movements(conn, part_id=part_id)[0]['balance']) == 15.0
+
+    refuses(lambda: PartRepo.move(conn, part_id, -100, 'scrap'), 'eksiye düşemez')
+    refuses(lambda: PartRepo.move(conn, part_id, 0, 'receive'), 'sıfırdan farklı')
+    assert float(PartRepo.get(conn, part_id)['stock']) == 15.0, 'reddedilen hareket stogu bozmamali'
+
+
+@test
+def part_guards_and_low_stock():
+    conn = fresh()
+    PartRepo.create(conn, {'code': 'P-1', 'name': 'Conta', 'stock': 2, 'min_stock': 5,
+                           'is_active': 1})
+    refuses(lambda: PartRepo.create(conn, {'code': 'P-1', 'name': 'Baska'}), 'başka bir parça')
+    refuses(lambda: PartRepo.create(conn, {'code': '', 'name': 'X'}), 'Parça kodu')
+    refuses(lambda: PartRepo.create(conn, {'code': 'P-2', 'name': ''}), 'Parça adı')
+
+    PartRepo.create(conn, {'code': 'P-3', 'name': 'Bol olan', 'stock': 50, 'min_stock': 5,
+                           'is_active': 1})
+    PartRepo.create(conn, {'code': 'P-4', 'name': 'Uyarisiz', 'stock': 0, 'min_stock': 0,
+                           'is_active': 1})
+    low = PartRepo.low_stock(conn)
+    assert [r['code'] for r in low] == ['P-1'], [r['code'] for r in low]
+    assert PartRepo.count(conn, low_only=True) == 1
+
+
+@test
+def consuming_a_part_on_a_work_order_costs_it():
+    conn = fresh()
+    asset = make_asset(conn)
+    work_order_id = WorkOrderRepo.create(conn, {'asset_id': asset, 'title': 'Is'})
+    part_id = PartRepo.create(conn, {'code': 'P-1', 'name': 'Conta', 'stock': 10,
+                                     'unit_cost': 185, 'is_active': 1})
+    PartRepo.consume(conn, part_id, 2, work_order_id)
+    assert float(PartRepo.get(conn, part_id)['stock']) == 8.0
+    used = PartRepo.used_on_work_order(conn, work_order_id)
+    assert len(used) == 1 and float(used[0]['delta']) == -2.0
+    assert PartRepo.work_order_cost(conn, work_order_id) == 370.0
+    refuses(lambda: PartRepo.consume(conn, part_id, 0, work_order_id), 'sıfırdan büyük')
+
+
+@test
+def part_with_movements_cannot_be_deleted():
+    conn = fresh()
+    moved = PartRepo.create(conn, {'code': 'P-1', 'name': 'Conta', 'stock': 5, 'is_active': 1})
+    refuses(lambda: PartRepo.delete(conn, moved), 'stok hareketi var')
+    clean = PartRepo.create(conn, {'code': 'P-2', 'name': 'Hic kullanilmamis', 'is_active': 1})
+    PartRepo.delete(conn, clean)
+    assert PartRepo.get(conn, clean) is None
+
+
+# ====================================================================== raporlar
+@test
+def compliance_counts_late_and_on_time():
+    conn = fresh()
+    asset = make_asset(conn)
+    plan_id = ScheduleRepo.create(conn, {'asset_id': asset, 'plan_type': 'pm', 'title': 'P',
+                                         'is_active': 1, 'tolerance_days': 0,
+                                         'next_due_at': seed.when(-20)})
+    scheduler.scan(conn)
+    work_order_id = WorkOrderRepo.query(conn, open_only=True)[0]['id']
+    WorkOrderRepo.transition(conn, work_order_id, 'assigned')
+    WorkOrderRepo.transition(conn, work_order_id, 'in_progress')
+    WorkOrderRepo.transition(conn, work_order_id, 'completed',
+                             {'work_done': 'Yapildi', 'labor_minutes': 60,
+                              'actual_end': seed.when(-1), 'downtime_minutes': 90})
+    data = reports.plan_compliance(conn, 365)
+    assert data['total'] == 1 and data['late'] == 1 and data['on_time'] == 0
+    assert data['rate'] == 0.0
+    del plan_id
+
+
+@test
+def reliability_leaves_mtbf_empty_with_one_failure():
+    conn = fresh()
+    asset = make_asset(conn)
+    single = WorkOrderRepo.create(conn, {'asset_id': asset, 'title': 'Ariza',
+                                         'wo_type': 'corrective'})
+    WorkOrderRepo.transition(conn, single, 'assigned')
+    WorkOrderRepo.transition(conn, single, 'in_progress', {'actual_start': seed.when(-10)})
+    WorkOrderRepo.transition(conn, single, 'completed',
+                             {'work_done': 'X', 'labor_minutes': 120,
+                              'actual_end': seed.when(-10, 3), 'downtime_minutes': 180})
+    item = [i for i in reports.asset_reliability(conn, 365) if i['failures']][0]
+    assert item['failures'] == 1
+    assert item['mtbf_hours'] is None, 'tek arizada MTBF hesaplanamaz'
+    assert item['mttr_hours'] == 3.0, item['mttr_hours']
+    assert item['downtime_minutes'] == 180
+
+
+@test
+def downtime_groups_by_month():
+    conn = fresh()
+    asset = make_asset(conn)
+    for offset, minutes in ((-40, 60), (-5, 30), (-3, 45)):
+        work_order_id = WorkOrderRepo.create(conn, {'asset_id': asset, 'title': 'Is'})
+        WorkOrderRepo.transition(conn, work_order_id, 'assigned')
+        WorkOrderRepo.transition(conn, work_order_id, 'in_progress',
+                                 {'actual_start': seed.when(offset)})
+        WorkOrderRepo.transition(conn, work_order_id, 'completed',
+                                 {'work_done': 'X', 'labor_minutes': 10,
+                                  'actual_end': seed.when(offset, 1),
+                                  'downtime_minutes': minutes})
+    months = reports.downtime_by_month(conn, 365)
+    assert sum(item[1] for item in months) == 135, months
+    assert len(months) >= 1
+
+
+@test
+def summary_pulls_every_number():
+    conn = fresh()
+    seed.seed(conn)
+    data = reports.summary(conn, 365)
+    assert data['assets_total'] == 8
+    assert data['impacts_open'] == 1
+    assert data['parts_low'] >= 1, data['parts_low']
+    assert data['parts_value'] > 0
+    assert data['conformity']['counts']['fail'] == 1
+
+
+# ====================================================================== disa aktarim
+@test
+def xlsx_workbook_has_a_sheet_per_table():
+    conn = fresh()
+    seed.seed(conn)
+    target = pathlib.Path(tempfile.mkdtemp()) / 'kayitlar.xlsx'
+    export.to_xlsx(conn, target)
+    assert target.exists() and target.stat().st_size > 2000
+
+    import zipfile
+    with zipfile.ZipFile(target) as book:
+        names = book.namelist()
+        assert 'xl/workbook.xml' in names
+        sheets = [n for n in names if n.startswith('xl/worksheets/')]
+        assert len(sheets) == len(export.ALL_TABLES), (len(sheets), len(export.ALL_TABLES))
+        workbook = book.read('xl/workbook.xml').decode('utf-8')
+        assert 'Kalibrasyon' in workbook and 'Yedek par' in workbook
+
+
+@test
+def csv_export_writes_one_file_per_table():
+    conn = fresh()
+    seed.seed(conn)
+    folder = pathlib.Path(tempfile.mkdtemp()) / 'csv'
+    files = export.to_csv(conn, folder, keys=['assets', 'parts'])
+    assert len(files) == 2
+    text = files[0].read_text(encoding='utf-8-sig')
+    assert 'Kod;Ad;' in text.split('\n')[0]
+    assert seed.PREFIX in text
+
+
+@test
+def html_report_carries_the_headline_numbers():
+    conn = fresh()
+    seed.seed(conn)
+    target = pathlib.Path(tempfile.mkdtemp()) / 'rapor.html'
+    export.to_html(conn, target)
+    text = target.read_text(encoding='utf-8')
+    assert '<!doctype html>' in text and '@media print' in text
+    assert 'Açık etki değerlendirmesi' in text
+    assert 'DEMO-THM-01' in text
+    assert core.VERSION in text
+
+
+@test
+def export_tables_survive_an_empty_database():
+    conn = fresh()
+    for table in export.build_tables(conn):
+        assert 'headers' in table and isinstance(table['rows'], list)
+    target = pathlib.Path(tempfile.mkdtemp()) / 'bos.xlsx'
+    export.to_xlsx(conn, target)
+    assert target.exists()
+
+
+@test
+def certificate_is_copied_into_the_data_folder():
+    conn = fresh()
+    device = make_device(conn)
+    source = pathlib.Path(tempfile.mkdtemp()) / 'sertifika.pdf'
+    source.write_bytes(b'%PDF-1.4 test')
+    record_id = CalibrationRepo.create(conn, {'asset_id': device})
+    CalibrationRepo.save_result(conn, record_id, {
+        'performed_at': '2026-05-01 09:00', 'certificate_no': 'C-1',
+        'certificate_path': str(source),
+        'points': [{'nominal': 0, 'measured': 0.1, 'tolerance': 0.5}]})
+    stored = CalibrationRepo.get(conn, record_id)['certificate_path']
+    assert stored.startswith('certificates/'), stored
+    assert export.certificate_exists(stored)
+    assert export.certificate_path(stored).read_bytes() == b'%PDF-1.4 test'
+
+    # Ozgun dosya silinse bile kayit ayakta.
+    source.unlink()
+    assert export.certificate_exists(stored)
+
+    # Ikinci kayit ayni dosyayi tekrar kopyalamaz, yolu oldugu gibi birakir.
+    CalibrationRepo.save_result(conn, record_id, {
+        'performed_at': '2026-05-01 09:00', 'certificate_no': 'C-1',
+        'certificate_path': stored,
+        'points': [{'nominal': 0, 'measured': 0.1, 'tolerance': 0.5}]})
+    assert CalibrationRepo.get(conn, record_id)['certificate_path'] == stored
+
+
+@test
+def missing_certificate_is_refused_not_silently_stored():
+    conn = fresh()
+    device = make_device(conn)
+    record_id = CalibrationRepo.create(conn, {'asset_id': device})
+    refuses(lambda: CalibrationRepo.save_result(conn, record_id, {
+        'performed_at': '2026-05-01 09:00',
+        'certificate_path': '/olmayan/dosya.pdf',
+        'points': [{'nominal': 0, 'measured': 0.1, 'tolerance': 0.5}]}), 'bulunamadı')
+
+
+# ====================================================================== sema gecisi
+@test
+def a_version_one_database_upgrades_without_losing_rows():
+    """1.x veritabani acildiginda yeni tablolar eklenir, kayitlar yerinde kalir."""
+    import sqlite3
+    path = pathlib.Path(tempfile.mkdtemp()) / 'eski.sqlite3'
+    old = sqlite3.connect(str(path))
+    old.row_factory = sqlite3.Row
+    for name in ('asset', 'asset_attr', 'schedule', 'request', 'work_order', 'calibration',
+                 'impact', 'log'):
+        old.execute(db.DDL[name])
+    old.execute('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+    old.execute("INSERT INTO meta VALUES ('schema_version', '1')")
+    old.execute("INSERT INTO asset (code, name, created_at, updated_at)"
+                " VALUES ('ESKI-1', 'Eski makine', '2026-01-01 00:00:00', '2026-01-01 00:00:00')")
+    old.commit()
+    old.close()
+
+    conn = db.connect(path)
+    assert db.schema_version(conn) == 2
+    assert all(db.table_status(conn).values())
+    assert AssetRepo.by_code(conn, 'ESKI-1') is not None, 'eski kayit kaybolmamali'
+    part_id = PartRepo.create(conn, {'code': 'YENI-1', 'name': 'Yeni parca', 'is_active': 1})
+    assert PartRepo.get(conn, part_id) is not None
 
 
 print('AGFO MIHENK CORE OK: %d tests' % len(PASSED))

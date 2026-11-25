@@ -10,7 +10,7 @@
 | AGFO Mic Monitor | `mic-monitor/` | `mic-monitor-vX.Y.Z` | `AGFO-Mic-Monitor-vX.Y.Z-Kurulum.zip` (`Derle-ve-Kur.cmd`: EXE kullanıcının bilgisayarında derlenip kurulur) + `AGFO-Mic-Monitor.exe` (uygulama içi güncelleme) |
 | AGFO Subscription Manager | `subscription-manager/` | `subscription-manager-vX.Y.Z` | `AGFO-Subscription-Manager-vX.Y.Z-Kurulum.zip` (`Derle-ve-Kur.cmd`: EXE kullanıcının bilgisayarında derlenip kurulur; uygulama içi güncelleme aynı paketi SHA-256 doğrulamasıyla kullanır) |
 | AGFO Router Connect | `router-connect/` | `router-connect-vX.Y.Z` | `AGFO-Router-Connect-vX.Y.Z-Kurulum.zip` (`Derle-ve-Kur.cmd`: EXE kullanıcının bilgisayarında derlenip kurulur; uygulama içi güncelleme aynı paketi SHA-256 doğrulamasıyla kullanır) |
-| AGFO Mihenk | `mihenk/` | `mihenk-vX.Y.Z` | `AGFO-Mihenk-vX.Y.Z-Kurulum.zip` (`Derle-ve-Kur.cmd`: EXE kullanıcının bilgisayarında derlenip kurulur; uygulama içi güncelleme aynı paketi SHA-256 doğrulamasıyla kullanır) |
+| AGFO Mihenk | `mihenk/` | `mihenk-vX.Y.Z` | `AGFO-Mihenk-vX.Y.Z-Kurulum.zip` (`Derle-ve-Kur.cmd`: EXE kullanıcının bilgisayarında derlenip kurulur; uygulama içi SESSİZ güncelleme `AGFO-Mihenk.exe` dosyasını indirir) |
 | AGFO AI Manager (WordPress) | `ai-manager/` | `ai-manager-vX.Y.Z` | `agfo-ai-manager-X.Y.Z.zip` (siteler Eklentiler ekranından GitHub'dan günceller; `data/data.json` korunur) |
 
 ## Güncelleme nasıl yayılır

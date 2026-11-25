@@ -1,55 +1,220 @@
 {
 	"app": "mihenk",
-	"version": "1.1.0",
+	"version": "2.0.0",
 	"contract_version": 1,
 	"generated_at": "2026-11-25",
 	"runner": {
 		"core": "python -I tests/test_core.py mihenk",
 		"update": "python -I tests/test_update.py mihenk",
 		"gui": "xvfb-run -a python -I tests/test_gui.py mihenk",
-		"selftest": "AGFO-Mihenk.exe --selftest <dosya>"
+		"selftest": "AGFO-Mihenk.exe --selftest <dosya>",
+		"xlsx": "python -I tests/test_xlsx.py mihenk"
 	},
 	"environment": {
 		"python": "3.12.3",
 		"tcl_tk": "8.6.14",
 		"sqlite": "3.45.1",
 		"display": "xvfb",
-		"windows_runtime": "unavailable in this build environment"
+		"windows_runtime": "unavailable in this build environment",
+		"ttkbootstrap": "2.2.7 (istege bagli; yoksa klasik cizim)",
+		"openpyxl": "3.1+ (yalnizca test icin; uygulama kullanmaz)"
 	},
 	"package_gate": {
 		"required_for_package": true,
 		"satisfied": true,
-		"note": "Cekirdek, guncelleme ve arayuz testleri gercekten calistirildi ve gecti. Windows'a ozgu adimlar (EXE derlemesi, sessiz guncelleyici, kisayol kurulumu) release.yml icinde windows-latest uzerinde kosar ve burada kosulmadi."
+		"note": "Cekirdek (59), guncelleme, xlsx (5) ve arayuz (28) testleri gercekten calistirildi ve gecti; arayuz hem klasik hem modern cizimle kosuldu. Windows adimlari (EXE derlemesi, ui=modern denetimi, sessiz guncelleyici) release.yml icinde windows-latest uzerinde kosar ve burada kosulmadi."
 	},
 	"surfaces": {
 		"settings": [
-			{"key": "operator", "consumer": "mihenk_audit._actor", "verified": "pass"},
-			{"key": "default_lead_days", "consumer": "ScheduleRepo.sanitize", "verified": "pass"},
-			{"key": "date_format", "consumer": "mihenk_validate.human", "verified": "pass"},
-			{"key": "theme", "consumer": "mihenk_theme.apply", "verified": "pass"},
-			{"key": "scan_on_start", "consumer": "MihenkApp._startup_scan", "verified": "pass"},
-			{"key": "last_screen", "consumer": "MihenkApp.go", "verified": "pass"},
-			{"key": "window", "consumer": "MihenkApp._restore_geometry", "verified": "skip"},
-			{"key": "first_run_done", "consumer": "MihenkApp.should_offer_first_run", "verified": "pass"}
+			{
+				"key": "operator",
+				"consumer": "mihenk_audit._actor",
+				"verified": "pass"
+			},
+			{
+				"key": "default_lead_days",
+				"consumer": "ScheduleRepo.sanitize",
+				"verified": "pass"
+			},
+			{
+				"key": "date_format",
+				"consumer": "mihenk_validate.human",
+				"verified": "pass"
+			},
+			{
+				"key": "theme",
+				"consumer": "mihenk_theme.apply",
+				"verified": "pass"
+			},
+			{
+				"key": "scan_on_start",
+				"consumer": "MihenkApp._startup_scan",
+				"verified": "pass"
+			},
+			{
+				"key": "last_screen",
+				"consumer": "MihenkApp.go",
+				"verified": "pass"
+			},
+			{
+				"key": "window",
+				"consumer": "MihenkApp._restore_geometry",
+				"verified": "skip"
+			},
+			{
+				"key": "first_run_done",
+				"consumer": "MihenkApp.should_offer_first_run",
+				"verified": "pass"
+			},
+			{
+				"key": "modern_ui",
+				"consumer": "mihenk_theme.apply",
+				"verified": "pass"
+			},
+			{
+				"key": "report_period",
+				"consumer": "ReportsScreen.period",
+				"verified": "pass"
+			}
 		],
 		"screens": [
-			{"name": "dashboard", "verified": "pass"},
-			{"name": "assets", "verified": "pass"},
-			{"name": "plans", "verified": "pass"},
-			{"name": "requests", "verified": "pass"},
-			{"name": "work_orders", "verified": "pass"},
-			{"name": "calibrations", "verified": "pass"},
-			{"name": "impacts", "verified": "pass"},
-			{"name": "settings", "verified": "pass"}
+			{
+				"name": "dashboard",
+				"verified": "pass"
+			},
+			{
+				"name": "assets",
+				"verified": "pass"
+			},
+			{
+				"name": "plans",
+				"verified": "pass"
+			},
+			{
+				"name": "requests",
+				"verified": "pass"
+			},
+			{
+				"name": "work_orders",
+				"verified": "pass"
+			},
+			{
+				"name": "calibrations",
+				"verified": "pass"
+			},
+			{
+				"name": "impacts",
+				"verified": "pass"
+			},
+			{
+				"name": "settings",
+				"verified": "pass"
+			},
+			{
+				"name": "parts",
+				"verified": "pass"
+			},
+			{
+				"name": "reports",
+				"verified": "pass"
+			}
 		],
 		"dialogs": [
-			{"name": "AssetDialog", "verified": "pass"},
-			{"name": "PlanDialog", "verified": "pass"},
-			{"name": "RequestDialog", "verified": "skip", "note": "ekran dugmesinden aciliyor, testte ayrica acilmadi"},
-			{"name": "WorkOrderDialog", "verified": "pass"},
-			{"name": "CalibrationDialog", "verified": "pass"},
-			{"name": "ImpactDialog", "verified": "pass"},
-			{"name": "WelcomeDialog", "verified": "pass"}
+			{
+				"name": "AssetDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "PlanDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "RequestDialog",
+				"verified": "skip",
+				"note": "ekran dugmesinden aciliyor, testte ayrica acilmadi"
+			},
+			{
+				"name": "WorkOrderDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "CalibrationDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "ImpactDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "WelcomeDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "PartDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "ExportDialog",
+				"verified": "pass"
+			},
+			{
+				"name": "ChecklistEditor",
+				"verified": "pass"
+			},
+			{
+				"name": "ChecklistPanel",
+				"verified": "pass"
+			}
+		],
+		"tables": [
+			{
+				"name": "asset",
+				"verified": "pass"
+			},
+			{
+				"name": "asset_attr",
+				"verified": "pass"
+			},
+			{
+				"name": "schedule",
+				"verified": "pass"
+			},
+			{
+				"name": "request",
+				"verified": "pass"
+			},
+			{
+				"name": "work_order",
+				"verified": "pass"
+			},
+			{
+				"name": "calibration",
+				"verified": "pass"
+			},
+			{
+				"name": "impact",
+				"verified": "pass"
+			},
+			{
+				"name": "log",
+				"verified": "pass"
+			},
+			{
+				"name": "checklist_item",
+				"verified": "pass"
+			},
+			{
+				"name": "work_order_check",
+				"verified": "pass"
+			},
+			{
+				"name": "part",
+				"verified": "pass"
+			},
+			{
+				"name": "part_movement",
+				"verified": "pass"
+			}
 		]
 	},
 	"scenarios": [
@@ -208,6 +373,90 @@
 			"evidence": "mihenk_selftest.run -> OK 1.0.0 tcl=8.6.14 sqlite=3.45.1 (kaynaktan; EXE icinde release.yml kosar)"
 		},
 		{
+			"id": "mihenk-schema-upgrade",
+			"title": "1.x veritabani 2.0 semasina kayipsiz gecer",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.a_version_one_database_upgrades_without_losing_rows"
+		},
+		{
+			"id": "mihenk-checklist-copy",
+			"title": "Plan sablonu is emrine kopyalanir, sonradan degisirse eskisi degismez",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.checklist_template_copies_into_the_work_order, plan_delete_takes_its_template"
+		},
+		{
+			"id": "mihenk-checklist-block",
+			"title": "Negatif test: kritik adim isaretlenmeden is emri tamamlanamaz",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.critical_checklist_item_blocks_completion, failed_critical_item_also_blocks"
+		},
+		{
+			"id": "mihenk-checklist-value",
+			"title": "Negatif test: olcum isteyen adim degersiz uygun isaretlenemez",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.measurement_step_needs_a_value, test_gui.work_order_dialog_shows_and_saves_the_checklist"
+		},
+		{
+			"id": "mihenk-parts-stock",
+			"title": "Stok yalnizca hareketle degisir ve eksiye dusemez",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.part_stock_moves_only_through_movements, part_with_movements_cannot_be_deleted"
+		},
+		{
+			"id": "mihenk-parts-consume",
+			"title": "Is emrinde parca kullanimi stogu dusurur ve maliyeti hesaplar",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.consuming_a_part_on_a_work_order_costs_it, test_gui.part_dialog_records_a_movement"
+		},
+		{
+			"id": "mihenk-parts-low",
+			"title": "Dusuk stok yalnizca asgari tanimliyken uyarir",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.part_guards_and_low_stock, test_gui.parts_screen_flags_low_stock"
+		},
+		{
+			"id": "mihenk-reports",
+			"title": "Gostergeler: plan uyumu, MTBF/MTTR, aya gore durus",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.compliance_counts_late_and_on_time, reliability_leaves_mtbf_empty_with_one_failure, downtime_groups_by_month, test_gui.reports_screen_fills_every_panel"
+		},
+		{
+			"id": "mihenk-export-xlsx",
+			"title": "Uretilen Excel kitabi bagimsiz bir okuyucuyla aciliyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_xlsx.py (openpyxl ile 5 test), test_core.xlsx_workbook_has_a_sheet_per_table"
+		},
+		{
+			"id": "mihenk-export-csv-html",
+			"title": "CSV ve yazdirilabilir rapor ciktisi",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.csv_export_writes_one_file_per_table, html_report_carries_the_headline_numbers, export_tables_survive_an_empty_database"
+		},
+		{
+			"id": "mihenk-certificate-store",
+			"title": "Sertifika dosyasi veri klasorune kopyalanir, eksik dosya reddedilir",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_core.certificate_is_copied_into_the_data_folder, missing_certificate_is_refused_not_silently_stored"
+		},
+		{
+			"id": "mihenk-modern-ui",
+			"title": "Modern cizim yukleniyor; yoksa klasige dusulup sebebi yaziliyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.modern_drawing_engine_is_in_use_or_names_why_not (ttkbootstrap 2.2.7 ile kosuldu)"
+		},
+		{
 			"id": "mihenk-windows-build",
 			"title": "Kurulum ZIP'i acilip EXE kullanicinin makinesinde derleniyor ve aciliyor",
 			"required_for_package": true,
@@ -220,6 +469,13 @@
 			"required_for_package": true,
 			"status": "skip",
 			"note": "Yalnizca windows-latest uzerinde kosar; release.yml bu adimi icerir."
+		},
+		{
+			"id": "mihenk-exe-modern",
+			"title": "EXE icinde ttkbootstrap var (oz-denetimde ui=modern)",
+			"required_for_package": true,
+			"status": "skip",
+			"note": "Yalnizca windows-latest uzerinde kosar; release.yml ui=modern degilse yayini durdurur."
 		}
 	]
 }

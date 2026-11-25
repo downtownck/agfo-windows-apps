@@ -92,6 +92,99 @@ TONES = {
 
 _PALETTE = dict(LIGHT)
 _MODE = 'light'
+_ENGINE = 'classic'          # 'ttkbootstrap' ya da 'classic'
+_STATUS = 'denenmedi'
+
+# ttkbootstrap paletinin bekledigi 16 renk. Kendi paletimizden turetilir ki
+# iki cizim yolu ayni renkleri gostersin.
+TB_VERSION = '2.2.7'
+TB_MIN_PYTHON = (3, 10)
+UI_LIB_DIRNAME = 'ui-lib'
+
+
+def _bootstrap_colors(p: dict) -> dict:
+    return {
+        'primary': p['accent'],
+        'secondary': p['neutral'],
+        'success': p['ok'],
+        'info': p['info'],
+        'warning': p['warn'],
+        'danger': p['alert'],
+        'light': p['surface_alt'],
+        'dark': p['sidebar'],
+        'bg': p['bg'],
+        'fg': p['text'],
+        'selectbg': p['selection'],
+        'selectfg': p['text'],
+        'border': p['border'],
+        'inputfg': p['text'],
+        'inputbg': p['surface'],
+        'active': p['surface_alt'],
+    }
+
+
+def ui_lib_dir(data_dir) -> 'pathlib.Path':
+    """ttkbootstrap'in kurulacagi klasor: uygulamanin kendi veri klasoru."""
+    import pathlib
+    return pathlib.Path(data_dir) / UI_LIB_DIRNAME
+
+
+def python_ok(version=None) -> bool:
+    import sys as _sys
+    return tuple((version or _sys.version_info)[:2]) >= TB_MIN_PYTHON
+
+
+def load_ttkbootstrap(lib_dir=None, enabled=True):
+    """(modul | None, durum metni).
+
+    Once uygulamanin kendi ui-lib klasorune, sonra Python'un paketlerine bakar.
+    Bulunamazsa uygulama klasik cizimle calismaya devam eder; bu bir hata degil.
+    """
+    import os as _os
+    import sys as _sys
+    if not enabled:
+        return None, 'kapalı (ayarlardan kapatıldı)'
+    if not python_ok():
+        return None, 'Python %d.%d+ gerekir (bu Python %d.%d)' % (
+            TB_MIN_PYTHON + tuple(_sys.version_info[:2]))
+    if lib_dir:
+        lib = str(lib_dir)
+        if not getattr(_sys, 'frozen', False) and _os.path.isdir(lib) and lib not in _sys.path:
+            _sys.path.insert(0, lib)
+    try:
+        import ttkbootstrap                                              # noqa: F401
+        from ttkbootstrap.themes.legacy import theme_from_legacy_dict    # noqa: F401
+        return ttkbootstrap, 'etkin (ttkbootstrap %s)' % getattr(ttkbootstrap, '__version__', '?')
+    except Exception as exc:
+        return None, 'kurulu değil' if isinstance(exc, ImportError) else 'yüklenemedi: %s' % exc
+
+
+def pip_install_cmd(python_exe, lib_dir) -> list:
+    return [python_exe, '-m', 'pip', 'install', '--disable-pip-version-check', '--no-input',
+            '--upgrade', '--target', str(lib_dir), 'ttkbootstrap==' + TB_VERSION]
+
+
+def console_python(exe=None) -> str:
+    """pythonw.exe ile calisiyorsak pip icin yanindaki python.exe."""
+    import pathlib
+    import sys as _sys
+    exe = exe or _sys.executable
+    path = pathlib.Path(exe)
+    if path.name.lower() == 'pythonw.exe':
+        alternative = path.with_name('python.exe')
+        if alternative.exists():
+            return str(alternative)
+    return str(path)
+
+
+def engine() -> str:
+    """Hangi cizim yolu kullaniliyor: 'ttkbootstrap' ya da 'classic'."""
+    return _ENGINE
+
+
+def engine_status() -> str:
+    """Ayarlar ekraninda gosterilen durum metni."""
+    return _STATUS
 
 
 def palette() -> dict:
@@ -147,19 +240,39 @@ def fonts(root) -> dict:
     }
 
 
-def apply(root: tk.Misc, requested: str = 'light') -> dict:
-    """Temayi kurar ve palete doner. Her tema degisiminde yeniden cagrilir."""
-    global _PALETTE, _MODE
+def apply(root: tk.Misc, requested: str = 'light', lib_dir=None, use_bootstrap=True) -> dict:
+    """Temayi kurar ve palete doner. Her tema degisiminde yeniden cagrilir.
+
+    ttkbootstrap kuruluysa palet ona kaydedilir ve dugme/liste/onay kutusu onun
+    cizimiyle gelir; degilse ayni palet 'clam' temasiyla kullanilir. Iki yolda
+    da renkler ayni, bu yuzden ekranlar hangi yolun secildigini bilmek zorunda
+    degil.
+    """
+    global _PALETTE, _MODE, _ENGINE, _STATUS
     _MODE = 'dark' if requested == 'dark' else 'light'
     _PALETTE = dict(DARK if _MODE == 'dark' else LIGHT)
 
     p = _PALETTE
     f = fonts(root)
-    style = ttk.Style(root)
-    try:
-        style.theme_use('clam')
-    except tk.TclError:
-        pass
+
+    bootstrap, _STATUS = load_ttkbootstrap(lib_dir, use_bootstrap)
+    style = None
+    if bootstrap is not None:
+        try:
+            style = _apply_bootstrap(root, bootstrap, p)
+            _ENGINE = 'ttkbootstrap'
+        except Exception as exc:                 # beklenmeyen surum farki: klasige dus
+            style, _ENGINE = None, 'classic'
+            _STATUS = 'yüklendi ama uygulanamadı: %s' % exc
+    else:
+        _ENGINE = 'classic'
+
+    if style is None:
+        style = ttk.Style(root)
+        try:
+            style.theme_use('clam')
+        except tk.TclError:
+            pass
 
     root.configure(background=p['bg'])
     root.option_add('*Font', f['body'])
@@ -266,3 +379,15 @@ def apply(root: tk.Misc, requested: str = 'light') -> dict:
     style.configure('Footer.TLabel', background=p['bg'], foreground=p['muted'], font=f['tiny'])
 
     return p
+
+
+def _apply_bootstrap(root, bootstrap, palette: dict):
+    """Paleti ttkbootstrap temasina cevirip uygular, Style nesnesini dondurur."""
+    from ttkbootstrap.themes.legacy import theme_from_legacy_dict
+    name = 'mihenk-' + _MODE
+    style = bootstrap.Style()
+    if name not in style.theme_names():
+        style.register_theme(theme_from_legacy_dict(
+            name, {'type': _MODE, 'colors': _bootstrap_colors(palette)}))
+    style.theme_use(name)
+    return style

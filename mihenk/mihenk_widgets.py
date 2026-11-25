@@ -58,7 +58,8 @@ class Badge(tk.Label):
 class DataTable(ttk.Frame):
     """Treeview sarmalayicisi: siralama, cift tikla acma, satir renklendirme."""
 
-    def __init__(self, parent, columns, on_open=None, on_select=None, height=14):
+    def __init__(self, parent, columns, on_open=None, on_select=None, height=14,
+                 autosize=False, min_height=3):
         super().__init__(parent, style='Surface.TFrame')
         self._columns = list(columns)        # (anahtar, baslik, genislik, hizalama)
         self._on_open = on_open
@@ -66,6 +67,10 @@ class DataTable(ttk.Frame):
         self._rows = {}
         self._sort_key = None
         self._sort_desc = False
+        # autosize: tablo icerik kadar yer kaplar, bos satirlarla ekran doldurmaz.
+        self._autosize = autosize
+        self._max_height = height
+        self._min_height = min_height
 
         keys = [c[0] for c in self._columns]
         self.tree = ttk.Treeview(self, columns=keys, show='headings', height=height,
@@ -115,6 +120,9 @@ class DataTable(ttk.Frame):
         if selected and selected in self._rows:
             self.tree.selection_set(selected)
             self.tree.see(selected)
+        if self._autosize:
+            self.tree.configure(height=max(self._min_height,
+                                           min(self._max_height, len(self._rows) or 1)))
 
     def selected_id(self):
         picked = self.tree.selection()

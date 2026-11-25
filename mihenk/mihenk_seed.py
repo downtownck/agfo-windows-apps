@@ -12,6 +12,8 @@ import datetime
 
 import mihenk_scheduler as scheduler
 import mihenk_validate as v
+from mihenk_checklist import ChecklistTemplate, WorkOrderChecklist
+from mihenk_parts import PartRepo
 from mihenk_repo import AssetRepo, CalibrationRepo, ImpactRepo, RequestRepo, ScheduleRepo, WorkOrderRepo
 
 PREFIX = 'DEMO-'
@@ -29,7 +31,11 @@ def demo_asset_ids(conn) -> list:
 
 
 def exists(conn) -> bool:
-    return bool(demo_asset_ids(conn))
+    if demo_asset_ids(conn):
+        return True
+    row = conn.execute('SELECT COUNT(*) AS c FROM part WHERE code LIKE ?',
+                       (PREFIX + '%',)).fetchone()
+    return int(row['c']) > 0
 
 
 def seed(conn) -> dict:
@@ -118,7 +124,22 @@ def seed(conn) -> dict:
         'title': 'Valf contası değişimi (duraklatıldı, yedek parça siparişte)',
         'basis': 'time', 'interval_value': 12, 'interval_unit': 'month', 'is_active': 0,
         'next_due_at': when(-60)})
-    lines.append('7 plan: biri gecikmiş, biri sayaç tabanlı, biri yaklaşan, biri uzak, biri duraklatılmış.')
+    ChecklistTemplate.save(conn, plan_pm, [
+        {'text': 'Enerjiyi kes ve etiketle (LOTO)', 'is_critical': 1},
+        {'text': 'Ana yatak sıcaklığını ölç', 'needs_value': 1, 'unit': 'C'},
+        {'text': 'Ana yatağı gresle', 'is_critical': 1},
+        {'text': 'Valf contalarını aşınmaya karşı incele'},
+        {'text': 'Sızıntı testi yap ve sonucu yaz', 'needs_value': 1, 'unit': 'ml/dk'},
+        {'text': 'Koruyucu kapakları yerine tak', 'is_critical': 1},
+    ])
+    ChecklistTemplate.save(conn, plan_probe, [
+        {'text': 'Referans termometreyi dengeye getir', 'is_critical': 1},
+        {'text': 'Buz noktası ölçümü', 'needs_value': 1, 'unit': 'C', 'is_critical': 1},
+        {'text': 'Pastörizasyon noktası ölçümü', 'needs_value': 1, 'unit': 'C', 'is_critical': 1},
+        {'text': 'Sertifikayı tara ve kayda ekle'},
+    ])
+    lines.append('7 plan: biri gecikmiş, biri sayaç tabanlı, biri yaklaşan, biri uzak, biri '
+                 'duraklatılmış. İkisinde kontrol listesi şablonu var.')
 
     # ---------------------------------------------------------------- talepler
     RequestRepo.create(conn, {
@@ -160,18 +181,26 @@ def seed(conn) -> dict:
                              {'hold_reason': 'Yedek tork kafası siparişte, tahmini teslim iki hafta.'})
 
     wo_closed = WorkOrderRepo.create(conn, {
-        'asset_id': filler, 'wo_type': 'preventive',
+        'asset_id': filler, 'schedule_id': plan_pm, 'wo_type': 'preventive',
         'title': 'Aylık yağlama ve conta kontrolü (önceki çevrim)', 'priority': 'normal',
         'assigned_to': 'Bakım ekibi', 'planned_start': when(-41), 'planned_end': when(-41)})
     WorkOrderRepo.transition(conn, wo_closed, 'assigned', {'assigned_to': 'Bakım ekibi'})
     WorkOrderRepo.transition(conn, wo_closed, 'in_progress', {'actual_start': when(-40, -4)})
+    WorkOrderChecklist.copy_from_plan(conn, wo_closed, plan_pm)
+    values = {'Ana yatak sıcaklığını ölç': '52', 'Sızıntı testi yap ve sonucu yaz': '0'}
+    for item in WorkOrderChecklist.items(conn, wo_closed):
+        WorkOrderChecklist.set_state(conn, item['id'], 'ok', values.get(item['text'], ''))
     WorkOrderRepo.transition(conn, wo_closed, 'completed', {
         'work_done': 'Ana yatak greslendi. İki valf contasında aşınma görüldü ve değiştirildi. '
                      'Test çalışmasında sızıntı yok.',
         'root_cause': 'Normal aşınma.', 'actual_end': when(-40, -1),
         'labor_minutes': 180, 'downtime_minutes': 210})
     WorkOrderRepo.transition(conn, wo_closed, 'closed')
-    lines.append('İş emirleri sürüyor, beklemede ve kapalı durumlarında bırakıldı.')
+    # Tamamlanma plani ileri sardi; demo gecikmis plani gostermek istiyor, geri al.
+    conn.execute('UPDATE schedule SET last_done_at = ?, next_due_at = ? WHERE id = ?',
+                 (when(-40), when(-10), plan_pm))
+    lines.append('İş emirleri sürüyor, beklemede ve kapalı durumlarında bırakıldı; '
+                 'kapalı olan plana bağlı, bu yüzden plan uyumu hesaplanabiliyor.')
 
     # ---------------------------------------------------------------- kalibrasyon
     cal_scale = CalibrationRepo.create(conn, {
@@ -232,6 +261,30 @@ def seed(conn) -> dict:
     lines.append('Kalibrasyon: biri kapalı uygun, biri şartlı, biri uygunsuz '
                  '(%sTHM-01 karantinaya alındı, etki değerlendirmesi açık).' % PREFIX)
 
+    # ---------------------------------------------------------------- yedek parcalar
+    seal = PartRepo.create(conn, {
+        'code': PREFIX + 'PRT-001', 'name': 'Dolum valfi contası (EPDM)', 'unit': 'adet',
+        'stock': 24, 'min_stock': 8, 'location_text': 'Depo A / Raf 3',
+        'supplier': 'Krones Yedek Parça', 'unit_cost': 185, 'is_active': 1,
+        'notes': 'Gıdaya temas eder; FDA 21 CFR 177.2600 belgesi dosyada.'})
+    bearing = PartRepo.create(conn, {
+        'code': PREFIX + 'PRT-002', 'name': 'Ana yatak rulmanı 6208-2RS', 'unit': 'adet',
+        'stock': 2, 'min_stock': 4, 'location_text': 'Depo A / Raf 1',
+        'supplier': 'SKF Türkiye', 'unit_cost': 740, 'is_active': 1,
+        'notes': 'Asgarinin altında bırakıldı: düşük stok uyarısı burada görülür.'})
+    PartRepo.create(conn, {
+        'code': PREFIX + 'PRT-003', 'name': 'Gıda sınıfı gres (1 kg)', 'unit': 'kg',
+        'stock': 9, 'min_stock': 3, 'location_text': 'Depo B', 'supplier': 'Klüber',
+        'unit_cost': 420, 'is_active': 1, 'notes': 'NSF H1 sınıfı.'})
+    PartRepo.create(conn, {
+        'code': PREFIX + 'PRT-004', 'name': 'Tork kafası yayı', 'unit': 'adet',
+        'stock': 0, 'min_stock': 2, 'location_text': 'Depo A / Raf 2', 'supplier': 'Arol',
+        'unit_cost': 1250, 'is_active': 1, 'notes': 'Siparişte; bekleyen iş emrinin sebebi.'})
+
+    PartRepo.consume(conn, seal, 2, wo_closed, 'Aşınmış iki conta değiştirildi')
+    PartRepo.move(conn, bearing, 2, 'receive', note='Satın alma girişi')
+    lines.append('4 yedek parça kütüğe girdi; biri asgarinin altında, biri tükenmiş durumda.')
+
     # ---------------------------------------------------------------- sayac ve tarama
     AssetRepo.record_counter(conn, filler, 260)
     AssetRepo.record_counter(conn, filler, 540)
@@ -244,18 +297,49 @@ def seed(conn) -> dict:
 
     return {'ok': True, 'lines': lines, 'summary': summary,
             'plan_pm': plan_pm, 'probe': probe, 'calibration_fail': cal_probe_fail,
-            'reference_record': cal_reference}
+            'reference_record': cal_reference, 'closed_work_order': wo_closed,
+            'part_seal': seal, 'part_bearing': bearing}
 
 
 def purge(conn) -> dict:
     """Yalnizca DEMO- varliklarini ve onlara bagli her seyi siler."""
     ids = demo_asset_ids(conn)
     if not ids:
-        return {'ok': False, 'lines': ['Silinecek demo verisi yok.']}
+        if not exists(conn):
+            return {'ok': False, 'lines': ['Silinecek demo verisi yok.']}
+        ids = [0]          # yalnizca demo parcalar kalmis olabilir
 
     marks = ', '.join('?' * len(ids))
     removed = {}
     log_targets = {'asset': list(ids)}
+
+    # Once varliga bagli kayitlarin kimliklerini topla: kontrol listesi ve stok
+    # hareketleri bunlara asili.
+    plan_ids = [int(r['id']) for r in
+                conn.execute('SELECT id FROM schedule WHERE asset_id IN (%s)' % marks, ids)]
+    wo_ids = [int(r['id']) for r in
+              conn.execute('SELECT id FROM work_order WHERE asset_id IN (%s)' % marks, ids)]
+    if plan_ids:
+        sub = ', '.join('?' * len(plan_ids))
+        removed['checklist_item'] = conn.execute(
+            'DELETE FROM checklist_item WHERE schedule_id IN (%s)' % sub, plan_ids).rowcount
+    if wo_ids:
+        sub = ', '.join('?' * len(wo_ids))
+        removed['work_order_check'] = conn.execute(
+            'DELETE FROM work_order_check WHERE work_order_id IN (%s)' % sub, wo_ids).rowcount
+        removed['part_movement'] = conn.execute(
+            'DELETE FROM part_movement WHERE work_order_id IN (%s)' % sub, wo_ids).rowcount
+
+    # Demo parcalar da DEMO- onekiyle yazildi; once hareketleri, sonra kendileri.
+    part_ids = [int(r['id']) for r in
+                conn.execute('SELECT id FROM part WHERE code LIKE ?', (PREFIX + '%',))]
+    if part_ids:
+        sub = ', '.join('?' * len(part_ids))
+        removed['part_movement'] = (removed.get('part_movement', 0) + conn.execute(
+            'DELETE FROM part_movement WHERE part_id IN (%s)' % sub, part_ids).rowcount)
+        log_targets['part'] = part_ids
+        removed['part'] = conn.execute('DELETE FROM part WHERE id IN (%s)' % sub,
+                                       part_ids).rowcount
 
     for table in ('schedule', 'request', 'work_order', 'calibration', 'impact'):
         rows = conn.execute('SELECT id FROM %s WHERE asset_id IN (%s)' % (table, marks), ids).fetchall()

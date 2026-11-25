@@ -12,9 +12,10 @@ import pathlib
 import shutil
 import sqlite3
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
-TABLES = ('asset', 'asset_attr', 'schedule', 'request', 'work_order', 'calibration', 'impact', 'log')
+TABLES = ('asset', 'asset_attr', 'schedule', 'request', 'work_order', 'calibration', 'impact', 'log',
+          'checklist_item', 'work_order_check', 'part', 'part_movement')
 
 DDL = {
     'asset': """
@@ -152,6 +153,59 @@ DDL = {
             closed_at TEXT,
             status TEXT NOT NULL DEFAULT 'open'
         )""",
+    'checklist_item': """
+        CREATE TABLE IF NOT EXISTS checklist_item (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            schedule_id INTEGER NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            text TEXT NOT NULL DEFAULT '',
+            needs_value INTEGER NOT NULL DEFAULT 0,
+            unit TEXT NOT NULL DEFAULT '',
+            is_critical INTEGER NOT NULL DEFAULT 0
+        )""",
+    'work_order_check': """
+        CREATE TABLE IF NOT EXISTS work_order_check (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            work_order_id INTEGER NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            text TEXT NOT NULL DEFAULT '',
+            needs_value INTEGER NOT NULL DEFAULT 0,
+            unit TEXT NOT NULL DEFAULT '',
+            is_critical INTEGER NOT NULL DEFAULT 0,
+            state TEXT NOT NULL DEFAULT 'pending',
+            value TEXT NOT NULL DEFAULT '',
+            note TEXT NOT NULL DEFAULT '',
+            checked_by TEXT NOT NULL DEFAULT '',
+            checked_at TEXT
+        )""",
+    'part': """
+        CREATE TABLE IF NOT EXISTS part (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL DEFAULT '',
+            unit TEXT NOT NULL DEFAULT 'adet',
+            stock REAL NOT NULL DEFAULT 0,
+            min_stock REAL NOT NULL DEFAULT 0,
+            location_text TEXT NOT NULL DEFAULT '',
+            supplier TEXT NOT NULL DEFAULT '',
+            unit_cost REAL NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+    'part_movement': """
+        CREATE TABLE IF NOT EXISTS part_movement (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            part_id INTEGER NOT NULL,
+            work_order_id INTEGER NOT NULL DEFAULT 0,
+            delta REAL NOT NULL DEFAULT 0,
+            balance REAL NOT NULL DEFAULT 0,
+            reason TEXT NOT NULL DEFAULT '',
+            note TEXT NOT NULL DEFAULT '',
+            actor TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        )""",
     'log': """
         CREATE TABLE IF NOT EXISTS log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,6 +233,10 @@ INDEXES = (
     'CREATE INDEX IF NOT EXISTS idx_cal_status ON calibration (status)',
     'CREATE INDEX IF NOT EXISTS idx_impact_status ON impact (status)',
     'CREATE INDEX IF NOT EXISTS idx_log_entity ON log (entity_type, entity_id)',
+    'CREATE INDEX IF NOT EXISTS idx_checklist_plan ON checklist_item (schedule_id, position)',
+    'CREATE INDEX IF NOT EXISTS idx_wocheck_wo ON work_order_check (work_order_id, position)',
+    'CREATE INDEX IF NOT EXISTS idx_movement_part ON part_movement (part_id)',
+    'CREATE INDEX IF NOT EXISTS idx_movement_wo ON part_movement (work_order_id)',
 )
 
 
@@ -201,7 +259,12 @@ def connect(path) -> sqlite3.Connection:
 
 
 def install(conn: sqlite3.Connection) -> None:
-    """Eksik tablolari ve dizinleri olusturur. Var olan veriye dokunmaz."""
+    """Eksik tablolari ve dizinleri olusturur. Var olan veriye dokunmaz.
+
+    Yeni surumlerde eklenen tablolar CREATE TABLE IF NOT EXISTS ile gelir, yani
+    1.x veritabani aciliyorsa eksikler tamamlanir ve mevcut satirlar oldugu gibi
+    kalir. Hicbir tablo dusurulmez, hicbir kolon yeniden yazilmaz.
+    """
     for name in TABLES:
         conn.execute(DDL[name])
     for stmt in INDEXES:
@@ -209,6 +272,17 @@ def install(conn: sqlite3.Connection) -> None:
     conn.execute('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
     conn.execute('INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)',
                  ('schema_version', str(SCHEMA_VERSION)))
+    conn.execute('UPDATE meta SET value = ? WHERE key = ? AND CAST(value AS INTEGER) < ?',
+                 (str(SCHEMA_VERSION), 'schema_version', SCHEMA_VERSION))
+
+
+def schema_version(conn: sqlite3.Connection) -> int:
+    """Veritabanindaki sema surumu. Okunamazsa 0."""
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+        return int(row['value']) if row else 0
+    except (sqlite3.Error, TypeError, ValueError):
+        return 0
 
 
 def table_status(conn: sqlite3.Connection) -> dict:

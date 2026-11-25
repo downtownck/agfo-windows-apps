@@ -56,9 +56,12 @@ try {
             Write-Host 'Preparing the build environment (first run only)...'
             if ((Invoke-Native $py.Python @('-m', 'venv', $venv)) -ne 0) { Write-Host 'venv failed, trying the next Python.'; continue }
         }
-        Write-Host 'Checking libraries: PyInstaller ...'
+        Write-Host 'Checking libraries: PyInstaller, ttkbootstrap ...'
         $pipArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '--upgrade', 'PyInstaller>=6.16,<7')
         if ((Invoke-Native $vpy $pipArgs) -ne 0) { Write-Host 'Could not install PyInstaller (check the internet connection), trying the next Python.'; continue }
+        # Modern look. If this fails the app still builds and runs with the classic drawing.
+        $tbArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '--upgrade', 'ttkbootstrap==2.2.7')
+        if ((Invoke-Native $vpy $tbArgs) -ne 0) { Write-Host 'ttkbootstrap could not be installed; the EXE will use the classic drawing.' }
 
         Write-Host 'Building the EXE (1-2 minutes)...'
         if (Test-Path -LiteralPath $exe) { Remove-Item -LiteralPath $exe -Force -ErrorAction SilentlyContinue }
@@ -72,7 +75,11 @@ try {
                      '--hidden-import', 'mihenk_states', '--hidden-import', 'mihenk_validate', '--hidden-import', 'mihenk_audit',
                      '--hidden-import', 'mihenk_scheduler', '--hidden-import', 'mihenk_seed', '--hidden-import', 'mihenk_theme',
                      '--hidden-import', 'mihenk_widgets', '--hidden-import', 'mihenk_dialogs', '--hidden-import', 'mihenk_screens',
-                     '--hidden-import', 'mihenk_selftest', '--hidden-import', 'sqlite3',
+                     '--hidden-import', 'mihenk_selftest', '--hidden-import', 'mihenk_checklist',
+                     '--hidden-import', 'mihenk_parts', '--hidden-import', 'mihenk_reports',
+                     '--hidden-import', 'mihenk_export', '--hidden-import', 'mihenk_xlsx',
+                     '--hidden-import', 'sqlite3', '--hidden-import', 'csv', '--hidden-import', 'zipfile',
+                     '--collect-all', 'ttkbootstrap',
                      '--hidden-import', 'agfo_github_update',
                      (Join-Path $root 'app.pyw'))
         if ((Invoke-Native $vpy $pyiArgs) -ne 0) { Write-Host 'PyInstaller build failed, trying the next Python.'; continue }

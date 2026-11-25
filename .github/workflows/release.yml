@@ -626,6 +626,8 @@ jobs:
           $res = if (Test-Path $st) { Get-Content $st -Raw } else { '(sonuc dosyasi yok)' }
           Write-Host $res
           if ($p.ExitCode -ne 0 -or $res -notmatch '^OK ') { throw ('EXE oz-denetimi basarisiz, cikis ' + $p.ExitCode) }
+          # Modern gorunum pakete girmis olmali; girmediyse EXE sessizce klasige duserdi.
+          if ($res -notmatch 'ui=modern') { throw 'EXE icinde ttkbootstrap yok (ui=modern degil)' }
           # Normal acilis: Wi-Fi karti olmayan makinede de ayakta kalmali.
           $p2 = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 8
@@ -691,6 +693,11 @@ jobs:
           if ($LASTEXITCODE) { throw 'guncelleme testi basarisiz' }
           python -X utf8 -I mihenk/tests/test_gui.py mihenk
           if ($LASTEXITCODE) { throw 'arayuz testi basarisiz' }
+          python -m pip install --quiet --disable-pip-version-check 'ttkbootstrap==2.2.7' 'openpyxl>=3.1,<4'
+          python -X utf8 -I mihenk/tests/test_gui.py mihenk
+          if ($LASTEXITCODE) { throw 'modern gorunumle arayuz testi basarisiz' }
+          python -X utf8 -I mihenk/tests/test_xlsx.py mihenk
+          if ($LASTEXITCODE) { throw 'xlsx dogrulamasi basarisiz' }
       - name: Paketle
         run: |
           New-Item -ItemType Directory -Force out | Out-Null

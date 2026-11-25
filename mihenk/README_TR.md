@@ -3,6 +3,9 @@
 Ekipman bakımı, kalibrasyon ve doğrulama takibi. Windows masaüstü uygulaması; veriler
 bilgisayarda bir SQLite dosyasında durur, sunucu ya da internet bağlantısı gerekmez.
 
+Kontrol listeleri, yedek parça stoğu, güvenilirlik göstergeleri ve denetime hazır Excel /
+CSV / yazdırılabilir rapor çıktısı içerir.
+
 Mihenk, altının ayarının denendiği taştır. Uygulamanın yaptığı iş de budur: ölçen
 cihazın kendisini bir referansa vurup ayarını denetlemek.
 
@@ -39,14 +42,22 @@ yalnızca bir kez çıkar ve demo veri Ayarlar ekranından tek tıkla temizlenir
 Yalnızca derlemek için `Sadece-Derle.cmd`, kaynaktan çalıştırmak için `Baslat.cmd`,
 kaldırmak için `Kaldir.cmd`. Kaldırma kayıtlarınıza dokunmaz.
 
-Gereken: Windows 10/11 ve tkinter'lı Python 3.10+ (derleme için). Uygulamanın kendisi
-yalnızca standart kütüphaneyi kullanır; dış bağımlılığı yoktur.
+Gereken: Windows 10/11 ve tkinter'lı Python 3.10+ (derleme için).
+
+Uygulamanın zorunlu dış bağımlılığı yoktur; Excel yazıcısı dahil her şey standart kütüphaneyle
+yazıldı. Tek isteğe bağlı bileşen **ttkbootstrap**: modern düğme, liste ve onay kutusu çizimi
+sağlar, derleme sırasında pakete gömülür. Yoksa uygulama klasik çizimle sorunsuz çalışır ve
+renkler iki yolda da aynıdır. Ayarlar ekranı hangi yolun kullanıldığını yazar ve gerekirse
+bileşeni uygulamanın kendi klasörüne kurar — Python kurulumunuza dokunmaz.
 
 ## Veri nerede
 
     %APPDATA%\AGFO\Mihenk\mihenk.sqlite3     kayıtlar
     %APPDATA%\AGFO\Mihenk\settings.json      ayarlar
+    %APPDATA%\AGFO\Mihenk\certificates\      kalibrasyon sertifikası dosyaları
+    %APPDATA%\AGFO\Mihenk\exports\           dışa aktarılan raporlar
     %APPDATA%\AGFO\Mihenk\backups\           yedekler
+    %APPDATA%\AGFO\Mihenk\ui-lib\            modern görünüm bileşeni (varsa)
     %APPDATA%\AGFO\Mihenk\last-scan.txt      son tarama özeti
 
 Ayarlar ekranından yedek alabilir ve geri yükleyebilirsiniz. Geri yükleme, mevcut
@@ -60,12 +71,64 @@ Taşınabilir kullanım için `MIHENK_DATA_DIR` ortam değişkeni bu klasörü d
 |---|---|
 | Pano | Açık iş, açık etki, geciken plan sayıları; sayaç baskısı; gecikenler ve yaklaşanlar; elle tarama |
 | Varlıklar | Hiyerarşik kütük, tipe göre değişen öznitelikler, durum değişimi, sayaç okuması, geçmiş |
-| Planlar | Önleyici bakım, kalibrasyon ve doğrulama planları; takvim ya da sayaç esaslı |
+| Planlar | Önleyici bakım, kalibrasyon ve doğrulama planları; takvim ya da sayaç esaslı; kontrol listesi şablonu |
 | Talepler | Sahadan gelen bildirimler; değerlendir, reddet, iş emrine dönüştür |
-| İş emirleri | Yaşam döngüsü, her durumun gerektirdiği alanlar, plana geri besleme |
-| Kalibrasyon | Ölçüm noktası tablosu, canlı sapma hesabı, sertifika ve izlenebilirlik |
+| İş emirleri | Yaşam döngüsü, kontrol listesi işaretleme, kullanılan parçalar, plana geri besleme |
+| Kalibrasyon | Ölçüm noktası tablosu, canlı sapma hesabı, sertifika dosyası ve izlenebilirlik |
 | Etki değerlendirmeleri | Etkilenen aralık, kapsam, değerlendirme, karar, düzeltici faaliyet |
-| Ayarlar | Operatör, ön uyarı günü, tarih biçimi, tema, yedek, demo veri, sürüm |
+| Yedek parçalar | Parça kütüğü, stok hareketleri, düşük stok uyarısı, iş emri maliyeti |
+| Raporlar | Plan uyumu, MTBF/MTTR, duruş ve işçilik eğilimi, sapma geçmişi, dışa aktarım |
+| Ayarlar | Operatör, ön uyarı günü, tarih biçimi, tema, modern görünüm, yedek, demo veri, sürüm |
+
+## Kontrol listeleri
+
+Plana bir adım listesi tanımlarsınız; o plandan üretilen her iş emri listenin **o anki
+hâlini** kendi içine kopyalar. Şablon sonradan değişirse geçmiş iş emirleri değişmez — denetçi
+"bu iş o gün nasıl yapıldı" diye sorduğunda gösterilen şey, o gün geçerli olan listedir.
+
+Bir adım **ölçüm isteyebilir** (değer girilmeden uygun işaretlenemez) ve **kritik**
+olabilir. Kritik adımlar işaretlenmeden iş emri tamamlanamaz; bu kural ekranda değil
+`mihenk_repo.py` içindeki geçiş kodunda uygulanır. Tamamlanınca liste, yapılan iş alanına
+özet olarak da yazılır.
+
+## Yedek parça stoğu
+
+Stok doğrudan yazılamaz: her değişim bir hareket satırı bırakır ve bakiye o satırın içinde
+saklanır. "Stok neden bu seviyede" sorusunun cevabı her zaman kayıttadır. Stok eksiye
+düşemez — elde olmayan bir parçanın kullanıldığını söyleyen kütük kimseye bir şey anlatmaz.
+
+İş emri penceresinden parça kullanımı işlenir; stok düşer ve iş emrinin parça maliyeti
+hesaplanır. Asgari seviyenin altına düşen parçalar panoda ve Yedek parçalar ekranında
+kırmızı görünür.
+
+## Raporlar
+
+Bütün göstergeler seçilen dönemdeki kayıtlardan hesaplanır; tahmin ya da örnekleme yok.
+
+- **Plan uyumu** — plandan üretilmiş iş emirlerinin, planın tolere ettiği gecikme içinde
+  kapanma oranı
+- **MTBF / MTTR** — varlık başına arızalar arası ortalama süre ve ortalama onarım süresi.
+  İki arızası olmayan varlıkta MTBF boş kalır; sıfır yazmak yanıltıcı olurdu
+- **Duruş ve işçilik eğilimi** — aya göre dakika toplamları
+- **Sapma geçmişi** — bir ölçüm cihazının kalibrasyonlar boyunca en büyük sapması
+- **Gecikme yaşlandırması** — hangi plan kaç gündür gecikmiş
+
+## Denetime hazır çıktı
+
+Raporlar ekranındaki **Dışa aktar** düğmesi üç biçim verir:
+
+- **Excel kitabı** (.xlsx) — her tablo ayrı sayfada, başlık satırı donmuş, otomatik filtreli
+- **CSV klasörü** — her tablo ayrı dosyada, noktalı virgül ayraçlı, Excel'in doğrudan açtığı
+  kodlamada
+- **Yazdırılabilir rapor** (.html) — özet kartları ve tablolar; tarayıcıda Ctrl+P ile PDF
+  olarak kaydedilir
+
+PDF'i uygulama kendi üretmiyor. Kendi PDF yazıcımızı yazmak Türkçe karakter ve sayfa kırılımı
+tarafında sessiz hatalar üretirdi; tarayıcının yazdırma motoru bu işi doğru yapıyor.
+
+Sertifika dosyaları yalnızca yol olarak tutulmuyor: seçtiğiniz dosya veri klasörüne
+kopyalanıyor. Özgün dosya taşınsa ya da silinse bile kayıt boşa düşmüyor. Dışa aktarımda
+sertifikaları da çıktı klasörüne kopyalatabilirsiniz.
 
 ## Planlar nasıl kayda dönüşür
 
@@ -105,8 +168,11 @@ etkilenmez.
 
 ## Testler
 
-    python -I tests/test_core.py .          38 çekirdek testi (veritabanı, durum makinesi, tarama)
-    python -I tests/test_update.py .        güncelleme modülü
-    xvfb-run -a python -I tests/test_gui.py .   21 arayüz duman testi
+    python -I tests/test_core.py .              59 çekirdek testi
+    python -I tests/test_update.py .            güncelleme modülü
+    python -I tests/test_xlsx.py .              5 test, üretilen .xlsx'i openpyxl ile okur
+    xvfb-run -a python -I tests/test_gui.py .   28 arayüz duman testi
+
+Arayüz testleri hem klasik hem modern çizimle koşar; CI ikisini de çalıştırır.
 
 Simgeyi yeniden üretmek için: `python packaging/make_icon.py`

@@ -28,8 +28,13 @@ def run(argv) -> int:
         import mihenk_core
         import mihenk_db as db
         import mihenk_app  # noqa: F401
+        import mihenk_checklist  # noqa: F401
+        import mihenk_export  # noqa: F401
+        import mihenk_parts  # noqa: F401
+        import mihenk_reports  # noqa: F401
         import mihenk_seed  # noqa: F401
         import mihenk_update  # noqa: F401
+        import mihenk_xlsx  # noqa: F401
         from mihenk_repo import AssetRepo
 
         # Veritabani gercekten yazilabiliyor mu: gecici dosyada tam bir tur.
@@ -45,8 +50,17 @@ def run(argv) -> int:
         finally:
             conn.close()
 
-        msg = 'OK %s tcl=%s sqlite=%s frozen=%s python=%s' % (
-            mihenk_core.VERSION, tcl, __import__('sqlite3').sqlite_version,
+        # Modern gorunum pakete girdi mi: EXE'de eksikse sessizce klasige dusulur,
+        # bu yuzden yayindan once burada acikca yazilir.
+        try:
+            import ttkbootstrap
+            ui = 'modern'
+            tb = getattr(ttkbootstrap, '__version__', '?')
+        except ImportError:
+            ui, tb = 'classic', '-'
+
+        msg = 'OK %s tcl=%s sqlite=%s ui=%s ttkbootstrap=%s frozen=%s python=%s' % (
+            mihenk_core.VERSION, tcl, __import__('sqlite3').sqlite_version, ui, tb,
             bool(getattr(sys, 'frozen', False)), sys.version.split()[0])
         code = 0
     except BaseException:

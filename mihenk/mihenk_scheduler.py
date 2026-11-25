@@ -82,6 +82,10 @@ def generate_for_plan(conn, plan: dict) -> str:
             'assigned_to': plan['assignee'],
             'planned_start': plan['next_due_at'],
         })
+        # Sablonun o anki hali is emrine kopyalanir; sonra sablon degisirse bu
+        # is emri degismez.
+        from mihenk_checklist import WorkOrderChecklist
+        WorkOrderChecklist.copy_from_plan(conn, work_order_id, int(plan['id']))
         audit.result(conn, 'schedule', int(plan['id']), 'generated_work_order',
                      {'work_order_id': work_order_id})
         return 'work_order'
