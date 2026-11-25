@@ -1,6 +1,6 @@
 {
 	"app": "mihenk",
-	"version": "2.1.0",
+	"version": "2.2.0",
 	"contract_version": 1,
 	"generated_at": "2026-11-25",
 	"runner": {
@@ -462,6 +462,20 @@
 			"required_for_package": true,
 			"status": "pass",
 			"evidence": "test_gui.update_check_repeats_while_the_app_stays_open"
+		},
+		{
+			"id": "mihenk-update-locked-file",
+			"title": "Onceki denemeden kalan kilitli EXE indirmeyi durdurmuyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_update.py (_free_target kilitli dosyada yeni ad aciyor, cleanup_downloads hata firlatmiyor)"
+		},
+		{
+			"id": "mihenk-update-closes-app",
+			"title": "Guncelleyici baslatilinca uygulama kapaniyor",
+			"required_for_package": true,
+			"status": "skip",
+			"note": "Gercek kapanma yalnizca Windows EXE akisinda gorulur; release.yml guncelleyici kipini ayrica test eder. Kod yolu: MihenkApp.install_pending_update -> process.poll() -> self.close()."
 		},
 		{
 			"id": "mihenk-windows-build",

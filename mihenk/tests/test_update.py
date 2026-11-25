@@ -54,4 +54,43 @@ try:
 except Exception as exc:
     assert 'güvensiz' in str(exc).lower() or 'Derle-ve-Kur' in str(exc), exc
 
+# Kilitli hedef: onceki denemeden kalan EXE calisiyorsa indirme ayni ada takilmamali.
+import mihenk_store as store  # noqa: E402
+
+folder = store.data_dir() / 'updates'
+folder.mkdir(parents=True, exist_ok=True)
+taken = folder / 'AGFO-Mihenk-9.9.9.exe'
+taken.write_bytes(b'calisiyor')
+
+real_unlink = pathlib.Path.unlink
+
+
+def refuse_unlink(self, *args, **kwargs):
+    if self.name == 'AGFO-Mihenk-9.9.9.exe':
+        raise PermissionError(5, 'Erisim engellendi')
+    return real_unlink(self, *args, **kwargs)
+
+
+pathlib.Path.unlink = refuse_unlink
+try:
+    chosen = u._free_target('AGFO-Mihenk-9.9.9.exe')
+    assert chosen != taken, 'kilitli dosyanin uzerine yazmaya calisilmamali'
+    assert chosen.name.startswith('AGFO-Mihenk-9.9.9'), chosen
+    assert not chosen.exists()
+finally:
+    pathlib.Path.unlink = real_unlink
+
+# Serbest dosya varsa ayni ad yeniden kullanilir.
+free = folder / 'AGFO-Mihenk-8.8.8.exe'
+free.write_bytes(b'eski')
+assert u._free_target('AGFO-Mihenk-8.8.8.exe') == free
+assert not free.exists(), 'serbest eski dosya silinmeliydi'
+
+# Kilitli dosya temizlikte hata firlatmamali.
+pathlib.Path.unlink = refuse_unlink
+try:
+    u.cleanup_downloads()
+finally:
+    pathlib.Path.unlink = real_unlink
+
 print('MIHENK UPDATE OK')

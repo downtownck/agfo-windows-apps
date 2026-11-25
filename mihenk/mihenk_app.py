@@ -42,9 +42,11 @@ UPDATE_POLL_MS = 60 * 60 * 1000
 
 VERSIONS = (
     {'version': '2.1.0', 'date': '2026-11-25', 'kind': 'MINOR',
-     'summary': 'Açık duran uygulama da yeni sürümü görüyor: güncelleme denetimi artık yalnızca '
-                'açılışta değil, çalışırken de periyodik olarak yapılıyor. 2.0.0 ve öncesinde '
-                'uygulamayı kapatıp açmadan yeni sürüm fark edilmiyordu.'},
+     'summary': 'Güncelleme iki yerden kırıktı, ikisi de düzeldi: açık duran uygulama artık '
+                'yeni sürümü görüyor (denetim çalışırken de yineleniyor), ve güncelleyici '
+                'başlatıldıktan sonra uygulama kapanıyor. Önceki sürümde kapanmadığı için '
+                'güncelleyici boşuna bekliyor, indirilen dosyayı kilitli tutuyor ve ikinci '
+                'deneme "erişim engellendi" ile düşüyordu.'},
     {'version': '2.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
      'summary': 'Modern görünüm (ttkbootstrap) ve dört yeni yetenek: plana bağlı kontrol listesi '
                 'şablonları ve iş emrinde işaretleme, yedek parça kütüğü ile stok hareketleri, '
@@ -290,6 +292,7 @@ class SettingsScreen(Screen):
             self.update_label.configure(
                 text='Yeni sürüm var: v%s — durum çubuğundaki Güncelle düğmesiyle kurulur.'
                      % result.get('version'))
+            self.app.pending_update = result
         elif status == 'current':
             self.update_label.configure(text='Kurulu sürüm güncel: %s' % core.VERSION)
         else:
@@ -533,29 +536,50 @@ class MihenkApp:
             on_result(result)
 
     def install_pending_update(self) -> None:
-        """Durum serigindeki Guncelle dugmesi: indirir ve kurar."""
+        """Durum serigindeki Guncelle dugmesi: indirir, dogrular ve uygular.
+
+        Windows calisan bir EXE'nin uzerine yazdirmaz. Bu yuzden yeni EXE
+        guncelleyici kipinde baslatilir ve BU uygulama kapanir; yerine koyma
+        isini o yapip uygulamayi yeniden acar. Kapanmazsak guncelleyici bosuna
+        bekler, indirilen dosyayi kilitli tutar ve bir sonraki deneme
+        "erisim engellendi" ile duser.
+        """
         result = self.pending_update
         if not result:
             return
-        if not messagebox.askyesno('Güncelleme', 'v%s indirilip kurulsun mu?\n\nKayıtlarınıza '
-                                                 'dokunulmaz.' % result.get('version'),
-                                   parent=self.root):
+
+        import mihenk_update as updater
+        if not updater.is_frozen():
+            messagebox.showinfo(
+                'Güncelleme',
+                'Yeni sürüm var: v%s.\n\nKaynaktan çalıştığın için uygulama kendi kendini '
+                'değiştiremez. GitHub\'dan Kurulum ZIP\'ini indirip Derle-ve-Kur.cmd '
+                'çalıştırman gerekiyor.' % result.get('version'), parent=self.root)
             return
+        if not messagebox.askyesno(
+                'Güncelleme',
+                'v%s indirilip kurulsun mu?\n\nUygulama kısa süre kapanıp yeniden açılacak. '
+                'Kayıtlarınıza dokunulmaz.' % result.get('version'), parent=self.root):
+            return
+
         self.update_button.configure(state='disabled', text='İndiriliyor…')
+        minimized = self.root.state() == 'iconic'
 
         def worker():
+            import time
             try:
-                import mihenk_update as updater
+                updater.cleanup_downloads()
                 path = updater.download(result)
-                if updater.is_frozen():
-                    updater.apply_update(path)
-                    message = 'Yeni sürüm uygulanıyor, uygulama birazdan yeniden açılacak.'
-                else:
-                    folder = updater.extract(path)
-                    updater.run_installer(folder)
-                    message = 'Kurulum penceresi açıldı.'
+                process = updater.apply_update(path, minimized=minimized)
+                time.sleep(2)
+                if process.poll() is not None:
+                    # Guvenlik yazilimi guncelleyiciyi hemen kapattiysa buradan anlasilir.
+                    raise OSError('Güncelleyici başlatılamadı (güvenlik yazılımı engellemiş '
+                                  'olabilir). Kurulu sürüm değişmedi.')
+                self.root.after(0, self.close)         # yerini alabilmesi icin cekiliyoruz
+                return
             except Exception as exc:
-                message = 'Güncelleme uygulanamadı: %s' % exc
+                message = 'Güncelleme uygulanamadı: %s' % (exc or exc.__class__.__name__)
             try:
                 self.root.after(0, lambda: self._install_finished(message))
             except tk.TclError:
@@ -564,9 +588,12 @@ class MihenkApp:
         threading.Thread(target=worker, daemon=True).start()
 
     def _install_finished(self, message: str) -> None:
-        self.update_button.configure(state='normal',
-                                     text='Güncelle: v%s' % (self.pending_update or {}).get('version', ''))
+        """Yalnizca basarisizlikta cagrilir; basarili yolda uygulama kapanir."""
+        self.update_button.configure(
+            state='normal', text='Güncelle: v%s' % (self.pending_update or {}).get('version', ''))
         self.toast(message)
+        messagebox.showerror('Güncelleme', message + '\n\nKurulu sürüm değişmedi.',
+                             parent=self.root)
 
     def should_offer_first_run(self) -> bool:
         """Karsilama penceresi gosterilmeli mi: daha once sorulmamis ve kutuk bos."""

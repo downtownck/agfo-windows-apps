@@ -85,11 +85,42 @@ def check(force=False, releases=None) -> dict:
     return res
 
 
+def _free_target(name: str) -> pathlib.Path:
+    """Yazilabilir bir indirme yolu dondurur.
+
+    Onceki bir denemeden kalan EXE hala calisiyor olabilir (guncelleyici kipinde
+    bekleyen bir surec dosyayi kilitler). Windows kilitli dosyanin uzerine
+    yazdirmaz; bu durumda ayni ada takilip kalmak yerine yanina yeni bir ad
+    acilir, yoksa guncelleme WinError 5 ile duvara carpar.
+    """
+    folder = updates_dir()
+    target = folder / name
+    if not target.exists():
+        return target
+    try:
+        target.unlink()                      # serbestse eskiyi temizle
+        return target
+    except OSError:
+        pass                                 # kilitli: yanina yeni ad ac
+    stem, suffix = target.stem, target.suffix
+    for index in range(1, 100):
+        candidate = folder / ('%s-%d%s' % (stem, index, suffix))
+        if not candidate.exists():
+            return candidate
+        try:
+            candidate.unlink()
+            return candidate
+        except OSError:
+            continue
+    raise ghu.GHUpdateError('İndirme klasörü kilitli dosyalarla dolu: %s' % folder)
+
+
 def download(result: dict, progress=None, should_stop=None) -> pathlib.Path:
     rel, asset = result['release'], result['asset']
     sha = ghu.expected_sha256(rel, asset, user_agent=USER_AGENT)
-    dest = updates_dir() / (('AGFO-Mihenk-%s.exe' % result['version']) if asset['name'].lower().endswith('.exe')
-                            else asset['name'])
+    name = (('AGFO-Mihenk-%s.exe' % result['version']) if asset['name'].lower().endswith('.exe')
+            else asset['name'])
+    dest = _free_target(name)
     ghu.download_asset(asset, dest, sha, progress, should_stop, user_agent=USER_AGENT)
     return dest
 
@@ -122,13 +153,14 @@ def run_installer(folder, popen=subprocess.Popen):
 
 
 def cleanup_downloads(keep=None) -> None:
+    """Eski indirmeleri siler. Kilitli dosya varsa atlar, hata firlatmaz."""
     for f in updates_dir().iterdir():
         if keep is not None and f.resolve() == pathlib.Path(keep).resolve():
             continue
         try:
             shutil.rmtree(f) if f.is_dir() else f.unlink()
         except OSError:
-            pass
+            pass                              # calisan bir guncelleyici tutuyor olabilir
 
 
 # ------------------------------------------------------------------ sessiz EXE guncelleme
