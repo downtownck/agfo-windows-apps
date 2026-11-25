@@ -219,51 +219,21 @@ class SettingsScreen(Screen):
         messagebox.showinfo('Demo veri', '\n'.join(report.get('lines', [])), parent=self)
 
     def check_updates(self) -> None:
-        """Guncelleme denetimi arka planda; sonuc ana is parcaciginda gosterilir."""
+        """Elle denetim. Isi uygulama kabugu yapar, ekran yalnizca sonucu yazar."""
         self.update_label.configure(text='Denetleniyor…')
-
-        def worker():
-            try:
-                import mihenk_update as updater
-                result = updater.check(force=True)
-            except Exception as exc:
-                result = {'status': 'error', 'message': str(exc)}
-            self.after(0, lambda: self._update_result(result))
-
-        threading.Thread(target=worker, daemon=True).start()
+        self.app.check_updates(force=True, on_result=self._update_result)
 
     def _update_result(self, result: dict) -> None:
         status = result.get('status')
         if status == 'update':
-            self.update_label.configure(text='Yeni sürüm var: %s' % result.get('version'))
-            if messagebox.askyesno('Güncelleme', 'v%s yayınlanmış. Şimdi indirilip kurulsun mu?'
-                                   % result.get('version'), parent=self):
-                self._install_update(result)
+            self.update_label.configure(
+                text='Yeni sürüm var: v%s — durum çubuğundaki Güncelle düğmesiyle kurulur.'
+                     % result.get('version'))
         elif status == 'current':
             self.update_label.configure(text='Kurulu sürüm güncel: %s' % core.VERSION)
         else:
             self.update_label.configure(text='Denetlenemedi: %s'
                                              % result.get('message', 'bilinmeyen hata'))
-
-    def _install_update(self, result: dict) -> None:
-        self.update_label.configure(text='İndiriliyor…')
-
-        def worker():
-            try:
-                import mihenk_update as updater
-                path = updater.download(result)
-                if updater.is_frozen():
-                    updater.apply_update(path)
-                    message = 'Yeni sürüm uygulanıyor, uygulama birazdan yeniden açılacak.'
-                else:
-                    folder = updater.extract(path)
-                    updater.run_installer(folder)
-                    message = 'Kurulum penceresi açıldı.'
-            except Exception as exc:
-                message = 'Güncelleme uygulanamadı: %s' % exc
-            self.after(0, lambda: self.update_label.configure(text=message))
-
-        threading.Thread(target=worker, daemon=True).start()
 
 
 SCREENS = {
@@ -315,6 +285,10 @@ class MihenkApp:
         self.status_label.pack(side='left')
         self.counts_label = ttk.Label(status, text='', style='Status.TLabel')
         self.counts_label.pack(side='right')
+        # Guncelleme bulununca gorunur; bulunmadikca yer kaplamaz.
+        self.update_button = ttk.Button(status, text='', style='Accent.TButton',
+                                        command=self.install_pending_update)
+        self.pending_update = None
 
         for name, cls in SCREENS.items():
             screen = cls(self.content, self)
@@ -322,6 +296,8 @@ class MihenkApp:
 
         self.go(self.settings.get('last_screen') or 'dashboard')
         self.root.after(200, self._startup_scan)
+        self.root.after(400, self._first_run)
+        self.root.after(2500, lambda: self.check_updates(force=False))
 
     # ------------------------------------------------------------------ kabuk
     def _set_icon(self) -> None:
@@ -443,6 +419,94 @@ class MihenkApp:
         if total:
             self.toast('Açılış taraması: %d iş emri, %d kalibrasyon kaydı üretildi.'
                        % (made['work_orders'], made['calibrations']))
+
+    # ------------------------------------------------------------------ guncelleme
+    def check_updates(self, force=False, on_result=None) -> None:
+        """GitHub Releases'i arka planda denetler; arayuzu bloke etmez.
+
+        force=False acilista calisir ve modulun kendi araligina (6 saat) uyar,
+        yani her acilista ag istegi yapilmaz.
+        """
+        def worker():
+            try:
+                import mihenk_update as updater
+                result = updater.check(force=force)
+            except Exception as exc:
+                result = {'status': 'error', 'message': str(exc)}
+            try:
+                self.root.after(0, lambda: self._update_checked(result, on_result))
+            except tk.TclError:
+                pass                     # pencere bu arada kapandiysa sessizce birak
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _update_checked(self, result: dict, on_result=None) -> None:
+        if result.get('status') == 'update':
+            self.pending_update = result
+            self.update_button.configure(text='Güncelle: v%s' % result.get('version'))
+            if not self.update_button.winfo_manager():
+                self.update_button.pack(side='right', padx=(0, 14))
+            self.toast('Yeni sürüm yayınlandı: v%s' % result.get('version'))
+        if on_result:
+            on_result(result)
+
+    def install_pending_update(self) -> None:
+        """Durum serigindeki Guncelle dugmesi: indirir ve kurar."""
+        result = self.pending_update
+        if not result:
+            return
+        if not messagebox.askyesno('Güncelleme', 'v%s indirilip kurulsun mu?\n\nKayıtlarınıza '
+                                                 'dokunulmaz.' % result.get('version'),
+                                   parent=self.root):
+            return
+        self.update_button.configure(state='disabled', text='İndiriliyor…')
+
+        def worker():
+            try:
+                import mihenk_update as updater
+                path = updater.download(result)
+                if updater.is_frozen():
+                    updater.apply_update(path)
+                    message = 'Yeni sürüm uygulanıyor, uygulama birazdan yeniden açılacak.'
+                else:
+                    folder = updater.extract(path)
+                    updater.run_installer(folder)
+                    message = 'Kurulum penceresi açıldı.'
+            except Exception as exc:
+                message = 'Güncelleme uygulanamadı: %s' % exc
+            try:
+                self.root.after(0, lambda: self._install_finished(message))
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _install_finished(self, message: str) -> None:
+        self.update_button.configure(state='normal',
+                                     text='Güncelle: v%s' % (self.pending_update or {}).get('version', ''))
+        self.toast(message)
+
+    def should_offer_first_run(self) -> bool:
+        """Karsilama penceresi gosterilmeli mi: daha once sorulmamis ve kutuk bos."""
+        if store.setting('first_run_done'):
+            return False
+        if AssetRepo.count(self.conn) > 0:
+            store.save_settings({'first_run_done': True})      # dolu kutuga bir daha sorma
+            return False
+        return True
+
+    def _first_run(self) -> None:
+        """Kutuk bosken ve daha once sorulmamissa karsilama penceresini acar."""
+        if not self.should_offer_first_run():
+            return
+        self.go('dashboard')
+        from mihenk_dialogs import WelcomeDialog
+        dialog = WelcomeDialog(self)
+        self.root.wait_window(dialog)
+        self.settings = store.load_settings()
+        if dialog.choice == 'demo':
+            self.toast('Demo veri kuruldu. Ayarlar ekranından tek tıkla temizlenir.')
+        self.refresh()
 
     def close(self) -> None:
         try:

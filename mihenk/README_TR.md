@@ -30,6 +30,12 @@ Depolar `status` alanını doğrudan yazmaz; karantina kilidi bu yüzden gerçek
    araçlarını indirdiği için birkaç dakika sürebilir.
 3. Kısayollar: Başlat menüsü > AGFO ve Masaüstü.
 
+İlk açılışta kütük boş olduğu için uygulama ne yaptığını gösteremez; bu yüzden bir karşılama
+penceresi çıkar ve iki yol sunar: **demo veriyle başla** ya da **boş başla**. Demo seti kodu
+`DEMO-` ile başlayan sekiz varlık, yedi plan, dört talep ve üç kalibrasyon kaydı kurar;
+kayıtlardan biri bilerek uygunsuzdur, böylece karantina kilidi ilk dakikada görülür. Pencere
+yalnızca bir kez çıkar ve demo veri Ayarlar ekranından tek tıkla temizlenir.
+
 Yalnızca derlemek için `Sadece-Derle.cmd`, kaynaktan çalıştırmak için `Baslat.cmd`,
 kaldırmak için `Kaldir.cmd`. Kaldırma kayıtlarınıza dokunmaz.
 
@@ -88,14 +94,19 @@ her kaydın kendi penceresinde, son hareketler Ayarlar ekranında görünür.
 
 ## Sürüm ve güncelleme
 
-Kurulu uygulama GitHub Releases üzerinden güncellenir. Ayarlar > **Güncellemeleri denetle**.
+Kurulu uygulama GitHub Releases üzerinden güncellenir. Açılıştan birkaç saniye sonra arka
+planda sessizce denetlenir (altı saatte bir defadan sık değil, uygulama bunu kendi tutar).
+Yeni sürüm varsa durum çubuğunda bir **Güncelle** düğmesi belirir; tek tıkla iner ve kurulur.
+Beklemeden denetlemek için Ayarlar > **Güncellemeleri denetle**.
+
 İndirilen dosya SHA-256 ile doğrulanır; özet yoksa dosya kullanılmaz. Güven kökü GitHub
-hesabıdır, kod imzası değildir.
+hesabıdır, kod imzası değildir. Kayıtlarınız (`%APPDATA%\AGFO\Mihenk`) güncellemeden
+etkilenmez.
 
 ## Testler
 
     python -I tests/test_core.py .          38 çekirdek testi (veritabanı, durum makinesi, tarama)
     python -I tests/test_update.py .        güncelleme modülü
-    xvfb-run -a python -I tests/test_gui.py .   18 arayüz duman testi
+    xvfb-run -a python -I tests/test_gui.py .   21 arayüz duman testi
 
 Simgeyi yeniden üretmek için: `python packaging/make_icon.py`

@@ -50,6 +50,18 @@ class Screen(ttk.Frame):
     def refresh(self) -> None:
         """Alt siniflar veriyi burada tazeler."""
 
+    def set_hint(self, text: str = '') -> None:
+        """Liste bosken ne yapilmasi gerektigini soyleyen tek satir."""
+        if not hasattr(self, '_hint'):
+            self._hint = ttk.Label(self, text='', style='Muted.TLabel', wraplength=820,
+                                   justify='left')
+        if text:
+            self._hint.configure(text=text)
+            if not self._hint.winfo_manager():
+                self._hint.pack(anchor='w', pady=(10, 0))
+        else:
+            self._hint.pack_forget()
+
     def open_dialog(self, factory) -> None:
         """Pencereyi acar ve kapandiginda ekrani tazeler."""
         dialog = factory()
@@ -243,6 +255,9 @@ class AssetsScreen(Screen):
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
         self.count_label.configure(text='%d varlık' % len(rows))
+        self.set_hint('Kütük boş. Sağ üstteki Varlık ekle ile başlayın; ölçüm cihazları için '
+                      '"Ölçüm cihazı" kutusunu işaretleyin, kalibrasyon planı ancak öyle '
+                      'bağlanabilir.' if not rows and not self.search.get().strip() else '')
 
 
 # ====================================================================== planlar
@@ -300,6 +315,9 @@ class PlansScreen(Screen):
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
         self.count_label.configure(text='%d plan' % len(rows))
+        self.set_hint('Henüz plan yok. Bir varlığa plan bağlayın: önleyici plan iş emri, '
+                      'kalibrasyon ve doğrulama planı kalibrasyon kaydı üretir.'
+                      if not rows else '')
 
     def toggle(self) -> None:
         row = self.table.selected_row()
@@ -351,6 +369,8 @@ class RequestsScreen(Screen):
             tag_of=lambda r: 'alert' if r['severity'] == 'stops_production' and r['status'] == 'open'
             else ('muted' if r['status'] in ('closed', 'rejected') else None))
         self.count_label.configure(text='%d talep' % len(rows))
+        self.set_hint('Talep yok. Sahadan gelen bir arızayı buraya bildirin; değerlendirildikten '
+                      'sonra iş emrine dönüştürülür.' if not rows else '')
 
     def selected(self):
         row = self.table.selected_row()
@@ -456,6 +476,9 @@ class WorkOrdersScreen(Screen):
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
         self.count_label.configure(text='%d iş emri' % len(rows))
+        self.set_hint('Açık iş emri yok. Planlar vadesi geldiğinde kendiliğinden üretir; '
+                      'Pano\'daki Taramayı çalıştır düğmesi bunu elle tetikler.'
+                      if not rows else '')
 
 
 # ====================================================================== kalibrasyon
@@ -516,6 +539,9 @@ class CalibrationsScreen(Screen):
 
         self.table.set_rows(rows, values=cells, tag_of=tag)
         self.count_label.configure(text='%d kayıt' % len(rows))
+        self.set_hint('Açık kalibrasyon kaydı yok. Kalibrasyon planı vadesi gelince kayıt üretir; '
+                      'plan dışı bir ölçüm için Kayıt oluştur düğmesini kullanın.'
+                      if not rows else '')
 
     def create_record(self) -> None:
         """Plan disi kalibrasyon kaydi acar."""
@@ -588,3 +614,5 @@ class ImpactsScreen(Screen):
             states.label('impact', r['status'])),
             tag_of=lambda r: 'alert' if r['status'] == 'open' else 'muted')
         self.count_label.configure(text='%d değerlendirme' % len(rows))
+        self.set_hint('Etki değerlendirmesi yok. Bu kayıtlar elle açılmaz: bir kalibrasyon '
+                      'uygunsuz çıktığında kendiliğinden açılır.' if not rows else '')

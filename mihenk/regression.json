@@ -1,6 +1,6 @@
 {
 	"app": "mihenk",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"contract_version": 1,
 	"generated_at": "2026-11-25",
 	"runner": {
@@ -29,7 +29,8 @@
 			{"key": "theme", "consumer": "mihenk_theme.apply", "verified": "pass"},
 			{"key": "scan_on_start", "consumer": "MihenkApp._startup_scan", "verified": "pass"},
 			{"key": "last_screen", "consumer": "MihenkApp.go", "verified": "pass"},
-			{"key": "window", "consumer": "MihenkApp._restore_geometry", "verified": "skip"}
+			{"key": "window", "consumer": "MihenkApp._restore_geometry", "verified": "skip"},
+			{"key": "first_run_done", "consumer": "MihenkApp.should_offer_first_run", "verified": "pass"}
 		],
 		"screens": [
 			{"name": "dashboard", "verified": "pass"},
@@ -47,7 +48,8 @@
 			{"name": "RequestDialog", "verified": "skip", "note": "ekran dugmesinden aciliyor, testte ayrica acilmadi"},
 			{"name": "WorkOrderDialog", "verified": "pass"},
 			{"name": "CalibrationDialog", "verified": "pass"},
-			{"name": "ImpactDialog", "verified": "pass"}
+			{"name": "ImpactDialog", "verified": "pass"},
+			{"name": "WelcomeDialog", "verified": "pass"}
 		]
 	},
 	"scenarios": [
@@ -155,6 +157,27 @@
 			"required_for_package": true,
 			"status": "pass",
 			"evidence": "test_gui.impact_dialog_carries_the_window_and_refuses_an_empty_close, impact_can_be_closed_and_releases_the_asset"
+		},
+		{
+			"id": "mihenk-first-run",
+			"title": "Ilk acilista karsilama cikiyor, bir kez cikiyor, dolu kutukte hic cikmiyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.welcome_dialog_offers_both_paths_and_only_shows_once"
+		},
+		{
+			"id": "mihenk-empty-state",
+			"title": "Bos listeler ne yapilacagini soyluyor",
+			"required_for_package": false,
+			"status": "pass",
+			"evidence": "test_gui.empty_list_explains_what_to_do_next"
+		},
+		{
+			"id": "mihenk-update-button",
+			"title": "Guncelle dugmesi yalnizca yeni surum varken beliriyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.update_button_appears_only_when_a_release_is_newer"
 		},
 		{
 			"id": "mihenk-backup-restore",

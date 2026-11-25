@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import mihenk_audit as audit
 import mihenk_states as states
+import mihenk_store as store
 import mihenk_theme as theme
 import mihenk_validate as v
 import mihenk_widgets as w
@@ -1063,3 +1064,97 @@ def _ask_text(parent, title: str, prompt: str):
     box.grab_set()
     parent.wait_window(box)
     return answer.get('value')
+
+
+# ====================================================================== ilk acilis
+class WelcomeDialog(tk.Toplevel):
+    """Ilk acilista cikan karsilama.
+
+    Bos bir kutukle karsilasan biri uygulamanin ne yaptigini goremez, ozellikle
+    de asil ayirt edici davranisi olan karantina kilidini. Burada demo setiyle
+    baslamayi teklif ediyoruz; sessizce veri basmak yerine soruyoruz, cunku
+    gercek kayit girecek kisi de ayni yerden temiz baslayabilmeli.
+    """
+
+    def __init__(self, app):
+        super().__init__(app.root)
+        self.app = app
+        self.choice = None
+        p = theme.palette()
+        self.title('Mihenk\'e hoş geldiniz')
+        self.configure(background=p['bg'])
+        self.transient(app.root)
+        self.resizable(False, False)
+
+        head = ttk.Frame(self, padding=(28, 24, 28, 6))
+        head.pack(fill='x')
+        ttk.Label(head, text='Mihenk', style='Title.TLabel').pack(anchor='w')
+        ttk.Label(head, text='Ekipman bakımı, kalibrasyon ve doğrulama takibi',
+                  style='Muted.TLabel').pack(anchor='w', pady=(2, 0))
+
+        body = ttk.Frame(self, padding=(28, 6, 28, 10))
+        body.pack(fill='both', expand=True)
+        ttk.Label(body, text='Kütük şu anda boş. İki şekilde başlayabilirsiniz.',
+                  style='TLabel').pack(anchor='w', pady=(0, 14))
+
+        demo = ttk.Frame(body, style='Card.TFrame', padding=(16, 14))
+        demo.pack(fill='x', pady=(0, 10))
+        ttk.Label(demo, text='Demo veriyle başla', style='SurfaceHeading.TLabel').pack(anchor='w')
+        ttk.Label(demo, text='Bir dolum hattının sekiz varlığı, yedi planı, dört talebi ve üç '
+                             'kalibrasyon kaydı kurulur. Kayıtlardan biri bilerek uygunsuzdur: '
+                             'varlığı karantinaya almış ve bir etki değerlendirmesi açmıştır, '
+                             'böylece uygulamanın asıl kuralını çalışırken görürsünüz.\n\n'
+                             'Bütün demo varlıklarının kodu DEMO- ile başlar ve Ayarlar '
+                             'ekranından tek tıkla temizlenir; kendi kayıtlarınıza dokunmaz.',
+                  style='SurfaceMuted.TLabel', wraplength=520, justify='left').pack(anchor='w',
+                                                                                     pady=(6, 0))
+
+        empty = ttk.Frame(body, style='Card.TFrame', padding=(16, 14))
+        empty.pack(fill='x')
+        ttk.Label(empty, text='Boş başla', style='SurfaceHeading.TLabel').pack(anchor='w')
+        ttk.Label(empty, text='Doğrudan kendi ekipmanınızı girersiniz. Önce Varlıklar ekranından '
+                              'bir varlık, sonra ona bir plan ekleyin; planlar vadesi geldiğinde '
+                              'iş emri ya da kalibrasyon kaydı üretir.',
+                  style='SurfaceMuted.TLabel', wraplength=520, justify='left').pack(anchor='w',
+                                                                                     pady=(6, 0))
+
+        foot = ttk.Frame(self, padding=(28, 14, 28, 20))
+        foot.pack(fill='x')
+        ttk.Button(foot, text='Demo veriyle başla', style='Accent.TButton',
+                   command=self.start_demo).pack(side='right')
+        ttk.Button(foot, text='Boş başla', command=self.start_empty).pack(side='right', padx=8)
+        ttk.Label(foot, text='Bu pencere yalnızca ilk açılışta çıkar.',
+                  style='Muted.TLabel').pack(side='left')
+
+        self.bind('<Escape>', lambda _e: self.start_empty())
+        self.protocol('WM_DELETE_WINDOW', self.start_empty)
+        self.update_idletasks()
+        parent = app.root
+        x = parent.winfo_rootx() + max(0, (parent.winfo_width() - self.winfo_width()) // 2)
+        y = parent.winfo_rooty() + 90
+        self.geometry('+%d+%d' % (x, y))
+        self.grab_set()
+        self.focus_set()
+
+    def start_demo(self) -> None:
+        import mihenk_seed as seed
+        report = {}
+        try:
+            report = seed.seed(self.app.conn)
+        except Exception as exc:
+            messagebox.showerror('Demo veri kurulamadı', str(exc), parent=self)
+            self._finish('error')
+            return
+        self._finish('demo')
+        if report.get('ok'):
+            messagebox.showinfo('Demo veri kuruldu', '\n\n'.join(report['lines']),
+                                parent=self.app.root)
+
+    def start_empty(self) -> None:
+        self._finish('empty')
+
+    def _finish(self, choice: str) -> None:
+        self.choice = choice
+        store.save_settings({'first_run_done': True})
+        self.destroy()
+        self.app.refresh()

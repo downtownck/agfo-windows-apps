@@ -323,6 +323,58 @@ def date_entry_round_trips_and_calendar_opens():
 
 
 @test
+def welcome_dialog_offers_both_paths_and_only_shows_once():
+    import mihenk_store as store
+    store.save_settings({'first_run_done': False})
+    dialog = dialogs.WelcomeDialog(app)
+    pump()
+    labels = _button_texts(dialog)
+    assert 'Demo veriyle başla' in labels and 'Boş başla' in labels, labels
+    dialog.start_empty()
+    pump()
+    assert dialog.choice == 'empty'
+    assert store.setting('first_run_done') is True
+    # Kutuk doluyken bir daha sorulmaz.
+    assert app.should_offer_first_run() is False
+    store.save_settings({'first_run_done': False})
+    assert app.should_offer_first_run() is False, 'dolu kutukta karsilama cikmamali'
+    assert store.setting('first_run_done') is True, 'dolu kutukta bayrak kendiliginden kapanmali'
+
+
+@test
+def update_button_appears_only_when_a_release_is_newer():
+    app._update_checked({'status': 'current'})
+    pump()
+    assert not app.update_button.winfo_manager()
+    app._update_checked({'status': 'update', 'version': '9.9.9'})
+    pump()
+    assert app.update_button.winfo_manager() == 'pack'
+    assert '9.9.9' in app.update_button.cget('text')
+    app.update_button.pack_forget()
+    app.pending_update = None
+    pump()
+
+
+@test
+def empty_list_explains_what_to_do_next():
+    import mihenk_seed as seed
+    seed.purge(app.conn)
+    for leftover in AssetRepo.query(app.conn):       # onceki testlerin biraktigi varliklar
+        AssetRepo.delete(app.conn, leftover['id'])
+    app.refresh()
+    for name in ('assets', 'plans', 'requests', 'work_orders', 'calibrations', 'impacts'):
+        app.go(name)
+        pump()
+        screen = app.screens[name]
+        assert screen.table.row_count() == 0, name
+        assert screen._hint.winfo_manager() == 'pack', name
+        assert len(screen._hint.cget('text')) > 30, name
+    seed.seed(app.conn)
+    app.refresh()
+    pump()
+
+
+@test
 def settings_screen_saves_and_reports_health():
     app.go('settings')
     pump()

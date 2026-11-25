@@ -23,6 +23,7 @@ DEFAULT_SETTINGS = {
     'operator': '',
     'scan_on_start': True,
     'window': '',
+    'first_run_done': False,
 }
 
 
