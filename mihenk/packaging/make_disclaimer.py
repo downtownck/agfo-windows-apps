@@ -30,12 +30,11 @@ def render(lang: str) -> str:
     script = ('import sys; sys.path.insert(0, %r)\n'
               'import mihenk_legal as legal\n'
               'sys.stdout.write(legal.heading() + "\\n\\n" + legal.text())\n' % str(ROOT))
-    # PYTHONIOENCODING: Windows'ta alt surecin stdout'u cp1252'ye duser ve
-    # metindeki Turkce harfler yazilamaz.
-    env = dict(os.environ, MIHENK_LANG=lang, MIHENK_DATA_DIR=tempfile.mkdtemp(),
-               PYTHONIOENCODING='utf-8')
-    done = subprocess.run([sys.executable, '-I', '-c', script], capture_output=True,
-                          text=True, encoding='utf-8', env=env)
+    env = dict(os.environ, MIHENK_LANG=lang, MIHENK_DATA_DIR=tempfile.mkdtemp())
+    # -X utf8: Windows'ta alt surecin stdout'u yoksa cp1252'ye duser ve metindeki
+    # Turkce harfler yazilamaz. -I izole kip PYTHON* degiskenlerini yok sayiyor.
+    done = subprocess.run([sys.executable, '-I', '-X', 'utf8', '-c', script],
+                          capture_output=True, text=True, encoding='utf-8', env=env)
     if done.returncode:
         raise SystemExit(done.stderr)
     return done.stdout

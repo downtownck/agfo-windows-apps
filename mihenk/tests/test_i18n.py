@@ -193,11 +193,12 @@ def turkish_still_works_in_a_separate_process():
     script = ('import sys; sys.path.insert(0, %r)\n'
               'import mihenk_app as app, mihenk_states as st\n'
               'print(app.NAV[1][1], st.LABELS["asset"]["quarantined"], sep="|")\n' % str(ROOT))
-    # Windows'ta alt surecin stdout'u cp1252'ye duser ve 'Varlıklar' yazilamaz.
-    env = dict(os.environ, MIHENK_LANG='tr', MIHENK_DATA_DIR=tempfile.mkdtemp(),
-               PYTHONIOENCODING='utf-8')
-    out = subprocess.run([sys.executable, '-I', '-c', script], capture_output=True,
-                         text=True, env=env, encoding='utf-8')
+    env = dict(os.environ, MIHENK_LANG='tr', MIHENK_DATA_DIR=tempfile.mkdtemp())
+    # -X utf8: Windows'ta alt surecin stdout'u yoksa cp1252'ye duser ve
+    # 'Varlıklar' yazilamaz. -I izole kip PYTHON* degiskenlerini yok saydigi
+    # icin bunu ortamdan degil bayrakla vermek gerekiyor.
+    out = subprocess.run([sys.executable, '-I', '-X', 'utf8', '-c', script],
+                         capture_output=True, text=True, env=env, encoding='utf-8')
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == 'Varlıklar|Karantinada', out.stdout
 
