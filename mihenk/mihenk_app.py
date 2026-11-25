@@ -36,7 +36,15 @@ NAV = (
     ('settings', 'Ayarlar'),
 )
 
+# Acik duran uygulamanin yeni surumu ne siklikta yoklayacagi. Agi yoran sey bu
+# degil: mihenk_update.CHECK_INTERVAL (6 saat) gercek istegi zaten sinirliyor.
+UPDATE_POLL_MS = 60 * 60 * 1000
+
 VERSIONS = (
+    {'version': '2.1.0', 'date': '2026-11-25', 'kind': 'MINOR',
+     'summary': 'Açık duran uygulama da yeni sürümü görüyor: güncelleme denetimi artık yalnızca '
+                'açılışta değil, çalışırken de periyodik olarak yapılıyor. 2.0.0 ve öncesinde '
+                'uygulamayı kapatıp açmadan yeni sürüm fark edilmiyordu.'},
     {'version': '2.0.0', 'date': '2026-11-25', 'kind': 'MAJOR',
      'summary': 'Modern görünüm (ttkbootstrap) ve dört yeni yetenek: plana bağlı kontrol listesi '
                 'şablonları ve iş emrinde işaretleme, yedek parça kütüğü ile stok hareketleri, '
@@ -313,6 +321,7 @@ class MihenkApp:
         self.screens = {}
         self.current = None
         self._toast_job = None
+        self._update_poll = None
 
         theme.apply(root, self.settings['theme'], store.ui_lib_dir(),
                     self.settings.get('modern_ui', True))
@@ -354,6 +363,7 @@ class MihenkApp:
         self.root.after(200, self._startup_scan)
         self.root.after(400, self._first_run)
         self.root.after(2500, lambda: self.check_updates(force=False))
+        self._schedule_update_poll()
 
     # ------------------------------------------------------------------ kabuk
     def _set_icon(self) -> None:
@@ -478,6 +488,21 @@ class MihenkApp:
                        % (made['work_orders'], made['calibrations']))
 
     # ------------------------------------------------------------------ guncelleme
+    def _schedule_update_poll(self) -> None:
+        """Acik duran uygulama da yeni surumu gorsun.
+
+        Yalnizca acilista bakmak yetmiyor: uygulama gun boyu acik kalirsa
+        aradan cikan surumu hic fark etmiyor. Saatte bir yoklaniyor; modulun
+        kendi alti saatlik araligi yururlukte oldugu icin aga gercekte alti
+        saatte bir cikiliyor.
+        """
+        self._update_poll = self.root.after(UPDATE_POLL_MS, self._poll_updates)
+
+    def _poll_updates(self) -> None:
+        if self.pending_update is None:          # zaten bulduysak tekrar sormaya gerek yok
+            self.check_updates(force=False)
+        self._schedule_update_poll()
+
     def check_updates(self, force=False, on_result=None) -> None:
         """GitHub Releases'i arka planda denetler; arayuzu bloke etmez.
 
@@ -566,6 +591,11 @@ class MihenkApp:
         self.refresh()
 
     def close(self) -> None:
+        try:
+            if self._update_poll:
+                self.root.after_cancel(self._update_poll)
+        except Exception:
+            pass
         try:
             store.save_settings({'window': self.root.winfo_geometry()})
             self.conn.close()

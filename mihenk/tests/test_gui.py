@@ -490,6 +490,31 @@ def reports_screen_fills_every_panel():
 
 
 @test
+def update_check_repeats_while_the_app_stays_open():
+    """Acilista bir kez bakmak yetmez: acik duran uygulama da yoklamali."""
+    assert app._update_poll is not None, 'periyodik yoklama kurulmali'
+    assert 0 < A.UPDATE_POLL_MS <= 6 * 60 * 60 * 1000
+
+    calls = []
+    original = app.check_updates
+    app.check_updates = lambda force=False, on_result=None: calls.append(force)
+    try:
+        app.pending_update = None
+        app._poll_updates()
+        pump()
+        assert calls == [False], calls
+        # Guncelleme zaten bulunmussa tekrar sorulmaz.
+        app.pending_update = {'status': 'update', 'version': '9.9.9'}
+        app._poll_updates()
+        pump()
+        assert calls == [False], calls
+    finally:
+        app.check_updates = original
+        app.pending_update = None
+        app.update_button.pack_forget()
+
+
+@test
 def export_dialog_writes_a_workbook():
     import mihenk_export as export
     dialog = dialogs.ExportDialog(app, 365)

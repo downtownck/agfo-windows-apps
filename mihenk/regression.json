@@ -1,6 +1,6 @@
 {
 	"app": "mihenk",
-	"version": "2.0.0",
+	"version": "2.1.0",
 	"contract_version": 1,
 	"generated_at": "2026-11-25",
 	"runner": {
@@ -455,6 +455,13 @@
 			"required_for_package": true,
 			"status": "pass",
 			"evidence": "test_gui.modern_drawing_engine_is_in_use_or_names_why_not (ttkbootstrap 2.2.7 ile kosuldu)"
+		},
+		{
+			"id": "mihenk-update-poll",
+			"title": "Acik duran uygulama da yeni surumu yokluyor",
+			"required_for_package": true,
+			"status": "pass",
+			"evidence": "test_gui.update_check_repeats_while_the_app_stays_open"
 		},
 		{
 			"id": "mihenk-windows-build",

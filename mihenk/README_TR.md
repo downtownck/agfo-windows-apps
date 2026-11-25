@@ -157,10 +157,14 @@ her kaydın kendi penceresinde, son hareketler Ayarlar ekranında görünür.
 
 ## Sürüm ve güncelleme
 
-Kurulu uygulama GitHub Releases üzerinden güncellenir. Açılıştan birkaç saniye sonra arka
-planda sessizce denetlenir (altı saatte bir defadan sık değil, uygulama bunu kendi tutar).
-Yeni sürüm varsa durum çubuğunda bir **Güncelle** düğmesi belirir; tek tıkla iner ve kurulur.
-Beklemeden denetlemek için Ayarlar > **Güncellemeleri denetle**.
+Kurulu uygulama GitHub Releases üzerinden güncellenir. Açılıştan birkaç saniye sonra ve
+sonrasında saatte bir arka planda sessizce denetlenir; ağa gerçekte altı saatte bir çıkılır,
+bu sınırı uygulama kendi tutar. Yeni sürüm varsa durum çubuğunda bir **Güncelle** düğmesi
+belirir; tek tıkla iner ve kurulur. Beklemeden denetlemek için Ayarlar >
+**Güncellemeleri denetle**.
+
+2.0.0 ve öncesinde denetim yalnızca açılışta yapılıyordu: gün boyu açık kalan bir uygulama
+aradan çıkan sürümü fark etmiyordu. 2.1.0 bunu düzeltir.
 
 İndirilen dosya SHA-256 ile doğrulanır; özet yoksa dosya kullanılmaz. Güven kökü GitHub
 hesabıdır, kod imzası değildir. Kayıtlarınız (`%APPDATA%\AGFO\Mihenk`) güncellemeden
@@ -171,7 +175,7 @@ etkilenmez.
     python -I tests/test_core.py .              59 çekirdek testi
     python -I tests/test_update.py .            güncelleme modülü
     python -I tests/test_xlsx.py .              5 test, üretilen .xlsx'i openpyxl ile okur
-    xvfb-run -a python -I tests/test_gui.py .   28 arayüz duman testi
+    xvfb-run -a python -I tests/test_gui.py .   29 arayüz duman testi
 
 Arayüz testleri hem klasik hem modern çizimle koşar; CI ikisini de çalıştırır.
 
