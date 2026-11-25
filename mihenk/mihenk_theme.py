@@ -155,7 +155,8 @@ def load_ttkbootstrap(lib_dir=None, enabled=True):
     try:
         import ttkbootstrap                                              # noqa: F401
         from ttkbootstrap.themes.legacy import theme_from_legacy_dict    # noqa: F401
-        return ttkbootstrap, 'etkin (ttkbootstrap %s)' % getattr(ttkbootstrap, '__version__', '?')
+        return ttkbootstrap, t('etkin (ttkbootstrap %s)') % getattr(
+            ttkbootstrap, '__version__', '?')
     except Exception as exc:
         return None, t('kurulu değil') if isinstance(exc, ImportError) else t('yüklenemedi: %s') % exc
 

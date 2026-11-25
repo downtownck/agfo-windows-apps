@@ -106,7 +106,7 @@ def assets_table(conn) -> dict:
         ])
     return {
         'title': t('Varlıklar'),
-        'headers': [t('Kod'), t('Ad'), t('Tip'), t('Üst varlık'), t('Konum'), t('Üretici'), t('Model'), 'Seri no',
+        'headers': [t('Kod'), t('Ad'), t('Tip'), t('Üst varlık'), t('Konum'), t('Üretici'), t('Model'), t('Seri no'),
                     t('Ölçüm cihazı'), t('Kritiklik'), t('Durum'), t('Devreye alma'), t('Plan sayısı'),
                     t('Sıradaki vade'), t('Açık etki')],
         'widths': [14, 28, 14, 24, 18, 16, 16, 16, 12, 9, 14, 13, 11, 14, 10],
@@ -515,10 +515,10 @@ def to_html(conn, path, keys=None, days=365, title=t('Mihenk denetim raporu')) -
         (t('Açık etki değerlendirmesi'), data['impacts_open'], bool(data['impacts_open'])),
         (t('Geciken plan'), data['plans_overdue'], bool(data['plans_overdue'])),
         (t('Plan uyumu'),
-         ('%%%s' % data['compliance']['rate']) if data['compliance']['rate'] is not None else '—',
+         i18n.percent(data['compliance']['rate']),
          False),
         (t('Kalibrasyon uygunluğu'),
-         ('%%%s' % data['conformity']['rate']) if data['conformity']['rate'] is not None else '—',
+         i18n.percent(data['conformity']['rate']),
          False),
         (t('Düşük stok'), data['parts_low'], bool(data['parts_low'])),
     ]

@@ -18,6 +18,7 @@ from mihenk_dialogs import (AssetDialog, CalibrationDialog, ExportDialog, Impact
 from mihenk_parts import PartRepo
 from mihenk_repo import (AssetRepo, AssetTypes, CalibrationRepo, ImpactRepo, RequestRepo,
                          ScheduleRepo, WorkOrderRepo)
+import mihenk_i18n as i18n
 from mihenk_i18n import t
 
 ALL = ('', t('- hepsi -'))
@@ -407,7 +408,7 @@ class RequestsScreen(Screen):
         if not row:
             return
         from mihenk_dialogs import _ask_text
-        reason = _ask_text(self.app.root, t('Ret gerekçesi'), 'Talep neden reddediliyor?')
+        reason = _ask_text(self.app.root, t('Ret gerekçesi'), t('Talep neden reddediliyor?'))
         if not reason:
             return
         if self.run(lambda: RequestRepo.transition(self.app.conn, row['id'], 'rejected',
@@ -776,11 +777,11 @@ class ReportsScreen(Screen):
 
         compliance = data['compliance']
         self.cards['compliance'].set_value(
-            ('%%%s' % compliance['rate']) if compliance['rate'] is not None else '—',
+            i18n.percent(compliance['rate']),
             alert=compliance['rate'] is not None and compliance['rate'] < 80)
         conformity = data['conformity']
         self.cards['conformity'].set_value(
-            ('%%%s' % conformity['rate']) if conformity['rate'] is not None else '—',
+            i18n.percent(conformity['rate']),
             alert=bool(conformity['counts']['fail']))
         self.cards['downtime'].set_value(round(data['downtime_total'] / 60.0, 1))
         self.cards['labour'].set_value(round(data['labour_total'] / 60.0, 1))

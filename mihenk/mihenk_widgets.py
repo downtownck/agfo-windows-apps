@@ -5,6 +5,7 @@ from __future__ import annotations
 import calendar
 import datetime
 import tkinter as tk
+from tkinter import font as tkfont
 from tkinter import ttk
 
 import mihenk_theme as theme
@@ -76,12 +77,19 @@ class DataTable(ttk.Frame):
         keys = [c[0] for c in self._columns]
         self.tree = ttk.Treeview(self, columns=keys, show='headings', height=height,
                                  selectmode='browse')
-        for column in self._columns:
+        # Artan genislik bir yere gitmeli. Genis kolonlar esnerken dar kolonlu
+        # bir tabloda hicbiri esnemiyordu: tablonun sagi bos kalirken metin
+        # kirpiliyordu. En genis kolon her zaman esniyor.
+        widest = max(range(len(self._columns)), key=lambda i: self._columns[i][2])
+        for index, column in enumerate(self._columns):
             key, title, width = column[0], column[1], column[2]
             anchor = column[3] if len(column) > 3 else 'w'
             self.tree.heading(key, text=title, anchor=anchor,
                               command=lambda k=key: self._sort_by(k))
-            self.tree.column(key, width=width, anchor=anchor, stretch=(width >= 180))
+            # minwidth: esneyen kolon otekileri daraltmasin, yoksa "Önleyici
+            # bakım" yerine "Önleyici" gorunur.
+            self.tree.column(key, width=width, minwidth=width, anchor=anchor,
+                             stretch=(width >= 180 or index == widest))
         bar = ttk.Scrollbar(self, orient='vertical', command=self.tree.yview)
         self.tree.configure(yscrollcommand=bar.set)
         self.tree.pack(side='left', fill='both', expand=True)
@@ -124,6 +132,50 @@ class DataTable(ttk.Frame):
         if self._autosize:
             self.tree.configure(height=max(self._min_height,
                                            min(self._max_height, len(self._rows) or 1)))
+        self._fit_columns()
+
+    # Tanimli kolon genislikleri Turkce metne gore secilmisti; Ingilizce
+    # karsiliklari daha uzun oldugu icin "Result entered" yerine "Result ente"
+    # gorunuyordu. Kolonlar basligin ve icerigin gercek genisligine gore
+    # aciliyor, bu yuzden hangi dilde olursa olsun metin sigiyor.
+    CELL_PADDING = 26
+    MAX_COLUMN = 460
+
+    @staticmethod
+    def _measuring_font(style_name: str):
+        """Treeview'in gercekten kullandigi yazi tipi.
+
+        Stil 'DejaVu Sans 10' gibi bir tanim dondurebiliyor; nametofont bunu
+        kabul etmez ve sessizce kucuk bir varsayilana dusulurse kolon dar
+        olculur, metin kirpilir. tkfont.Font tanimi oldugu gibi alir.
+        """
+        described = ttk.Style().lookup(style_name, 'font')
+        for candidate in (described, 'TkDefaultFont'):
+            if not candidate:
+                continue
+            try:
+                return tkfont.Font(font=candidate)
+            except tk.TclError:
+                continue
+        return tkfont.nametofont('TkDefaultFont')
+
+    def _fit_columns(self) -> None:
+        font = self._measuring_font('Treeview')
+        head = self._measuring_font('Treeview.Heading')
+
+        items = self.tree.get_children()
+        for index, column in enumerate(self._columns):
+            key, title, declared = column[0], column[1], column[2]
+            try:
+                needed = head.measure(str(title))
+                for item in items:
+                    text = self.tree.set(item, key)
+                    if text:
+                        needed = max(needed, font.measure(str(text)))
+            except tk.TclError:
+                return
+            width = max(declared, min(self.MAX_COLUMN, needed + self.CELL_PADDING))
+            self.tree.column(key, width=width, minwidth=width)
 
     def selected_id(self):
         picked = self.tree.selection()
@@ -230,7 +282,7 @@ class CalendarPopup(tk.Toplevel):
         if owner.with_time:
             foot = ttk.Frame(self, style='Surface.TFrame', padding=(8, 0, 8, 8))
             foot.pack(fill='x')
-            ttk.Label(foot, text='Saat', style='SurfaceMuted.TLabel').pack(side='left')
+            ttk.Label(foot, text=t('Saat'), style='SurfaceMuted.TLabel').pack(side='left')
             self.time_var = tk.StringVar(value=self.picked_time)
             ttk.Entry(foot, textvariable=self.time_var, width=7).pack(side='left', padx=6)
         else:

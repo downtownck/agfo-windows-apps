@@ -157,7 +157,7 @@ class AssetDialog(BaseDialog):
         notebook.pack(fill='both', expand=True, pady=(4, 8))
         general = ttk.Frame(notebook, padding=14)
         attributes = ttk.Frame(notebook, padding=14)
-        notebook.add(general, text='Genel')
+        notebook.add(general, text=t('Genel'))
         notebook.add(attributes, text=t('Tip özellikleri'))
         if self.row:
             lifecycle = ttk.Frame(notebook, padding=14)
@@ -523,7 +523,7 @@ class RequestDialog(BaseDialog):
         options = AssetRepo.options(self.conn)
         self.asset = form.add(t('Varlık'), w.Combo(form, options or [(0, t('- varlık yok -'))], width=44,
                                                 value=asset_id))
-        self.summary = form.add(t('Özet'), ttk.Entry(form, width=46), 'Sorun nedir?')
+        self.summary = form.add(t('Özet'), ttk.Entry(form, width=46), t('Sorun nedir?'))
         self.severity = form.add(t('Önem'), w.Combo(form, RequestRepo.SEVERITIES, width=26,
                                                  value='normal'))
         form.separator(t('Açıklama'))
@@ -660,7 +660,7 @@ class WorkOrderDialog(BaseDialog):
         if progress['total']:
             text = t('%d adımdan %d tamamlandı') % (progress['total'], progress['done'])
             if progress['failed']:
-                text += ', %d uygunsuz' % progress['failed']
+                text += t(', %d uygunsuz') % progress['failed']
             ttk.Label(head, text='   ' + text,
                       style='Alert.TLabel' if progress['critical_open'] else 'Muted.TLabel').pack(
                 side='left')
@@ -674,7 +674,7 @@ class WorkOrderDialog(BaseDialog):
         used = PartRepo.used_on_work_order(self.conn, self.work_order_id)
         if used:
             table = w.DataTable(self.body, [('code', t('Kod'), 120), ('name', t('Parça'), 240),
-                                            ('qty', t('Miktar'), 90, 'e'), ('cost', 'Tutar', 90, 'e'),
+                                            ('qty', t('Miktar'), 90, 'e'), ('cost', t('Tutar'), 90, 'e'),
                                             ('at', t('Zaman'), 140)],
                                 height=min(6, len(used)))
             table.pack(fill='x', pady=(8, 4))
@@ -763,7 +763,7 @@ class WorkOrderDialog(BaseDialog):
         """Gecis once formdaki degerlerle denenir; eksik alan varsa sorulur."""
         data = self.collect()
         if target == 'on_hold':
-            reason = _ask_text(self, t('Bekletme gerekçesi'), 'Neden bekletiliyor?')
+            reason = _ask_text(self, t('Bekletme gerekçesi'), t('Neden bekletiliyor?'))
             if reason is None:
                 return
             data['hold_reason'] = reason
@@ -787,7 +787,7 @@ class WorkOrderDialog(BaseDialog):
 class PointsGrid(ttk.Frame):
     """Olcum noktasi tablosu: sapma canli hesaplanir ve renklenir."""
 
-    COLUMNS = ('Etiket', t('Nominal'), t('Ölçülen'), t('Tolerans (±)'), t('Birim'), t('Sapma'), '')
+    COLUMNS = (t('Etiket'), t('Nominal'), t('Ölçülen'), t('Tolerans (±)'), t('Birim'), t('Sapma'), '')
 
     def __init__(self, parent, points=None, readonly=False):
         super().__init__(parent)
@@ -931,7 +931,7 @@ class CalibrationDialog(BaseDialog):
         self.certificate_path = ttk.Entry(certificate, width=30)
         self.certificate_path.insert(0, row['certificate_path'])
         self.certificate_path.pack(side='left', padx=6)
-        ttk.Button(certificate, text='Dosya…', style='Ghost.TButton',
+        ttk.Button(certificate, text=t('Dosya…'), style='Ghost.TButton',
                    command=self.pick_certificate).pack(side='left')
         if export.certificate_exists(row['certificate_path']):
             ttk.Button(certificate, text=t('Aç'), style='Ghost.TButton', width=4,
@@ -995,7 +995,7 @@ class CalibrationDialog(BaseDialog):
         if int(row['impact_id']):
             self.button(t('Etki değerlendirmesi'), self.open_impact, side='left')
         if not self.locked:
-            self.button('Sonucu kaydet', self.save, style='Accent.TButton')
+            self.button(t('Sonucu kaydet'), self.save, style='Accent.TButton')
         self.button(t('Kapat'), self.destroy)
         self.show()
 
@@ -1196,7 +1196,7 @@ def _ask_text(parent, title: str, prompt: str):
 
     bar = ttk.Frame(box, padding=(16, 12))
     bar.pack(fill='x')
-    ttk.Button(bar, text='Tamam', style='Accent.TButton', command=accept).pack(side='right')
+    ttk.Button(bar, text=t('Tamam'), style='Accent.TButton', command=accept).pack(side='right')
     ttk.Button(bar, text=t('Vazgeç'), command=box.destroy).pack(side='right', padx=6)
     box.bind('<Return>', lambda _e: accept())
     box.bind('<Escape>', lambda _e: box.destroy())
@@ -1858,7 +1858,7 @@ class ExportDialog(BaseDialog):
         path = made.get('path')
         text = t('Hazır: %s') % path
         if made.get('files'):
-            text += '  (%d dosya)' % made['files']
+            text += t('  (%d dosya)') % made['files']
         if made.get('certificates'):
             text += t('  ·  %d sertifika kopyalandı') % made['certificates']
         self.status.configure(text=text)

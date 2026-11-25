@@ -1,6 +1,6 @@
 {
   "app": "mihenk",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "contract_version": 1,
   "generated_at": "2026-11-25",
   "runner": {
@@ -23,7 +23,7 @@
   "package_gate": {
     "required_for_package": true,
     "satisfied": true,
-    "note": "Cekirdek (59), guncelleme, xlsx (5), dil (13) ve arayuz (35) testleri gercekten calistirildi ve gecti; arayuz hem klasik hem modern cizimle kosuldu. Oz-denetim xvfb altinda kosuldu: OK 3.1.0 ... ui=modern i18n=692/en,tr, ve bozuk varlik taklit edildiginde FAIL verdigi dogrulandi. Windows adimlari (EXE derlemesi, sessiz guncelleyici, kurulum betiginin sorumluluk reddi istemi) release.yml icinde windows-latest uzerinde kosar ve burada kosulmadi."
+    "note": "Cekirdek (59), guncelleme, xlsx (5), dil (19) ve arayuz (35) testleri gercekten calistirildi ve gecti; arayuz hem klasik hem modern cizimle kosuldu. Ekranlar ve yazdirilabilir rapor Ingilizce olarak gercekten uretilip goruldu; bu turda bulunan on alti cevrilmemis metin, uc arguman sirasi hatasi ve \"Açık\" cakismasi duzeltildi. Windows adimlari (EXE derlemesi, sessiz guncelleyici, kurulum betiginin sorumluluk reddi istemi) release.yml icinde windows-latest uzerinde kosar ve burada kosulmadi."
   },
   "surfaces": {
     "settings": [
@@ -230,13 +230,20 @@
       {
         "name": "part_movement",
         "verified": "pass"
+      },
+      {
+        "check": "kolonlar basligin ve icerigin genisligine gore aciliyor",
+        "consumer": "mihenk_widgets.DataTable._fit_columns",
+        "verified": "pass",
+        "note": "Ingilizce metin Turkceden uzun; sabit genislikte kirpiliyordu"
       }
     ],
     "i18n": [
       {
-        "check": "kaynaktaki her gorunur Turkce metnin Ingilizce karsiligi var",
+        "check": "kaynaktaki her gorunur metnin Ingilizce karsiligi var",
         "consumer": "mihenk_i18n.missing",
-        "verified": "pass"
+        "verified": "pass",
+        "note": "olcut genisletildi: buyuk harfle baslayan ya da bosluk iceren her metin aday; teknik olanlar acik listeyle eleniyor"
       },
       {
         "check": "sozlukte kaynakta bulunmayan ceviri kalmamis",
@@ -244,7 +251,41 @@
         "verified": "pass"
       },
       {
-        "check": "modul duzeyinde kurulan tablolar (NAV, LABELS, ALL_TABLES) Ingilizce doner",
+        "check": "bicim belirtecleri iki dilde ayni tipte ve sayida",
+        "consumer": "tests/test_i18n.py",
+        "verified": "pass"
+      },
+      {
+        "check": "bicimli metinler gercek sayilarla dogru cumle uretiyor (arguman sirasi)",
+        "consumer": "mihenk_i18n.t",
+        "verified": "pass",
+        "note": "3.1.0 hatasi: \"4 kayittan 2 uygun\" -> \"4 of 2 records passed\""
+      },
+      {
+        "check": "iki anlamli kelimeler ayri kaynak metin kullaniyor (Açık/Aralık)",
+        "consumer": "mihenk_states.LABELS / mihenk_i18n.months",
+        "verified": "pass",
+        "note": "3.1.0 hatasi: etki degerlendirmesi durumu \"Light\" gorunuyordu"
+      },
+      {
+        "check": "yuzde yazimi dile gore (%100 / 100%)",
+        "consumer": "mihenk_i18n.percent",
+        "verified": "pass"
+      },
+      {
+        "check": "demo verinin okunur her alani dil degisince gercekten degisiyor",
+        "consumer": "mihenk_seed.seed",
+        "verified": "pass",
+        "note": "3.1.0 hatasi: \"Kontrol terazisi\", \"Referans termometre\" Turkce kaliyordu"
+      },
+      {
+        "check": "disa aktarma tablolarinin basliklari dil degisince degisiyor",
+        "consumer": "mihenk_export.build_tables",
+        "verified": "pass",
+        "note": "3.1.0 hatasi: \"Seri no\" denetim raporunda Turkce kaliyordu"
+      },
+      {
+        "check": "modul duzeyinde kurulan tablolar Ingilizce doner",
         "consumer": "mihenk_app.NAV / mihenk_states.LABELS / mihenk_export.ALL_TABLES",
         "verified": "pass"
       },
@@ -254,12 +295,7 @@
         "verified": "pass"
       },
       {
-        "check": "demo veri Ingilizce kuruluyor ve karantina kurali korunuyor",
-        "consumer": "mihenk_seed.seed",
-        "verified": "pass"
-      },
-      {
-        "check": "yazdirilabilir rapor lang=\"en\" bildiriyor ve icinde Turkce kelime kalmiyor",
+        "check": "yazdirilabilir rapor lang bildiriyor ve Turkce kelime birakmiyor",
         "consumer": "mihenk_export.to_html",
         "verified": "pass"
       },

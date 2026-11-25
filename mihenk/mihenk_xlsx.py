@@ -132,7 +132,7 @@ def _sheet_xml(sheet: dict) -> str:
 
 def _safe_title(title: str, used) -> str:
     """Excel sayfa adi kurallari: 31 karakter, bazi isaretler yasak, benzersiz."""
-    name = re.sub(r'[\\/*?:\[\]]', '-', str(title or 'Sayfa')).strip() or 'Sayfa'
+    name = re.sub(r'[\\/*?:\[\]]', '-', str(title or t('Sayfa'))).strip() or t('Sayfa')
     name = name[:31]
     base, counter = name, 2
     while name.lower() in used:

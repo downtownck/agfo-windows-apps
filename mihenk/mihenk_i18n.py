@@ -75,6 +75,13 @@ WEEKDAYS = {
 }
 
 
+def percent(value) -> str:
+    """Yuzde yazimi dile gore degisir: Turkcede %100, Ingilizcede 100%."""
+    if value is None:
+        return '—'
+    return ('%s%%' % value) if _LANGUAGE == 'en' else ('%%%s' % value)
+
+
 def months() -> tuple:
     return MONTHS.get(_LANGUAGE, MONTHS[DEFAULT])
 
@@ -113,6 +120,43 @@ def _startup_language() -> str:
 
 # Turkce kaynak metin -> Ingilizce karsiligi.
 EN = {
+    'Çeviri ve yerleşim düzeltmeleri. Ekran görüntüsü alırken çıkan on altı çevrilmemiş metin bağlandı (demo varlık adları, "Seri no", "Etiket", "Sonucu kaydet" ve diğerleri). Üç çeviride argüman sırası tersti ve sayıları yanlış okutuyordu: denetim raporu "4 kayıttan 2 uygun" yerine "4 of 2 records passed" yazıyordu. "Açık" kelimesi hem durum hem tema adı olduğu için etki değerlendirmesi penceresinde durum "Light" görünüyordu. Yüzdeler artık her dilin kendi yazımıyla. Tablo kolonları içeriğe göre açılıyor; İngilizce metinler Türkçeden uzun olduğu için kırpılıyordu.':
+        'Translation and layout fixes. Sixteen untranslated strings found while taking screenshots are now connected (demo asset names, "Serial no", "Label", "Save result" and others). Three translations had their arguments in the wrong order and reported numbers incorrectly: the audit report said "4 of 2 records passed" instead of "4 records, 2 passed". Because the Turkish word for "open" also means "light", the impact assessment window showed its status as "Light". Percentages now follow each language. Table columns open to fit their contents; English text is longer than Turkish and was being clipped.',
+    'etkin (ttkbootstrap %s)': 'active (ttkbootstrap %s)',
+    'Etiket': 'Label',
+    'Sorun nedir?': 'What is the problem?',
+    'Genel': 'General',
+    'Neden bekletiliyor?': 'Why is it on hold?',
+    'Sonucu kaydet': 'Save result',
+    '  (%d dosya)': '  (%d files)',
+    ', %d uygunsuz': ', %d failed',
+    'Tamam': 'OK',
+    'Tutar': 'Amount',
+    'Dosya…': 'File…',
+    'Talep neden reddediliyor?': 'Why is the request rejected?',
+    'Saat': 'Time',
+    'Sayfa': 'Sheet',
+    'Seri no': 'Serial no',
+    'Açık tema': 'Light',
+    'Koyu tema': 'Dark',
+    'Demo Fabrika': 'Demo Plant',
+    'Kapaklama makinesi': 'Capping machine',
+    'Dolum valf seti': 'Filling valve set',
+    'Kontrol terazisi': 'Checkweigher',
+    'Referans termometre': 'Reference thermometer',
+    'Referans termometreyi dengeye getir': 'Let the reference thermometer settle',
+    'Referans termometre %sTHM-02, sertifika FL-2026-0004':
+        'Reference thermometer %sTHM-02, certificate FL-2026-0004',
+    'Hat durdurularak yerinde kalibre edildi.': 'Calibrated in place with the line stopped.',
+    'Hat sonu': 'End of line',
+    'ISO/IEC 17025 kalibreli referans': 'ISO/IEC 17025 calibrated reference',
+    'Referans': 'Reference',
+    'Mettler Toledo Servis': 'Mettler Toledo Service',
+    'Depo A / Raf 1': 'Store A / Shelf 1',
+    'Depo A / Raf 2': 'Store A / Shelf 2',
+    'Depo A / Raf 3': 'Store A / Shelf 3',
+    'Depo B': 'Store B',
+    'ml/dk': 'ml/min',
     'Dil seçimi artık ilk açılışta, sorumluluk reddinden önce soruluyor: kabul edilen metin kendi dilinizde okunuyor. Ayrıca bir çökme giderildi: modern görünüm bileşeninin çizim dosyaları pakete girmediğinde uygulama açılırken kapanıyordu; artık sessizce klasik çizime düşüyor ve derleme sırasındaki öz-denetim bozuk paketi yakalayıp durduruyor.':
         "The language is now chosen on the first run, before the disclaimer, so the text you accept is the text in your own language. A crash is also fixed: when the modern look component's drawing files were missing from the package the application closed while opening; it now falls back quietly to the classic drawing, and the self-test during the build catches a broken package and stops.",
     'İngilizce arayüz: menü, ekranlar, pencereler, hata iletileri, demo veri ve yazdırılabilir rapor iki dilde. Dil, Ayarlar ekranından seçilir ve uygulama yeniden açıldığında geçerli olur; veritabanına yazılan durum ve birim anahtarları her iki dilde de aynı kalır, böylece dil değiştirmek kayıtları bozmaz. Uygulama ücretsiz yayınlandığı için ilk kurulumda ve ilk açılışta sorumluluk reddi gösterilip onaylanıyor.':
@@ -159,12 +203,11 @@ EN = {
     'yıl': 'year(s)',
     'Adım': 'Step',
     'Açan': 'Opened by',
-    'Açık': 'Light',
+    'Açık': 'Open',
     'Efor': 'Effort',
     'Esas': 'Basis',
     'Etki': 'Impact',
     'Hata': 'Error',
-    'Koyu': 'Dark',
     'Onay': 'Confirm',
     'Pano': 'Dashboard',
     'Plan': 'Plan',
@@ -603,7 +646,7 @@ EN = {
     'Kurulu sürüm güncel: %s': 'The installed version is current: %s',
     'Tarama henüz çalışmadı.': 'The scan has not run yet.',
     'Varlık kodu zorunludur.': 'Asset code is required.',
-    '%d adımdan %d tamamlandı': '%d of %d steps done',
+    '%d adımdan %d tamamlandı': '%d steps, %d done',
     'Etki değerlendirmesi #%d': 'Impact assessment #%d',
     'Kalibrasyon ve doğrulama': 'Calibration and verification',
     'Mevcut bir varlık seçin.': 'Select an existing asset.',
@@ -677,7 +720,7 @@ EN = {
     'Bir varlık kendi üst varlığı olamaz.': 'An asset cannot be its own parent.',
     'Bu kodu başka bir varlık kullanıyor.': 'Another asset already uses this code.',
     'ttkbootstrap çizimini kullan (varsa)': 'Use the ttkbootstrap drawing when available',
-    '%s tarihinde %s tarafından kapatıldı.': 'Closed by %s on %s.',
+    '%s tarihinde %s tarafından kapatıldı.': 'Closed on %s by %s.',
     'Boş bırakılırsa aralıktan hesaplanır.': 'Left empty, it is computed from the interval.',
     'Bu plan için mevcut bir varlık seçin.': 'Select an existing asset for this plan.',
     'Giriş yıldız tekerinde şişe sıkışması': 'Bottle jam on the infeed starwheel',
@@ -771,7 +814,7 @@ EN = {
     '%d etki değerlendirmesi açıkken bu varlık hizmete dönemez.':
         'This asset cannot return to service while %d impact assessments are open.',
     'Açılış taraması: %d iş emri, %d kalibrasyon kaydı üretildi.':
-        'Startup scan: %d work orders and %d calibration records generated.',
+        'Startup scan — work orders generated: %d, calibration records: %d.',
     'Demo veri kuruldu. Ayarlar ekranından tek tıkla temizlenir.':
         'Demo data installed. One click on the Settings screen removes it.',
     'Kritik işaretli bir adım tamamlanmadan iş emri kapatılamaz.':
@@ -797,7 +840,7 @@ EN = {
     'Bu aralıkta hangi hatlar, ürünler ve partiler bu cihazdan geçti.':
         'Which lines, products and batches passed through this device inside the window.',
     'Tarama bitti: %d iş emri, %d kalibrasyon kaydı, %d plan atlandı.':
-        'Scan finished: %d work orders, %d calibration records, %d plans skipped.',
+        'Scan finished — work orders: %d, calibration records: %d, plans skipped: %d.',
     'Her sabah yerde küçük birikinti. Valf contasından şüpheleniliyor.':
         'A small pool on the floor every morning. The valve seal is the suspect.',
     '24 dolum valfinin tamamı sökülür, temizlenir ve yeniden oturtulur.':
@@ -805,9 +848,9 @@ EN = {
     'Bu parçanın stok hareketi var, silinemez. Bunun yerine pasife alın.':
         'This part has stock movements and cannot be deleted. Make it inactive instead.',
     'Son tarama: %s — %d iş emri, %d kalibrasyon kaydı, %d plan atlandı.':
-        'Last scan: %s — %d work orders, %d calibration records, %d plans skipped.',
+        'Last scan: %s — work orders: %d, calibration records: %d, plans skipped: %d.',
     'Tarama: %d iş emri, %d kalibrasyon kaydı üretildi, %d plan atlandı.':
-        'Scan: %d work orders and %d calibration records generated, %d plans skipped.',
+        'Scan — work orders: %d, calibration records: %d, plans skipped: %d.',
     'v%s yayınlanmış ama paket henüz doğrulanamıyor (SHA-256 özeti yok).':
         'v%s has been published but the package cannot be verified yet (no SHA-256 digest).',
     'Bu varlık hurdaya ayrılsın mı? Hurdaya ayrılan varlık geri alınamaz.':
@@ -923,9 +966,9 @@ EN = {
     'Kütük boş. Sağ üstteki Varlık ekle ile başlayın; ölçüm cihazları için "Ölçüm cihazı" kutusunu işaretleyin, kalibrasyon planı ancak öyle bağlanabilir.':
         'The register is empty. Start with Add asset at the top right; tick "Measuring device" for instruments, otherwise a calibration plan cannot be attached.',
     '<p class="note">Plan uyumu: %d iş emrinden %d tanesi zamanında kapandı, %d tanesi geç kaldı. Kalibrasyon: %d kayıttan %d uygun, %d şartlı, %d uygunsuz.</p>':
-        '<p class="note">Plan compliance: %d of %d work orders closed on time, %d were late. Calibration: %d of %d records passed, %d conditional, %d failed.</p>',
+        '<p class="note">Plan compliance: %d work orders, %d closed on time, %d late. Calibration: %d records, %d passed, %d conditional, %d failed.</p>',
     'Plan uyumu: %d iş emrinden %d tanesi zamanında kapandı, %d tanesi geç kaldı, %d tanesi hâlâ açık.    Kalibrasyon: %d kayıttan %d uygun, %d şartlı, %d uygunsuz.':
-        'Plan compliance: %d of %d work orders closed on time, %d were late, %d are still open.    Calibration: %d of %d records passed, %d conditional, %d failed.',
+        'Plan compliance: %d work orders, %d closed on time, %d late, %d still open.    Calibration: %d records, %d passed, %d conditional, %d failed.',
     "Yeni sürüm var: v%s.\n\nKaynaktan çalıştığın için uygulama kendi kendini değiştiremez. GitHub'dan Kurulum ZIP'ini indirip Derle-ve-Kur.cmd çalıştırman gerekiyor.":
         'A new version is available: v%s.\n\nBecause you are running from source the application cannot replace itself. Download the installation ZIP from GitHub and run Derle-ve-Kur.cmd.',
     'Doğrudan kendi ekipmanınızı girersiniz. Önce Varlıklar ekranından bir varlık, sonra ona bir plan ekleyin; planlar vadesi geldiğinde iş emri ya da kalibrasyon kaydı üretir.':

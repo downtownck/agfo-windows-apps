@@ -44,6 +44,8 @@ NAV = (
 UPDATE_POLL_MS = 60 * 60 * 1000
 
 VERSIONS = (
+    {'version': '3.2.0', 'date': '2026-11-25', 'kind': 'MINOR',
+     'summary': t('Çeviri ve yerleşim düzeltmeleri. Ekran görüntüsü alırken çıkan on altı çevrilmemiş metin bağlandı (demo varlık adları, "Seri no", "Etiket", "Sonucu kaydet" ve diğerleri). Üç çeviride argüman sırası tersti ve sayıları yanlış okutuyordu: denetim raporu "4 kayıttan 2 uygun" yerine "4 of 2 records passed" yazıyordu. "Açık" kelimesi hem durum hem tema adı olduğu için etki değerlendirmesi penceresinde durum "Light" görünüyordu. Yüzdeler artık her dilin kendi yazımıyla. Tablo kolonları içeriğe göre açılıyor; İngilizce metinler Türkçeden uzun olduğu için kırpılıyordu.')},
     {'version': '3.1.0', 'date': '2026-11-25', 'kind': 'MINOR',
      'summary': t('Dil seçimi artık ilk açılışta, sorumluluk reddinden önce soruluyor: '
                 'kabul edilen metin kendi dilinizde okunuyor. Ayrıca bir çökme giderildi: '
@@ -109,7 +111,7 @@ class SettingsScreen(Screen):
         self.date_format = form.add(t('Tarih biçimi'), ttk.Entry(form, width=16),
                                     t('Python biçimi, örneğin %Y-%m-%d ya da %d.%m.%Y'))
         self.date_format.insert(0, values['date_format'])
-        self.theme_choice = form.add(t('Tema'), w.Combo(form, [('light', t('Açık')), ('dark', t('Koyu'))],
+        self.theme_choice = form.add(t('Tema'), w.Combo(form, [('light', t('Açık tema')), ('dark', t('Koyu tema'))],
                                                      width=16, value=values['theme']))
         self.scan_on_start = tk.BooleanVar(value=bool(values['scan_on_start']))
         form.add(t('Açılışta tarama'),
@@ -378,7 +380,8 @@ class MihenkApp:
         container = ttk.Frame(root)
         container.pack(fill='both', expand=True)
 
-        self.sidebar = ttk.Frame(container, style='Sidebar.TFrame', width=214)
+        # 214 dardi: "Etki değerlendirmeleri" ve "Impact assessments" kirpiliyordu.
+        self.sidebar = ttk.Frame(container, style='Sidebar.TFrame', width=252)
         self.sidebar.pack(side='left', fill='y')
         self.sidebar.pack_propagate(False)
         self._build_sidebar()

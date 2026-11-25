@@ -208,7 +208,7 @@ etkilenmez.
     python -I tests/test_core.py .              59 çekirdek testi
     python -I tests/test_update.py .            güncelleme modülü
     python -I tests/test_xlsx.py .              5 test, üretilen .xlsx'i openpyxl ile okur
-    python -I tests/test_i18n.py .              13 dil testi, çeviri açığını ölçer
+    python -I tests/test_i18n.py .              19 dil testi, çeviri açığını ölçer
     xvfb-run -a python -I tests/test_gui.py .   35 arayüz duman testi
 
 Arayüz testleri hem klasik hem modern çizimle koşar; CI ikisini de çalıştırır.

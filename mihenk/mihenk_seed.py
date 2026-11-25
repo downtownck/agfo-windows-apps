@@ -48,7 +48,7 @@ def seed(conn) -> dict:
 
     # ---------------------------------------------------------------- varliklar
     site = AssetRepo.create(conn, {
-        'code': PREFIX + 'SITE-1', 'name': 'Demo Fabrika', 'asset_type': 'location',
+        'code': PREFIX + 'SITE-1', 'name': t('Demo Fabrika'), 'asset_type': 'location',
         'location_text': 'Tuzla', 'criticality': 1, 'attr': {'site_code': 'TZL'}})
     line = AssetRepo.create(conn, {
         'code': PREFIX + 'LINE-1', 'name': t('Dolum Hattı 1'), 'asset_type': 'line', 'parent_id': site,
@@ -62,12 +62,12 @@ def seed(conn) -> dict:
         'notes': t('Üç vardiya çalışır. Sayaç her vardiya devrinde HMI ekranından okunur.'),
         'attr': {'power_kw': '18.5', 'year_built': '2019', 'food_contact': 1}})
     capper = AssetRepo.create(conn, {
-        'code': PREFIX + 'MCH-02', 'name': 'Kapaklama makinesi', 'asset_type': 'machine',
+        'code': PREFIX + 'MCH-02', 'name': t('Kapaklama makinesi'), 'asset_type': 'machine',
         'parent_id': line, 'manufacturer': 'Arol', 'model': 'Euro SL', 'serial_no': 'AR-2020-1180',
         'location_text': t('A Holü'), 'criticality': 2,
         'attr': {'power_kw': '4', 'year_built': '2020', 'food_contact': 1}})
     valves = AssetRepo.create(conn, {
-        'code': PREFIX + 'CMP-01', 'name': 'Dolum valf seti', 'asset_type': 'component',
+        'code': PREFIX + 'CMP-01', 'name': t('Dolum valf seti'), 'asset_type': 'component',
         'parent_id': filler, 'criticality': 2, 'attr': {'part_no': 'MF-VLV-24'}})
     probe = AssetRepo.create(conn, {
         'code': PREFIX + 'THM-01', 'name': t('Pastörizatör probu'), 'asset_type': 'measuring_device',
@@ -75,18 +75,18 @@ def seed(conn) -> dict:
         'location_text': t('Pastörizatör çıkışı'), 'criticality': 3,
         'notes': t('CCP izleme cihazı.'),
         'attr': {'measuring_range': t('-50 ile 300 C'), 'resolution': '0.1 C',
-                 'accuracy_class': t('A sınıfı'), 'reference_standard': 'ISO/IEC 17025 kalibreli referans'}})
+                 'accuracy_class': t('A sınıfı'), 'reference_standard': t('ISO/IEC 17025 kalibreli referans')}})
     scale = AssetRepo.create(conn, {
-        'code': PREFIX + 'SCL-01', 'name': 'Kontrol terazisi', 'asset_type': 'measuring_device',
+        'code': PREFIX + 'SCL-01', 'name': t('Kontrol terazisi'), 'asset_type': 'measuring_device',
         'parent_id': line, 'manufacturer': 'Mettler Toledo', 'model': 'C33', 'serial_no': 'MT-4410',
-        'location_text': 'Hat sonu', 'criticality': 2,
+        'location_text': t('Hat sonu'), 'criticality': 2,
         'attr': {'measuring_range': t('0 ile 3000 g'), 'resolution': '0.5 g', 'accuracy_class': 'XIII'}})
     reference = AssetRepo.create(conn, {
-        'code': PREFIX + 'THM-02', 'name': 'Referans termometre', 'asset_type': 'measuring_device',
+        'code': PREFIX + 'THM-02', 'name': t('Referans termometre'), 'asset_type': 'measuring_device',
         'parent_id': site, 'manufacturer': 'Fluke', 'model': '1524', 'serial_no': 'FL-9021',
         'criticality': 3,
         'attr': {'measuring_range': t('-200 ile 660 C'), 'resolution': '0.001 C',
-                 'accuracy_class': 'Referans'}})
+                 'accuracy_class': t('Referans')}})
     lines.append(t('8 varlık, dört seviyeli hiyerarşi, üçü ölçüm cihazı.'))
 
     # ---------------------------------------------------------------- planlar
@@ -130,11 +130,11 @@ def seed(conn) -> dict:
         {'text': t('Ana yatak sıcaklığını ölç'), 'needs_value': 1, 'unit': 'C'},
         {'text': t('Ana yatağı gresle'), 'is_critical': 1},
         {'text': t('Valf contalarını aşınmaya karşı incele')},
-        {'text': t('Sızıntı testi yap ve sonucu yaz'), 'needs_value': 1, 'unit': 'ml/dk'},
+        {'text': t('Sızıntı testi yap ve sonucu yaz'), 'needs_value': 1, 'unit': t('ml/dk')},
         {'text': t('Koruyucu kapakları yerine tak'), 'is_critical': 1},
     ])
     ChecklistTemplate.save(conn, plan_probe, [
-        {'text': 'Referans termometreyi dengeye getir', 'is_critical': 1},
+        {'text': t('Referans termometreyi dengeye getir'), 'is_critical': 1},
         {'text': t('Buz noktası ölçümü'), 'needs_value': 1, 'unit': 'C', 'is_critical': 1},
         {'text': t('Pastörizasyon noktası ölçümü'), 'needs_value': 1, 'unit': 'C', 'is_critical': 1},
         {'text': t('Sertifikayı tara ve kayda ekle')},
@@ -211,12 +211,12 @@ def seed(conn) -> dict:
         'asset_id': scale, 'schedule_id': plan_scale, 'record_type': 'calibration',
         'tolerance_spec': t('Çalışma aralığı boyunca ±1.5 g')})
     CalibrationRepo.save_result(conn, cal_scale, {
-        'performed_at': when(-350), 'external_body': 'Mettler Toledo Servis',
+        'performed_at': when(-350), 'external_body': t('Mettler Toledo Servis'),
         'accreditation_scope': t('TS EN ISO/IEC 17025, kütle'),
         'certificate_no': 'MT-CAL-2025-7741',
         'traceability_ref': t('E2 sınıfı ağırlıklar, sertifika UME-2024-0912'),
         'tolerance_spec': t('Çalışma aralığı boyunca ±1.5 g'), 'uncertainty': '±0.4 g (k=2)',
-        'notes': 'Hat durdurularak yerinde kalibre edildi.',
+        'notes': t('Hat durdurularak yerinde kalibre edildi.'),
         'points': [
             {'label': t('Sıfır'), 'nominal': 0, 'measured': 0.2, 'tolerance': 1.5, 'unit': 'g'},
             {'label': t('Yarım yük'), 'nominal': 500, 'measured': 500.6, 'tolerance': 1.5, 'unit': 'g'},
@@ -229,7 +229,7 @@ def seed(conn) -> dict:
         'tolerance_spec': t('0, 72 ve 90 C noktalarında ±0.5 C')})
     CalibrationRepo.save_result(conn, cal_probe_old, {
         'performed_at': when(-190), 'certificate_no': 'INT-CAL-2026-0031',
-        'traceability_ref': 'Referans termometre %sTHM-02, sertifika FL-2026-0004' % PREFIX,
+        'traceability_ref': t('Referans termometre %sTHM-02, sertifika FL-2026-0004') % PREFIX,
         'tolerance_spec': t('0, 72 ve 90 C noktalarında ±0.5 C'), 'uncertainty': '±0.12 C (k=2)',
         'notes': t('Uygunluğu gerçekten kanıtlayan son sonuç. Etki aralığı buradan başlar.'),
         'points': [
@@ -244,7 +244,7 @@ def seed(conn) -> dict:
         'tolerance_spec': t('0, 72 ve 90 C noktalarında ±0.5 C')})
     CalibrationRepo.save_result(conn, cal_probe_fail, {
         'performed_at': when(-1), 'certificate_no': 'INT-CAL-2026-0198',
-        'traceability_ref': 'Referans termometre %sTHM-02, sertifika FL-2026-0004' % PREFIX,
+        'traceability_ref': t('Referans termometre %sTHM-02, sertifika FL-2026-0004') % PREFIX,
         'tolerance_spec': t('0, 72 ve 90 C noktalarında ±0.5 C'), 'uncertainty': '±0.12 C (k=2)',
         'notes': t('Prob pastörizasyon noktasında düşük okuyor. Rutin doğrulamada fark edildi.'),
         'points': [
@@ -268,21 +268,21 @@ def seed(conn) -> dict:
     # ---------------------------------------------------------------- yedek parcalar
     seal = PartRepo.create(conn, {
         'code': PREFIX + 'PRT-001', 'name': t('Dolum valfi contası (EPDM)'), 'unit': 'adet',
-        'stock': 24, 'min_stock': 8, 'location_text': 'Depo A / Raf 3',
+        'stock': 24, 'min_stock': 8, 'location_text': t('Depo A / Raf 3'),
         'supplier': t('Krones Yedek Parça'), 'unit_cost': 185, 'is_active': 1,
         'notes': t('Gıdaya temas eder; FDA 21 CFR 177.2600 belgesi dosyada.')})
     bearing = PartRepo.create(conn, {
         'code': PREFIX + 'PRT-002', 'name': t('Ana yatak rulmanı 6208-2RS'), 'unit': 'adet',
-        'stock': 2, 'min_stock': 4, 'location_text': 'Depo A / Raf 1',
+        'stock': 2, 'min_stock': 4, 'location_text': t('Depo A / Raf 1'),
         'supplier': t('SKF Türkiye'), 'unit_cost': 740, 'is_active': 1,
         'notes': t('Asgarinin altında bırakıldı: düşük stok uyarısı burada görülür.')})
     PartRepo.create(conn, {
         'code': PREFIX + 'PRT-003', 'name': t('Gıda sınıfı gres (1 kg)'), 'unit': 'kg',
-        'stock': 9, 'min_stock': 3, 'location_text': 'Depo B', 'supplier': t('Klüber'),
+        'stock': 9, 'min_stock': 3, 'location_text': t('Depo B'), 'supplier': t('Klüber'),
         'unit_cost': 420, 'is_active': 1, 'notes': t('NSF H1 sınıfı.')})
     PartRepo.create(conn, {
         'code': PREFIX + 'PRT-004', 'name': t('Tork kafası yayı'), 'unit': 'adet',
-        'stock': 0, 'min_stock': 2, 'location_text': 'Depo A / Raf 2', 'supplier': 'Arol',
+        'stock': 0, 'min_stock': 2, 'location_text': t('Depo A / Raf 2'), 'supplier': 'Arol',
         'unit_cost': 1250, 'is_active': 1, 'notes': t('Siparişte; bekleyen iş emrinin sebebi.')})
 
     PartRepo.consume(conn, seal, 2, wo_closed, t('Aşınmış iki conta değiştirildi'))
