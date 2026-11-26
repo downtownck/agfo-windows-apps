@@ -64,6 +64,22 @@ def dns_ranking(records):
     return sorted(probes, key=lambda p: (0 if probe_ok(p) else 1, p.get('median') if p.get('median') is not None else 1e9))
 
 
+def verdict(p, best_ms):
+    """Hiz testi satiri icin sade degerlendirme. Olcut ortanca cozumleme suresi (ping ikinci planda)."""
+    if not probe_ok(p):
+        return 'erişilemiyor / güvenilmez'
+    ms = p['median']
+    if best_ms is not None and ms <= best_ms + 3:
+        return 'en iyi grup'
+    if ms <= 25:
+        return 'çok iyi'
+    if ms <= 60:
+        return 'iyi'
+    if ms <= 120:
+        return 'orta'
+    return 'yavaş'
+
+
 def describe_server(ip, adapters=()):
     pr = preset_for(ip)
     if pr:

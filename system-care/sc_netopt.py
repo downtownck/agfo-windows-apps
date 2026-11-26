@@ -166,9 +166,14 @@ class NetOptPage:
         row2 = tk.Frame(f, bg=PANEL); row2.pack(fill='x', padx=16, pady=(0, 4))
         self.mkbtn(row2, 'Seçili bağdaştırıcılara uygula', self.dn_apply, 'go', small=True).pack(side='left')
         self.mkbtn(row2, 'Otomatik\'e (DHCP / modem) döndür', lambda: self.dn_apply(dhcp=True), 'ghost', small=True).pack(side='left', padx=8)
-        tk.Label(f, text='Hız testi (ortanca çözümleme süresi; düşük olan iyi)', fg=FG, bg=PANEL, font=('Segoe UI', 10, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(6, 0))
-        self.dn_btree = CheckTree(f, [('prov', 'Sağlayıcı', 300, 'w'), ('ms', 'Çözümleme', 100, 'e'), ('ping', 'Ping', 90, 'e'), ('fail', 'Başarısız', 90, 'e')],
-                                  first=('Sunucu', int(160 * self.scale)), height=6)
+        tk.Label(f, text='Hız testi', fg=FG, bg=PANEL, font=('Segoe UI', 10, 'bold'), anchor='w').pack(fill='x', padx=16, pady=(6, 0))
+        tk.Label(f, text='Çözümleme = bir sitenin adresini bulma süresi (ortanca, 6 site); DNS seçiminde asıl ölçü budur, düşük olan iyidir. '
+                         'Ping yalnız sunucuya ulaşma süresidir. Başarısız 0 olmalı. 3-5 ms fark hissedilmez: "en iyi grup"taki herhangi biri olur; '
+                         'arada seçerken zararlı alan adı engeli (Quad9, Cloudflare 1.1.1.2) ya da gizlilik gibi özelliklere bakın.',
+                 fg=MUTED, bg=PANEL, font=('Segoe UI', 9), anchor='w', justify='left', wraplength=int(880 * self.scale)).pack(fill='x', padx=16)
+        self.dn_btree = CheckTree(f, [('prov', 'Sağlayıcı', 330, 'w'), ('ms', 'Çözümleme', 110, 'e'), ('ping', 'Ping', 80, 'e'), ('fail', 'Başarısız', 80, 'e'),
+                                      ('verdict', 'Değerlendirme', 170, 'w')],
+                                  first=('Sunucu', int(140 * self.scale)), height=7)
         self.dn_btree.pack(fill='both', expand=True, padx=16, pady=4)
         self.dn_btree.tree.bind('<Double-1>', lambda _e: self._dn_pick_from_bench(), add=True)
         self.dn_state = tk.StringVar(value='"Yenile" bağdaştırıcıları, "Hız testi" DNS sunucularını ölçer. Test satırına çift tıklayınca o DNS seçilir. '
@@ -206,11 +211,13 @@ class NetOptPage:
         self.dn_bench = netopt.dns_ranking(records)
         t = self.dn_btree
         t.clear()
+        best_ms = next((p['median'] for p in self.dn_bench if netopt.probe_ok(p)), None)
         for i, p in enumerate(self.dn_bench):
             ok = netopt.probe_ok(p)
+            v = netopt.verdict(p, best_ms)
             t.add('b%d' % i, p['server'], values=(netopt.describe_server(p['server']), ('%.0f ms' % p['median']) if p.get('median') is not None else '—',
-                                                  ('%.0f ms' % p['ping']) if p.get('ping') is not None else '—', str(p.get('fail', 0))),
-                  tags=(('st_ok',) if i == 0 and ok else ()) if ok else ('muted',), payload=p, checkable=False)
+                                                  ('%.0f ms' % p['ping']) if p.get('ping') is not None else '—', str(p.get('fail', 0)), v),
+                  tags=('st_ok',) if v == 'en iyi grup' else (() if ok else ('muted',)), payload=p, checkable=False)
         best = next((p for p in self.dn_bench if netopt.probe_ok(p)), None)
         if best:
             pr_ = netopt.preset_for(best['server'])

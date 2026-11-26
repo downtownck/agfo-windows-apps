@@ -1558,7 +1558,13 @@ def netopt_analysis():
     # Wi-Fi zayif sinyal
     wifi = [{'type': 'net-adapter', 'alias': 'Wi-Fi', 'kind': 'wifi', 'virtual': False, 'dns_current': []}, {'type': 'net-wifi', 'signal': 41, 'radio': '802.11ac'}]
     assert 'zayıf' in no.wifi_finding(wifi)['advice']
-    assert no.bench_servers([{'dns_current': ['192.168.1.1', '100.100.100.100', '1.1.1.1']}]) == ['1.1.1.1', '8.8.8.8', '9.9.9.9', '94.140.14.14', '192.168.1.1']
+    bs = no.bench_servers([{'dns_current': ['192.168.1.1', '100.100.100.100', '1.1.1.1']}])
+    assert bs[:4] == ['1.1.1.1', '8.8.8.8', '9.9.9.9', '94.140.14.14'] and bs[-1] == '192.168.1.1' and len(bs) == 11 and '100.100.100.100' not in bs
+    assert {'1.1.1.2', '9.9.9.10', '208.67.222.222', '76.76.2.0', '185.228.168.9', '86.54.11.100'} <= set(bs) and len(set(bs)) == len(bs)
+    import care_tweaks as tw
+    assert all(tw.valid_ipv4_list(' '.join(p[2])) == p[2] for p in tw.DNS_PRESETS if p[2]) and len({p[0] for p in tw.DNS_PRESETS}) == len(tw.DNS_PRESETS)
+    rk = no.dns_ranking(NET_SCAN); bm = rk[0]['median']
+    assert [no.verdict(p_, bm) for p_ in rk] == ['en iyi grup', 'çok iyi', 'iyi', 'erişilemiyor / güvenilmez']
     assert [p['server'] for p in no.dns_ranking(NET_SCAN)][:3] == ['1.1.1.1', '8.8.8.8', '192.168.1.1']
     ps1 = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
     for act in ('net-scan', 'nic-speed-set', 'dns-bench'):

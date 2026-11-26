@@ -41,6 +41,13 @@ DNS_PRESETS = [
     ('google', 'Google 8.8.8.8', ['8.8.8.8', '8.8.4.4']),
     ('quad9', 'Quad9 9.9.9.9 (zararlı alan adı engelli)', ['9.9.9.9', '149.112.112.112']),
     ('adguard', 'AdGuard 94.140.14.14 (reklam engelli)', ['94.140.14.14', '94.140.15.15']),
+    # 4.4.1: daha fazla genel DNS (hepsi ucretsiz, hesap istemez)
+    ('cloudflare-sec', 'Cloudflare 1.1.1.2 (zararlı alan adı engelli)', ['1.1.1.2', '1.0.0.2']),
+    ('quad9-plain', 'Quad9 9.9.9.10 (filtresiz)', ['9.9.9.10', '149.112.112.10']),
+    ('opendns', 'OpenDNS 208.67.222.222', ['208.67.222.222', '208.67.220.220']),
+    ('controld', 'Control D 76.76.2.0', ['76.76.2.0', '76.76.10.0']),
+    ('cleanbrowsing', 'CleanBrowsing 185.228.168.9 (zararlı alan adı engelli)', ['185.228.168.9', '185.228.169.9']),
+    ('dns4eu', 'DNS4EU 86.54.11.100 (AB, filtresiz)', ['86.54.11.100', '86.54.11.200']),
 ]
 _IPV4 = re.compile(r'^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$')
 
