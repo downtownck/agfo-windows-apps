@@ -31,11 +31,13 @@ except Exception:  # testler / tek basina kullanim
     VERSION = '0'
 
 USER_AGENT = 'AGFO-System-Care/%s' % VERSION
-TIMEOUT = 150
+TIMEOUT = 100                   # 4.4.2: tek istek; AI Manager saglayiciyi 90 sn bekler (max_output <= 3000)
+BUDGET = 150                    # bir sorunun toplam suresi (yeniden denemeler dahil) asla bunu gecmez
+CHAT_MAX_TOKENS = 2400
 PROFILE = 'system_care'
 TOKEN_PAGE = '/wp-admin/admin.php?page=agfo-ai-editor'
 TOKEN_RX = re.compile(r'^agfoed\.\d{1,12}\.[a-z0-9]{8}\.[A-Za-z0-9]{40}$')
-MAX_DOCUMENT = 58000            # AI Manager ucu 60.000 karakter sinirli
+MAX_DOCUMENT = 30000            # AI Manager ucu 60.000'e izin verir; buyuk istem yavaslatir ve zaman asimina goturur (4.4.2)
 MAX_MESSAGE = 19000
 MAX_TURNS = 12
 INSTRUCTION = ('AGFO System Care (Windows bakım uygulaması) içinden soruluyor: Windows bakım ve sorun giderme uzmanı olarak, '
@@ -341,12 +343,13 @@ def normalize_url(url: str) -> str:
 class ManagerClient:
     """AI Manager /editor/* uclari icin istemci (AGFO AI Editor'un ManagerBackend'inin System Care surumu)."""
 
-    def __init__(self, url: str, token: str = '', user: str = '', password: str = '', request=_request, sleep=time.sleep):
+    def __init__(self, url: str, token: str = '', user: str = '', password: str = '', request=_request, sleep=time.sleep, clock=time.monotonic):
         self.base = normalize_url(url)
         self.token = re.sub(r'\s+', '', token or '')
         self.user = (user or '').strip()
         self.password = re.sub(r'\s+', '', password or '')
-        self._request, self._sleep = request, sleep
+        self._request, self._sleep, self._clock = request, sleep, clock
+        self.last_status = None
         self._style = None
         self.server = {}
 
@@ -366,17 +369,26 @@ class ManagerClient:
             return self.base + '/?rest_route=' + urllib.parse.quote('/agfo-ai/v1' + route, safe='/')
         return self.base + '/wp-json/agfo-ai/v1' + route
 
-    def call(self, route, payload=None, timeout=TIMEOUT, auth=True):
+    def call(self, route, payload=None, timeout=TIMEOUT, auth=True, budget=BUDGET, should_stop=None):
         if auth and not self.configured():
             raise AIError('AI Manager bağlantısı ayarlanmamış: site adresini ve bağlantı anahtarını girin.')
         headers = self.auth_headers()
         styles = [self._style] if self._style else ['pretty', 'query']
         last = (0, None)
+        t0 = self._clock()
         for style in styles:
-            for attempt in range(4):
-                status, body, rh = self._request(self._url(route, style), 'POST' if payload is not None else 'GET', headers, payload, timeout)
+            for attempt in range(3):
+                left = budget - (self._clock() - t0)
+                if left < 5:
+                    raise AIError('AI Manager %d saniyede yanıt vermedi; işlem durduruldu. Daha az veri ekleyip yeniden deneyin.' % budget)
+                if should_stop and should_stop():
+                    raise AIError('Durduruldu.')
+                status, body, rh = self._request(self._url(route, style), 'POST' if payload is not None else 'GET', headers, payload,
+                                                 max(5, min(timeout, left)))
                 decoded = _json(body)
-                if status in (429, 502, 503, 504, 529) and attempt < 3 and not (isinstance(decoded, dict) and decoded.get('code') == 'agfo_content_config'):
+                self.last_status = status
+                # Yalniz "mesgul" yanitlari kisa beklemeyle yeniden denenir. 502/504 (zaman asimi) tekrarlanmaz: ayni istek yine asar.
+                if status in (429, 503, 529) and attempt < 2 and not (isinstance(decoded, dict) and decoded.get('code') == 'agfo_content_config'):
                     wait = 0.0
                     for k, v in (rh or {}).items():
                         if k.lower() == 'retry-after':
@@ -384,9 +396,15 @@ class ManagerClient:
                                 wait = float(v)
                             except ValueError:
                                 pass
-                    self._sleep(min(30.0, wait or 2.0 * (2 ** attempt)))
+                    wait = min(20.0, wait or 3.0 * (attempt + 1))
+                    if self._clock() - t0 + wait > budget - 10:
+                        break
+                    self._sleep(wait)
                     continue
                 break
+            if status in (502, 504):
+                raise AIError('AI Manager zaman aşımına uğradı (HTTP %d): sunucu yapay zekâ yanıtını beklerken bağlantıyı kesti. '
+                              'Daha az veri ekleyip (ör. yalnız bir sayfa) ya da daha kısa bir soruyla yeniden deneyin.' % status)
             if 300 <= status < 400:
                 loc = next((v for k, v in (rh or {}).items() if k.lower() == 'location'), '')
                 t = urllib.parse.urlsplit(loc)
@@ -443,7 +461,7 @@ class ManagerClient:
         out['ok'] = True
         return out
 
-    def chat(self, messages, document='', max_tokens=4000, actions=True) -> dict:
+    def chat(self, messages, document='', max_tokens=CHAT_MAX_TOKENS, actions=True, should_stop=None) -> dict:
         msgs = []
         for m in (messages or [])[-MAX_TURNS:]:
             role = 'assistant' if m.get('role') == 'assistant' else 'user'
@@ -454,7 +472,7 @@ class ManagerClient:
             raise AIError('Bir soru yazın.')
         payload = {'messages': msgs, 'document': (document or '')[:MAX_DOCUMENT], 'profile': PROFILE,
                    'instruction': INSTRUCTION + (ACTION_INSTRUCTION if actions else ''), 'max_output_tokens': int(max(256, min(8000, max_tokens)))}
-        d = self.call('/editor/chat', payload, timeout=240 if max_tokens > 3000 else TIMEOUT)
+        d = self.call('/editor/chat', payload, timeout=TIMEOUT, should_stop=should_stop)
         text = d.get('text') if isinstance(d.get('text'), str) else ''
         if not text.strip():
             raise AIError('AI Manager boş yanıt döndürdü.')

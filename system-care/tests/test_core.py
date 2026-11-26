@@ -1438,6 +1438,32 @@ def ai_manager_client():
     c3 = ai.ManagerClient('https://agfo.example', tok, sleep=tries.append,
                           request=lambda *a, **k: (429, b'{"code":"rate"}', {'Retry-After': '3'}) if len(tries) < 2 else (200, b'{"text":"tamam"}', {}))
     assert c3.chat([{'role': 'user', 'content': 'x'}])['text'] == 'tamam' and tries == [3.0, 3.0]
+
+    # 4.4.2: zaman asimi (502/504) tekrarlanmaz; toplam sure butcesi asilmaz; Durdur
+    calls504 = []
+    c5 = ai.ManagerClient('https://agfo.example', tok, sleep=lambda s: None,
+                          request=lambda *a, **k: calls504.append(1) or (504, b'<html>Gateway Timeout</html>', {}))
+    try:
+        c5.chat([{'role': 'user', 'content': 'x'}]); raise AssertionError('504 hata vermeli')
+    except ai.AIError as e:
+        assert 'zaman aşımı' in str(e) and len(calls504) == 1, (e, calls504)
+    clk = [0.0]
+    def slow(*a, **k):
+        clk[0] += 60
+        return 503, b'{"code":"busy"}', {}
+    c6 = ai.ManagerClient('https://agfo.example', tok, request=slow, sleep=lambda s: clk.__setitem__(0, clk[0] + s), clock=lambda: clk[0])
+    try:
+        c6.chat([{'role': 'user', 'content': 'x'}]); raise AssertionError('butce asimi hata vermeli')
+    except ai.AIError:
+        assert clk[0] <= ai.BUDGET + 60, clk
+    c7 = ai.ManagerClient('https://agfo.example', tok, request=lambda *a, **k: (200, b'{"text":"x"}', {}))
+    try:
+        c7.chat([{'role': 'user', 'content': 'x'}], should_stop=lambda: True); raise AssertionError('durdurulmali')
+    except ai.AIError as e:
+        assert 'Durduruldu' in str(e)
+    sent2 = []
+    ai.ManagerClient('https://agfo.example', tok, request=lambda u, m='GET', h=None, p=None, t=0: sent2.append((p, t)) or (200, b'{"text":"x"}', {})).chat([{'role': 'user', 'content': 'x'}])
+    assert sent2[0][0]['max_output_tokens'] == 2400 and sent2[0][1] <= ai.TIMEOUT and ai.MAX_DOCUMENT <= 30000
     try:
         ai.ManagerClient('http://agfo.example', tok); raise AssertionError('http reddedilmeli')
     except ai.AIError:

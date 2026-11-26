@@ -5,6 +5,7 @@ Ag cagrilari ayri is parcaciginda yapilir; Runner'i (islem kuyrugunu) mesgul etm
 kullanilabilir. Tk nesnelerine yalniz ana is parcacigindan dokunulur (sonuc self.after ile alinir)."""
 from sc_base import *  # noqa: F401,F403
 import re  # noqa: E402
+import time  # noqa: E402
 import webbrowser  # noqa: E402
 import care_ai as ai  # noqa: E402
 
@@ -101,6 +102,9 @@ class AiPage:
         side = tk.Frame(inp, bg=PANEL); side.pack(side='left', padx=(8, 0))
         self.ai_send_btn = self.mkbtn(side, 'Gönder  (Ctrl+Enter)', self.ai_send, 'go')
         self.ai_send_btn.pack(fill='x')
+        self.ai_stop_btn = self.mkbtn(side, 'Durdur', self.ai_stop, 'ghost', small=True)
+        self.ai_stop_btn.pack(fill='x', pady=(4, 0))
+        self.ai_stop_btn.configure(state='disabled')
         self.mkbtn(side, 'Yanıtı kopyala', self.ai_copy_last, 'ghost', small=True).pack(fill='x', pady=(4, 0))
         self.mkbtn(side, 'Sohbeti temizle', self.ai_clear, 'ghost', small=True).pack(fill='x', pady=(4, 0))
         self._ai_say('info', 'Bağlantıyı bir kez kurun (üstte), sonra soru yazın ya da "Hızlı" düğmelerinden birini kullanın. '
@@ -221,7 +225,8 @@ class AiPage:
 
     def _ai_update_state(self):
         if self.ai_busy:
-            self.ai_state.set('Yanıt bekleniyor…')
+            t0 = getattr(self, 'ai_t0', None)
+            self.ai_state.set('Yanıt bekleniyor… %d sn' % int(time.monotonic() - t0) if t0 else 'Yanıt bekleniyor…')
         else:
             self.ai_state.set('Bağlı ayarlandı' if self.ai_cfg.get('url') else 'Bağlı değil')
         st = 'disabled' if self.ai_busy else 'normal'
@@ -230,6 +235,28 @@ class AiPage:
                 b.configure(state=st)
             except tk.TclError:
                 pass
+        try:
+            self.ai_stop_btn.configure(state='normal' if self.ai_busy else 'disabled')
+        except (tk.TclError, AttributeError):
+            pass
+
+    def _ai_tick(self, token):
+        """Beklerken gecen sureyi gosterir (kullanici takildi sanmasin)."""
+        if self.ai_busy and getattr(self, 'ai_token_req', None) is token:
+            self._ai_update_state()
+            self.after(1000, lambda: self._ai_tick(token))
+
+    def ai_stop(self):
+        """Bekleyen soruyu birakir: yanit sonradan gelirse yok sayilir; arayuz hemen serbest kalir."""
+        if not self.ai_busy:
+            return
+        self.ai_token_req = None
+        self.ai_busy = False
+        if self.ai_history and self.ai_history[-1]['role'] == 'user':
+            self.ai_history.pop()
+        self._ai_say('err', 'Durduruldu (%d sn sonra).\n' % int(time.monotonic() - (self.ai_t0 or time.monotonic())))
+        self.write('AI asistan: istek kullanıcı tarafından durduruldu.\n')
+        self._ai_update_state()
 
     # ------------------------------------------------------------------ bağlantı
     def _ai_client(self, cfg=None):
@@ -368,6 +395,10 @@ class AiPage:
         missing = self._ai_missing_jobs(keys, force)
         if not missing:
             then(); return
+        try:
+            self.ai_state.set('Veri toplanıyor: %s…' % ', '.join(dict(CTX_TITLES).get(k, k) for k in missing))
+        except (tk.TclError, AttributeError):
+            pass
         if self.busy and not self.in_callback:
             messagebox.showinfo('AI asistan', 'Başka bir işlem sürüyor; bitince yeniden deneyin ya da ilgili sayfada "Yenile"ye basın.'); return
         if 'hw' in missing:
@@ -433,9 +464,21 @@ class AiPage:
             if attached:
                 self._ai_say('info', '  (eklenen veri: %s · %d karakter)\n' % (', '.join(attached), len(doc)))
             self.ai_busy = True
+            self.ai_t0 = time.monotonic()
+            token = self.ai_token_req = object()
             self._ai_update_state()
+            self._ai_tick(token)
             hist = list(self.ai_history)
-            self._ai_bg(lambda: self._ai_client().chat(hist, doc), self._ai_done)
+            self.write('AI asistan: soru gönderildi (%d karakter veri, %d mesaj).\n' % (len(doc), len(hist)))
+            client = self._ai_client()
+
+            def done(ok, res, token=token):
+                if self.ai_token_req is not token:      # durdurulmus ya da yerine yenisi gelmis: yok say
+                    return
+                self.write('AI asistan: %s, %d sn%s.\n' % ('yanıt geldi' if ok else 'hata', int(time.monotonic() - self.ai_t0),
+                                                         (' (HTTP %s)' % client.last_status) if client.last_status else ''))
+                self._ai_done(ok, res)
+            self._ai_bg(lambda: client.chat(hist, doc, should_stop=lambda: self.ai_token_req is not token), done)
         self._ai_fill(keys, go)
 
     def _ai_done(self, ok, res):

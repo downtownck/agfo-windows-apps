@@ -539,7 +539,7 @@ import care_ai as _ai
 CALLS = []
 
 
-def _fake_chat(self, messages, document='', max_tokens=2400):
+def _fake_chat(self, messages, document='', max_tokens=2400, **kw):
     CALLS.append({'base': self.base, 'token': self.token, 'messages': messages, 'document': document})
     return {'text': '**Öneri:** OrnekTray güvenle kapatılabilir.', 'provider': 'OpenAI', 'model': 'gpt-test', 'truncated': False}
 
@@ -572,6 +572,26 @@ for _ in range(40):
 check('ai.context_masked', CALLS and 'chrome' in CALLS[0]['document'] and '<kullanıcı>' in CALLS[0]['messages'][-1]['content']
       and len(CALLS[0]['messages']) == 3 and app.ai_ctx['procs'].get(), CALLS[0]['messages'] if CALLS else None)
 check('ai.no_runner', not app.busy)
+# 4.4.2: yanit gecikirse arayuz serbest; sure gosterilir; Durdur hemen birakir, gec gelen yanit yok sayilir
+import threading as _th
+_gate = _th.Event()
+
+
+def _slow_chat(self, messages, document='', **kw):
+    _gate.wait(5)
+    return {'text': 'GEC YANIT', 'actions': [], 'provider': 'x', 'model': 'y', 'truncated': False}
+
+
+_ai.ManagerClient.chat = _slow_chat
+app.ai_ask('Yavaş soru', ())
+pump(1.3)
+check('ai.wait_shows_time', app.ai_busy and 'sn' in app.ai_state.get() and str(app.ai_stop_btn.cget('state')) == 'normal' and not app.busy,
+      app.ai_state.get())
+app.ai_stop(); pump(0.2)
+check('ai.stop_frees', not app.ai_busy and 'Durduruldu' in app.ai_text.get('1.0', 'end') and str(app.ai_send_btn.cget('state')) == 'normal')
+_gate.set(); pump(0.6)
+check('ai.late_reply_ignored', 'GEC YANIT' not in app.ai_text.get('1.0', 'end'))
+_ai.ManagerClient.chat = _fake_chat
 # 4.3.1: uygulanabilir oneriler — secilebilir liste, dogrulama, onayla uygulama
 ACTS = [{'type': 'startup_disable', 'name': 'OrnekTray', 'risk': 'güvenli', 'why': 'gereksiz'},
         {'type': 'startup_disable', 'name': 'OneDrive', 'risk': 'dikkat', 'why': 'eşitleme'},
@@ -583,7 +603,7 @@ ACTS = [{'type': 'startup_disable', 'name': 'OrnekTray', 'risk': 'güvenli', 'wh
         {'type': 'startup_disable', 'name': 'Yok Boyle', 'risk': 'güvenli', 'why': 'x'}]
 
 
-def _fake_chat2(self, messages, document='', max_tokens=4000, actions=True):
+def _fake_chat2(self, messages, document='', max_tokens=4000, actions=True, **kw):
     CALLS.append({'messages': messages})
     return {'text': 'Önerilerim aşağıda.', 'actions': [dict(a) for a in ACTS], 'provider': 'OpenAI', 'model': 'gpt-test', 'truncated': False}
 
