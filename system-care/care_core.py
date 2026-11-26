@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-VERSION = '4.3.4'
+VERSION = '4.4.0'
 IS_WIN = sys.platform == 'win32'
 CREATIONFLAGS = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
