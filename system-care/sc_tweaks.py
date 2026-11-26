@@ -261,7 +261,7 @@ class TweaksPage:
         self._tw_run(plan, ('Uygula: ' if mode == 'apply' else 'Varsayılana döndür: ') + ', '.join(p['name'] for p in sel[:3]) + (' …' if len(sel) > 3 else ''),
                      rp=self.tw_rp.get())
 
-    def _tw_run(self, plan, title, rp=False, undo_sid=None):
+    def _tw_run(self, plan, title, rp=False, undo_sid=None, after=None):
         path = self._plan_file(plan, 'write')
         jobs = []
         if rp:
@@ -287,6 +287,8 @@ class TweaksPage:
                                        '(Açık Gezgin pencereleri kapanır.)'):
                     self.start([Job('Gezgini yeniden başlat', cmd=ps_cmd('explorer-restart'), cancel_ok=False)])
             self.tw_read()
+            if after:
+                after()
         jobs.append(Job(title, cmd=ps_cmd('tweak-write', PlanFile=path), on_done=done, cancel_ok=False, admin=tweaks.needs_admin_ops(plan)))
         self.start(jobs)
 

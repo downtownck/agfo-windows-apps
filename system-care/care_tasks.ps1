@@ -1,5 +1,5 @@
 param(
- [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','lenovo-scan','lenovo-install','dell-scan','dell-install','proc-list','proc-kill','svc-list','svc-action','startup-list','startup-set')][string]$Action,
+ [Parameter(Mandatory=$true)][ValidateSet('driver-scan','driver-install','devices','drivers-list','driver-backup','app-scan','app-update','temp-preview','temp-clean','component-analyze','component-clean','health-scan','health-repair','system-info','restore-point','recycle-paths','driver-analyze','appx-list','appx-remove','phantom-list','phantom-remove','controller-list','controller-reset','bt-restart','tweak-read','tweak-write','dns-list','dns-flush','explorer-restart','vpn-status','hw-inventory','disk-health','pnp-list','pnp-action','overview','sensors','oem-info','nvidia-info','nvidia-uninstall','nvidia-remove-packages','sig-check','lenovo-scan','lenovo-install','dell-scan','dell-install','proc-list','proc-kill','svc-list','svc-action','startup-list','startup-set','net-scan','nic-speed-set','dns-bench')][string]$Action,
  [string]$BackupPath = '',
  [string]$UpdateIds = '',
  [string]$Paths = '',
@@ -316,6 +316,34 @@ function DnsSet([string]$alias,$servers) {
 function OpNeedsAdmin($op) {
  if(@('svc','task','dns') -contains [string]$op.t) { return $true }
  return ([string]$op.t -eq 'reg' -and @('HKLM','HKU') -contains [string]$op.hive)
+}
+
+# ---- 4.4 internet hizi / ping taramasi (yalnizca okur)
+function PingStats([string]$ip,[int]$count=4,[int]$timeout=1000) {
+ $p=New-Object System.Net.NetworkInformation.Ping
+ $t=@(); $lost=0
+ for($i=0;$i -lt $count;$i++) {
+  try { $r=$p.Send($ip,$timeout); if($r.Status -eq 'Success') { $t+=[double]$r.RoundtripTime } else { $lost++ } } catch { $lost++ }
+ }
+ $p.Dispose()
+ $avg=$null; $jit=$null
+ if($t.Count) {
+  $avg=[math]::Round((($t | Measure-Object -Average).Average),1)
+  if($t.Count -gt 1) { $d=@(); for($i=1;$i -lt $t.Count;$i++) { $d+=[math]::Abs($t[$i]-$t[$i-1]) }; $jit=[math]::Round((($d | Measure-Object -Average).Average),1) } else { $jit=0 }
+ }
+ return [ordered]@{ip=$ip;sent=$count;lost=$lost;avg=$avg;jitter=$jit}
+}
+function DnsProbe([string]$srv) {
+ $names=@('www.google.com','www.microsoft.com','www.youtube.com','www.wikipedia.org','www.cloudflare.com','www.whatsapp.com')
+ $t=@(); $fail=0
+ foreach($n in $names) {
+  $sw=[Diagnostics.Stopwatch]::StartNew()
+  try { $null=Resolve-DnsName -Name $n -Server $srv -Type A -DnsOnly -NoHostsFile -QuickTimeout -ErrorAction Stop; $sw.Stop(); $t+=[math]::Round($sw.Elapsed.TotalMilliseconds,1) }
+  catch { $sw.Stop(); $fail++ }
+ }
+ $med=$null
+ if($t.Count) { $s=@($t | Sort-Object); $med=$s[[int][math]::Floor(($s.Count-1)/2)] }
+ return [ordered]@{type='dns-probe';server=$srv;median=$med;ok=$t.Count;fail=$fail;times=$t}
 }
 
 # ---- 4.0 donanim / genel bakis yardimcilari (yalnizca okuma; surucu kurmaz, yonetici gerekmez — disk sayaclari haric)
@@ -1171,5 +1199,99 @@ public static class AgfoTrust {
    } catch { $fail++; Write-Output ('HATA: {0} — {1}' -f $name,$_.Exception.Message) }
   }
   if($fail) { exit 1 }
+ }
+ 'net-scan' {
+  # Ag baglantisi, DNS hizi, baglanti hizi/cift yon, Wi-Fi sinyali, Delivery Optimization, ag kullanan surecler.
+  $virt='(?i)tailscale|wireguard|wintun|hyper-v|vmware|virtualbox|vpn|tap-|loopback|bluetooth|zerotier|openvpn'
+  $cands=New-Object System.Collections.ArrayList
+  foreach($a in @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' })) {
+   $isv=[bool](([string]$a.InterfaceDescription+' '+[string]$a.Name) -match $virt)
+   $st=DnsState $a
+   $media=[string]$a.PhysicalMediaType; $kind='other'
+   if($media -match '802\.11|Wireless' -or [string]$a.InterfaceDescription -match '(?i)wi-?fi|wireless|802\.11') { $kind='wifi' } elseif($media -match '802\.3' -or [string]$a.InterfaceDescription -match '(?i)ethernet|gbe|realtek pcie|intel.*connection') { $kind='ethernet' }
+   $gw=''
+   try { $gw=[string](@(Get-NetRoute -InterfaceIndex $a.ifIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction Stop | Sort-Object RouteMetric)[0].NextHop) } catch {}
+   $sd=$null
+   if(-not $isv) {
+    try {
+     $p=Get-NetAdapterAdvancedProperty -Name $a.Name -RegistryKeyword '*SpeedDuplex' -ErrorAction Stop | Select-Object -First 1
+     if($p) { $sd=[ordered]@{display=[string]$p.DisplayValue;value=[string](@($p.RegistryValue)[0]);valid_display=@($p.ValidDisplayValues | ForEach-Object { [string]$_ });valid_values=@($p.ValidRegistryValues | ForEach-Object { [string]$_ })} }
+    } catch {}
+   }
+   $rec=[ordered]@{type='net-adapter';alias=[string]$a.Name;desc=[string]$a.InterfaceDescription;kind=$kind;virtual=$isv;physical=[bool]$a.HardwareInterface;
+    link_bps=[double]$a.Speed;link=[string]$a.LinkSpeed;ifindex=[int]$a.ifIndex;gateway=$gw;dns_static=@($st.servers);dns_current=@($st.current);guid=$st.guid;speed_duplex=$sd}
+   EmitD $rec
+   if(-not $isv) { foreach($d in @($st.current)) { if($d -match '^\d{1,3}(\.\d{1,3}){3}$' -and -not $cands.Contains($d)) { [void]$cands.Add($d) } } }
+   Write-Output ('Bagdastirici: {0} ({1}, {2}){3}' -f $a.Name,$kind,$a.LinkSpeed,$(if($isv){' — sanal/VPN'}else{''}))
+  }
+  # Wi-Fi sinyali (netsh, dile bagli degil: yuzde ve 802.11 satirlari)
+  try {
+   $w=@(& netsh.exe wlan show interfaces 2>$null)
+   $sig=$null; $radio=''; $state=''
+   foreach($l in $w) {
+    if($null -eq $sig -and $l -match ':\s*(\d{1,3})\s*%\s*$') { $sig=[int]$Matches[1] }
+    if(-not $radio -and $l -match ':\s*(802\.11\S*)\s*$') { $radio=$Matches[1] }
+   }
+   if($null -ne $sig) { EmitD ([ordered]@{type='net-wifi';signal=$sig;radio=$radio}); Write-Output ('Wi-Fi sinyali: %{0} {1}' -f $sig,$radio) }
+  } catch {}
+  # DNS hiz testi: mevcut sunucular + bilinen genel DNS'ler
+  foreach($d in @('1.1.1.1','8.8.8.8','9.9.9.9')) { if(-not $cands.Contains($d)) { [void]$cands.Add($d) } }
+  foreach($d in $cands) {
+   if($d -eq '100.100.100.100') { continue }
+   $r=DnsProbe $d; $pg=PingStats $d 4 1000; $r['ping']=$pg.avg; $r['ping_lost']=$pg.lost
+   EmitD $r
+   Write-Output ('DNS {0}: cozumleme {1} ms (basarisiz {2}), ping {3} ms' -f $d,$(if($null -ne $r.median){$r.median}else{'-'}),$r.fail,$(if($null -ne $pg.avg){$pg.avg}else{'-'}))
+  }
+  # Gecikme: modem ve internet
+  $gws=@(Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric | ForEach-Object { [string]$_.NextHop } | Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -Unique)
+  if($gws.Count) { $g=PingStats $gws[0] 10 1000; $g['type']='net-ping'; $g['target']='gateway'; EmitD $g; Write-Output ('Modem {0}: {1} ms, kayip {2}/{3}, dalgalanma {4} ms' -f $gws[0],$g.avg,$g.lost,$g.sent,$g.jitter) }
+  $i=PingStats '1.1.1.1' 10 1500; $i['type']='net-ping'; $i['target']='internet'; EmitD $i
+  Write-Output ('Internet (1.1.1.1): {0} ms, kayip {1}/{2}, dalgalanma {3} ms' -f $i.avg,$i.lost,$i.sent,$i.jitter)
+  # Delivery Optimization (Windows Update paylasimi)
+  $do=[ordered]@{type='net-do';policy=$null;config=$null;settings=$null}
+  foreach($pair in @(@('policy','HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization','DODownloadMode'),
+                     @('config','HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Config','DODownloadMode'),
+                     @('settings','Registry::HKEY_USERS\S-1-5-20\Software\Microsoft\Windows\CurrentVersion\DeliveryOptimization\Settings','DownloadMode'))) {
+   try { $v=(Get-ItemProperty -LiteralPath $pair[1] -Name $pair[2] -ErrorAction Stop).($pair[2]); $do[$pair[0]]=[int]$v } catch {}
+  }
+  EmitD $do
+  # Ag kullanan surecler (kurulu TCP baglanti sayisina gore)
+  try {
+   $grp=@(Get-NetTCPConnection -State Established -ErrorAction Stop | Where-Object { $_.RemoteAddress -notmatch '^(127\.|::1|0\.0\.0\.0)' } | Group-Object OwningProcess | Sort-Object Count -Descending | Select-Object -First 10)
+   foreach($g in $grp) {
+    $pid2=[int]$g.Name; $pn=''
+    try { $pn=(Get-Process -Id $pid2 -ErrorAction Stop).ProcessName } catch {}
+    EmitD ([ordered]@{type='net-proc';pid=$pid2;name=$pn;connections=[int]$g.Count})
+   }
+  } catch {}
+  Write-Output 'Ag taramasi tamamlandi.'
+ }
+ 'nic-speed-set' {
+  # Baglanti hizi ve cift yon (*SpeedDuplex). Bagdastirici birkac saniye kopar.
+  RequireAdmin
+  $fail=0
+  foreach($x in (ItemsFromB64)) {
+   $alias=[string]$x.alias; $val=[string]$x.value
+   if($val -notmatch '^\d{1,3}$') { Write-Output ('Gecersiz deger: '+$val); $fail++; continue }
+   try {
+    $p=Get-NetAdapterAdvancedProperty -Name $alias -RegistryKeyword '*SpeedDuplex' -ErrorAction Stop | Select-Object -First 1
+    if(@($p.ValidRegistryValues) -and (@($p.ValidRegistryValues | ForEach-Object { [string]$_ }) -notcontains $val)) { throw ('bagdastirici bu degeri desteklemiyor: '+$val) }
+    $old=[string](@($p.RegistryValue)[0])
+    Set-NetAdapterAdvancedProperty -Name $alias -RegistryKeyword '*SpeedDuplex' -RegistryValue $val -ErrorAction Stop
+    EmitD ([ordered]@{type='nic-speed-set';alias=$alias;old=$old;new=$val})
+    Write-Output ('Tamam: {0} hiz/cift yon {1} -> {2}' -f $alias,$old,$val)
+   } catch { $fail++; Write-Output ('HATA: {0} — {1}' -f $alias,$_.Exception.Message) }
+  }
+  if($fail) { exit 1 }
+ }
+ 'dns-bench' {
+  # Verilen DNS sunucularinin cozumleme hizi (6 alan adi, ortanca) ve ping'i. Yalniz okur.
+  foreach($x in (ItemsFromB64)) {
+   $d=[string]$x.server
+   if($d -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { continue }
+   $r=DnsProbe $d; $pg=PingStats $d 4 1000; $r['ping']=$pg.avg; $r['ping_lost']=$pg.lost
+   EmitD $r
+   Write-Output ('DNS {0}: cozumleme {1} ms (basarisiz {2}), ping {3} ms' -f $d,$(if($null -ne $r.median){$r.median}else{'-'}),$r.fail,$(if($null -ne $pg.avg){$pg.avg}else{'-'}))
+  }
  }
 }

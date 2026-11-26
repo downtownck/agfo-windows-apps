@@ -93,7 +93,7 @@ idle()
 check('mode', (m.TB is not None) == (MODE == 'modern'), m.TB_STATE)
 titles = [p['title'] for p in app.tabs.pages]
 check('nav.pages', titles == ['Genel bakış', 'AI asistan', 'Motorlar', 'Temizlik', 'Bloatware', 'Dosya düzeni', 'İnce ayarlar', 'Çalışan uygulamalar', 'Servisler', 'Başlangıç', 'Bakım ve sağlık', 'Programlar',
-                              'Uygulama güncellemeleri', 'Uygulama kur', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları',
+                              'Uygulama güncellemeleri', 'Uygulama kur', 'İnternet hızı', 'DNS yönetimi', 'VPN', 'Ağ tarayıcı', 'Ağ testleri', 'SSH sunucularım', 'SSH oturumları',
                               'Sistem özeti', 'Aygıt yöneticisi', 'Disk sağlığı', 'Sürücüler', 'Üretici desteği', 'NVIDIA', 'Aygıt temizliği', 'Kol / Gamepad'], titles)
 check('nav.last_page', app.tabs.tab(app.tabs.current, 'text') == 'İnce ayarlar', app.tabs.current)
 seen = []
@@ -625,6 +625,57 @@ sc_ai_mod.messagebox.askyesno = _ask
 app.start = real_start
 captured.clear()
 shot('ai')
+
+# ---- 4.4 Internet hizi + DNS yonetimi (sahte tarama kayitlari; PowerShell yok)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from net_fixture import NET_SCAN  # noqa: E402
+import base64 as _b64x
+app.tabs.select('İnternet hızı'); pump(0.2)
+app._ns_render(NET_SCAN, [{'enabled': True}] * 3)
+NP = app.ns_tree.payload
+ids = {NP[i]['id']: i for i in NP}
+check('ns.findings', {'dns', 'nic-Ethernet', 'do', 'ping-internet', 'startup', 'procs', 'wu'} <= set(ids) and 'uygulanabilir' in app.ns_state.get(), list(ids))
+check('ns.default_checked', sorted(NP[i]['id'] for i in app.ns_tree.checked) == ['dns', 'do'])
+app.ns_tree.tree.selection_set((ids['dns'],)); pump(0.1)
+check('ns.detail', 'Test (ortanca' in app.ns_detail.get('1.0', 'end'))
+runs, started = [], []
+real_tw, real_start2 = app._tw_run, app.start
+app._tw_run = lambda plan, title, rp=False, undo_sid=None, after=None: runs.append((plan, title, after))
+app.start = lambda jobs, quiet=False: started.extend(jobs) or True
+import tkinter.messagebox as _mbx
+_ask2 = _mbx.askyesno
+sys.modules['sc_netopt'].messagebox.askyesno = lambda *a, **k: True
+app.ns_tree.set_checked(ids['nic-Ethernet'], True)
+app.ns_apply()
+plan, title, after = runs[0] if runs else ([], '', None)
+dns_ops = [o for o in plan if o.get('t') == 'dns']
+check('ns.apply_plan', dns_ops and dns_ops[0]['alias'] == 'Ethernet' and dns_ops[0]['servers'] == ['1.1.1.1', '1.0.0.1']
+      and any(o.get('item') == 'tweak-delivery-opt' for o in plan) and [o['ref'] for o in plan] == list(range(len(plan)))
+      and not m.tweaks.validate_ops(plan) and 'İnternet hızı' in title, (plan, title))
+check('ns.nic_after_tweaks', after is not None and not started)
+if after:
+    after()
+nic = started[0] if started else None
+check('ns.nic_job', nic is not None and nic.admin and 'nic-speed-set' in nic.cmd
+      and json.loads(_b64x.b64decode(nic.cmd[nic.cmd.index('-ItemsB64') + 1])) == [{'alias': 'Ethernet', 'value': '0'}])
+runs.clear(); started.clear()
+shot('netspeed')
+# DNS yonetimi
+app.tabs.select('DNS yönetimi'); pump(0.2)
+app.dn_adapters = [{'type': 'dns-adapter', 'alias': 'Ethernet', 'guid': '{A}', 'desc': 'Realtek', 'servers': [], 'current': ['192.168.1.1']}]
+app.dn_tree.clear(); app.dn_tree.add('d0', 'Ethernet', values=('otomatik (DHCP)', '192.168.1.1', 'Realtek'), payload=app.dn_adapters[0], checked=True)
+app._dn_render_bench([r for r in NET_SCAN if r['type'] == 'dns-probe'])
+check('dns.bench_best', app.dn_choice.get() == 'Cloudflare 1.1.1.1' and 'En hızlı' in app.dn_state.get()
+      and len(app.dn_btree.payload) == 4)
+app.dn_apply()
+check('dns.apply', runs and runs[0][0][0]['servers'] == ['1.1.1.1', '1.0.0.1'] and runs[0][0][0]['alias'] == 'Ethernet' and runs[0][2] is not None, runs)
+runs.clear()
+app.dn_apply(dhcp=True)
+check('dns.dhcp', runs and runs[0][0][0]['servers'] == [] and 'DHCP' in runs[0][1])
+sys.modules['sc_netopt'].messagebox.askyesno = _ask2
+app._tw_run, app.start = real_tw, real_start2
+shot('dns')
+
 check('busy_free', not app.busy)
 app.destroy()
 fails = [n for n, ok in RESULTS if not ok]

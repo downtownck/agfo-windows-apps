@@ -7,6 +7,17 @@
 
 İlk açılışta **Motorlar** sekmesindeki "Eksik motorları kur" düğmesine basın.
 
+## 4.4'te ne değişti — İnternet hızı ve DNS yönetimi
+**Ağ › İnternet hızı:** bilinen "internet hızlandırma / ping düşürme" adımlarını otomatik denetler ve önerileri seçilip uygulanabilir hale getirir:
+- **DNS:** mevcut DNS ile Cloudflare, Google, Quad9 gerçek çözümleme süresiyle ölçülür; belirgin fark varsa en hızlısı önerilir (Tailscale DNS'ine ve yerel filtre DNS'lerine dikkat edilir).
+- **Bağlantı hızı ve çift yön:** ağ kartı elle 10/100 Mbps ya da yarım çift yöne kilitlenmişse otomatiğe alınır; kart 1 Gbps destekleyip bağlantı düşük kurulduysa kablo uyarısı verilir.
+- **Windows Update paylaşımı (Teslim İyileştirme):** internet üzerinden başka bilgisayarlara yükleme açıksa kapatılır.
+- **Wi-Fi sinyali, modem ve internet gecikmesi / kayıp / dalgalanma**, **başlangıç uygulamaları** (Başlangıç sayfasına gider) ve **interneti kullanan uygulamalar** (Kaynak İzleyicisi).
+- Windows Update hizmetini kapatmak önerilmez (güvenlik yamaları gelmez); duraklatma ayarı açılır.
+- DNS ve paylaşım değişiklikleri İnce ayarlar › Geçmiş'ten birebir geri alınır.
+
+**Ağ › DNS yönetimi:** bağdaştırıcıların DNS'ini görme, hız testi (en hızlısı otomatik seçilir), seçili bağdaştırıcılara uygulama, otomatiğe (DHCP) döndürme, önbellek temizleme ve geri alma tek sayfada.
+
 ## 4.3.1'de ne değişti — AI önerileri seçilip uygulanabilir
 AI asistanın yanıtındaki uygulanabilir öneriler sohbetin altında **Önerilen işlemler** listesinde çıkar: başlangıç öğesini devre dışı bırakma/etkinleştirme, servis başlatma/durdurma/başlangıç türü, süreç sonlandırma, uygulama sayfası ya da Windows ayarı açma.
 - Her öneri uygulamanın gerçek listeleriyle eşleştirilir. Listede olmayan, zaten istenen durumda olan, Windows için gerekli servis/süreçlere dokunan öneriler gri görünür ve uygulanamaz; nedeni Durum sütunundadır.

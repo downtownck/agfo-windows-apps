@@ -73,6 +73,22 @@ if (_edsrc / 'agfo_secrets.py').is_file():
     check('ai.reads_ai_editor_secret', _ai.unprotect(_eds.protect(_tok), _ai.EDITOR_ENTROPY) == _tok)
     sys.path.remove(str(_edsrc))
 
+# 4.4: internet hizi taramasi ve DNS hiz testi (gercek PowerShell 5.1; yalniz okur)
+import care_netopt as _no  # noqa: E402
+import base64 as _b64n  # noqa: E402
+code, lines, bad = ps('net-scan')
+_recs = [json.loads(l[2:]) for l in lines if l.startswith('@@')]
+_types = {r.get('type') for r in _recs}
+check('ps.net-scan', code == 0 and not bad and {'net-adapter', 'dns-probe', 'net-ping', 'net-do'} <= _types, (code, bad, sorted(_types), lines[-8:]))
+_probes = [r for r in _recs if r.get('type') == 'dns-probe']
+check('ps.net-scan.dns_measured', any(_no.probe_ok(p_) for p_ in _probes), _probes)
+_find = _no.analyze(_recs, [])
+check('netopt.analyze_real', any(f_['id'] == 'dns' for f_ in _find) and any(f_['id'] == 'wu' for f_ in _find), [f_['id'] for f_ in _find])
+_items = _b64n.b64encode(json.dumps([{'server': '1.1.1.1'}, {'server': '8.8.8.8'}, {'server': 'x;calc'}]).encode()).decode()
+code, lines, bad = ps('dns-bench', ItemsB64=_items)
+_bp = [json.loads(l[2:]) for l in lines if l.startswith('@@')]
+check('ps.dns-bench', code == 0 and not bad and sorted(r['server'] for r in _bp) == ['1.1.1.1', '8.8.8.8'] and any(_no.probe_ok(r) for r in _bp), (code, bad, _bp))
+
 code, lines, bad = ps('pnp-list')
 pnp = hw.parse_records(lines, 'pnp')
 check('ps.pnp-list', code == 0 and not bad and len(pnp) >= 10 and all(r.get('id') for r in pnp), (code, bad, len(pnp)))
@@ -225,7 +241,7 @@ def idle(timeout=300):
 pump(1.0); idle()
 for i in range(len(app.tabs.pages)):
     app.tabs.select(i); pump(0.05)
-check('gui.all_pages', len(app.tabs.pages) == 27, len(app.tabs.pages))
+check('gui.all_pages', len(app.tabs.pages) == 29, len(app.tabs.pages))
 idle()
 app.tabs.select('Genel bakış'); pump(0.3)
 if not app.ov_loaded:

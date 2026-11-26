@@ -1521,4 +1521,51 @@ def ai_actions():
     assert 'AGFO_ACTIONS' not in sent[1]['instruction']
 
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from net_fixture import NET_SCAN  # noqa: E402
+
+
+@test
+def netopt_analysis():
+    """4.4: internet hizi taramasi — DNS olcerek, *SpeedDuplex otomatik, DO paylasimi, ping, WU hizmeti onerilmez."""
+    import care_netopt as no
+    f = {x['id']: x for x in no.analyze(NET_SCAN, startups=[{'enabled': True}] * 12 + [{'enabled': False}])}
+    d = f['dns']
+    assert d['action']['kind'] == 'dns' and d['action']['servers'] == ['1.1.1.1', '1.0.0.1'] and d['risk'] == 'güvenli' and d['checked']
+    assert [a['alias'] for a in d['action']['adapters']] == ['Ethernet'] and '29 ms daha hızlı' in d['advice'] and 'Modem' in d['current']
+    n = f['nic-Ethernet']
+    assert n['action'] == {'kind': 'nic', 'alias': 'Ethernet', 'value': '0', 'old': '4'} and n['risk'] == 'dikkat' and not n['checked']
+    assert f['do']['action'] == {'kind': 'do'} and f['do']['checked'] and 'mod 3' in f['do']['current']
+    assert f['ping-internet']['risk'] == 'bilgi' and f['ping-gateway']['risk'] == 'tamam'
+    assert f['startup']['current'] == '12 etkin / 13' and f['startup']['action'] == {'kind': 'page', 'page': 'Başlangıç'}
+    assert 'msedge (22)' in f['procs']['current'] and f['wu']['action']['kind'] == 'settings' and 'önerilmez' in f['wu']['advice']
+    assert 'wifi' not in f                                                          # kablolu: Wi-Fi notu yok
+    # DNS: fark kucukse degistirme; Tailscale DNS'ine dokunma; yerel filtre DNS'i -> dikkat
+    close = [dict(r, median=15.0) if r.get('server') == '192.168.1.1' else r for r in NET_SCAN]
+    assert no.dns_finding(close)['action'] is None and 'yeterince hızlı' in no.dns_finding(close)['advice']
+    ts = [dict(r, dns_current=['100.100.100.100']) if r.get('alias') == 'Ethernet' else r for r in NET_SCAN]
+    assert no.dns_finding(ts)['action'] is None and 'Tailscale' in no.dns_finding(ts)['current']
+    ph = [dict(r, dns_current=['192.168.1.5']) if r.get('alias') == 'Ethernet' else (dict(r, server='192.168.1.5') if r.get('server') == '192.168.1.1' else r) for r in NET_SCAN]
+    assert no.dns_finding(ph)['risk'] == 'dikkat' and 'Pi-hole' in no.dns_finding(ph)['advice']
+    best = [dict(r, dns_current=['1.1.1.1']) if r.get('alias') == 'Ethernet' else r for r in NET_SCAN]
+    assert no.dns_finding(best)['action'] is None and 'Zaten en hızlı' in no.dns_finding(best)['advice']
+    # baglanti hizi otomatikse yalniz kablo uyarisi (kart 1G destekli, baglanti 100M)
+    auto = [dict(r, speed_duplex=dict(r['speed_duplex'], value='0', display='Auto Negotiation')) if r.get('alias') == 'Ethernet' else r for r in NET_SCAN]
+    assert [x['id'] for x in no.nic_findings(auto)] == ['link-Ethernet'] and no.nic_findings(auto)[0]['action'] is None
+    # DO modlari
+    assert no.do_finding([{'type': 'net-do', 'policy': 0, 'settings': 3}])['action'] is None
+    assert no.do_finding([{'type': 'net-do'}])['checked'] is False and no.do_mode({})[0] == 1
+    # Wi-Fi zayif sinyal
+    wifi = [{'type': 'net-adapter', 'alias': 'Wi-Fi', 'kind': 'wifi', 'virtual': False, 'dns_current': []}, {'type': 'net-wifi', 'signal': 41, 'radio': '802.11ac'}]
+    assert 'zayıf' in no.wifi_finding(wifi)['advice']
+    assert no.bench_servers([{'dns_current': ['192.168.1.1', '100.100.100.100', '1.1.1.1']}]) == ['1.1.1.1', '8.8.8.8', '9.9.9.9', '94.140.14.14', '192.168.1.1']
+    assert [p['server'] for p in no.dns_ranking(NET_SCAN)][:3] == ['1.1.1.1', '8.8.8.8', '192.168.1.1']
+    ps1 = (ROOT / 'care_tasks.ps1').read_text(encoding='utf-8')
+    for act in ('net-scan', 'nic-speed-set', 'dns-bench'):
+        assert "'%s'" % act in ps1.split(')][string]$Action')[0] and ("\n '%s' {" % act) in ps1, act
+    assert 'RequireAdmin' in ps1.split("'nic-speed-set' {")[1].split("\n '")[0]
+    src = app_source()
+    assert "('İnternet hızı', self._tab_netspeed)" in src and "('DNS yönetimi', self._tab_dns)" in src
+
+
 print('PASS core: %d test (%s)' % (len(PASSED), ', '.join(PASSED)))
